@@ -1,27 +1,30 @@
 # Changelog
 
-## [Unreleased] — Sprint 4: Bias + Adversarial + pytest Plugin
+## [Unreleased] — Sprint 5: Inference + CLI
 
 ### Added
-- **Model bias/fairness testing** (`assert_no_bias`):
-  - 5 methods: demographic parity, equalized odds, predictive parity, disparate impact, equal opportunity
-  - Zero dependencies (pure numpy), Fairlearn-compatible naming
-  - EU AI Act compliant, US four-fifths rule support
-- **Adversarial robustness** (`assert_robust`):
-  - Perturbation-based stability testing (gaussian + uniform noise)
-  - Configurable epsilon and stability threshold
-- **pytest plugin expansion**:
-  - `--mltk-report` flag generates per-module test summary
-  - `ml_config` fixture loads MltkConfig automatically
-  - `ml_report` fixture for report collection
-  - New markers: `ml_smoke` (fast CI), `ml_gpu` (GPU runners)
-  - Report shows pass/fail counts, per-module breakdown, failed assertion details
-- **API documentation** for bias, adversarial, and pytest plugin
-- **124 Python tests** (22 new) + **5 Rust tests**
-- **Milestone:** `pytest --mltk-report` works end-to-end
+- **Inference latency testing**:
+  - `assert_latency()` — percentile validation (P50/P95/P99) with mandatory warmup
+  - `assert_cold_start()` — first-call latency for model loading time
+- **Inference throughput testing**:
+  - `assert_throughput()` — duration-based RPS measurement with concurrent workers
+  - Error tracking and goodput calculation
+- **API contract testing**:
+  - `assert_api_contract()` — JSON Schema validation for input/output
+  - Falls back to basic type checking when jsonschema not installed
+- **CLI commands** (mltk):
+  - `mltk init` — scaffold mltk.yaml + example test file
+  - `mltk scan <path>` — quick data quality scan on CSV files
+  - `mltk drift <ref> <cur>` — drift comparison between two datasets
+- **4 cloud skills installed**: vertex-ai-api-dev, monitoring-observability, kubernetes, azure-ai-ml-py
+- **Cloud infrastructure research**: AWS/GCP/Azure/on-prem ML lifecycle testing patterns catalogued in BACKLOG
+- **146 Python tests** (22 new) + **5 Rust tests**
+
+### Sprint 4
+- Bias (5 fairness methods), adversarial robustness, --mltk-report plugin. 124 tests.
 
 ### Sprint 3
-- Model metrics (9 types), regression testing, slicing, calibration (ECE). 102 tests.
+- Model metrics (9 types), regression testing, slicing, calibration. 102 tests.
 
 ### Sprint 2
 - Drift (4 methods), PII (11 patterns), labels, real Rust KS/PSI. 78 tests.
