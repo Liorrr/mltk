@@ -1,26 +1,27 @@
 # Changelog
 
-## [Unreleased] — Sprint 3: Model Quality Testing
+## [Unreleased] — Sprint 4: Bias + Adversarial + pytest Plugin
 
 ### Added
-- **Model metrics** (`assert_metric`):
-  - 9 metrics: accuracy, F1, precision, recall, AUC (classification) + MSE, RMSE, MAE, R2 (regression)
-  - Automatic lower-is-better handling for error metrics
-  - Multiclass averaging (weighted/macro/micro)
-  - Optional scikit-learn dependency (`pip install mltk[sklearn]`)
-- **Model regression testing**:
-  - `save_baseline()` — persist metrics as JSON for future comparison
-  - `assert_no_regression()` — compare current model against saved baseline with tolerance
-  - Supports baseline from float, dict, or JSON file
-- **Model slicing** (`assert_slice_performance`):
-  - Test model on EVERY subgroup independently
-  - Catches "works on average, fails for minorities" bug
-- **Model calibration** (`assert_calibration`):
-  - Expected Calibration Error (ECE) with per-bin breakdown
-  - Catches overconfident models (says 90%, correct 60%)
-- **API documentation** for all Sprint 3 functions (model-metrics, model-regression, model-slicing)
-- **102 Python tests** (24 new) + **5 Rust tests**
-- **ML bug research**: 51 training-specific assertions catalogued across 10 categories (unique to mltk)
+- **Model bias/fairness testing** (`assert_no_bias`):
+  - 5 methods: demographic parity, equalized odds, predictive parity, disparate impact, equal opportunity
+  - Zero dependencies (pure numpy), Fairlearn-compatible naming
+  - EU AI Act compliant, US four-fifths rule support
+- **Adversarial robustness** (`assert_robust`):
+  - Perturbation-based stability testing (gaussian + uniform noise)
+  - Configurable epsilon and stability threshold
+- **pytest plugin expansion**:
+  - `--mltk-report` flag generates per-module test summary
+  - `ml_config` fixture loads MltkConfig automatically
+  - `ml_report` fixture for report collection
+  - New markers: `ml_smoke` (fast CI), `ml_gpu` (GPU runners)
+  - Report shows pass/fail counts, per-module breakdown, failed assertion details
+- **API documentation** for bias, adversarial, and pytest plugin
+- **124 Python tests** (22 new) + **5 Rust tests**
+- **Milestone:** `pytest --mltk-report` works end-to-end
+
+### Sprint 3
+- Model metrics (9 types), regression testing, slicing, calibration (ECE). 102 tests.
 
 ### Sprint 2
 - Drift (4 methods), PII (11 patterns), labels, real Rust KS/PSI. 78 tests.

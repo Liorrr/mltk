@@ -37,6 +37,10 @@ nav:
       - Model Metrics: api/model-metrics.md
       - Model Regression: api/model-regression.md
       - Model Slicing: api/model-slicing.md
+      - Model Bias: api/model-bias.md
+      - Model Adversarial: api/model-adversarial.md
+  - Guides:
+      - pytest Plugin: api/pytest-plugin.md
 
 markdown_extensions:
   - admonition
