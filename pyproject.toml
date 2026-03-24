@@ -34,12 +34,13 @@ dependencies = [
 
 [project.optional-dependencies]
 scipy = ["scipy>=1.11"]
+sklearn = ["scikit-learn>=1.3"]
 cli = ["typer>=0.9", "rich>=13"]
 report = ["plotly>=5.18", "jinja2>=3.1"]
 cv = ["opencv-python>=4.8"]
 nlp = ["nltk>=3.8", "rouge-score>=0.1"]
 speech = ["jiwer>=3.0"]
-all = ["mltk[scipy,cli,report,cv,nlp,speech]"]
+all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech]"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",

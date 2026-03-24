@@ -1,28 +1,32 @@
 # Changelog
 
-## [Unreleased] — Sprint 1: Core + Data Quality
+## [Unreleased] — Sprint 3: Model Quality Testing
 
 ### Added
-- **Config loading**: `MltkConfig` loads from `pyproject.toml [tool.mltk]` and `mltk.yaml` with cascade fallback
-- **Data schema testing**:
-  - `assert_schema()` — validate column names + dtypes
-  - `assert_no_nulls()` — detect null/NaN values (all columns or subset)
-  - `assert_dtypes()` — strict dtype checking for specific columns
-- **Data distribution testing**:
-  - `assert_range()` — numeric value bounds [min, max]
-  - `assert_unique()` — duplicate detection (single or composite key)
-  - `assert_no_outliers()` — IQR-based statistical outlier detection
-- **Data freshness testing**:
-  - `assert_freshness()` — verify data recency (max age in days)
-  - `assert_row_count()` — validate dataset size (min/max bounds)
-- **MkDocs documentation site** with API docs for all 8 assertions
-- **47 tests** (up from 12 in Sprint 0) covering all assertion functions
+- **Model metrics** (`assert_metric`):
+  - 9 metrics: accuracy, F1, precision, recall, AUC (classification) + MSE, RMSE, MAE, R2 (regression)
+  - Automatic lower-is-better handling for error metrics
+  - Multiclass averaging (weighted/macro/micro)
+  - Optional scikit-learn dependency (`pip install mltk[sklearn]`)
+- **Model regression testing**:
+  - `save_baseline()` — persist metrics as JSON for future comparison
+  - `assert_no_regression()` — compare current model against saved baseline with tolerance
+  - Supports baseline from float, dict, or JSON file
+- **Model slicing** (`assert_slice_performance`):
+  - Test model on EVERY subgroup independently
+  - Catches "works on average, fails for minorities" bug
+- **Model calibration** (`assert_calibration`):
+  - Expected Calibration Error (ECE) with per-bin breakdown
+  - Catches overconfident models (says 90%, correct 60%)
+- **API documentation** for all Sprint 3 functions (model-metrics, model-regression, model-slicing)
+- **102 Python tests** (24 new) + **5 Rust tests**
+- **ML bug research**: 51 training-specific assertions catalogued across 10 categories (unique to mltk)
 
-### Sprint 0 (Initial)
-- Project skeleton with full module structure
-- Core types: MltkConfig, TestResult, TestSuite, Severity
-- Base assertion framework: assert_true, MltkAssertionError
-- Rust crate skeleton (PyO3 0.28 + Maturin)
-- pytest plugin with ML markers (ml_data, ml_model, ml_drift, ml_inference)
-- CLI skeleton with Typer
-- CI/CD workflows (lint, test, release)
+### Sprint 2
+- Drift (4 methods), PII (11 patterns), labels, real Rust KS/PSI. 78 tests.
+
+### Sprint 1
+- Config loading, 8 data quality assertions, MkDocs docs. 47 tests.
+
+### Sprint 0
+- Project skeleton, core types, Rust crate, pytest plugin, CLI skeleton, CI/CD.
