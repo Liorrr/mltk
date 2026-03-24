@@ -1,0 +1,95 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mltk"
+version = "0.1.0"
+description = "pytest for ML — unified testing across the entire ML lifecycle"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [{name = "Lior"}]
+readme = "README.md"
+keywords = ["ml", "testing", "pytest", "data-quality", "drift-detection", "mlops"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Testing",
+    "Framework :: Pytest",
+]
+
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+scipy = ["scipy>=1.11"]
+cli = ["typer>=0.9", "rich>=13"]
+report = ["plotly>=5.18", "jinja2>=3.1"]
+cv = ["opencv-python>=4.8"]
+nlp = ["nltk>=3.8", "rouge-score>=0.1"]
+speech = ["jiwer>=3.0"]
+all = ["mltk[scipy,cli,report,cv,nlp,speech]"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.3",
+    "mypy>=1.8",
+]
+docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.24"]
+
+[project.scripts]
+mltk = "mltk.cli.app:main"
+
+[project.entry-points."pytest11"]
+mltk = "mltk.pytest_plugin.plugin"
+
+[project.urls]
+Homepage = "https://github.com/Liorrr/mltk"
+Documentation = "https://liorrr.github.io/mltk"
+Repository = "https://github.com/Liorrr/mltk"
+Issues = "https://github.com/Liorrr/mltk/issues"
+
+[tool.maturin]
+python-source = "src"
+module-name = "mltk._mltk_rust"
+features = ["pyo3/extension-module"]
+manifest-path = "rust/Cargo.toml"
+
+[tool.mltk]
+drift_method = "ks"
+drift_threshold = 0.05
+report_dir = "./mltk-reports"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "ml_data: data quality tests",
+    "ml_model: model quality tests",
+    "ml_drift: drift detection tests",
+    "ml_inference: inference performance tests",
+    "ml_slow: tests that take >30 seconds",
+    "ml_nondeterministic: tests with inherent randomness",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "PT"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
