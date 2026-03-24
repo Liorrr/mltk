@@ -17,16 +17,8 @@ def test_test_result_creation() -> None:
 
 def test_test_suite_passed() -> None:
     suite = TestSuite()
-    suite.add(
-        TestResult(
-            name="t1", passed=True, severity=Severity.CRITICAL, message="ok"
-        )
-    )
-    suite.add(
-        TestResult(
-            name="t2", passed=True, severity=Severity.WARNING, message="ok"
-        )
-    )
+    suite.add(TestResult(name="t1", passed=True, severity=Severity.CRITICAL, message="ok"))
+    suite.add(TestResult(name="t2", passed=True, severity=Severity.WARNING, message="ok"))
     assert suite.passed is True
     assert suite.total == 2
     assert suite.score == 100.0
@@ -34,32 +26,16 @@ def test_test_suite_passed() -> None:
 
 def test_test_suite_failed_critical() -> None:
     suite = TestSuite()
-    suite.add(
-        TestResult(
-            name="t1", passed=False, severity=Severity.CRITICAL, message="fail"
-        )
-    )
-    suite.add(
-        TestResult(
-            name="t2", passed=True, severity=Severity.WARNING, message="ok"
-        )
-    )
+    suite.add(TestResult(name="t1", passed=False, severity=Severity.CRITICAL, message="fail"))
+    suite.add(TestResult(name="t2", passed=True, severity=Severity.WARNING, message="ok"))
     assert suite.passed is False
     assert suite.failed_count == 1
 
 
 def test_test_suite_warning_only_still_passes() -> None:
     suite = TestSuite()
-    suite.add(
-        TestResult(
-            name="t1", passed=True, severity=Severity.CRITICAL, message="ok"
-        )
-    )
-    suite.add(
-        TestResult(
-            name="t2", passed=False, severity=Severity.WARNING, message="warn"
-        )
-    )
+    suite.add(TestResult(name="t1", passed=True, severity=Severity.CRITICAL, message="ok"))
+    suite.add(TestResult(name="t2", passed=False, severity=Severity.WARNING, message="warn"))
     assert suite.passed is True
 
 

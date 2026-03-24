@@ -10,6 +10,4 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]
     config.addinivalue_line("markers", "ml_drift: drift detection tests")
     config.addinivalue_line("markers", "ml_inference: inference performance tests")
     config.addinivalue_line("markers", "ml_slow: tests that take >30 seconds")
-    config.addinivalue_line(
-        "markers", "ml_nondeterministic: tests with inherent randomness"
-    )
+    config.addinivalue_line("markers", "ml_nondeterministic: tests with inherent randomness")

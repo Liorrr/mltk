@@ -19,16 +19,12 @@ def test_assert_true_fails_critical() -> None:
 
 
 def test_assert_true_warning_does_not_raise() -> None:
-    result = assert_true(
-        False, name="check", message="warn", severity=Severity.WARNING
-    )
+    result = assert_true(False, name="check", message="warn", severity=Severity.WARNING)
     assert result.passed is False
     assert result.severity == Severity.WARNING
 
 
 def test_assert_true_carries_details() -> None:
-    result = assert_true(
-        True, name="check", message="ok", score=0.95, threshold=0.9
-    )
+    result = assert_true(True, name="check", message="ok", score=0.95, threshold=0.9)
     assert result.details["score"] == 0.95
     assert result.details["threshold"] == 0.9

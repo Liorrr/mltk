@@ -42,9 +42,7 @@ class TestSuite:
     @property
     def passed(self) -> bool:
         """True if all critical tests passed."""
-        return all(
-            r.passed for r in self.results if r.severity == Severity.CRITICAL
-        )
+        return all(r.passed for r in self.results if r.severity == Severity.CRITICAL)
 
     @property
     def total(self) -> int:
