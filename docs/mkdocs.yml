@@ -31,6 +31,12 @@ nav:
       - Data Schema: api/data-schema.md
       - Data Distribution: api/data-distribution.md
       - Data Freshness: api/data-freshness.md
+      - Data Drift: api/data-drift.md
+      - Data PII: api/data-pii.md
+      - Data Labels: api/data-labels.md
+      - Model Metrics: api/model-metrics.md
+      - Model Regression: api/model-regression.md
+      - Model Slicing: api/model-slicing.md
 
 markdown_extensions:
   - admonition
