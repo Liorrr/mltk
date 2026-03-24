@@ -4,7 +4,7 @@ repo_url: https://github.com/Liorrr/mltk
 repo_name: Liorrr/mltk
 site_description: "pytest for ML — unified testing across the entire ML lifecycle"
 
-docs_dir: docs
+docs_dir: .
 
 theme:
   name: material
