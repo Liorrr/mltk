@@ -43,6 +43,8 @@ nav:
       - Inference Throughput: api/inference-throughput.md
       - Inference Contract: api/inference-contract.md
       - Pipeline: api/pipeline.md
+  - Domain Kits:
+      - Computer Vision: api/cv.md
   - Guides:
       - pytest Plugin: api/pytest-plugin.md
       - CLI: api/cli.md
