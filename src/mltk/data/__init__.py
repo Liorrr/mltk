@@ -6,6 +6,7 @@ from mltk.data.embedding_drift import assert_no_embedding_drift
 from mltk.data.freshness import assert_freshness, assert_row_count
 from mltk.data.labels import assert_label_balance, assert_label_coverage
 from mltk.data.pii import assert_no_pii, scan_pii
+from mltk.data.preset import assert_data_quality, data_quality_report
 from mltk.data.schema import assert_dtypes, assert_no_nulls, assert_schema
 from mltk.data.statistics import (
     assert_column_mean,
@@ -41,4 +42,7 @@ __all__ = [
     "assert_datetime_format",
     "assert_values_in_set",
     "assert_no_conflicting_labels",
+    # preset — one-call quality check
+    "assert_data_quality",
+    "data_quality_report",
 ]

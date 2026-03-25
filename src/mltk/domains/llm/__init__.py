@@ -5,6 +5,11 @@ from mltk.domains.llm.agentic import (
     assert_tool_call_correctness,
     assert_tool_selection,
 )
+from mltk.domains.llm.conversation import (
+    assert_conversation_completeness,
+    assert_knowledge_retention,
+    assert_turn_relevancy,
+)
 from mltk.domains.llm.latency import assert_itl, assert_ttft
 from mltk.domains.llm.rag import (
     assert_answer_relevancy,
@@ -44,4 +49,8 @@ __all__ = [
     "assert_task_completion",
     "assert_tool_selection",
     "assert_tool_call_correctness",
+    # multi-turn conversation evaluation
+    "assert_knowledge_retention",
+    "assert_turn_relevancy",
+    "assert_conversation_completeness",
 ]

@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased] — Sprint 31
+
+### Added
+- **Multi-turn conversation** (`mltk.domains.llm.conversation`):
+  - assert_knowledge_retention, assert_turn_relevancy, assert_conversation_completeness
+- **Data quality preset** (`mltk.data.preset`):
+  - assert_data_quality — one-call bundle of schema/nulls/range/outliers/PII
+  - data_quality_report — summary dict with missing rate, duplicates, constants
+- **Sentiment analysis** (`mltk.domains.nlp.sentiment`):
+  - assert_sentiment_positive, assert_no_sentiment_drift
+
 ## [0.5.0] — 2026-03-26
 
 **108+ assertions, 700+ tests, crossing the 100-assertion milestone.**

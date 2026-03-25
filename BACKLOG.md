@@ -62,11 +62,16 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Text quality: text length, output format, readability
 - [x] Training-serving skew detection
 
-### Sprint 30 -- Data Quality Quick Wins + v0.5.0 (ACTIVE)
-- [ ] Statistics: mean, median, stdev, quantiles
-- [ ] Validation: datetime format, values in set, conflicting labels
-- [ ] ML: overfitting detection, label drift
-- [ ] v0.5.0 release (100+ assertions)
+### Sprint 30 -- Data Quality Quick Wins + v0.5.0
+- [x] Statistics: mean, median, stdev, quantiles
+- [x] Validation: datetime format, values in set, conflicting labels
+- [x] ML: overfitting detection, label drift
+- [x] v0.5.0 (108 assertions, 724 tests)
+
+### Sprint 31 -- Multi-turn + Data Preset + Sentiment (ACTIVE)
+- [ ] Multi-turn conversation: knowledge retention, turn relevancy, completeness
+- [ ] Data quality preset: one-call assert_data_quality()
+- [ ] Sentiment: assert_sentiment_positive, assert_no_sentiment_drift
 
 ---
 
