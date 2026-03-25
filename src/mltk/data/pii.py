@@ -11,6 +11,10 @@ Luhn checksum), Israel phone numbers, and IBAN with MOD-97 validation.
 Sprint 23: Tier 3 international PII patterns added -- UK NHS Number (MOD-11),
 UK National Insurance Number (NINO), Germany Steuer-ID (structural),
 India Aadhaar (Verhoeff checksum), and India PAN (format).
+
+Sprint 28: Tier 4 EU PII patterns added -- France NIR/social security number
+(MOD-97 checksum), Italy Codice Fiscale (format), and Spain DNI (modulo-23
+letter validation).
 """
 
 from __future__ import annotations
@@ -236,6 +240,58 @@ def _validate_aadhaar(text: str) -> bool:
     return c == 0
 
 
+def _validate_nir(text: str) -> bool:
+    """Validate a French NIR (Numéro d'Inscription au Répertoire) via MOD-97.
+
+    The NIR is the French social security number, 15 digits structured as:
+      1 digit  -- sex (1 = male, 2 = female)
+      2 digits -- year of birth (YY)
+      2 digits -- month of birth (01-12)
+      5 digits -- department code + commune code
+      3 digits -- order number within the commune
+      2 digits -- check key
+
+    Check key algorithm (MOD-97):
+      1. Extract the first 13 digits as an integer N.
+      2. key = 97 - (N mod 97).
+      3. The last 2 digits must equal key (zero-padded to 2 digits).
+
+    Args:
+        text: Raw NIR string (exactly 15 digits, no spaces or dashes).
+
+    Returns:
+        True if the MOD-97 check passes, False otherwise.
+    """
+    digits = text.replace(" ", "").replace("-", "")
+    if len(digits) != 15 or not digits.isdigit():
+        return False
+    n = int(digits[:13])
+    expected_key = 97 - (n % 97)
+    actual_key = int(digits[13:])
+    return actual_key == expected_key
+
+
+def _validate_dni(text: str) -> bool:
+    """Validate a Spanish DNI (Documento Nacional de Identidad) via modulo-23.
+
+    The DNI consists of 8 digits followed by a control letter. The letter is
+    determined by the remainder of the 8-digit number divided by 23, mapped
+    through the string "TRWAGMYFPDXBNJZSQVHLCKE".
+
+    Args:
+        text: Raw DNI string (8 digits + 1 uppercase letter, no separators).
+
+    Returns:
+        True if the control letter is correct, False otherwise.
+    """
+    _DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
+    s = text.strip()
+    if len(s) != 9 or not s[:8].isdigit() or not s[8].isupper():
+        return False
+    expected = _DNI_LETTERS[int(s[:8]) % 23]
+    return s[8] == expected
+
+
 @dataclass
 class PiiMatch:
     """A single PII detection result."""
@@ -310,6 +366,17 @@ _PII_PATTERNS: dict[str, re.Pattern[str]] = {
     # India Permanent Account Number (PAN) -- 5 letters + 4 digits + 1 letter.
     # No checksum; format is sufficiently specific to avoid false positives.
     "in_pan": re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b"),
+    # Sprint 28: Tier 4 EU PII patterns
+    # France NIR (Numéro d'Inscription au Répertoire / social security number).
+    # 15 digits: 1 (sex) + 2 (year) + 2 (month 01-12) + 5 (dept+commune) + 3 (order) + 2 (key).
+    # MOD-97 checksum validation (_validate_nir) applied in scan_pii.
+    "fr_nir": re.compile(r"\b[12]\d{2}(?:0[1-9]|1[0-2])\d{5}\d{3}\d{2}\b"),
+    # Italy Codice Fiscale — 16 chars: 6L + 2D + 1L + 2D + 1L + 3D + 1L.
+    # 16 characters total. No checksum; format is sufficiently distinctive.
+    "it_codice_fiscale": re.compile(r"\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b"),
+    # Spain DNI -- 8 digits + 1 uppercase letter.
+    # Modulo-23 letter validation (_validate_dni) applied in scan_pii.
+    "es_dni": re.compile(r"\b\d{8}[A-Z]\b"),
 }
 
 # Checksum validators keyed by pattern name.
@@ -321,6 +388,9 @@ _VALIDATORS: dict[str, object] = {
     "uk_nhs": _validate_nhs,
     "de_steuerid": _validate_steuerid,
     "in_aadhaar": _validate_aadhaar,
+    # Sprint 28: Tier 4 EU validators
+    "fr_nir": _validate_nir,
+    "es_dni": _validate_dni,
 }
 
 # Group API key patterns under a single category for filtering
@@ -347,6 +417,10 @@ _PATTERN_CATEGORIES: dict[str, list[str]] = {
     "de_steuerid": ["de_steuerid"],
     "in_aadhaar": ["in_aadhaar"],
     "in_pan": ["in_pan"],
+    # Sprint 28 Tier 4 EU
+    "fr_nir": ["fr_nir"],
+    "it_codice_fiscale": ["it_codice_fiscale"],
+    "es_dni": ["es_dni"],
 }
 
 

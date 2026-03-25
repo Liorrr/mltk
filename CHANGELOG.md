@@ -1,17 +1,24 @@
 # Changelog
 
-## [Unreleased] — Sprint 27
+## [0.4.0] — 2026-03-25
 
-### Added
-- **Chat interface** (`mltk.chat`):
-  - `mltk chat` CLI — interactive Q&A about test results
-  - `ChatEngine` — analyzes test results, suggests fixes, recommends tests
-  - Embeddable in HTML reports
+**87+ assertions, 606+ tests, 19 CLI commands, 102 source files.**
+
+### Sprint 28 — v0.4.0 Release
+- PII Tier 4: France NIR, Italy Codice Fiscale, Spain DNI
+- BACKLOG major rewrite, README update, version bump
+
+### Sprint 27
+- Chat interface (ChatEngine, mltk chat CLI). 606 tests.
 
 ### Sprint 26
 - GitHub Issues, Slack notifications, plugin system. 594 tests.
 
-## [Previous] — Sprint 26
+### Sprint 25
+- Test resource registry (push/pull/list). 563 tests.
+
+### Sprint 24
+- Testing patterns (flaky, golden, retry, selection), local docs server. 547 tests.
 
 ### Added
 - **GitHub Issues adapter** (`mltk.integrations.github_adapter`) — create/search/update issues
