@@ -1,0 +1,3063 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="pytest for ML — unified testing across the entire ML lifecycle">
+      
+      
+      
+        <link rel="canonical" href="https://liorrr.github.io/mltk/research/sprint4-bias-fairness-research/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint 4 Research: ML Bias & Fairness Testing Methods - mltk — ML Test Kit</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-4-research-ml-bias-fairness-testing-methods" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="mltk — ML Test Kit" class="md-header__button md-logo" aria-label="mltk — ML Test Kit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            mltk — ML Test Kit
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint 4 Research: ML Bias &amp; Fairness Testing Methods
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Liorrr/mltk" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Liorrr/mltk
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../configuration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Configuration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/core/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/cv/" class="md-tabs__link">
+          
+  
+  
+  Domain Kits
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/contracts/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="mltk — ML Test Kit" class="md-nav__button md-logo" aria-label="mltk — ML Test Kit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    mltk — ML Test Kit
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Liorrr/mltk" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Liorrr/mltk
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-distribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Distribution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-freshness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Freshness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-drift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Drift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-pii/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data PII
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-labels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Labels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/model-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/model-regression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Regression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/model-slicing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Slicing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/model-bias/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Bias
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/model-adversarial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Adversarial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inference-latency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inference Latency
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inference-throughput/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inference Throughput
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inference-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inference Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Domain Kits
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Domain Kits
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Computer Vision
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/nlp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NLP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/speech/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Speech
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/tabular/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tabular
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/monitor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/drift-advanced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embedding Drift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/llm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/training-bugs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training Bugs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/contracts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Contracts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pytest-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pytest Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTML Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ml-test-score/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Test Score
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/integrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrations (Jira)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-demographic-parity-statistical-parity-group-fairness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Demographic Parity (Statistical Parity / Group Fairness)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Demographic Parity (Statistical Parity / Group Fairness)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formula" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Formula
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpretation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpretation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#typical-thresholds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Thresholds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-example-pure-python-mltk-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Example (Pure Python -- mltk style)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-equalized-odds-separation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Equalized Odds (Separation)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Equalized Odds (Separation)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#definition_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formula_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Formula
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpretation_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpretation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#typical-thresholds_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Thresholds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-predictive-parity-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Predictive Parity (Calibration)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Predictive Parity (Calibration)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#definition_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formula_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Formula
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpretation_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpretation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#typical-thresholds_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Thresholds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trade-offs-impossibility-theorem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trade-offs (Impossibility Theorem)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-example_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-disparate-impact-ratio-the-80-four-fifths-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Disparate Impact Ratio (The 80% / Four-Fifths Rule)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Disparate Impact Ratio (The 80% / Four-Fifths Rule)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#definition_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formula_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Formula
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpretation_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpretation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#historical-and-legal-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Historical and Legal Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2025-policy-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2025 Policy Change
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-example_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-calibration-across-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Calibration Across Groups
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Calibration Across Groups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#definition_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#formula_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Formula
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interpretation_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interpretation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#typical-thresholds_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Thresholds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-example_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-fairlearn-library-v0130-october-2025" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Fairlearn Library (v0.13.0, October 2025)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Fairlearn Library (v0.13.0, October 2025)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-assessment-apis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Assessment APIs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mitigation-algorithms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mitigation Algorithms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-constraint-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Constraint Classes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mltk-design-implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mltk Design Implications
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-eu-ai-act-fairness-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. EU AI Act Fairness Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. EU AI Act Fairness Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mandatory-for-high-risk-ai-systems-compliance-deadline-august-2-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mandatory for High-Risk AI Systems (Compliance Deadline: August 2, 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#article-10-data-and-data-governance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Article 10: Data and Data Governance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-testing-tools-must-provide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Testing Tools Must Provide
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mltk-opportunity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mltk Opportunity
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-israel-anti-discrimination-ai-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Israel Anti-Discrimination &amp; AI Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Israel Anti-Discrimination &amp; AI Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-state-march-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current State (March 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#emerging-regulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Emerging Regulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implications-for-mltk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implications for mltk
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sprint-4-recommendation-which-metrics-to-implement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 4 Recommendation: Which Metrics to Implement
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint 4 Recommendation: Which Metrics to Implement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#must-have-sprint-4-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Must-Have (Sprint 4 Core)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#should-have-sprint-4-stretch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Should-Have (Sprint 4 Stretch)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#defer-to-sprint-9-monitoringtabular" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Defer to Sprint 9 (Monitoring/Tabular)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposed-api-design-for-assert_no_bias" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposed API Design for assert_no_bias
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rust-acceleration-candidates-for-sprint-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rust Acceleration Candidates for Sprint 4
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-thresholds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Thresholds
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="sprint-4-research-ml-bias-fairness-testing-methods">Sprint 4 Research: ML Bias &amp; Fairness Testing Methods<a class="headerlink" href="#sprint-4-research-ml-bias-fairness-testing-methods" title="Permanent link">&para;</a></h1>
+<p>Research completed: March 25, 2026</p>
+<hr />
+<h2 id="1-demographic-parity-statistical-parity-group-fairness">1. Demographic Parity (Statistical Parity / Group Fairness)<a class="headerlink" href="#1-demographic-parity-statistical-parity-group-fairness" title="Permanent link">&para;</a></h2>
+<h3 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h3>
+<p>A classifier satisfies demographic parity if its predictions are statistically independent of the sensitive attribute. The positive prediction rate should be equal across all groups.</p>
+<h3 id="formula">Formula<a class="headerlink" href="#formula" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>P(Y_hat=1 | A=a) = P(Y_hat=1 | A=b)   for all groups a, b
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Demographic Parity Difference = max_a(selection_rate(a)) - min_a(selection_rate(a))
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Demographic Parity Ratio     = min_a(selection_rate(a)) / max_a(selection_rate(a))
+</code></pre></div>
+<p>Where <code>selection_rate(a) = count(Y_hat=1 AND A=a) / count(A=a)</code></p>
+<h3 id="interpretation">Interpretation<a class="headerlink" href="#interpretation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Difference = 0</strong> or <strong>Ratio = 1</strong>: Perfect parity</li>
+<li><strong>Difference &gt; 0.1</strong>: Commonly flagged as potentially unfair</li>
+<li><strong>Ratio &lt; 0.8</strong>: Fails the "80% rule" (see Disparate Impact)</li>
+</ul>
+<h3 id="typical-thresholds">Typical Thresholds<a class="headerlink" href="#typical-thresholds" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Fair</th>
+<th>Warning</th>
+<th>Fail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DP Difference</td>
+<td>&lt; 0.05</td>
+<td>0.05-0.10</td>
+<td>&gt; 0.10</td>
+</tr>
+<tr>
+<td>DP Ratio</td>
+<td>&gt; 0.90</td>
+<td>0.80-0.90</td>
+<td>&lt; 0.80</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-use">When to Use<a class="headerlink" href="#when-to-use" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Hiring, lending, admissions -- where equal opportunity to receive a positive outcome matters</li>
+<li>When you want outcome independence from group membership</li>
+<li>Regulatory compliance screening (first-pass fairness check)</li>
+</ul>
+<h3 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Ignores ground truth labels entirely -- a model that is correct more often for one group may still violate DP</li>
+<li>Cannot be satisfied simultaneously with calibration when base rates differ between groups</li>
+</ul>
+<h3 id="code-example-pure-python-mltk-style">Code Example (Pure Python -- mltk style)<a class="headerlink" href="#code-example-pure-python-mltk-style" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">demographic_parity_difference</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">):</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute demographic parity difference.</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="sd">    Returns the difference between the highest and lowest group selection rates.</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="sd">    A value of 0 indicates perfect parity.</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sensitive_feature</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">rates</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="n">mask</span> <span class="o">=</span> <span class="n">sensitive_feature</span> <span class="o">==</span> <span class="n">g</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="n">rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_pred</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="n">rates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">demographic_parity_ratio</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">):</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute demographic parity ratio.</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="sd">    Returns the ratio of the lowest to highest group selection rate.</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="sd">    A value of 1 indicates perfect parity. Below 0.8 = disparate impact.</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sensitive_feature</span><span class="p">)</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="n">rates</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>        <span class="n">mask</span> <span class="o">=</span> <span class="n">sensitive_feature</span> <span class="o">==</span> <span class="n">g</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>        <span class="n">rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_pred</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="n">rates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>    <span class="n">max_rate</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="k">if</span> <span class="n">max_rate</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>        <span class="k">return</span> <span class="mf">1.0</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span> <span class="o">/</span> <span class="n">max_rate</span>
+</code></pre></div>
+<hr />
+<h2 id="2-equalized-odds-separation">2. Equalized Odds (Separation)<a class="headerlink" href="#2-equalized-odds-separation" title="Permanent link">&para;</a></h2>
+<h3 id="definition_1">Definition<a class="headerlink" href="#definition_1" title="Permanent link">&para;</a></h3>
+<p>A classifier satisfies equalized odds if the True Positive Rate (TPR) and False Positive Rate (FPR) are equal across all groups. This is stricter than demographic parity because it conditions on the true label.</p>
+<h3 id="formula_1">Formula<a class="headerlink" href="#formula_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>P(Y_hat=1 | Y=1, A=a) = P(Y_hat=1 | Y=1, A=b)   (equal TPR)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>P(Y_hat=1 | Y=0, A=a) = P(Y_hat=1 | Y=0, A=b)   (equal FPR)
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Equalized Odds Difference = max(TPR_difference, FPR_difference)
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Equalized Odds Ratio = min(TPR_ratio, FPR_ratio)
+</code></pre></div>
+<p>Where:
+- <code>TPR(a) = count(Y_hat=1 AND Y=1 AND A=a) / count(Y=1 AND A=a)</code>
+- <code>FPR(a) = count(Y_hat=1 AND Y=0 AND A=a) / count(Y=0 AND A=a)</code></p>
+<h3 id="interpretation_1">Interpretation<a class="headerlink" href="#interpretation_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Difference = 0</strong> or <strong>Ratio = 1</strong>: Perfect equalized odds</li>
+<li>Ensures equal error rates across groups, not just equal selection rates</li>
+<li>A relaxed variant, <strong>Equal Opportunity</strong>, only requires equal TPR (ignoring FPR)</li>
+</ul>
+<h3 id="typical-thresholds_1">Typical Thresholds<a class="headerlink" href="#typical-thresholds_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Fair</th>
+<th>Warning</th>
+<th>Fail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EO Difference</td>
+<td>&lt; 0.05</td>
+<td>0.05-0.10</td>
+<td>&gt; 0.10</td>
+</tr>
+<tr>
+<td>EO Ratio</td>
+<td>&gt; 0.90</td>
+<td>0.80-0.90</td>
+<td>&lt; 0.80</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-use_1">When to Use<a class="headerlink" href="#when-to-use_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>When error consequences are asymmetric (e.g., criminal justice, medical diagnosis)</li>
+<li>When you need the model to perform equally well for all groups, not just predict equally often</li>
+<li>When ground truth labels are available and trusted</li>
+</ul>
+<h3 id="limitations_1">Limitations<a class="headerlink" href="#limitations_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Requires labeled data per group</li>
+<li>Cannot be simultaneously satisfied with calibration when base rates differ (impossibility theorem)</li>
+<li>More restrictive than demographic parity -- harder to achieve</li>
+</ul>
+<h3 id="code-example">Code Example<a class="headerlink" href="#code-example" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">equalized_odds_difference</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">):</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute equalized odds difference.</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="sd">    Returns max(TPR_difference, FPR_difference) across groups.</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="sd">    A value of 0 indicates perfect equalized odds.</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sensitive_feature</span><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">tprs</span><span class="p">,</span> <span class="n">fprs</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">mask</span> <span class="o">=</span> <span class="n">sensitive_feature</span> <span class="o">==</span> <span class="n">g</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="n">yt</span><span class="p">,</span> <span class="n">yp</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">y_pred</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="n">pos</span> <span class="o">=</span> <span class="n">yt</span> <span class="o">==</span> <span class="mi">1</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>        <span class="n">neg</span> <span class="o">=</span> <span class="n">yt</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="n">tpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">yp</span><span class="p">[</span><span class="n">pos</span><span class="p">])</span> <span class="k">if</span> <span class="n">pos</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="n">fpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">yp</span><span class="p">[</span><span class="n">neg</span><span class="p">])</span> <span class="k">if</span> <span class="n">neg</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="n">tprs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tpr</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>        <span class="n">fprs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fpr</span><span class="p">)</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="n">tpr_diff</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">tprs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">tprs</span><span class="p">)</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">fpr_diff</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">fprs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">fprs</span><span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">tpr_diff</span><span class="p">,</span> <span class="n">fpr_diff</span><span class="p">)</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="k">def</span><span class="w"> </span><span class="nf">equalized_odds_ratio</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">):</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute equalized odds ratio.</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="sd">    Returns min(TPR_ratio, FPR_ratio) across groups.</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="sd">    A value of 1 indicates perfect equalized odds.</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sensitive_feature</span><span class="p">)</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>    <span class="n">tprs</span><span class="p">,</span> <span class="n">fprs</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>        <span class="n">mask</span> <span class="o">=</span> <span class="n">sensitive_feature</span> <span class="o">==</span> <span class="n">g</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>        <span class="n">yt</span><span class="p">,</span> <span class="n">yp</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">y_pred</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>        <span class="n">pos</span> <span class="o">=</span> <span class="n">yt</span> <span class="o">==</span> <span class="mi">1</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>        <span class="n">neg</span> <span class="o">=</span> <span class="n">yt</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>        <span class="n">tpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">yp</span><span class="p">[</span><span class="n">pos</span><span class="p">])</span> <span class="k">if</span> <span class="n">pos</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>        <span class="n">fpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">yp</span><span class="p">[</span><span class="n">neg</span><span class="p">])</span> <span class="k">if</span> <span class="n">neg</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>        <span class="n">tprs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tpr</span><span class="p">)</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>        <span class="n">fprs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fpr</span><span class="p">)</span>
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>
+<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">safe_ratio</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>        <span class="n">mx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a>        <span class="k">if</span> <span class="n">mx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>            <span class="k">return</span> <span class="mf">1.0</span>
+<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">/</span> <span class="n">mx</span>
+<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>
+<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">safe_ratio</span><span class="p">(</span><span class="n">tprs</span><span class="p">),</span> <span class="n">safe_ratio</span><span class="p">(</span><span class="n">fprs</span><span class="p">))</span>
+</code></pre></div>
+<hr />
+<h2 id="3-predictive-parity-calibration">3. Predictive Parity (Calibration)<a class="headerlink" href="#3-predictive-parity-calibration" title="Permanent link">&para;</a></h2>
+<h3 id="definition_2">Definition<a class="headerlink" href="#definition_2" title="Permanent link">&para;</a></h3>
+<p>A classifier satisfies predictive parity if the Positive Predictive Value (PPV / precision) is equal across all groups. When the model predicts positive, the probability that the outcome is truly positive should be the same regardless of group membership.</p>
+<h3 id="formula_2">Formula<a class="headerlink" href="#formula_2" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>P(Y=1 | Y_hat=1, A=a) = P(Y=1 | Y_hat=1, A=b)   for all groups a, b
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Predictive Parity Difference = max_a(PPV(a)) - min_a(PPV(a))
+</code></pre></div>
+<p>Where <code>PPV(a) = count(Y=1 AND Y_hat=1 AND A=a) / count(Y_hat=1 AND A=a)</code></p>
+<h3 id="interpretation_2">Interpretation<a class="headerlink" href="#interpretation_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Difference = 0</strong>: Perfect predictive parity</li>
+<li>Ensures that a positive prediction is equally trustworthy across groups</li>
+<li>Also known as "outcome test" -- given the same prediction, is the outcome the same?</li>
+</ul>
+<h3 id="typical-thresholds_2">Typical Thresholds<a class="headerlink" href="#typical-thresholds_2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Fair</th>
+<th>Warning</th>
+<th>Fail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PP Difference</td>
+<td>&lt; 0.05</td>
+<td>0.05-0.10</td>
+<td>&gt; 0.10</td>
+</tr>
+</tbody>
+</table>
+<h3 id="trade-offs-impossibility-theorem">Trade-offs (Impossibility Theorem)<a class="headerlink" href="#trade-offs-impossibility-theorem" title="Permanent link">&para;</a></h3>
+<p><strong>Critical</strong>: When base rates differ between groups, it is mathematically impossible to simultaneously satisfy:
+1. Demographic parity
+2. Equalized odds
+3. Predictive parity</p>
+<p>This is the Chouldechova-Kleinberg impossibility theorem. In practice, you must choose which fairness criterion matters most for your application:</p>
+<table>
+<thead>
+<tr>
+<th>Use Case</th>
+<th>Primary Metric</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hiring / lending</td>
+<td>Demographic parity</td>
+<td>Equal opportunity regardless of group</td>
+</tr>
+<tr>
+<td>Criminal justice</td>
+<td>Equalized odds</td>
+<td>Equal error rates (mistakes cost freedom)</td>
+</tr>
+<tr>
+<td>Medical diagnosis</td>
+<td>Predictive parity</td>
+<td>Positive prediction must be equally reliable</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-use_2">When to Use<a class="headerlink" href="#when-to-use_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>When the trustworthiness of positive predictions matters (medical screening, credit scoring)</li>
+<li>When different groups may have genuinely different base rates</li>
+<li>When you want the model's confidence to be calibrated per group</li>
+</ul>
+<h3 id="limitations_2">Limitations<a class="headerlink" href="#limitations_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Does not control for false negative rates</li>
+<li>A model can satisfy predictive parity while having wildly different approval rates</li>
+</ul>
+<h3 id="code-example_1">Code Example<a class="headerlink" href="#code-example_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">predictive_parity_difference</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">):</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute predictive parity difference.</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="sd">    Returns the difference between the highest and lowest group PPV.</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="sd">    A value of 0 indicates perfect predictive parity.</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sensitive_feature</span><span class="p">)</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">ppvs</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="n">mask</span> <span class="o">=</span> <span class="n">sensitive_feature</span> <span class="o">==</span> <span class="n">g</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>        <span class="n">yt</span><span class="p">,</span> <span class="n">yp</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">y_pred</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>        <span class="n">pred_pos</span> <span class="o">=</span> <span class="n">yp</span> <span class="o">==</span> <span class="mi">1</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>        <span class="k">if</span> <span class="n">pred_pos</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>            <span class="n">ppvs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>            <span class="n">ppvs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">yt</span><span class="p">[</span><span class="n">pred_pos</span><span class="p">]))</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">ppvs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">ppvs</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="4-disparate-impact-ratio-the-80-four-fifths-rule">4. Disparate Impact Ratio (The 80% / Four-Fifths Rule)<a class="headerlink" href="#4-disparate-impact-ratio-the-80-four-fifths-rule" title="Permanent link">&para;</a></h2>
+<h3 id="definition_3">Definition<a class="headerlink" href="#definition_3" title="Permanent link">&para;</a></h3>
+<p>Disparate impact occurs when a selection process has a disproportionate negative effect on a protected group. The four-fifths rule, codified in the 1978 EEOC Uniform Guidelines, states that a selection rate for any group below 80% of the highest group's rate indicates potential adverse impact.</p>
+<h3 id="formula_3">Formula<a class="headerlink" href="#formula_3" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Disparate Impact Ratio = selection_rate(unprivileged) / selection_rate(privileged)
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>Where selection_rate(g) = count(positive outcomes for group g) / count(members of group g)
+</code></pre></div>
+<h3 id="interpretation_3">Interpretation<a class="headerlink" href="#interpretation_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Ratio &gt;= 0.80</strong>: Generally considered acceptable (no adverse impact)</li>
+<li><strong>Ratio &lt; 0.80</strong>: Indicates potential disparate impact -- triggers further investigation</li>
+<li><strong>Ratio = 1.0</strong>: Perfect parity</li>
+</ul>
+<h3 id="historical-and-legal-context">Historical and Legal Context<a class="headerlink" href="#historical-and-legal-context" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Originated from California FEPC guidelines (1972), codified in 1978 EEOC Uniform Guidelines</li>
+<li>Used in US employment law (Title VII of the Civil Rights Act)</li>
+<li>Applied in lending (Equal Credit Opportunity Act, Fair Housing Act)</li>
+<li>FACCt 2024 paper clarifies: the four-fifths rule is a screening tool, not a legal standard for proving discrimination</li>
+</ul>
+<h3 id="2025-policy-change">2025 Policy Change<a class="headerlink" href="#2025-policy-change" title="Permanent link">&para;</a></h3>
+<p>Executive Order 14281 (April 23, 2025) instructed federal agencies to stop enforcing disparate impact cases. However, statutory and case law precedent remains, and state-level enforcement continues. For ML tooling, the 80% threshold remains the industry standard benchmark.</p>
+<h3 id="when-to-use_3">When to Use<a class="headerlink" href="#when-to-use_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Hiring algorithms, lending models, insurance pricing</li>
+<li>Any selection system subject to anti-discrimination law</li>
+<li>As a simple, legally-grounded first-pass fairness screen</li>
+</ul>
+<h3 id="code-example_2">Code Example<a class="headerlink" href="#code-example_2" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">disparate_impact_ratio</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">,</span> <span class="n">privileged_group</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute disparate impact ratio (four-fifths rule).</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="sd">    If privileged_group is specified, computes ratio against that group.</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="sd">    Otherwise, uses the group with the highest selection rate.</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="sd">    Returns ratio in [0, 1]. Below 0.8 indicates potential disparate impact.</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sensitive_feature</span><span class="p">)</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">rates</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="n">mask</span> <span class="o">=</span> <span class="n">sensitive_feature</span> <span class="o">==</span> <span class="n">g</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="n">rates</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_pred</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="k">if</span> <span class="n">privileged_group</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>        <span class="n">priv_rate</span> <span class="o">=</span> <span class="n">rates</span><span class="p">[</span><span class="n">privileged_group</span><span class="p">]</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>        <span class="n">priv_rate</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">rates</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>    <span class="k">if</span> <span class="n">priv_rate</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>        <span class="k">return</span> <span class="mf">1.0</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>    <span class="c1"># Return the minimum ratio across all unprivileged groups</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>    <span class="n">ratios</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="o">/</span> <span class="n">priv_rate</span> <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rates</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>              <span class="k">if</span> <span class="p">(</span><span class="n">privileged_group</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">g</span> <span class="o">!=</span> <span class="n">privileged_group</span><span class="p">)]</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">ratios</span><span class="p">)</span> <span class="k">if</span> <span class="n">ratios</span> <span class="k">else</span> <span class="mf">1.0</span>
+</code></pre></div>
+<hr />
+<h2 id="5-calibration-across-groups">5. Calibration Across Groups<a class="headerlink" href="#5-calibration-across-groups" title="Permanent link">&para;</a></h2>
+<h3 id="definition_4">Definition<a class="headerlink" href="#definition_4" title="Permanent link">&para;</a></h3>
+<p>A model is calibrated across groups if, for any given predicted probability score, the actual positive rate is the same across all demographic groups. This means predicted confidence is equally reliable regardless of group membership.</p>
+<h3 id="formula_4">Formula<a class="headerlink" href="#formula_4" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>P(Y=1 | Score=s, A=a) = P(Y=1 | Score=s, A=b)   for all s, a, b
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>ECE (Expected Calibration Error) per group:
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>ECE(a) = sum_b  |bin_count(b,a)/N(a)| * |avg_confidence(b,a) - avg_accuracy(b,a)|
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>Calibration Gap = max_a(ECE(a)) - min_a(ECE(a))
+</code></pre></div>
+<h3 id="interpretation_4">Interpretation<a class="headerlink" href="#interpretation_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Calibration gap = 0</strong>: Model is equally calibrated for all groups</li>
+<li>A model can be well-calibrated overall but poorly calibrated for minority groups</li>
+<li>Essential in medical, financial, and legal contexts where probability estimates drive decisions</li>
+</ul>
+<h3 id="typical-thresholds_3">Typical Thresholds<a class="headerlink" href="#typical-thresholds_3" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Fair</th>
+<th>Warning</th>
+<th>Fail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ECE per group</td>
+<td>&lt; 0.05</td>
+<td>0.05-0.10</td>
+<td>&gt; 0.10</td>
+</tr>
+<tr>
+<td>Max ECE gap</td>
+<td>&lt; 0.03</td>
+<td>0.03-0.05</td>
+<td>&gt; 0.05</td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-use_4">When to Use<a class="headerlink" href="#when-to-use_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Probabilistic predictions (not just binary classification)</li>
+<li>Risk scoring (credit risk, disease probability, recidivism)</li>
+<li>When downstream decisions use the probability value directly, not just the binary label</li>
+</ul>
+<h3 id="code-example_3">Code Example<a class="headerlink" href="#code-example_3" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">calibration_by_group</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute Expected Calibration Error per demographic group.</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="sd">    Returns dict mapping group -&gt; ECE value.</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sensitive_feature</span><span class="p">)</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">bin_edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_bins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>        <span class="n">mask</span> <span class="o">=</span> <span class="n">sensitive_feature</span> <span class="o">==</span> <span class="n">g</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="n">yt</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>        <span class="n">yp</span> <span class="o">=</span> <span class="n">y_prob</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>        <span class="n">ece</span> <span class="o">=</span> <span class="mf">0.0</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">yt</span><span class="p">)</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_bins</span><span class="p">):</span>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>            <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">bin_edges</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">bin_edges</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>            <span class="n">in_bin</span> <span class="o">=</span> <span class="p">(</span><span class="n">yp</span> <span class="o">&gt;=</span> <span class="n">lo</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">yp</span> <span class="o">&lt;</span> <span class="n">hi</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n_bins</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="p">(</span><span class="n">yp</span> <span class="o">&gt;=</span> <span class="n">lo</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">yp</span> <span class="o">&lt;=</span> <span class="n">hi</span><span class="p">)</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>            <span class="n">count</span> <span class="o">=</span> <span class="n">in_bin</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>            <span class="k">if</span> <span class="n">count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>                <span class="k">continue</span>
+<a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>            <span class="n">avg_conf</span> <span class="o">=</span> <span class="n">yp</span><span class="p">[</span><span class="n">in_bin</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>            <span class="n">avg_acc</span> <span class="o">=</span> <span class="n">yt</span><span class="p">[</span><span class="n">in_bin</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>            <span class="n">ece</span> <span class="o">+=</span> <span class="p">(</span><span class="n">count</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">avg_conf</span> <span class="o">-</span> <span class="n">avg_acc</span><span class="p">)</span>
+<a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>
+<a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>        <span class="n">result</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">=</span> <span class="n">ece</span>
+<a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>
+<a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>    <span class="k">return</span> <span class="n">result</span>
+<a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>
+<a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a><span class="k">def</span><span class="w"> </span><span class="nf">calibration_gap</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Max ECE difference between any two groups.&quot;&quot;&quot;</span>
+<a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a>    <span class="n">eces</span> <span class="o">=</span> <span class="n">calibration_by_group</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_prob</span><span class="p">,</span> <span class="n">sensitive_feature</span><span class="p">,</span> <span class="n">n_bins</span><span class="p">)</span>
+<a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a>    <span class="n">vals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">eces</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a>    <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="6-fairlearn-library-v0130-october-2025">6. Fairlearn Library (v0.13.0, October 2025)<a class="headerlink" href="#6-fairlearn-library-v0130-october-2025" title="Permanent link">&para;</a></h2>
+<h3 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h3>
+<p>Microsoft's Fairlearn is the most widely-used Python library for ML fairness assessment and mitigation. Apache-2.0 licensed, follows scikit-learn API conventions.</p>
+<h3 id="key-assessment-apis">Key Assessment APIs<a class="headerlink" href="#key-assessment-apis" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fairlearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">MetricFrame</span><span class="p">,</span>               <span class="c1"># Core: disaggregated metric evaluation</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">selection_rate</span><span class="p">,</span>            <span class="c1"># P(Y_hat=1) per group</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">demographic_parity_difference</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">demographic_parity_ratio</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">equalized_odds_difference</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">equalized_odds_ratio</span><span class="p">,</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">true_positive_rate</span><span class="p">,</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">false_positive_rate</span><span class="p">,</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="p">)</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">accuracy_score</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c1"># MetricFrame: the central class</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="n">mf</span> <span class="o">=</span> <span class="n">MetricFrame</span><span class="p">(</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">metrics</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>        <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="n">accuracy_score</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>        <span class="s2">&quot;selection_rate&quot;</span><span class="p">:</span> <span class="n">selection_rate</span><span class="p">,</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="p">},</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>    <span class="n">y_true</span><span class="o">=</span><span class="n">y_true</span><span class="p">,</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>    <span class="n">y_pred</span><span class="o">=</span><span class="n">y_pred</span><span class="p">,</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>    <span class="n">sensitive_features</span><span class="o">=</span><span class="n">sensitive_features</span><span class="p">,</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="p">)</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="n">mf</span><span class="o">.</span><span class="n">overall</span>          <span class="c1"># Overall metric values</span>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="n">mf</span><span class="o">.</span><span class="n">by_group</span>         <span class="c1"># Per-group breakdown (pandas DataFrame)</span>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="n">mf</span><span class="o">.</span><span class="n">difference</span><span class="p">()</span>     <span class="c1"># Max - min across groups</span>
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="n">mf</span><span class="o">.</span><span class="n">ratio</span><span class="p">()</span>          <span class="c1"># Min / max across groups</span>
+<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="n">mf</span><span class="o">.</span><span class="n">group_min</span><span class="p">()</span>      <span class="c1"># Worst-performing group</span>
+<a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a><span class="n">mf</span><span class="o">.</span><span class="n">group_max</span><span class="p">()</span>      <span class="c1"># Best-performing group</span>
+</code></pre></div>
+<h3 id="mitigation-algorithms">Mitigation Algorithms<a class="headerlink" href="#mitigation-algorithms" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Algorithm</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pre-processing</td>
+<td>CorrelationRemover</td>
+<td>Removes correlation between features and sensitive attribute</td>
+</tr>
+<tr>
+<td>In-processing</td>
+<td>ExponentiatedGradient</td>
+<td>Trains with fairness constraints (reduction approach)</td>
+</tr>
+<tr>
+<td>In-processing</td>
+<td>GridSearch</td>
+<td>Grid search over constraint-satisfying models</td>
+</tr>
+<tr>
+<td>Post-processing</td>
+<td>ThresholdOptimizer</td>
+<td>Adjusts decision thresholds per group</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fairlearn.reductions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExponentiatedGradient</span><span class="p">,</span> <span class="n">DemographicParity</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fairlearn.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThresholdOptimizer</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># In-processing: train with fairness constraint</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">mitigator</span> <span class="o">=</span> <span class="n">ExponentiatedGradient</span><span class="p">(</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">estimator</span><span class="o">=</span><span class="n">base_model</span><span class="p">,</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">constraints</span><span class="o">=</span><span class="n">DemographicParity</span><span class="p">(),</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">)</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="n">mitigator</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">sensitive_features</span><span class="o">=</span><span class="n">A_train</span><span class="p">)</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># Post-processing: adjust thresholds</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="n">optimizer</span> <span class="o">=</span> <span class="n">ThresholdOptimizer</span><span class="p">(</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    <span class="n">estimator</span><span class="o">=</span><span class="n">base_model</span><span class="p">,</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>    <span class="n">constraints</span><span class="o">=</span><span class="s2">&quot;demographic_parity&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>    <span class="n">predict_method</span><span class="o">=</span><span class="s2">&quot;predict_proba&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>    <span class="n">prefit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="p">)</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="n">optimizer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">sensitive_features</span><span class="o">=</span><span class="n">A_train</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="supported-constraint-classes">Supported Constraint Classes<a class="headerlink" href="#supported-constraint-classes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>DemographicParity()</code> -- equal selection rates</li>
+<li><code>EqualizedOdds()</code> -- equal TPR and FPR</li>
+<li><code>TruePositiveRateParity()</code> -- equal opportunity (relaxed EO)</li>
+<li><code>FalsePositiveRateParity()</code></li>
+<li><code>ErrorRateParity()</code></li>
+<li><code>BoundedGroupLoss()</code> -- bounded worst-case loss</li>
+</ul>
+<h3 id="mltk-design-implications">mltk Design Implications<a class="headerlink" href="#mltk-design-implications" title="Permanent link">&para;</a></h3>
+<ul>
+<li>mltk should NOT depend on fairlearn -- compute metrics natively for zero-dependency assertions</li>
+<li>mltk SHOULD match fairlearn's metric naming conventions for familiarity</li>
+<li>mltk SHOULD support <code>sensitive_features</code> parameter pattern (array same length as predictions)</li>
+<li>mltk CAN offer optional fairlearn integration for users who want mitigation</li>
+</ul>
+<hr />
+<h2 id="7-eu-ai-act-fairness-requirements">7. EU AI Act Fairness Requirements<a class="headerlink" href="#7-eu-ai-act-fairness-requirements" title="Permanent link">&para;</a></h2>
+<h3 id="mandatory-for-high-risk-ai-systems-compliance-deadline-august-2-2026">Mandatory for High-Risk AI Systems (Compliance Deadline: August 2, 2026)<a class="headerlink" href="#mandatory-for-high-risk-ai-systems-compliance-deadline-august-2-2026" title="Permanent link">&para;</a></h3>
+<p>High-risk categories include: employment/recruitment, credit scoring, insurance, law enforcement, education, immigration, judicial decision-making.</p>
+<h3 id="article-10-data-and-data-governance">Article 10: Data and Data Governance<a class="headerlink" href="#article-10-data-and-data-governance" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What It Means for Testing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Art. 10(2)(f)</td>
+<td>MUST identify, detect, prevent, and mitigate harmful biases</td>
+</tr>
+<tr>
+<td>Art. 10(3)</td>
+<td>Training/validation/test data must be relevant, representative, free of errors</td>
+</tr>
+<tr>
+<td>Art. 10(5)</td>
+<td>MAY process special category data (race, gender) specifically to detect bias</td>
+</tr>
+<tr>
+<td>Art. 9</td>
+<td>Risk management system must address bias as part of lifecycle</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-testing-tools-must-provide">What Testing Tools Must Provide<a class="headerlink" href="#what-testing-tools-must-provide" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Disaggregated performance metrics</strong> -- accuracy/F1/etc. broken down by demographic group</li>
+<li><strong>Bias detection</strong> -- at minimum: selection rate disparity, error rate disparity</li>
+<li><strong>Documentation</strong> -- audit trail showing bias was tested and results recorded</li>
+<li><strong>Ongoing monitoring</strong> -- not just one-time testing, but continuous in production</li>
+<li><strong>Data representativeness checks</strong> -- validate training data covers relevant demographics</li>
+</ol>
+<h3 id="mltk-opportunity">mltk Opportunity<a class="headerlink" href="#mltk-opportunity" title="Permanent link">&para;</a></h3>
+<p>Giskard (5.2K stars) was the leading open-source bias testing tool but is in transition (v2 deprecated, v3 unreleased). mltk can capture this gap with stable, well-documented fairness assertions. An EU AI Act compliance report template is already on the backlog.</p>
+<hr />
+<h2 id="8-israel-anti-discrimination-ai-requirements">8. Israel Anti-Discrimination &amp; AI Requirements<a class="headerlink" href="#8-israel-anti-discrimination-ai-requirements" title="Permanent link">&para;</a></h2>
+<h3 id="current-state-march-2026">Current State (March 2026)<a class="headerlink" href="#current-state-march-2026" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>No AI-specific legislation</strong> -- Israel uses a sectoral, principles-based approach</li>
+<li>Equal Opportunities in Employment Law (1988) prohibits discrimination in hiring, terms, promotions, termination</li>
+<li>Burden of proof shifts to employer once claimant shows prima facie discrimination</li>
+<li>Six core AI ethics principles adopted: human-centricity, <strong>equality and non-discrimination</strong>, transparency, reliability, accountability, privacy</li>
+</ul>
+<h3 id="emerging-regulation">Emerging Regulation<a class="headerlink" href="#emerging-regulation" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Bank of Israel directives on AI in lending expected late 2025/early 2026, will serve as blueprint for employment sector</li>
+<li>Ministry of Justice discussing a potential "Framework Law" for AI covering algorithmic discrimination</li>
+<li>Privacy Protection Authority (PPA) conducting proactive compliance audits of high-risk AI systems</li>
+<li>Enforcement trend: shifting from reactive to proactive</li>
+</ul>
+<h3 id="implications-for-mltk">Implications for mltk<a class="headerlink" href="#implications-for-mltk" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Israel does not mandate specific fairness metrics, but the non-discrimination principle applies</li>
+<li>Any mltk user deploying in Israel should test for demographic parity and disparate impact as baseline</li>
+<li>EU AI Act compliance covers Israeli companies exporting to the EU (which is most Israeli tech companies)</li>
+</ul>
+<hr />
+<h2 id="sprint-4-recommendation-which-metrics-to-implement">Sprint 4 Recommendation: Which Metrics to Implement<a class="headerlink" href="#sprint-4-recommendation-which-metrics-to-implement" title="Permanent link">&para;</a></h2>
+<h3 id="must-have-sprint-4-core">Must-Have (Sprint 4 Core)<a class="headerlink" href="#must-have-sprint-4-core" title="Permanent link">&para;</a></h3>
+<p>These three metrics are explicitly listed in the backlog for <code>assert_no_bias</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Function Name</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Demographic Parity</strong></td>
+<td><code>demographic_parity_diff</code>, <code>demographic_parity_ratio</code></td>
+<td>Most common fairness metric, simple, no labels needed for ratio check</td>
+</tr>
+<tr>
+<td><strong>Equalized Odds</strong></td>
+<td><code>equalized_odds_diff</code>, <code>equalized_odds_ratio</code></td>
+<td>Industry standard for error-rate fairness, required by Fairlearn/AIF360</td>
+</tr>
+<tr>
+<td><strong>Predictive Parity</strong></td>
+<td><code>predictive_parity_diff</code></td>
+<td>Completes the "big three" -- covers precision fairness</td>
+</tr>
+</tbody>
+</table>
+<h3 id="should-have-sprint-4-stretch">Should-Have (Sprint 4 Stretch)<a class="headerlink" href="#should-have-sprint-4-stretch" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Function Name</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Disparate Impact Ratio</strong></td>
+<td><code>disparate_impact_ratio</code></td>
+<td>Legal standard (80% rule), trivial to compute, high value</td>
+</tr>
+<tr>
+<td><strong>Equal Opportunity</strong></td>
+<td><code>equal_opportunity_diff</code></td>
+<td>Relaxed equalized odds (TPR only), common in practice</td>
+</tr>
+</tbody>
+</table>
+<h3 id="defer-to-sprint-9-monitoringtabular">Defer to Sprint 9 (Monitoring/Tabular)<a class="headerlink" href="#defer-to-sprint-9-monitoringtabular" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Calibration across groups</td>
+<td>Requires probability outputs, more complex, fits monitoring sprint</td>
+</tr>
+<tr>
+<td>Conditional use accuracy equality</td>
+<td>Niche, rarely tested</td>
+</tr>
+<tr>
+<td>Individual fairness (Lipschitz)</td>
+<td>Requires distance metric, very different paradigm</td>
+</tr>
+</tbody>
+</table>
+<h3 id="proposed-api-design-for-assert_no_bias">Proposed API Design for <code>assert_no_bias</code><a class="headerlink" href="#proposed-api-design-for-assert_no_bias" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mltk.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">assert_no_bias</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Minimal API -- checks demographic parity by default</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">assert_no_bias</span><span class="p">(</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">y_pred</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">sensitive_feature</span><span class="o">=</span><span class="n">gender_column</span><span class="p">,</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="p">)</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="c1"># Full API with metric selection</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="n">assert_no_bias</span><span class="p">(</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="n">y_true</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="n">y_pred</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="n">sensitive_feature</span><span class="o">=</span><span class="n">race_column</span><span class="p">,</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;equalized_odds&quot;</span><span class="p">,</span>   <span class="c1"># &quot;demographic_parity&quot; | &quot;equalized_odds&quot; | &quot;predictive_parity&quot; | &quot;disparate_impact&quot;</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>    <span class="n">threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>             <span class="c1"># max allowed difference (or min ratio for disparate_impact)</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="p">)</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="c1"># Multi-metric check</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="n">assert_no_bias</span><span class="p">(</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>    <span class="n">y_true</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>    <span class="n">y_pred</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>    <span class="n">sensitive_feature</span><span class="o">=</span><span class="n">gender_column</span><span class="p">,</span>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>    <span class="n">method</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;demographic_parity&quot;</span><span class="p">,</span> <span class="s2">&quot;equalized_odds&quot;</span><span class="p">],</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>    <span class="n">threshold</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;demographic_parity&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">&quot;equalized_odds&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">},</span>
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="rust-acceleration-candidates-for-sprint-4">Rust Acceleration Candidates for Sprint 4<a class="headerlink" href="#rust-acceleration-candidates-for-sprint-4" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>demographic_parity_diff</code></td>
+<td>Simple group-by aggregation, benefits from Rust at scale</td>
+</tr>
+<tr>
+<td><code>equalized_odds_diff</code></td>
+<td>Confusion matrix per group, vectorizable</td>
+</tr>
+<tr>
+<td><code>disparate_impact_ratio</code></td>
+<td>Trivial computation but included for API completeness</td>
+</tr>
+</tbody>
+</table>
+<h3 id="default-thresholds">Default Thresholds<a class="headerlink" href="#default-thresholds" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">BIAS_THRESHOLDS</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="s2">&quot;demographic_parity&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>    <span class="c1"># max difference</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="s2">&quot;equalized_odds&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>        <span class="c1"># max difference</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="s2">&quot;predictive_parity&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>     <span class="c1"># max PPV difference</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="s2">&quot;disparate_impact&quot;</span><span class="p">:</span> <span class="mf">0.80</span><span class="p">,</span>      <span class="c1"># min ratio (four-fifths rule)</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="s2">&quot;equal_opportunity&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>     <span class="c1"># max TPR difference</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://fairlearn.org/main/user_guide/assessment/common_fairness_metrics.html">Fairlearn Common Fairness Metrics</a></li>
+<li><a href="https://developers.google.com/machine-learning/crash-course/fairness/demographic-parity">Google ML Crash Course: Demographic Parity</a></li>
+<li><a href="https://developers.google.com/machine-learning/crash-course/fairness/equality-of-opportunity">Google ML Crash Course: Equality of Opportunity</a></li>
+<li><a href="https://github.com/fairlearn/fairlearn">Fairlearn GitHub (v0.13.0)</a></li>
+<li><a href="https://www.geeksforgeeks.org/artificial-intelligence/fairness-metrics-demographic-parity-equalized-odds/">GeeksforGeeks: Fairness Metrics</a></li>
+<li><a href="https://ocw.mit.edu/courses/res-ec-001-exploring-fairness-in-machine-learning-for-international-development-spring-2020/pages/module-three-framework/fairness-criteria/">MIT OCW: Fairness Criteria</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Fairness_(machine_learning)">Wikipedia: Fairness (machine learning)</a></li>
+<li><a href="https://superwise.ai/blog/gentle-introduction-ml-fairness-metrics/">Superwise: ML Fairness Metrics</a></li>
+<li><a href="https://www.numberanalytics.com/blog/equalized-odds-fairness-metric-machine-learning">Number Analytics: Equalized Odds</a></li>
+<li><a href="https://insightful-data-lab.com/2025/08/29/predictive-parity-calibration/">Insightful Data Lab: Predictive Parity</a></li>
+<li><a href="https://facctconference.org/static/papers24/facct24-53.pdf">FAccT 2024: The Four-Fifths Rule Is Not Disparate Impact</a></li>
+<li><a href="https://www.giskard.ai/knowledge/how-to-test-ml-models-5-the-80-rule-to-measure-disparity">Giskard: 80% Rule</a></li>
+<li><a href="https://ogletree.com/insights-resources/blog-posts/eeoc-issues-new-guidance-on-employer-use-of-ai-and-disparate-impact-potential/">EEOC Guidance on AI and Disparate Impact</a></li>
+<li><a href="https://artificialintelligenceact.eu/article/10/">EU AI Act Article 10</a></li>
+<li><a href="https://secureprivacy.ai/blog/eu-ai-act-2026-compliance">EU AI Act 2026 Compliance Guide</a></li>
+<li><a href="https://www.scrut.io/glossary/fairness-and-bias-mitigation">Scrut: Fairness and Bias Mitigation in AI</a></li>
+<li><a href="https://regulations.ai/regulations/RAI-IL-NA-SUMMARY-2026">Israel AI Regulation Overview</a></li>
+<li><a href="https://www.whitecase.com/insight-our-thinking/ai-watch-global-regulatory-tracker-israel">White &amp; Case: AI Watch Israel</a></li>
+<li><a href="https://www.gtlaw-israelpractice.com/2025/12/24/as-2025-draws-to-a-close-ai-regulation-continues-to-accelerate-across-the-globe-states-in-the-u-s-and-regions-like-the-eu-have-been-particularly-active-creating-a-complex-landscape-for-businesses-and/">Greenberg Traurig: 2026 AI Outlook Israel</a></li>
+<li><a href="https://herzoglaw.co.il/en/news-and-insights/labour-law-year-in-review-2025-looking-ahead-to-2026/">Herzog: Israel Labour Law Year in Review 2025</a></li>
+<li><a href="https://dida.do/blog/fairness-in-ml">dida blog: Fairness in Machine Learning</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
