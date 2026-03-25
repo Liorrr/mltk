@@ -1,14 +1,19 @@
 # Changelog
 
-## [Unreleased] — Sprint 20
+## [Unreleased] — Sprint 22
 
 ### Added
-- **Cloud monitoring** (`mltk.monitor`):
-  - AWS: assert_endpoint_healthy, assert_endpoint_latency, assert_endpoint_error_rate
-  - GCP: assert_endpoint_healthy, assert_prediction_latency
-  - Azure: assert_endpoint_healthy, assert_endpoint_latency
-  - Prometheus: assert_prometheus_metric, assert_gpu_utilization, assert_triton_healthy
-  - Optional deps: `mltk[aws]`, `mltk[gcp]`, `mltk[azure]`
+- **Training Bug P2** (`mltk.training`):
+  - Augmentation: assert_no_augmentation_on_test, assert_augmentation_preserves_signal
+  - Checkpoint: assert_checkpoint_complete, assert_resume_loss_continuous
+  - Distributed: assert_effective_batch_size, assert_gradient_sync
+  - Memory: assert_no_memory_leak, assert_loss_is_detached
+
+### Sprint 21
+- Rust: KL, chi2, JS, Wasserstein, PII scanning. 13 Rust tests. Benchmarks.
+
+### Sprint 20
+- Cloud monitoring: AWS SageMaker, GCP Vertex AI, Azure ML, Prometheus/Triton. 450 tests.
 
 ### Sprint 19
 - MLflow integration (MlflowLogger, --mltk-mlflow), Jupyter _repr_html_, model card generator. 416 tests.

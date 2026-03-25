@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.28", features = ["extension-module"] }
+regex = "1"
 
 [profile.release]
 opt-level = 3

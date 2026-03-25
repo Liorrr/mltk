@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S18: 66+ assertions, 361+ tests, 5 Rust tests)
+## DONE (S0-S20: 76+ assertions, 450 tests, 5 Rust tests)
 
 ### Sprint 0 -- Project Skeleton
 - [x] Repo structure, pyproject.toml, Cargo.toml, CI/CD, Makefile, README
@@ -126,33 +126,42 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Jupyter notebook (_repr_html_ on TestResult/TestSuite)
 - [x] Model card generator (Google Model Cards from test results)
 
-### Sprint 20 -- Cloud Monitoring (ACTIVE)
-- [ ] MLflow integration: log test results as metrics + attach reports as artifacts
-- [ ] Jupyter notebook: rich _repr_html_ for TestResult/TestSuite, display_report()
-- [ ] Model card generator: auto-generate Google Model Cards from test results
-- [ ] CLI: mltk model-card, pytest --mltk-mlflow flag
-- [ ] pyproject.toml: mltk[mlflow] extra
+### Sprint 20 -- Cloud Monitoring
+- [x] AWS SageMaker: endpoint health, latency, error rate
+- [x] GCP Vertex AI: endpoint health, prediction latency
+- [x] Azure ML: endpoint health, latency
+- [x] Prometheus: PromQL queries, GPU utilization, Triton health
 
-### Sprint 20 -- Cloud Monitoring Integration
-- [ ] **AWS SageMaker**: endpoint health, CloudWatch metrics, Model Monitor integration
-- [ ] **GCP Vertex AI**: prediction endpoint monitoring, TPU utilization
-- [ ] **Azure ML**: managed endpoint metrics, Responsible AI Dashboard
-- [ ] **On-prem**: Prometheus/Grafana integration, DCGM GPU metrics, Triton health
+---
 
-### Sprint 19 -- Test Resource Registry
+## PLANNED
+
+### Sprint 21 -- Rust Acceleration + Benchmarks
+- [x] Rust: KL divergence, chi-squared, JS divergence, Wasserstein
+- [x] Rust: PII regex scanning (regex crate)
+- [x] Python bridge + scipy/numpy fallbacks
+- [x] Benchmarks: bench_drift.py + bench_pii.py
+
+### Sprint 22 -- Training Bug P2 (ACTIVE)
+- [ ] Rust: KL divergence, chi-squared, Wasserstein, JS divergence
+- [ ] Rust: PII regex scanning (regex crate)
+- [ ] Python bridge: update _rust.py with new functions + fallbacks
+- [ ] Benchmarks: drift + PII speed comparison (Rust vs scipy/numpy)
+
+### Sprint 22 -- Test Resource Registry
 - [ ] `mltk pull <collection>` -- download test definitions from registry
 - [ ] `mltk push <collection>` -- share test suites with team
 - [ ] `mltk list` -- browse available test collections
 - [ ] Versioned test resources with dependency tracking
 - [ ] Server API (REST) for hosting registry (company or SaaS)
 
-### Sprint 20 -- Chat Interface
+### Sprint 23 -- Chat Interface
 - [ ] `mltk chat` CLI -- interactive chat for querying test results
 - [ ] Web-based chat embedded in HTML reports
 - [ ] "Why did my model regress?" → analyzes test results + suggests fixes
 - [ ] "What tests should I run?" → auto-generates test plan
 
-### Sprint 21 -- Resource Summarization + AI Predictions
+### Sprint 24 -- Resource Summarization + AI Predictions
 - [ ] Project/folder/collection summarization (text/doc, image/PNG, video/MP4)
 - [ ] AI-powered predictions from prompt + resources/features
 - [ ] "Predict if this model version is safe to deploy" → risk assessment
@@ -275,4 +284,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 18 — v0.2.0 release (March 25, 2026)*
+*Last updated: Sprint 21 start (March 25, 2026)*
