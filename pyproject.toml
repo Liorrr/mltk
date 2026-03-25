@@ -45,6 +45,9 @@ integrations = ["jira>=3.0"]
 llm = []  # lightweight (numpy only), future: sentence-transformers, detoxify
 torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)
 mlflow = ["mlflow>=2.0"]  # MLflow integration for logging test results
+aws = ["boto3>=1.28"]  # AWS SageMaker + CloudWatch monitoring
+gcp = ["google-cloud-aiplatform>=1.40"]  # GCP Vertex AI monitoring
+azure = ["azure-ai-ml>=1.12"]  # Azure ML monitoring
 all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations]"]
 dev = [
     "pytest>=8.0",

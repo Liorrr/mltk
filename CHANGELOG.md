@@ -1,18 +1,17 @@
 # Changelog
 
-## [Unreleased] — Sprint 19
+## [Unreleased] — Sprint 20
 
 ### Added
-- **MLflow integration** (`mltk.integrations.mlflow_logger`):
-  - `MlflowLogger` — log test results as MLflow metrics + attach reports as artifacts
-  - `pytest --mltk-mlflow` flag for auto-logging
-- **Jupyter notebook** (`mltk.core.result._repr_html_`):
-  - Rich HTML display for TestResult and TestSuite in notebooks
-  - `display_report(suite)` for inline reports
-- **Model card generator** (`mltk.report.model_card`):
-  - `generate_model_card()` — auto-generate Google Model Cards from test results
-  - `mltk model-card` CLI command
-- `mltk[mlflow]` optional dependency
+- **Cloud monitoring** (`mltk.monitor`):
+  - AWS: assert_endpoint_healthy, assert_endpoint_latency, assert_endpoint_error_rate
+  - GCP: assert_endpoint_healthy, assert_prediction_latency
+  - Azure: assert_endpoint_healthy, assert_endpoint_latency
+  - Prometheus: assert_prometheus_metric, assert_gpu_utilization, assert_triton_healthy
+  - Optional deps: `mltk[aws]`, `mltk[gcp]`, `mltk[azure]`
+
+### Sprint 19
+- MLflow integration (MlflowLogger, --mltk-mlflow), Jupyter _repr_html_, model card generator. 416 tests.
 
 ## [0.2.0] — 2026-03-25
 

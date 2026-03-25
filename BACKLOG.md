@@ -121,7 +121,12 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## PLANNED
 
-### Sprint 19 -- Production Integrations (ACTIVE)
+### Sprint 19 -- Production Integrations
+- [x] MLflow integration (MlflowLogger, --mltk-mlflow flag)
+- [x] Jupyter notebook (_repr_html_ on TestResult/TestSuite)
+- [x] Model card generator (Google Model Cards from test results)
+
+### Sprint 20 -- Cloud Monitoring (ACTIVE)
 - [ ] MLflow integration: log test results as metrics + attach reports as artifacts
 - [ ] Jupyter notebook: rich _repr_html_ for TestResult/TestSuite, display_report()
 - [ ] Model card generator: auto-generate Google Model Cards from test results
