@@ -137,4 +137,16 @@ def test_data_quality():
                 # Drift detected (exception raised)
                 print(f"  {col:20s} | DRIFT DETECTED")  # noqa: T201
 
+    @app.command()
+    def score() -> None:
+        """Show ML Test Score (run pytest first to generate results)."""
+        print("ML Test Score")  # noqa: T201
+        print("Run: pytest --mltk-report to generate scores")  # noqa: T201
+        print()  # noqa: T201
+        print("Categories (Google 28-test rubric):")  # noqa: T201
+        print("  Data:           schema, distribution, drift, freshness, PII, labels")  # noqa: T201
+        print("  Model:          metrics, regression, slicing, calibration, bias, adversarial")  # noqa: T201
+        print("  Infrastructure: reproducibility, pipeline, contract, latency, throughput")  # noqa: T201
+        print("  Monitoring:     drift monitoring, degradation, SLA, alerts")  # noqa: T201
+
     app()

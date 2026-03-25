@@ -166,3 +166,12 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
                 writer.line(f"  - {r['nodeid']}")
 
     writer.sep("=")
+
+    # Generate HTML report
+    try:
+        from mltk.report.generator import generate_report
+
+        report_path = generate_report(collector.results)
+        writer.line(f"HTML report: {report_path}")
+    except ImportError:
+        pass  # plotly/jinja2 not installed — skip HTML report

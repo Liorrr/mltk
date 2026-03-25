@@ -1,36 +1,36 @@
 # Changelog
 
-## [Unreleased] — Sprint 5: Inference + CLI
+## [Unreleased] — Sprint 6: Reports + Pipeline + ML Test Score
 
 ### Added
-- **Inference latency testing**:
-  - `assert_latency()` — percentile validation (P50/P95/P99) with mandatory warmup
-  - `assert_cold_start()` — first-call latency for model loading time
-- **Inference throughput testing**:
-  - `assert_throughput()` — duration-based RPS measurement with concurrent workers
-  - Error tracking and goodput calculation
-- **API contract testing**:
-  - `assert_api_contract()` — JSON Schema validation for input/output
-  - Falls back to basic type checking when jsonschema not installed
-- **CLI commands** (mltk):
-  - `mltk init` — scaffold mltk.yaml + example test file
-  - `mltk scan <path>` — quick data quality scan on CSV files
-  - `mltk drift <ref> <cur>` — drift comparison between two datasets
-- **4 cloud skills installed**: vertex-ai-api-dev, monitoring-observability, kubernetes, azure-ai-ml-py
-- **Cloud infrastructure research**: AWS/GCP/Azure/on-prem ML lifecycle testing patterns catalogued in BACKLOG
-- **146 Python tests** (22 new) + **5 Rust tests**
+- **HTML report generation** (`generate_report`):
+  - Self-contained single-file HTML with dark theme
+  - Pass/fail summary, per-module breakdown, test details table
+  - Auto-generated when `pytest --mltk-report` is run
+- **ML Test Score** (`compute_ml_test_score`):
+  - Google's 28-test rubric (data/model/infrastructure/monitoring)
+  - `mltk score` CLI command
+- **Pipeline testing**:
+  - `assert_reproducible()` — deterministic training with seed control
+  - `assert_checksum()` — SHA-256 artifact validation
+  - `assert_pipeline()` — E2E pipeline execution with type checking
+- **Milestone:** `pytest --mltk-report` generates HTML report
+- **162 tests** (16 new)
+
+### Sprint 5
+- Inference (latency, throughput, contract), CLI (init, scan, drift). 146 tests.
 
 ### Sprint 4
-- Bias (5 fairness methods), adversarial robustness, --mltk-report plugin. 124 tests.
+- Bias (5 methods), adversarial, --mltk-report terminal. 124 tests.
 
 ### Sprint 3
-- Model metrics (9 types), regression testing, slicing, calibration. 102 tests.
+- Model metrics (9), regression, slicing, calibration. 102 tests.
 
 ### Sprint 2
-- Drift (4 methods), PII (11 patterns), labels, real Rust KS/PSI. 78 tests.
+- Drift (4 methods), PII (11 patterns), labels, Rust KS/PSI. 78 tests.
 
 ### Sprint 1
 - Config loading, 8 data quality assertions, MkDocs docs. 47 tests.
 
 ### Sprint 0
-- Project skeleton, core types, Rust crate, pytest plugin, CLI skeleton, CI/CD.
+- Project skeleton, core types, Rust crate, pytest plugin, CLI, CI/CD.

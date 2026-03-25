@@ -42,9 +42,12 @@ nav:
       - Inference Latency: api/inference-latency.md
       - Inference Throughput: api/inference-throughput.md
       - Inference Contract: api/inference-contract.md
+      - Pipeline: api/pipeline.md
   - Guides:
       - pytest Plugin: api/pytest-plugin.md
       - CLI: api/cli.md
+      - HTML Reports: api/report.md
+      - ML Test Score: api/ml-test-score.md
 
 markdown_extensions:
   - admonition
