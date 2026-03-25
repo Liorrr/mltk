@@ -27,6 +27,11 @@ def assert_topk_accuracy(
 
     Returns:
         TestResult with accuracy and K value.
+
+    Example:
+        >>> import numpy as np
+        >>> probs = np.array([[0.1, 0.2, 0.7], [0.8, 0.1, 0.1]])
+        >>> assert_topk_accuracy(y_true=[2, 0], y_probs=probs, k=1, threshold=0.9)
     """
     labels = np.asarray(y_true).flatten()
     probs = np.asarray(y_probs, dtype=np.float64)

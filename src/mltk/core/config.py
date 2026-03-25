@@ -32,10 +32,20 @@ class MltkConfig:
         """Load config from mltk.yaml, pyproject.toml, or defaults.
 
         Search order:
-        1. Explicit path (if provided) — treated as YAML
+        1. Explicit path (if provided) -- treated as YAML
         2. mltk.yaml in current directory
         3. pyproject.toml [tool.mltk] in current directory
         4. Default config
+
+        Args:
+            path: Explicit path to a YAML config file. None triggers auto-discovery.
+
+        Returns:
+            MltkConfig instance populated from the first config source found.
+
+        Example:
+            >>> config = MltkConfig.load()
+            >>> config = MltkConfig.load("custom-mltk.yaml")
         """
         if path is not None:
             p = Path(path)
@@ -114,7 +124,15 @@ class MltkConfig:
         return cls._from_dict(mltk_section)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize config to dict."""
+        """Serialize config to a flat dict suitable for JSON/YAML output.
+
+        Returns:
+            Dict with all config fields.
+
+        Example:
+            >>> MltkConfig().to_dict()
+            {'drift_method': 'ks', 'drift_threshold': 0.05, ...}
+        """
         return {
             "drift_method": self.drift_method,
             "drift_threshold": self.drift_threshold,

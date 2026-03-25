@@ -21,6 +21,10 @@ def generate_report(
 
     Returns:
         Path to the generated HTML file.
+
+    Example:
+        >>> results = [{"nodeid": "test_a", "outcome": "passed", "duration": 0.1}]
+        >>> path = generate_report(results, output_dir="./reports")
     """
     try:
         from jinja2 import Template

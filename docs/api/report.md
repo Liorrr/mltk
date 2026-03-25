@@ -11,7 +11,7 @@ Generate self-contained interactive HTML reports from test results. Dark theme b
 ```python
 from mltk.report import generate_report
 
-path = generate_report(suite, output_dir="./mltk-reports", theme="dark")
+path = generate_report(results, output_dir="./mltk-reports", title="MLTK Test Report")
 ```
 
 ### Parameters

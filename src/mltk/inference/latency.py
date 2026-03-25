@@ -39,6 +39,10 @@ def assert_latency(
 
     Returns:
         TestResult with full latency distribution.
+
+    Example:
+        >>> def predict(x): return x * 2
+        >>> assert_latency(predict, 42, p95=50.0, iterations=50)
     """
     if p50 is None and p95 is None and p99 is None:
         return assert_true(
@@ -114,6 +118,10 @@ def assert_cold_start(
 
     Returns:
         TestResult with cold start timing.
+
+    Example:
+        >>> def load_and_predict(): pass  # includes model loading
+        >>> assert_cold_start(load_and_predict, max_ms=5000.0)
     """
     start = time.perf_counter()
     func(*args)

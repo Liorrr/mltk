@@ -6,7 +6,12 @@ from pathlib import Path
 
 
 def main() -> None:
-    """Entry point for mltk CLI."""
+    """Entry point for mltk CLI.
+
+    Initializes the Typer application and registers all subcommands
+    (version, init, scan, drift, score). Requires ``typer`` to be installed
+    via the ``mltk[cli]`` extra.
+    """
     try:
         import typer
     except ImportError as err:

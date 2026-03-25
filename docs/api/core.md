@@ -316,6 +316,48 @@ def test_warning_does_not_block():
 
 ---
 
+## timed_assertion
+
+```python
+def timed_assertion(func: Callable) -> Callable
+```
+
+### What it is
+
+A decorator that adds timing to assertion functions. It measures execution time using `time.perf_counter()` and stores the result in `TestResult.duration_ms`.
+
+### Why it matters for ML
+
+ML assertions can be expensive -- computing drift statistics on large datasets, running inference for robustness checks, or scanning for PII across millions of rows. `timed_assertion` automatically records how long each assertion takes, which feeds into reports and helps identify slow tests that need optimization.
+
+### When to use it
+
+- **Building custom assertions** -- wrap your `assert_*` function with `@timed_assertion` to get automatic timing
+- **All built-in assertions** use this decorator already
+
+### Example
+
+```python
+from mltk.core.assertion import timed_assertion, assert_true
+from mltk.core.result import Severity, TestResult
+
+@timed_assertion
+def assert_custom_check(data, threshold=0.5) -> TestResult:
+    score = compute_expensive_metric(data)
+    return assert_true(
+        score >= threshold,
+        name="custom.check",
+        message=f"Score {score:.4f} vs {threshold}",
+        severity=Severity.CRITICAL,
+        score=score,
+    )
+
+result = assert_custom_check(my_data)
+print(result.duration_ms)  # automatically populated
+```
+
+---
+
 ## MltkAssertionError
 
 ```python

@@ -33,6 +33,11 @@ def assert_reproducible(
 
     Returns:
         TestResult with reproducibility details.
+
+    Example:
+        >>> import numpy as np
+        >>> def train(data): return np.mean(data)
+        >>> assert_reproducible(train, [1.0, 2.0, 3.0], seed=42, runs=3)
     """
     outputs = []
     for _run in range(runs):
@@ -93,6 +98,9 @@ def assert_checksum(
 
     Returns:
         TestResult with hash comparison.
+
+    Example:
+        >>> assert_checksum("model.onnx", "sha256:abc123...")
     """
     p = Path(path)
     if not p.exists():

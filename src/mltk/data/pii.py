@@ -69,6 +69,11 @@ def scan_pii(
 
     Returns:
         List of PiiMatch objects with type, position, and matched text.
+
+    Example:
+        >>> matches = scan_pii("Contact john@example.com or 555-123-4567")
+        >>> [m.type for m in matches]
+        ['email', 'phone']
     """
     matches: list[PiiMatch] = []
 

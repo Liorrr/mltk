@@ -36,7 +36,17 @@ def _compute_metric(
     metric: str,
     average: str = "weighted",
 ) -> float:
-    """Compute a metric using sklearn."""
+    """Compute a metric using sklearn.
+
+    Args:
+        y_true: Ground truth labels/values.
+        y_pred: Model predictions.
+        metric: Metric name from _SUPPORTED_METRICS.
+        average: Averaging strategy for multiclass (weighted/macro/micro).
+
+    Returns:
+        Computed metric value as a float.
+    """
     try:
         from sklearn import metrics as skm
     except ImportError as err:
@@ -89,6 +99,11 @@ def assert_metric(
 
     Returns:
         TestResult with actual metric value and threshold.
+
+    Example:
+        >>> y_true = [1, 0, 1, 1, 0]
+        >>> y_pred = [1, 0, 1, 0, 0]
+        >>> assert_metric(y_true, y_pred, metric="accuracy", threshold=0.7)
     """
     if metric not in _SUPPORTED_METRICS:
         return assert_true(

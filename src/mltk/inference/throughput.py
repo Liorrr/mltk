@@ -34,6 +34,10 @@ def assert_throughput(
 
     Returns:
         TestResult with throughput statistics.
+
+    Example:
+        >>> def predict(x): return x
+        >>> assert_throughput(predict, "input", min_rps=10.0, duration=1.0)
     """
     completed = 0
     errors = 0
@@ -48,7 +52,7 @@ def assert_throughput(
             except Exception:
                 errors += 1
     else:
-        # Concurrent mode
+        # Concurrent mode — spawn workers that loop until duration expires
         def _worker() -> tuple[int, int]:
             local_completed = 0
             local_errors = 0
