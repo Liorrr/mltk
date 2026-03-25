@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased] — Sprint 34
+
+### Added
+- **PII remaining**: international phone numbers, MAC addresses, Bitcoin/Ethereum wallets
+- **PII allowlists**: `scan_pii(text, allowlist=[...])` to suppress known-safe patterns
+- **Bias report**: `generate_bias_report()` — demographic breakdown Markdown from test results
+
 ## [0.6.0] — 2026-03-26
 
 **119 assertions, 800+ tests, benchmarks, v0.6.0.**

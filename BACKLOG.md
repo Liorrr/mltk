@@ -76,11 +76,13 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Sprint 32 -- RAGAS + Coherence + OWASP LLM
 - [x] RAGAS composite score, coherence check, OWASP LLM Top 10 mapping
 
-### Sprint 33 -- v0.6.0 + Benchmarks + Quick Wins (ACTIVE)
-- [ ] Benchmarks vs competitors
-- [ ] Feature-label correlation shift
-- [ ] Output drift detection
-- [ ] v0.6.0 release
+### Sprint 33 -- v0.6.0 + Benchmarks + Quick Wins
+- [x] Benchmarks, feature-label correlation shift, output drift, v0.6.0
+
+### Sprint 34 -- PII Completion + Bias Report + Allowlists (ACTIVE)
+- [ ] PII: international phones, MAC addresses, crypto wallets
+- [ ] PII allowlists (suppress known-safe patterns)
+- [ ] Bias/fairness demographic breakdown report
 
 ---
 
@@ -115,4 +117,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 28 — v0.4.0 release (March 25, 2026)*
+*Last updated: Sprint 34 (March 26, 2026)*

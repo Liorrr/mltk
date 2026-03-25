@@ -15,6 +15,11 @@ India Aadhaar (Verhoeff checksum), and India PAN (format).
 Sprint 28: Tier 4 EU PII patterns added -- France NIR/social security number
 (MOD-97 checksum), Italy Codice Fiscale (format), and Spain DNI (modulo-23
 letter validation).
+
+Sprint 34: Tier 5 network/crypto patterns added -- E.164 international phone
+numbers, MAC addresses, Bitcoin addresses, and Ethereum addresses.
+Allowlist support added to scan_pii() and assert_no_pii() to suppress
+known-safe exact matches.
 """
 
 from __future__ import annotations
@@ -377,6 +382,18 @@ _PII_PATTERNS: dict[str, re.Pattern[str]] = {
     # Spain DNI -- 8 digits + 1 uppercase letter.
     # Modulo-23 letter validation (_validate_dni) applied in scan_pii.
     "es_dni": re.compile(r"\b\d{8}[A-Z]\b"),
+    # Sprint 34: Tier 5 network/crypto patterns
+    # E.164 international phone: +<country_code> followed by subscriber number.
+    # Matches formats like +1-555-123-4567 or +44 20 7946 0958.
+    "intl_phone": re.compile(
+        r"\+\d{1,3}[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{3,4}[\s\-]?\d{3,4}"
+    ),
+    # MAC address (IEEE 802): six groups of two hex digits, colon or dash separator.
+    "mac_address": re.compile(r"\b([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b"),
+    # Bitcoin address (P2PKH / P2SH): starts with 1 or 3, Base58Check, 26-34 chars.
+    "bitcoin_address": re.compile(r"\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b"),
+    # Ethereum address: 0x prefix followed by exactly 40 hex digits.
+    "ethereum_address": re.compile(r"\b0x[0-9a-fA-F]{40}\b"),
 }
 
 # Checksum validators keyed by pattern name.
@@ -421,12 +438,18 @@ _PATTERN_CATEGORIES: dict[str, list[str]] = {
     "fr_nir": ["fr_nir"],
     "it_codice_fiscale": ["it_codice_fiscale"],
     "es_dni": ["es_dni"],
+    # Sprint 34 Tier 5 network/crypto
+    "intl_phone": ["intl_phone"],
+    "mac_address": ["mac_address"],
+    "bitcoin_address": ["bitcoin_address"],
+    "ethereum_address": ["ethereum_address"],
 }
 
 
 def scan_pii(
     text: str,
     patterns: list[str] | None = None,
+    allowlist: list[str] | None = None,
 ) -> list[PiiMatch]:
     """Scan text for PII patterns.
 
@@ -434,6 +457,9 @@ def scan_pii(
         text: Text to scan.
         patterns: Pattern categories to check (e.g., ["email", "phone"]).
             None = all patterns.
+        allowlist: Optional list of exact strings to suppress. Any match
+            whose matched text appears in this list is skipped. Useful for
+            known-safe values like internal service addresses or test fixtures.
 
     Returns:
         List of PiiMatch objects with type, position, and matched text.
@@ -442,8 +468,11 @@ def scan_pii(
         >>> matches = scan_pii("Contact john@example.com or 555-123-4567")
         >>> [m.type for m in matches]
         ['email', 'phone']
+        >>> scan_pii("john@example.com", allowlist=["john@example.com"])
+        []
     """
     matches: list[PiiMatch] = []
+    _allowlist_set: set[str] = set(allowlist) if allowlist else set()
 
     # Determine which patterns to run
     if patterns is not None:
@@ -466,6 +495,10 @@ def scan_pii(
             # Apply checksum validator when present; skip invalid matches to
             # reduce false positives (e.g., random 9-digit numbers, malformed IBANs).
             if validator is not None and not validator(matched):  # type: ignore[operator]
+                continue
+
+            # Skip exact-match allowlisted values.
+            if matched in _allowlist_set:
                 continue
 
             # Determine the user-facing type (collapse api_key subtypes)
@@ -492,6 +525,7 @@ def assert_no_pii(
     df: pd.DataFrame,
     columns: list[str] | None = None,
     patterns: list[str] | None = None,
+    allowlist: list[str] | None = None,
 ) -> TestResult:
     """Assert no PII detected in DataFrame text columns.
 
@@ -499,12 +533,15 @@ def assert_no_pii(
         df: DataFrame to scan.
         columns: Columns to scan. None = all object/string columns.
         patterns: Pattern categories to check. None = all.
+        allowlist: Optional list of exact strings to suppress across all
+            columns. Passed through to scan_pii() for each cell value.
 
     Returns:
         TestResult with match details per column and type.
 
     Example:
         >>> assert_no_pii(df, columns=["feedback_text", "notes"])
+        >>> assert_no_pii(df, allowlist=["noreply@example.com"])
     """
     if columns is None:
         columns = [
@@ -521,7 +558,7 @@ def assert_no_pii(
     for col in columns:
         col_matches = 0
         for value in df[col].dropna().astype(str):
-            found = scan_pii(str(value), patterns=patterns)
+            found = scan_pii(str(value), patterns=patterns, allowlist=allowlist)
             col_matches += len(found)
             for m in found:
                 matches_by_type[m.type] = matches_by_type.get(m.type, 0) + 1
