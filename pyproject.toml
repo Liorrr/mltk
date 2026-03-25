@@ -40,7 +40,11 @@ report = ["plotly>=5.18", "jinja2>=3.1"]
 cv = ["opencv-python>=4.8"]
 nlp = ["nltk>=3.8", "rouge-score>=0.1"]
 speech = ["jiwer>=3.0"]
-all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech]"]
+contracts = ["pyyaml>=6.0"]
+integrations = ["jira>=3.0"]
+llm = []  # lightweight (numpy only), future: sentence-transformers, detoxify
+torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)
+all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations]"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",

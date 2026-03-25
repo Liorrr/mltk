@@ -1,8 +1,40 @@
 # Changelog
 
+## [Unreleased] — Sprint 16
+
+### Added
+- **CV tracking metrics** (`mltk.domains.cv.tracking`):
+  - `assert_mota()` — Multi-Object Tracking Accuracy
+  - `assert_motp()` — Multi-Object Tracking Precision
+  - `assert_idf1()` — ID F1 score for identity-aware tracking
+- **Training bug P1** (`mltk.training.gradient`, `mltk.training.numerical`):
+  - Gradient pathology assertions (flow, vanishing, exploding, loss finite)
+  - Numerical stability assertions (NaN/Inf detection, softmax validity)
+  - Learning rate assertions (loss decreasing, no divergence)
+- **Docs deployment**: Dockerfile + nginx for company server hosting
+- `mltk[torch]` optional dependency group
+
 ## [0.1.0] — 2026-03-25 — First Public Release
 
-**47 assertion functions, 204 tests, 4 domain kits, Rust acceleration, pytest plugin, CLI, HTML reports.**
+**60+ assertion functions, 261 tests, 6 domain kits, Rust acceleration, pytest plugin, CLI, HTML reports.**
+
+### Sprint 15
+- Face recognition: assert_face_far. Wiring audit fixed 13 gaps. Examples for all domains.
+
+### Sprint 14
+- Jira integration: IssueTrackerAdapter, JiraAdapter, TicketDecisionEngine, ML ticket templates.
+
+### Sprint 13
+- PII expansion (24 patterns + Luhn). Training bug P0: train/test overlap, temporal split, target leakage.
+
+### Sprint 12
+- LLM evaluation: semantic similarity, toxicity, hallucination, TTFT/ITL.
+
+### Sprint 11
+- Data contracts engine (YAML → pytest). Drift expansion: JS, Wasserstein, auto, embedding drift.
+
+### Sprint 10
+- v0.1.0 published to PyPI. README overhaul, CONTRIBUTING.md, GitHub repo.
 
 ### Added
 - **Production monitoring** (`mltk.monitor`):

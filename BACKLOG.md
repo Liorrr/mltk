@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S9: 47 assertions, 204 tests, 5 Rust tests)
+## DONE (S0-S15: 60+ assertions, 261 tests, 5 Rust tests)
 
 ### Sprint 0 -- Project Skeleton
 - [x] Repo structure, pyproject.toml, Cargo.toml, CI/CD, Makefile, README
@@ -49,74 +49,60 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] assert_no_degradation, assert_sla
 - [x] assert_feature_drift, assert_feature_importance_stable, assert_class_balance
 
+### Sprint 10 -- v0.1.0 Release
+- [x] PyPI publish (v0.1.0 on PyPI)
+- [x] Cross-platform wheels (maturin-action: Linux, macOS, Windows)
+- [x] README overhaul with badges, feature matrix, install instructions
+- [x] CONTRIBUTING.md with dev setup, code style, PR process
+- [x] GitHub repo (Liorrr/mltk)
+
+### Sprint 11 -- Data Contracts + Drift Expansion
+- [x] Data contracts engine: YAML spec, validate_data(), generate_tests_from_contract()
+- [x] CLI: mltk contract init/validate/generate-tests
+- [x] Jensen-Shannon divergence (method="js"), Wasserstein (method="wasserstein"), auto-select (method="auto")
+- [x] Embedding drift: assert_no_embedding_drift (cosine centroid, euclidean centroid, MMD)
+
+### Sprint 12 -- LLM/GenAI Evaluation
+- [x] assert_semantic_similarity (token-level F1, lightweight)
+- [x] assert_no_toxicity (regex + keyword patterns)
+- [x] assert_no_hallucination (keyword overlap)
+- [x] assert_ttft, assert_itl (LLM streaming latency)
+
+### Sprint 13 -- PII Expansion + Training Bug Detection P0
+- [x] 10 Tier 1 PII patterns: IPv4, IPv6, JWT, PEM, DB conn, Stripe, Bearer, Google API, IBAN, URL auth
+- [x] Luhn checksum for credit cards
+- [x] assert_no_train_test_overlap, assert_temporal_split, assert_no_target_leakage
+
+### Sprint 14 -- Jira + PM Integrations
+- [x] IssueTrackerAdapter ABC (vendor-agnostic)
+- [x] JiraAdapter with lazy init, custom field mapping
+- [x] TicketDecisionEngine: content hash dedup + cooldown + severity filter
+- [x] 5 ML ticket templates
+
+### Sprint 15 -- Wiring Audit + Face Recognition
+- [x] assert_face_far (FAR at operating point)
+- [x] Wiring audit: fixed 13 gaps (deps, CLI, exports, examples)
+- [x] 30+ MkDocs doc pages aligned with code
+- [x] Top-level convenience imports
+- [x] Examples: nlp, llm, contract, training
+
 ### Documentation Audit
-- [x] All 47 source files: Args/Returns/Example on every function
-- [x] All 20 test files: scenario + WHY + expected on every test
-- [x] All 25 doc pages: aligned with code signatures
+- [x] All source files: Args/Returns/Example on every function
+- [x] All test files: scenario + WHY + expected on every test
+- [x] All doc pages: aligned with code signatures
 
 ---
 
 ## PLANNED
 
-### Sprint 10 -- v0.1.0 Release
-- [ ] PyPI publish via trusted publishing
-- [ ] Cross-platform wheels (maturin-action: Linux, macOS, Windows)
-- [ ] README with badges, benchmarks, install instructions
-- [ ] CONTRIBUTING.md + code of conduct
-- [ ] GitHub repo creation (Liorrr/mltk)
-- [ ] TestPyPI dry-run before production publish
-- [ ] Final MkDocs polish + deploy to GitHub Pages
-
-### Sprint 11 -- Data Contracts + Drift Expansion
-- [ ] **Data contracts engine** (KILLER FEATURE): YAML spec → auto-generate pytest tests
-  - Parse mltk contract YAML (columns, types, ranges, drift baselines, PII rules)
-  - `mltk contract validate data.csv --contract contract.yaml`
-  - Auto-generate pytest test file from contract
-  - Source: `docs/research/data-contracts-research.md`
-- [ ] **Jensen-Shannon divergence** -- `method="js"`, symmetric, bounded [0,1], threshold 0.1
-- [ ] **Wasserstein distance** -- `method="wasserstein"`, scipy.stats.wasserstein_distance, threshold 0.1
-- [ ] **method="auto"** -- auto-select drift method based on sample size + dtype
-- [ ] **Embedding drift** -- `assert_no_embedding_drift(ref, cur, method="cosine|mmd|classifier")`
-  - 5 methods: cosine centroid, euclidean centroid, MMD, PCA+KS, domain classifier
-  - Source: `docs/research/embedding-drift-research.md`
-
-### Sprint 12 -- LLM/GenAI Evaluation
-- [ ] **BERTScore** -- semantic similarity scoring (lazy import sentence-transformers)
-- [ ] **assert_no_toxicity** -- toxicity classification (lazy import detoxify)
-- [ ] **assert_no_hallucination** -- factual consistency checking
-- [ ] **TTFT + ITL metrics** -- Time to First Token, Inter-Token Latency for LLM endpoints
-- [ ] **LLM-as-judge** -- configurable LLM evaluator for open-ended outputs
-- [ ] Source: `docs/research/llm-evaluation-research.md` (20 assertions proposed, 4 phases)
-
-### Sprint 13 -- PII Expansion + Training Bug Detection P0
-- [ ] **10 Tier 1 PII patterns**: IPv4/IPv6, JWT, PEM keys, DB connection strings, Stripe keys, Bearer tokens, Google API keys, IBAN, URL auth tokens
-- [ ] **Checksum validation**: Luhn (credit cards), MOD-97 (IBAN) -- eliminates ~100% false positives
-- [ ] **Confidence scoring**: 0.0-1.0 per PII match
-- [ ] **P0 Data leakage**: assert_no_train_test_overlap, assert_temporal_split, assert_group_split, assert_no_future_leakage, assert_preprocessing_after_split
-- [ ] **P0 Feature leakage**: assert_no_feature_target_leakage, assert_feature_available_at_inference, assert_no_id_features, assert_target_encoding_is_oof
-
-### Sprint 14 -- Jira + PM Integrations
-- [ ] **IssueTrackerAdapter** base class (vendor-agnostic)
-- [ ] **JiraAdapter**: create/search/update/close issues via REST API
-- [ ] **TicketDecisionEngine**: content hash dedup, cooldown, severity filtering
-- [ ] **ML ticket templates**: data quality, model regression, drift detection, bias violation
-- [ ] **Slack notifications**: post failure summary + Jira link
-- [ ] **GitHub Actions action**: `uses: liorrr/mltk-action@v1`
-- [ ] Source: `docs/research/jira-integration-research.md`
-
-### Sprint 15 -- Advanced CV + Face Recognition
-- [ ] **assert_face_far**: false accept rate at operating point (NIST FRVT)
-- [ ] **assert_face_bias**: FAR/FRR demographic differential
-- [ ] **MOTA/MOTP/IDF1**: multi-object tracking metrics
-- [ ] **Per-class AP breakdown**: precision-recall curves in report
-- [ ] **assert_confusion_matrix**: per-class quality gates
-- [ ] Source: CV research (COCO eval, NIST FRVT benchmarks)
-
-### Sprint 16 -- Training Bug Assertions P1
-- [ ] Gradient pathologies: assert_gradient_flow, assert_weight_update_ratio, assert_gradient_bounded, assert_loss_finite, assert_neuron_utilization, assert_gradient_snr
-- [ ] Learning rate: assert_loss_decreasing, assert_no_loss_divergence, assert_lr_schedule_matches, assert_lr_bounded, assert_warmup_fraction
-- [ ] Batch normalization: assert_eval_mode_set, assert_bn_statistics_valid, assert_bn_batch_size, assert_train_eval_consistency
-- [ ] Numerical stability: assert_no_nan_inf, assert_loss_scale_effective, assert_numerical_stability, assert_softmax_valid
+### Sprint 16 -- Advanced CV Tracking + Training Bug P1 + Docs Deploy (ACTIVE)
+- [x] **CV Tracking**: assert_mota, assert_motp, assert_idf1 (multi-object tracking)
+- [ ] **Per-class AP**: extend assert_map with per-class breakdown in report
+- [ ] **Training Bug P1 -- Gradient**: assert_gradient_flow, assert_no_vanishing_gradient, assert_no_exploding_gradient, assert_loss_finite
+- [ ] **Training Bug P1 -- LR**: assert_loss_decreasing, assert_no_loss_divergence
+- [ ] **Training Bug P1 -- Numerical**: assert_no_nan_inf, assert_numerical_stability, assert_softmax_valid
+- [ ] **Docs deployment**: Dockerfile + nginx config for company server (NOT GitHub Pages -- repo is private)
+- [ ] Add `mltk[torch]` optional dependency for gradient assertions
 
 ### Sprint 17 -- Cloud Monitoring Integration
 - [ ] **AWS SageMaker**: endpoint health, CloudWatch metrics, Model Monitor integration
@@ -261,4 +247,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Post-Sprint 9 documentation audit (March 25, 2026)*
+*Last updated: Sprint 16 start (March 25, 2026)*

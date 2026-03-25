@@ -1,0 +1,21 @@
+name: sample_data
+version: "1.0"
+
+columns:
+  id:
+    type: int64
+    nullable: false
+    unique: true
+  feature_a:
+    type: float64
+    nullable: false
+  feature_b:
+    type: int64
+    nullable: false
+    range: [0, 10]
+  label:
+    type: int64
+    nullable: false
+
+quality:
+  min_rows: 5

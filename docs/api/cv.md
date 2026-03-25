@@ -183,3 +183,128 @@ assert_topk_accuracy(y_true, y_probs, k=5, threshold=0.9)
 - `total` -- total number of samples
 
 ---
+
+## Multi-Object Tracking
+
+Standard MOT metrics for evaluating object trackers. All functions take per-frame ground truth and prediction tracks.
+
+**Input format**: Lists of dicts per frame, each with `ids` (1D array of track IDs) and `boxes` (Nx4 array of `[x1, y1, x2, y2]`).
+
+### assert_mota
+
+Multi-Object Tracking Accuracy. MOTA = 1 - (FN + FP + IDSW) / total_gt. The standard metric for tracking quality.
+
+```python
+from mltk.domains.cv import assert_mota
+
+gt = [{"ids": [1, 2], "boxes": [[0,0,10,10], [20,20,30,30]]}]
+pred = [{"ids": [1, 2], "boxes": [[1,1,11,11], [21,21,31,31]]}]
+assert_mota(gt, pred, min_mota=0.5)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `gt_tracks` | `list[dict]` | *(required)* | Per-frame GT with `ids` and `boxes` |
+| `pred_tracks` | `list[dict]` | *(required)* | Per-frame predictions with `ids` and `boxes` |
+| `min_mota` | `float` | `0.5` | Minimum required MOTA |
+| `iou_threshold` | `float` | `0.5` | IoU threshold for matching |
+
+#### Returns
+
+`TestResult` with details:
+- `mota` -- computed MOTA score
+- `fn` -- total false negatives (missed GT)
+- `fp` -- total false positives (extra predictions)
+- `idsw` -- total ID switches
+- `total_gt` -- total ground truth detections
+
+---
+
+### assert_motp
+
+Multi-Object Tracking Precision. MOTP = mean IoU of all matched pairs. Measures localization quality.
+
+```python
+from mltk.domains.cv import assert_motp
+
+assert_motp(gt, pred, min_motp=0.5)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `gt_tracks` | `list[dict]` | *(required)* | Per-frame GT with `ids` and `boxes` |
+| `pred_tracks` | `list[dict]` | *(required)* | Per-frame predictions with `ids` and `boxes` |
+| `min_motp` | `float` | `0.5` | Minimum required MOTP |
+| `iou_threshold` | `float` | `0.5` | IoU threshold for matching |
+
+#### Returns
+
+`TestResult` with details:
+- `motp` -- mean IoU of matched pairs
+- `num_matches` -- total matched pairs
+
+---
+
+### assert_idf1
+
+ID F1 score for identity-aware tracking. Measures how well the tracker maintains consistent IDs. IDF1 = 2 * IDTP / (2 * IDTP + IDFP + IDFN).
+
+```python
+from mltk.domains.cv import assert_idf1
+
+assert_idf1(gt, pred, min_idf1=0.5)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `gt_tracks` | `list[dict]` | *(required)* | Per-frame GT with `ids` and `boxes` |
+| `pred_tracks` | `list[dict]` | *(required)* | Per-frame predictions with `ids` and `boxes` |
+| `min_idf1` | `float` | `0.5` | Minimum required IDF1 |
+| `iou_threshold` | `float` | `0.5` | IoU threshold for matching |
+
+#### Returns
+
+`TestResult` with details:
+- `idf1` -- computed IDF1 score
+- `idtp` -- identity true positives
+- `idfp` -- identity false positives
+- `idfn` -- identity false negatives
+
+---
+
+## Face Recognition
+
+### assert_face_far
+
+Assert False Accept Rate is below threshold. FAR = fraction of non-mate pairs incorrectly accepted. Standard for biometric systems (NIST FRVT).
+
+```python
+from mltk.domains.cv import assert_face_far
+
+assert_face_far(similarities, labels, max_far=0.001)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `similarities` | `array-like` | *(required)* | Pairwise similarity scores |
+| `labels` | `array-like` | *(required)* | Binary labels (1=mate, 0=non-mate) |
+| `max_far` | `float` | `0.001` | Maximum allowed FAR |
+
+#### Returns
+
+`TestResult` with details:
+- `far` -- computed FAR
+- `max_far` -- configured threshold
+- `threshold` -- similarity threshold used
+- `false_accepts` -- number of false accepts
+- `total_non_mates` -- total non-mate pairs
+
+---

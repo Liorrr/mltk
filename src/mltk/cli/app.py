@@ -206,6 +206,22 @@ quality:
             status = "PASS" if r.passed else "FAIL"
             print(f"  [{status}] {r.name}: {r.message}")  # noqa: T201
 
+    @contract_app.command("generate-tests")
+    def contract_generate(
+        contract: str = typer.Argument("contract.yaml"),
+        output: str = typer.Option("tests/test_contract_gen.py", help="Output test file"),
+    ) -> None:
+        """Generate pytest test file from a data contract."""
+        from mltk.contracts.generator import generate_tests_from_contract
+
+        cp = Path(contract)
+        if not cp.exists():
+            print(f"Contract not found: {contract}")  # noqa: T201
+            raise typer.Exit(1)
+
+        result = generate_tests_from_contract(cp, output)
+        print(f"Generated: {result}")  # noqa: T201
+
     app.add_typer(contract_app)
 
     app()
