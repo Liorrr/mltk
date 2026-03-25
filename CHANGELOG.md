@@ -1,18 +1,25 @@
 # Changelog
 
-## [Unreleased] — Sprint 16
+## [Unreleased] — Sprint 17
 
 ### Added
-- **CV tracking metrics** (`mltk.domains.cv.tracking`):
-  - `assert_mota()` — Multi-Object Tracking Accuracy
-  - `assert_motp()` — Multi-Object Tracking Precision
-  - `assert_idf1()` — ID F1 score for identity-aware tracking
-- **Training bug P1** (`mltk.training.gradient`, `mltk.training.numerical`):
-  - Gradient pathology assertions (flow, vanishing, exploding, loss finite)
-  - Numerical stability assertions (NaN/Inf detection, softmax validity)
-  - Learning rate assertions (loss decreasing, no divergence)
-- **Docs deployment**: Dockerfile + nginx for company server hosting
-- `mltk[torch]` optional dependency group
+- **YAML test definitions** (`mltk.testdefs`):
+  - Write ML tests in YAML, run with `mltk test tests.yaml`
+  - 11 data assertions mapped: schema, no_nulls, range, unique, no_pii, row_count, etc.
+  - `env:VAR_NAME` data source support for CI/CD
+- **EU AI Act compliance report** (`mltk.compliance`):
+  - `generate_compliance_report()` — auto-map test results to EU AI Act articles
+  - Risk classification: unacceptable/high/limited/minimal
+  - HTML report with evidence table + gap analysis
+- **mltk doctor** (`mltk.doctor`):
+  - `diagnose()` — 9 diagnostic checks with fix hints
+  - Checks: Python version, deps, config, dirs, Rust extension, pytest plugin
+- **CLI commands**: `mltk doctor`, `mltk test`, `mltk compliance`
+- **Env var config**: `MLTK_*` prefix overrides (highest priority in cascade)
+- **pytest JSON export**: `--mltk-export-json` flag
+
+### Sprint 16
+- CV tracking: assert_mota, assert_motp, assert_idf1. Training P1: gradient + numerical. Docs deployment. 314 tests.
 
 ## [0.1.0] — 2026-03-25 — First Public Release
 

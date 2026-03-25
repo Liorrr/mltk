@@ -1,11 +1,13 @@
 """Tests for mltk.core.config.
 
-Config loading tests verify the cascade: YAML > TOML > defaults.
+Config loading tests verify the cascade: env vars > YAML > TOML > defaults.
 This ensures users can configure mltk via their preferred method
 and that missing/invalid configs fall back gracefully.
 """
 
 from pathlib import Path
+
+import pytest
 
 from mltk.core.config import MltkConfig
 
@@ -137,3 +139,142 @@ def test_config_from_pyproject_no_mltk_section(tmp_path: Path) -> None:
     config = MltkConfig._from_pyproject(toml_file)
     assert config.drift_method == "ks"
     assert config.seed == 42
+
+
+# --- Sprint 17: Environment variable override tests ---
+
+
+def test_env_var_drift_method(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: MLTK_DRIFT_METHOD is set to 'psi' in the environment.
+    WHY: CI pipelines often configure mltk via env vars so config files
+         don't need to be committed per environment.
+    EXPECTED: config.drift_method == 'psi' even when no config file exists.
+    """
+    monkeypatch.setenv("MLTK_DRIFT_METHOD", "psi")
+
+    config = MltkConfig.load()
+    assert config.drift_method == "psi"
+
+
+def test_env_var_drift_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: MLTK_DRIFT_THRESHOLD is set to '0.01' in the environment.
+    WHY: Production environments may require a stricter threshold than the
+         default 0.05 without modifying committed config files.
+    EXPECTED: config.drift_threshold == 0.01 (parsed as float).
+    """
+    monkeypatch.setenv("MLTK_DRIFT_THRESHOLD", "0.01")
+
+    config = MltkConfig.load()
+    assert config.drift_threshold == pytest.approx(0.01)
+    assert isinstance(config.drift_threshold, float)
+
+
+def test_env_var_pii_patterns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: MLTK_PII_PATTERNS is set to a comma-separated list.
+    WHY: Different deployments may scan for different PII types
+         (e.g., healthcare adds 'npi', finance adds 'iban').
+    EXPECTED: config.pii_patterns is ['email', 'iban', 'npi'] — split on commas.
+    """
+    monkeypatch.setenv("MLTK_PII_PATTERNS", "email,iban,npi")
+
+    config = MltkConfig.load()
+    assert config.pii_patterns == ["email", "iban", "npi"]
+
+
+def test_env_var_pii_patterns_trims_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: MLTK_PII_PATTERNS contains extra whitespace around items.
+    WHY: Shell env vars typed by hand often have spaces ('email, phone, ssn').
+         The parser must strip whitespace to avoid patterns like ' phone'.
+    EXPECTED: Each pattern is stripped; empty strings from trailing commas excluded.
+    """
+    monkeypatch.setenv("MLTK_PII_PATTERNS", " email , phone , ssn ")
+
+    config = MltkConfig.load()
+    assert config.pii_patterns == ["email", "phone", "ssn"]
+
+
+def test_env_var_seed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: MLTK_SEED is set to '0' in the environment.
+    WHY: Reproducibility audits may require a fixed seed different from
+         the default 42 without changing committed config.
+    EXPECTED: config.seed == 0 (parsed as int).
+    """
+    monkeypatch.setenv("MLTK_SEED", "0")
+
+    config = MltkConfig.load()
+    assert config.seed == 0
+    assert isinstance(config.seed, int)
+
+
+def test_env_var_report_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: MLTK_REPORT_DIR is set to '/tmp/ci-reports'.
+    WHY: CI runners write to ephemeral directories. Env var avoids committing
+         CI-specific paths to the shared mltk.yaml.
+    EXPECTED: config.report_dir == '/tmp/ci-reports'.
+    """
+    monkeypatch.setenv("MLTK_REPORT_DIR", "/tmp/ci-reports")
+
+    config = MltkConfig.load()
+    assert config.report_dir == "/tmp/ci-reports"
+
+
+def test_env_var_highest_priority(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: mltk.yaml sets drift_method='chi2' AND MLTK_DRIFT_METHOD='ks'.
+    WHY: The env var cascade rule says env vars beat all file-based config.
+         This is the critical priority test — if env vars don't win, CI
+         environment overrides silently fail.
+    EXPECTED: config.drift_method == 'ks' (env var wins over yaml).
+    """
+    yaml_content = "drift_method: chi2\ndrift_threshold: 0.20\n"
+    yaml_file = tmp_path / "mltk.yaml"
+    yaml_file.write_text(yaml_content)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLTK_DRIFT_METHOD", "ks")
+
+    config = MltkConfig.load()
+    # Env var wins
+    assert config.drift_method == "ks"
+    # Non-overridden value still comes from yaml
+    assert config.drift_threshold == pytest.approx(0.20)
+
+
+def test_env_var_unset_leaves_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: No MLTK_* env vars are set in the environment.
+    WHY: When no env vars are present, _apply_env_overrides must be a no-op
+         and not overwrite defaults with None or empty strings.
+    EXPECTED: All config fields retain their default values.
+    """
+    # Ensure no MLTK_* vars bleed in from the test environment
+    for key in [
+        "MLTK_DRIFT_METHOD", "MLTK_DRIFT_THRESHOLD", "MLTK_REPORT_DIR",
+        "MLTK_REPORT_FORMAT", "MLTK_BASELINE_DIR", "MLTK_SEED", "MLTK_PII_PATTERNS",
+    ]:
+        monkeypatch.delenv(key, raising=False)
+
+    config = MltkConfig.load()
+    assert config.drift_method == "ks"
+    assert config.drift_threshold == pytest.approx(0.05)
+    assert config.seed == 42
+    assert "email" in config.pii_patterns
+
+
+def test_env_var_apply_env_overrides_direct(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SCENARIO: _apply_env_overrides is called directly on a known config.
+    WHY: Unit test of the method in isolation — verifies it mutates only
+         the fields whose env vars are set, leaving others untouched.
+    EXPECTED: Only drift_method changes; all other fields keep original values.
+    """
+    monkeypatch.setenv("MLTK_DRIFT_METHOD", "wasserstein")
+    for key in [
+        "MLTK_DRIFT_THRESHOLD", "MLTK_REPORT_DIR", "MLTK_REPORT_FORMAT",
+        "MLTK_BASELINE_DIR", "MLTK_SEED", "MLTK_PII_PATTERNS",
+    ]:
+        monkeypatch.delenv(key, raising=False)
+
+    base = MltkConfig(drift_method="ks", drift_threshold=0.10, seed=99)
+    result = MltkConfig._apply_env_overrides(base)
+
+    assert result.drift_method == "wasserstein"
+    assert result.drift_threshold == pytest.approx(0.10)  # unchanged
+    assert result.seed == 99  # unchanged

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EU AI Act Compliance Report — {{ system_name }}</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --text: #e6edf3; --text2: #8b949e;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff;
+    --purple: #a371f7; --border: #30363d;
+    --orange: #db6d28;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+  /* Header */
+  header { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header h1 span { color: var(--purple); }
+  .header-meta { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .meta-text { color: var(--text2); font-size: 13px; }
+  .risk-badge {
+    display: inline-block; padding: 3px 12px; border-radius: 12px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+    background: rgba(0,0,0,0.3); border: 1px solid;
+  }
+  .risk-badge.fail  { color: var(--red);    border-color: var(--red); }
+  .risk-badge.warn  { color: var(--yellow); border-color: var(--yellow); }
+  .risk-badge.info  { color: var(--blue);   border-color: var(--blue); }
+  .risk-badge.pass  { color: var(--green);  border-color: var(--green); }
+  .risk-desc { color: var(--text2); font-size: 13px; margin-top: 10px; max-width: 780px; }
+
+  /* Summary cards */
+  .summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; flex: 1; min-width: 130px; text-align: center; }
+  .stat-card .number { font-size: 34px; font-weight: 800; }
+  .stat-card .label  { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+  .stat-card.total  .number { background: linear-gradient(135deg, var(--purple), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-card.pass   .number { color: var(--green); }
+  .stat-card.fail   .number { color: var(--red); }
+  .stat-card.score  .number { color: var(--purple); }
+
+  /* Score bar */
+  .score-bar-wrapper { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+  .score-bar-wrapper h3 { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+  .score-bar-track { background: var(--bg3); border-radius: 6px; height: 10px; overflow: hidden; }
+  .score-bar-fill  { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--purple), var(--blue)); transition: width 0.3s; }
+  .score-bar-label { font-size: 12px; color: var(--text2); margin-top: 6px; text-align: right; }
+
+  /* Article sections */
+  .article-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+  .article-header { padding: 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+  .article-tag { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 10px; background: rgba(163,113,247,0.15); color: var(--purple); white-space: nowrap; }
+  .article-title { font-size: 15px; font-weight: 600; }
+  .article-status { margin-left: auto; }
+  .article-desc { color: var(--text2); font-size: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+  .article-body { padding: 0; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
+  td { padding: 8px 12px; border-bottom: 1px solid rgba(48,54,61,0.5); vertical-align: top; word-break: break-word; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(56,58,65,0.15); }
+  .test-name { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 12px; color: var(--blue); }
+  .message { color: var(--text2); font-size: 12px; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge.pass { background: rgba(63,185,80,0.15);  color: var(--green); }
+  .badge.fail { background: rgba(248,81,73,0.15);  color: var(--red); }
+  .badge.warn { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge.info { background: rgba(88,166,255,0.15); color: var(--blue); }
+  .badge.gap  { background: rgba(219,109,40,0.15); color: var(--orange); }
+
+  /* No-test placeholder */
+  .no-tests { padding: 16px 20px; color: var(--text2); font-size: 13px; font-style: italic; }
+
+  /* Gaps section */
+  .gaps-section { background: var(--bg2); border: 1px solid rgba(248,81,73,0.35); border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+  .gaps-section h2 { font-size: 15px; font-weight: 600; color: var(--red); margin-bottom: 14px; }
+  .gap-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .gap-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: rgba(248,81,73,0.06); border-radius: 6px; border: 1px solid rgba(248,81,73,0.2); }
+  .gap-article { font-size: 11px; font-weight: 700; color: var(--red); white-space: nowrap; padding-top: 1px; }
+  .gap-text { font-size: 13px; color: var(--text2); }
+
+  /* No gaps */
+  .no-gaps { padding: 14px; background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.25); border-radius: 6px; color: var(--green); font-size: 13px; text-align: center; font-weight: 600; }
+
+  footer { text-align: center; color: var(--text2); font-size: 12px; padding: 28px; }
+  footer a { color: var(--purple); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <h1>MLTK <span>EU AI Act Compliance Report</span></h1>
+    <div class="header-meta">
+      <span class="meta-text">{{ system_name }}</span>
+      <span class="meta-text">·</span>
+      <span class="risk-badge {{ risk_badge_class }}">{{ risk_label }}</span>
+      <span class="meta-text">·</span>
+      <span class="meta-text">{{ timestamp }}</span>
+    </div>
+    <p class="risk-desc">{{ risk_description }}</p>
+  </header>
+
+  <!-- Summary cards -->
+  <div class="summary">
+    <div class="stat-card total">
+      <div class="number">{{ total }}</div>
+      <div class="label">Total Tests</div>
+    </div>
+    <div class="stat-card pass">
+      <div class="number">{{ passed_count }}</div>
+      <div class="label">Passed</div>
+    </div>
+    <div class="stat-card fail">
+      <div class="number">{{ failed_count }}</div>
+      <div class="label">Failed</div>
+    </div>
+    <div class="stat-card score">
+      <div class="number">{{ compliance_score }}%</div>
+      <div class="label">Compliance Score</div>
+    </div>
+  </div>
+
+  <!-- Score bar -->
+  <div class="score-bar-wrapper">
+    <h3>Compliance Score</h3>
+    <div class="score-bar-track">
+      <div class="score-bar-fill" style="width: {{ compliance_score }}%"></div>
+    </div>
+    <div class="score-bar-label">{{ passed_count }} / {{ total }} assertions passed</div>
+  </div>
+
+  <!-- Per-article sections -->
+  {% for section in article_sections %}
+  <div class="article-section">
+    <div class="article-header">
+      <span class="article-tag">{{ section.article }}</span>
+      <span class="article-title">{{ section.title }}</span>
+      <span class="article-status">
+        {% if section.status == "gap" %}
+          <span class="badge gap">NO TESTS</span>
+        {% elif section.status == "pass" %}
+          <span class="badge pass">PASS</span>
+        {% else %}
+          <span class="badge fail">FAIL</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="article-desc">{{ section.description }}</div>
+    <div class="article-body">
+      {% if section.results %}
+      <table>
+        <tr>
+          <th>Assertion</th>
+          <th>Status</th>
+          <th>Details</th>
+        </tr>
+        {% for r in section.results %}
+        <tr>
+          <td class="test-name">{{ r.name }}</td>
+          <td>
+            {% if r.passed %}
+              <span class="badge pass">PASS</span>
+            {% else %}
+              <span class="badge fail">FAIL</span>
+            {% endif %}
+          </td>
+          <td class="message">{{ r.get("message", "") }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="no-tests">No test results for this article. Add assertions with the matching prefix to achieve coverage.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Gaps -->
+  <div class="gaps-section">
+    <h2>
+      {% if gaps %}
+        Coverage Gaps ({{ gaps | length }} article{% if gaps | length != 1 %}s{% endif %} missing)
+      {% else %}
+        Coverage Gaps
+      {% endif %}
+    </h2>
+    {% if gaps %}
+    <ul class="gap-list">
+      {% for gap in gaps %}
+      <li class="gap-item">
+        <span class="gap-article">{{ gap }}</span>
+        <span class="gap-text">No test results mapped to this article. Add assertions whose names start with the appropriate prefix (see mltk docs).</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="no-gaps">All required articles are covered by test results.</div>
+    {% endif %}
+  </div>
+
+  <footer>
+    Generated by <a href="https://github.com/Liorrr/mltk">mltk</a> — pytest for ML &nbsp;|&nbsp;
+    EU Artificial Intelligence Act (Regulation (EU) 2024/1689)
+  </footer>
+
+</div>
+</body>
+</html>

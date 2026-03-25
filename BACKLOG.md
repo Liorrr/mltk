@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S15: 60+ assertions, 261 tests, 5 Rust tests)
+## DONE (S0-S16: 75 assertions, 314 tests, 5 Rust tests)
 
 ### Sprint 0 -- Project Skeleton
 - [x] Repo structure, pyproject.toml, Cargo.toml, CI/CD, Makefile, README
@@ -86,6 +86,13 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Top-level convenience imports
 - [x] Examples: nlp, llm, contract, training
 
+### Sprint 16 -- Advanced CV Tracking + Training Bug P1 + Docs Deploy
+- [x] CV tracking: assert_mota, assert_motp, assert_idf1 (CLEAR-MOT)
+- [x] Training P1 gradient: assert_gradient_flow, assert_no_vanishing_gradient, assert_no_exploding_gradient, assert_loss_finite
+- [x] Training P1 numerical: assert_no_nan_inf, assert_loss_decreasing, assert_no_loss_divergence, assert_softmax_valid
+- [x] Docs deployment: Dockerfile + nginx + deploy.sh for company server
+- [x] mltk[torch] optional dependency
+
 ### Documentation Audit
 - [x] All source files: Args/Returns/Example on every function
 - [x] All test files: scenario + WHY + expected on every test
@@ -95,36 +102,34 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## PLANNED
 
-### Sprint 16 -- Advanced CV Tracking + Training Bug P1 + Docs Deploy (ACTIVE)
-- [x] **CV Tracking**: assert_mota, assert_motp, assert_idf1 (multi-object tracking)
-- [ ] **Per-class AP**: extend assert_map with per-class breakdown in report
-- [ ] **Training Bug P1 -- Gradient**: assert_gradient_flow, assert_no_vanishing_gradient, assert_no_exploding_gradient, assert_loss_finite
-- [ ] **Training Bug P1 -- LR**: assert_loss_decreasing, assert_no_loss_divergence
-- [ ] **Training Bug P1 -- Numerical**: assert_no_nan_inf, assert_numerical_stability, assert_softmax_valid
-- [ ] **Docs deployment**: Dockerfile + nginx config for company server (NOT GitHub Pages -- repo is private)
-- [ ] Add `mltk[torch]` optional dependency for gradient assertions
+### Sprint 17 -- QA Practitioner Toolkit + EU AI Act Compliance (ACTIVE)
+- [ ] **YAML test definitions**: mltk.testdefs — write tests in YAML, run with `mltk test tests.yaml`
+- [ ] **EU AI Act compliance report**: mltk.compliance — auto-map test results to articles, generate evidence HTML
+- [ ] **mltk doctor**: 10 diagnostic checks with fix hints
+- [ ] **Env var config**: MLTK_* prefix, highest priority in cascade
+- [ ] **CLI expansion**: mltk doctor, mltk test, mltk compliance
+- [ ] **pytest JSON export**: --mltk-export-json flag
 
-### Sprint 17 -- Cloud Monitoring Integration
+### Sprint 18 -- Cloud Monitoring Integration (deferred from S17)
 - [ ] **AWS SageMaker**: endpoint health, CloudWatch metrics, Model Monitor integration
 - [ ] **GCP Vertex AI**: prediction endpoint monitoring, TPU utilization
 - [ ] **Azure ML**: managed endpoint metrics, Responsible AI Dashboard
 - [ ] **On-prem**: Prometheus/Grafana integration, DCGM GPU metrics, Triton health
-- [ ] Source: Cloud ML infrastructure research
 
-### Sprint 18 -- Test Resource Registry
+### Sprint 19 -- Test Resource Registry
 - [ ] `mltk pull <collection>` -- download test definitions from registry
 - [ ] `mltk push <collection>` -- share test suites with team
 - [ ] `mltk list` -- browse available test collections
 - [ ] Versioned test resources with dependency tracking
 - [ ] Server API (REST) for hosting registry (company or SaaS)
 
-### Sprint 19 -- Chat Interface
+### Sprint 20 -- Chat Interface
 - [ ] `mltk chat` CLI -- interactive chat for querying test results
 - [ ] Web-based chat embedded in HTML reports
 - [ ] "Why did my model regress?" → analyzes test results + suggests fixes
 - [ ] "What tests should I run?" → auto-generates test plan
 
-### Sprint 20 -- Resource Summarization + AI Predictions
+### Sprint 21 -- Resource Summarization + AI Predictions
 - [ ] Project/folder/collection summarization (text/doc, image/PNG, video/MP4)
 - [ ] AI-powered predictions from prompt + resources/features
 - [ ] "Predict if this model version is safe to deploy" → risk assessment
@@ -247,4 +252,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 16 start (March 25, 2026)*
+*Last updated: Sprint 17 start (March 25, 2026)*

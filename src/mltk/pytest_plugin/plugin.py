@@ -1,13 +1,15 @@
 """pytest plugin for mltk. Auto-registered via pyproject.toml entry-points.
 
 Provides ML-specific markers, fixtures, and the --mltk-report flag
-for generating test summaries.
+for generating test summaries, plus --mltk-export-json for JSON export.
 """
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 import pytest
 
@@ -56,14 +58,66 @@ class MltkReportCollector:
         """Total number of recorded test results."""
         return len(self.results)
 
+    def to_json_records(self) -> list[dict[str, object]]:
+        """Serialize collected results to a list of JSON-serializable dicts.
+
+        Each record contains:
+        - name: test node ID
+        - passed: bool
+        - severity: "error" | "warning" | "info" (from ml_result or default "info")
+        - message: assertion message or empty string
+        - details: assertion details dict or empty dict
+        - duration_ms: test duration in milliseconds (float)
+        - timestamp: ISO 8601 UTC timestamp string
+
+        Returns:
+            List of dicts suitable for json.dumps().
+        """
+        records = []
+        for r in self.results:
+            ml_result: TestResult | None = r.get("ml_result")  # type: ignore[assignment]
+            duration_s = float(r.get("duration", 0.0))  # type: ignore[arg-type]
+
+            severity = "info"
+            message = ""
+            details: dict[str, object] = {}
+
+            if ml_result is not None:
+                message = getattr(ml_result, "message", "") or ""
+                raw_details = getattr(ml_result, "details", {}) or {}
+                # Ensure details is JSON-serializable (convert non-basic types)
+                try:
+                    details = json.loads(json.dumps(raw_details, default=str))
+                except Exception:  # noqa: BLE001
+                    details = {}
+                severity = getattr(ml_result, "severity", "info") or "info"
+
+            records.append({
+                "name": str(r["nodeid"]),
+                "passed": r["outcome"] == "passed",
+                "severity": severity,
+                "message": message,
+                "details": details,
+                "duration_ms": round(duration_s * 1000, 3),
+                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            })
+        return records
+
 
 def pytest_addoption(parser):  # type: ignore[no-untyped-def]
-    """Add --mltk-report option."""
+    """Add --mltk-report and --mltk-export-json options."""
     parser.addoption(
         "--mltk-report",
         action="store_true",
         default=False,
         help="Generate mltk test summary report at end of session",
+    )
+    parser.addoption(
+        "--mltk-export-json",
+        action="store",
+        default=None,
+        metavar="PATH",
+        help="Export mltk test results as JSON to the specified file path",
     )
 
 
@@ -127,11 +181,18 @@ def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
 
 
 def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
-    """Generate mltk report at end of session if --mltk-report is set."""
+    """Generate mltk report and/or JSON export at end of session."""
+    collector = getattr(session.config, "_mltk_collector", None)
+
+    # --- JSON export (independent of --mltk-report) ---
+    json_export_path = session.config.getoption("--mltk-export-json", default=None)
+    if json_export_path and collector is not None:
+        _export_json(collector, json_export_path, session)
+
+    # --- HTML/terminal report ---
     if not session.config.getoption("--mltk-report", default=False):
         return
 
-    collector = getattr(session.config, "_mltk_collector", None)
     if collector is None or collector.total == 0:
         return
 
@@ -186,3 +247,36 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
         writer.line(f"HTML report: {report_path}")
     except ImportError:
         pass  # plotly/jinja2 not installed — skip HTML report
+
+
+def _export_json(
+    collector: MltkReportCollector,
+    json_path: str,
+    session: object,
+) -> None:
+    """Write collected test results to a JSON file.
+
+    The output is a JSON array where each element represents one test with
+    fields: name, passed, severity, message, details, duration_ms, timestamp.
+
+    Args:
+        collector: The report collector with accumulated results.
+        json_path: Destination file path for the JSON output.
+        session: pytest session (used for terminal reporter access).
+    """
+    import pathlib
+
+    records = collector.to_json_records()
+    output_path = pathlib.Path(json_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_path.open("w", encoding="utf-8") as fh:
+        json.dump(records, fh, indent=2, ensure_ascii=False)
+
+    # Announce path via terminal reporter if available
+    try:
+        reporter = session.config.pluginmanager.get_plugin("terminalreporter")  # type: ignore[union-attr]
+        if reporter is not None:
+            reporter._tw.line(f"mltk JSON export: {output_path.resolve()}")
+    except Exception:  # noqa: BLE001
+        pass  # Non-fatal — file was already written

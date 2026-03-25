@@ -54,10 +54,13 @@ nav:
       - Training Bugs: api/training-bugs.md
   - Guides:
       - Data Contracts: api/contracts.md
+      - YAML Test Definitions: api/yaml-tests.md
       - pytest Plugin: api/pytest-plugin.md
       - CLI: api/cli.md
       - HTML Reports: api/report.md
       - ML Test Score: api/ml-test-score.md
+      - EU AI Act Compliance: api/eu-ai-act.md
+      - mltk doctor: api/doctor.md
       - Integrations (Jira): api/integrations.md
 
 markdown_extensions:

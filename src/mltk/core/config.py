@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,7 +15,17 @@ class MltkConfig:
     """Global configuration for mltk test runs.
 
     Configuration is loaded with a cascade priority:
-    function args > mltk.yaml > pyproject.toml [tool.mltk] > defaults.
+    env vars > function args > mltk.yaml > pyproject.toml [tool.mltk] > defaults.
+
+    Environment variables (all prefixed with ``MLTK_``):
+
+    - ``MLTK_DRIFT_METHOD``    — drift_method (str)
+    - ``MLTK_DRIFT_THRESHOLD`` — drift_threshold (float)
+    - ``MLTK_REPORT_DIR``      — report_dir (str)
+    - ``MLTK_REPORT_FORMAT``   — report_format (str)
+    - ``MLTK_BASELINE_DIR``    — baseline_dir (str)
+    - ``MLTK_SEED``            — seed (int)
+    - ``MLTK_PII_PATTERNS``    — pii_patterns (comma-separated list)
     """
 
     drift_method: str = "ks"
@@ -36,12 +47,14 @@ class MltkConfig:
         2. mltk.yaml in current directory
         3. pyproject.toml [tool.mltk] in current directory
         4. Default config
+        5. MLTK_* environment variables (applied last, highest priority)
 
         Args:
             path: Explicit path to a YAML config file. None triggers auto-discovery.
 
         Returns:
-            MltkConfig instance populated from the first config source found.
+            MltkConfig instance populated from the first config source found,
+            with any MLTK_* environment variables applied on top.
 
         Example:
             >>> config = MltkConfig.load()
@@ -50,15 +63,69 @@ class MltkConfig:
         if path is not None:
             p = Path(path)
             if not p.exists():
-                return cls()
-            return cls._from_yaml(p)
-        yaml_path = Path("mltk.yaml")
-        if yaml_path.exists():
-            return cls._from_yaml(yaml_path)
-        pyproject = Path("pyproject.toml")
-        if pyproject.exists():
-            return cls._from_pyproject(pyproject)
-        return cls()
+                base = cls()
+            else:
+                base = cls._from_yaml(p)
+        elif (yaml_path := Path("mltk.yaml")).exists():
+            base = cls._from_yaml(yaml_path)
+        elif (pyproject := Path("pyproject.toml")).exists():
+            base = cls._from_pyproject(pyproject)
+        else:
+            base = cls()
+
+        return cls._apply_env_overrides(base)
+
+    @classmethod
+    def _apply_env_overrides(cls, config: MltkConfig) -> MltkConfig:
+        """Override config fields from MLTK_* environment variables.
+
+        Environment variables always take the highest priority in the cascade.
+        Unset variables are silently ignored — only *present* vars override.
+
+        Mapping:
+        - ``MLTK_DRIFT_METHOD``    → drift_method (str)
+        - ``MLTK_DRIFT_THRESHOLD`` → drift_threshold (float)
+        - ``MLTK_REPORT_DIR``      → report_dir (str)
+        - ``MLTK_REPORT_FORMAT``   → report_format (str)
+        - ``MLTK_BASELINE_DIR``    → baseline_dir (str)
+        - ``MLTK_SEED``            → seed (int)
+        - ``MLTK_PII_PATTERNS``    → pii_patterns (comma-separated, e.g. "email,phone")
+
+        Args:
+            config: Base config to apply overrides to.
+
+        Returns:
+            New MltkConfig with environment overrides applied.
+        """
+        drift_method = os.environ.get("MLTK_DRIFT_METHOD")
+        if drift_method is not None:
+            config.drift_method = drift_method
+
+        drift_threshold = os.environ.get("MLTK_DRIFT_THRESHOLD")
+        if drift_threshold is not None:
+            config.drift_threshold = float(drift_threshold)
+
+        report_dir = os.environ.get("MLTK_REPORT_DIR")
+        if report_dir is not None:
+            config.report_dir = report_dir
+
+        report_format = os.environ.get("MLTK_REPORT_FORMAT")
+        if report_format is not None:
+            config.report_format = report_format
+
+        baseline_dir = os.environ.get("MLTK_BASELINE_DIR")
+        if baseline_dir is not None:
+            config.baseline_dir = baseline_dir
+
+        seed = os.environ.get("MLTK_SEED")
+        if seed is not None:
+            config.seed = int(seed)
+
+        pii_patterns = os.environ.get("MLTK_PII_PATTERNS")
+        if pii_patterns is not None:
+            config.pii_patterns = [p.strip() for p in pii_patterns.split(",") if p.strip()]
+
+        return config
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> MltkConfig:

@@ -9,8 +9,8 @@ def main() -> None:
     """Entry point for mltk CLI.
 
     Initializes the Typer application and registers all subcommands
-    (version, init, scan, drift, score). Requires ``typer`` to be installed
-    via the ``mltk[cli]`` extra.
+    (version, init, scan, drift, score, doctor, test, compliance).
+    Requires ``typer`` to be installed via the ``mltk[cli]`` extra.
     """
     try:
         import typer
@@ -153,6 +153,117 @@ def test_data_quality():
         print("  Model:          metrics, regression, slicing, calibration, bias, adversarial")  # noqa: T201
         print("  Infrastructure: reproducibility, pipeline, contract, latency, throughput")  # noqa: T201
         print("  Monitoring:     drift monitoring, degradation, SLA, alerts")  # noqa: T201
+
+    @app.command()
+    def doctor() -> None:
+        """Diagnose ML testing environment.
+
+        Runs a series of checks on your environment and reports any issues
+        with dependencies, config files, directories, and plugin registration.
+        """
+        from mltk.doctor import diagnose
+
+        results = diagnose()
+
+        # Status symbol map
+        symbols = {"OK": "[OK  ]", "WARN": "[WARN]", "FAIL": "[FAIL]"}
+
+        print("mltk doctor — environment diagnostics")  # noqa: T201
+        print("=" * 60)  # noqa: T201
+
+        ok_count = 0
+        warn_count = 0
+        fail_count = 0
+
+        for r in results:
+            symbol = symbols.get(r.status, f"[{r.status}]")
+            print(f"{symbol} {r.name}: {r.message}")  # noqa: T201
+            if r.fix_hint:
+                print(f"         -> {r.fix_hint}")  # noqa: T201
+            if r.status == "OK":
+                ok_count += 1
+            elif r.status == "WARN":
+                warn_count += 1
+            elif r.status == "FAIL":
+                fail_count += 1
+
+        print("=" * 60)  # noqa: T201
+        print(  # noqa: T201
+            f"Summary: {ok_count} OK, {warn_count} warnings, {fail_count} failures"
+        )
+
+        if fail_count > 0:
+            raise typer.Exit(1)
+
+    @app.command()
+    def test(yaml_path: str) -> None:
+        """Run YAML-defined test suite.
+
+        Loads test definitions from a YAML file and executes them against
+        the configured data source. Prints pass/fail results to stdout.
+
+        Example YAML::
+
+            data_source: data/features.csv
+            tests:
+              - name: No nulls
+                assertion: no_nulls
+        """
+        from mltk.testdefs import load_test_suite, run_test_suite
+
+        p = Path(yaml_path)
+        if not p.exists():
+            print(f"Test definition file not found: {yaml_path}")  # noqa: T201
+            raise typer.Exit(1)
+
+        suite = load_test_suite(str(p))
+        results = run_test_suite(suite)
+
+        passed = sum(1 for r in results if r.passed)
+        total = len(results)
+
+        print(f"mltk test — {yaml_path}")  # noqa: T201
+        print(f"Results: {passed}/{total} passed")  # noqa: T201
+        print()  # noqa: T201
+
+        for r in results:
+            status = "PASS" if r.passed else "FAIL"
+            print(f"  [{status}] {r.name}: {r.message}")  # noqa: T201
+
+        if passed < total:
+            raise typer.Exit(1)
+
+    @app.command()
+    def compliance(
+        results_json: str,
+        risk_level: str = "high",
+        system_name: str = "AI System",
+    ) -> None:
+        """Generate EU AI Act compliance report.
+
+        Reads test results from a JSON file (produced by --mltk-export-json),
+        assesses compliance based on the specified risk level, and writes
+        a markdown report to the configured report directory.
+
+        Args:
+            results_json: Path to JSON file with test results.
+            risk_level: EU AI Act risk level — "high", "limited", or "minimal".
+            system_name: Name of the AI system being assessed.
+        """
+        from mltk.compliance import generate_compliance_report
+
+        p = Path(results_json)
+        if not p.exists():
+            print(f"Results file not found: {results_json}")  # noqa: T201
+            raise typer.Exit(1)
+
+        report_path = generate_compliance_report(
+            results_path=str(p),
+            risk_level=risk_level,
+            system_name=system_name,
+        )
+
+        print(f"EU AI Act compliance report generated: {report_path}")  # noqa: T201
 
     # Contract subcommands
     contract_app = typer.Typer(name="contract", help="Data contract operations")
