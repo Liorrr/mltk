@@ -1,6 +1,21 @@
 # Changelog
 
-## [Unreleased] — Sprint 29
+## [0.5.0] — 2026-03-26
+
+**108+ assertions, 700+ tests, crossing the 100-assertion milestone.**
+
+### Sprint 30 — v0.5.0 Release
+- Data statistics: assert_column_mean, assert_column_median, assert_column_stdev, assert_quantiles
+- Data validation: assert_datetime_format, assert_values_in_set, assert_no_conflicting_labels
+- ML quality: assert_no_overfitting, assert_label_drift
+- Version 0.5.0
+
+### Sprint 29
+- RAG (faithfulness, context precision/recall/relevancy, answer relevancy)
+- Agentic (task completion, tool selection, tool call correctness)
+- Text quality, training-serving skew. 676 tests.
+
+## [Previous] — Sprint 29
 
 ### Added
 - **RAG evaluation** (`mltk.domains.llm.rag`):

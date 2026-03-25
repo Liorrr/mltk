@@ -56,15 +56,17 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] PII Tier 4: France NIR, Italy Codice Fiscale, Spain DNI
 - [x] BACKLOG major rewrite, v0.4.0, competitor gap analysis
 
-### Sprint 29 -- RAG + Agentic + Text Quality (ACTIVE)
-- [ ] RAG: faithfulness, context relevancy/precision/recall, answer relevancy
-- [ ] Agentic: task completion, tool selection, tool call correctness
-- [ ] Text quality: text length, output format, readability
-- [ ] Training-serving skew detection
-- [ ] PII Tier 4: France NIR, Italy Codice Fiscale, Spain DNI
-- [ ] Version bump to v0.4.0
-- [ ] README update (87+ assertions, 606+ tests, 19 CLI commands)
-- [ ] BACKLOG major cleanup (this rewrite)
+### Sprint 29 -- RAG + Agentic + Text Quality
+- [x] RAG: faithfulness, context relevancy/precision/recall, answer relevancy
+- [x] Agentic: task completion, tool selection, tool call correctness
+- [x] Text quality: text length, output format, readability
+- [x] Training-serving skew detection
+
+### Sprint 30 -- Data Quality Quick Wins + v0.5.0 (ACTIVE)
+- [ ] Statistics: mean, median, stdev, quantiles
+- [ ] Validation: datetime format, values in set, conflicting labels
+- [ ] ML: overfitting detection, label drift
+- [ ] v0.5.0 release (100+ assertions)
 
 ---
 
