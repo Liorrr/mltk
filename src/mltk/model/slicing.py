@@ -37,6 +37,13 @@ def assert_slice_performance(
 
     Returns:
         TestResult with per-slice metrics.
+
+    Example:
+        >>> import numpy as np
+        >>> y_true = np.array([1, 0, 1, 0])
+        >>> y_pred = np.array([1, 0, 0, 0])
+        >>> slices = {"young": [True, True, False, False], "old": [False, False, True, True]}
+        >>> assert_slice_performance(y_true, y_pred, slices, min_threshold=0.5)
     """
     y_t = np.asarray(y_true)
     y_p = np.asarray(y_pred)
@@ -96,6 +103,12 @@ def assert_calibration(
 
     Returns:
         TestResult with ECE and per-bin calibration data.
+
+    Example:
+        >>> import numpy as np
+        >>> y_true = np.array([1, 0, 1, 0])
+        >>> y_prob = np.array([0.9, 0.1, 0.8, 0.2])
+        >>> assert_calibration(y_true, y_prob, max_error=0.1)
     """
     y_t = np.asarray(y_true, dtype=float)
     y_p = np.asarray(y_prob, dtype=float)
@@ -108,12 +121,15 @@ def assert_calibration(
             severity=Severity.CRITICAL,
         )
 
-    # Compute ECE: weighted average of |predicted_prob - actual_prob| per bin
+    # Compute Expected Calibration Error (ECE):
+    # ECE = weighted average of |avg_predicted - avg_actual| per probability bin,
+    # where weight = bin_count / total_samples
     bin_edges = np.linspace(0, 1, n_bins + 1)
     bin_data: list[dict[str, float]] = []
     ece = 0.0
 
     for i in range(n_bins):
+        # Last bin includes the right boundary (probability = 1.0)
         mask = (y_p >= bin_edges[i]) & (y_p < bin_edges[i + 1])
         if i == n_bins - 1:
             mask = (y_p >= bin_edges[i]) & (y_p <= bin_edges[i + 1])

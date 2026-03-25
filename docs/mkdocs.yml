@@ -45,6 +45,10 @@ nav:
       - Pipeline: api/pipeline.md
   - Domain Kits:
       - Computer Vision: api/cv.md
+      - NLP: api/nlp.md
+      - Speech: api/speech.md
+      - Tabular: api/tabular.md
+      - Monitoring: api/monitor.md
   - Guides:
       - pytest Plugin: api/pytest-plugin.md
       - CLI: api/cli.md

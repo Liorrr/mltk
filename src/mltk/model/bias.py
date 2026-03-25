@@ -30,7 +30,17 @@ _DEFAULT_THRESHOLDS: dict[str, float] = {
 def _group_rates(
     y_true: np.ndarray, y_pred: np.ndarray, groups: np.ndarray
 ) -> dict[str, dict[str, float]]:
-    """Compute per-group confusion matrix rates."""
+    """Compute per-group confusion matrix rates.
+
+    Args:
+        y_true: Binary ground truth labels.
+        y_pred: Binary predicted labels.
+        groups: Group membership array.
+
+    Returns:
+        Dict mapping group name to rates dict with keys:
+        selection_rate, tpr, fpr, ppv, count.
+    """
     unique_groups = np.unique(groups)
     result: dict[str, dict[str, float]] = {}
 
@@ -83,6 +93,13 @@ def assert_no_bias(
 
     Returns:
         TestResult with per-group metrics and bias statistics.
+
+    Example:
+        >>> import numpy as np
+        >>> y_true = np.array([1, 0, 1, 0, 1, 0])
+        >>> y_pred = np.array([1, 0, 1, 0, 0, 0])
+        >>> groups = np.array(["M", "M", "M", "F", "F", "F"])
+        >>> assert_no_bias(y_true, y_pred, groups, method="demographic_parity")
     """
     if method not in _DEFAULT_THRESHOLDS:
         return assert_true(
@@ -132,7 +149,16 @@ def assert_no_bias(
 def _check_demographic_parity(
     rates: dict[str, dict[str, float]], threshold: float, method: str
 ) -> TestResult:
-    """Max selection rate difference across groups."""
+    """Max selection rate difference across groups.
+
+    Args:
+        rates: Per-group rates from _group_rates.
+        threshold: Maximum allowed selection rate difference.
+        method: Method name for TestResult.
+
+    Returns:
+        TestResult with demographic parity statistic.
+    """
     sel_rates = [r["selection_rate"] for r in rates.values()]
     diff = max(sel_rates) - min(sel_rates)
     passed = diff <= threshold
@@ -156,7 +182,16 @@ def _check_demographic_parity(
 def _check_equalized_odds(
     rates: dict[str, dict[str, float]], threshold: float, method: str
 ) -> TestResult:
-    """Max of (TPR diff, FPR diff) across groups."""
+    """Max of (TPR diff, FPR diff) across groups.
+
+    Args:
+        rates: Per-group rates from _group_rates.
+        threshold: Maximum allowed TPR or FPR difference.
+        method: Method name for TestResult.
+
+    Returns:
+        TestResult with equalized odds statistic.
+    """
     tprs = [r["tpr"] for r in rates.values()]
     fprs = [r["fpr"] for r in rates.values()]
     tpr_diff = max(tprs) - min(tprs)
@@ -185,7 +220,16 @@ def _check_equalized_odds(
 def _check_predictive_parity(
     rates: dict[str, dict[str, float]], threshold: float, method: str
 ) -> TestResult:
-    """Max PPV difference across groups."""
+    """Max PPV difference across groups.
+
+    Args:
+        rates: Per-group rates from _group_rates.
+        threshold: Maximum allowed PPV difference.
+        method: Method name for TestResult.
+
+    Returns:
+        TestResult with predictive parity statistic.
+    """
     ppvs = [r["ppv"] for r in rates.values()]
     diff = max(ppvs) - min(ppvs)
     passed = diff <= threshold
@@ -209,7 +253,16 @@ def _check_predictive_parity(
 def _check_disparate_impact(
     rates: dict[str, dict[str, float]], threshold: float, method: str
 ) -> TestResult:
-    """Min/max selection rate ratio (four-fifths rule)."""
+    """Min/max selection rate ratio (four-fifths rule).
+
+    Args:
+        rates: Per-group rates from _group_rates.
+        threshold: Minimum allowed ratio (0.8 = four-fifths rule).
+        method: Method name for TestResult.
+
+    Returns:
+        TestResult with disparate impact ratio.
+    """
     sel_rates = [r["selection_rate"] for r in rates.values()]
     max_rate = max(sel_rates)
     min_rate = min(sel_rates)
@@ -236,7 +289,16 @@ def _check_disparate_impact(
 def _check_equal_opportunity(
     rates: dict[str, dict[str, float]], threshold: float, method: str
 ) -> TestResult:
-    """Max TPR difference across groups (relaxed equalized odds)."""
+    """Max TPR difference across groups (relaxed equalized odds).
+
+    Args:
+        rates: Per-group rates from _group_rates.
+        threshold: Maximum allowed TPR difference.
+        method: Method name for TestResult.
+
+    Returns:
+        TestResult with equal opportunity statistic.
+    """
     tprs = [r["tpr"] for r in rates.values()]
     diff = max(tprs) - min(tprs)
     passed = diff <= threshold

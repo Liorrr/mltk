@@ -14,7 +14,16 @@ from mltk.core.result import Severity, TestResult
 
 
 def _validate_schema(data: Any, schema: dict[str, Any], label: str) -> list[str]:
-    """Validate data against JSON Schema. Returns list of errors."""
+    """Validate data against JSON Schema. Returns list of errors.
+
+    Args:
+        data: Data to validate.
+        schema: JSON Schema dict.
+        label: Label for error messages (e.g., "input" or "output").
+
+    Returns:
+        List of human-readable error strings. Empty list means valid.
+    """
     try:
         import jsonschema
 
@@ -28,7 +37,16 @@ def _validate_schema(data: Any, schema: dict[str, Any], label: str) -> list[str]
 def _basic_type_check(
     data: Any, schema: dict[str, Any], label: str
 ) -> list[str]:
-    """Basic type checking fallback when jsonschema is not installed."""
+    """Basic type checking fallback when jsonschema is not installed.
+
+    Args:
+        data: Data to validate.
+        schema: JSON Schema dict (only "type" and "required" are checked).
+        label: Label for error messages.
+
+    Returns:
+        List of error strings. Empty list means valid.
+    """
     errors = []
     expected_type = schema.get("type")
 
@@ -75,6 +93,11 @@ def assert_api_contract(
 
     Returns:
         TestResult with validation details.
+
+    Example:
+        >>> def predict(x): return {"label": "cat", "score": 0.95}
+        >>> schema = {"type": "object", "required": ["label", "score"]}
+        >>> assert_api_contract(predict, {"image": "data"}, output_schema=schema)
     """
     errors: list[str] = []
 

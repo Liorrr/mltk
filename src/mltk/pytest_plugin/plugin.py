@@ -26,6 +26,14 @@ class MltkReportCollector:
         self, nodeid: str, outcome: str, duration: float,
         ml_result: TestResult | None = None,
     ) -> None:
+        """Record a test result.
+
+        Args:
+            nodeid: pytest node ID (e.g., "tests/test_data.py::test_schema").
+            outcome: "passed" or "failed".
+            duration: Test duration in seconds.
+            ml_result: Optional mltk TestResult with assertion details.
+        """
         self.results.append({
             "nodeid": nodeid,
             "outcome": outcome,
@@ -35,14 +43,17 @@ class MltkReportCollector:
 
     @property
     def passed_count(self) -> int:
+        """Number of tests that passed."""
         return sum(1 for r in self.results if r["outcome"] == "passed")
 
     @property
     def failed_count(self) -> int:
+        """Number of tests that failed."""
         return sum(1 for r in self.results if r["outcome"] == "failed")
 
     @property
     def total(self) -> int:
+        """Total number of recorded test results."""
         return len(self.results)
 
 

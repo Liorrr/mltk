@@ -1,24 +1,30 @@
 # Changelog
 
-## [Unreleased] — Sprint 7: CV Domain Kit
+## [Unreleased] — Sprint 9: Monitoring + Tabular (Final Feature Sprint)
 
 ### Added
-- **Computer vision domain kit** (`mltk.domains.cv`):
-  - `compute_iou()` — vectorized NxM IoU matrix computation (pure numpy)
-  - `assert_iou()` — minimum mean IoU between predicted and ground-truth boxes
-  - `assert_map()` — mean Average Precision with per-class AP breakdown (COCO/VOC-style)
-  - `assert_frame_accuracy()` — per-frame detection/classification accuracy for video
-  - `assert_temporal_consistency()` — frame-to-frame tracking smoothness validation
-  - `assert_topk_accuracy()` — top-K accuracy for image classification
-- **mycompany CV example** (`examples/mycompany_cv_test.py`)
-- **3 research agents dispatched**: LLM/GenAI evaluation, data contracts, embedding drift
-- **178 tests** (16 new)
+- **Production monitoring** (`mltk.monitor`):
+  - `assert_no_degradation()` — sliding window metric decline detection
+  - `assert_sla()` — latency P99 + error rate SLA compliance
+- **Tabular domain kit** (`mltk.domains.tabular`):
+  - `assert_feature_drift()` — per-column drift across DataFrames
+  - `assert_feature_importance_stable()` — SHAP ranking stability (WARNING severity)
+  - `assert_class_balance()` — convenience wrapper for DataFrame label columns
+- **New backlog items**: CLI+Web chat, resource summarization (text/image/video), AI prediction chat, test resource registry, Jira integration
+- **204 tests** (12 new)
+- **All feature sprints complete** — ready for v0.1.0 release (Sprint 10)
+
+### Sprint 8
+- NLP (BLEU, ROUGE, NER, prompt injection), Speech (WER, CER, RTF, accent). 192 tests.
+
+### Sprint 7
+- CV (IoU, mAP, frame accuracy, temporal consistency, top-K). 178 tests.
 
 ### Sprint 6
-- HTML reports, pipeline (reproducibility, checksum, E2E), ML Test Score. 162 tests.
+- HTML reports, pipeline, ML Test Score. 162 tests.
 
 ### Sprint 5
-- Inference (latency, throughput, contract), CLI (init, scan, drift). 146 tests.
+- Inference (latency, throughput, contract), CLI. 146 tests.
 
 ### Sprint 4
 - Bias (5 methods), adversarial, --mltk-report. 124 tests.

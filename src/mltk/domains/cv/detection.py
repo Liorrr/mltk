@@ -22,7 +22,13 @@ def compute_iou(boxes_a: np.ndarray, boxes_b: np.ndarray) -> np.ndarray:
         boxes_b: (M, 4) array of [x1, y1, x2, y2] boxes.
 
     Returns:
-        (N, M) IoU matrix.
+        (N, M) IoU matrix where entry [i, j] is IoU(boxes_a[i], boxes_b[j]).
+
+    Example:
+        >>> import numpy as np
+        >>> a = np.array([[0, 0, 10, 10]])
+        >>> b = np.array([[5, 5, 15, 15]])
+        >>> iou = compute_iou(a, b)  # partial overlap
     """
     a = np.asarray(boxes_a, dtype=np.float64).reshape(-1, 4)
     b = np.asarray(boxes_b, dtype=np.float64).reshape(-1, 4)
@@ -58,6 +64,12 @@ def assert_iou(
 
     Returns:
         TestResult with IoU statistics.
+
+    Example:
+        >>> import numpy as np
+        >>> pred = np.array([[0, 0, 10, 10]])
+        >>> gt = np.array([[1, 1, 11, 11]])
+        >>> assert_iou(pred, gt, threshold=0.5)
     """
     pred = np.asarray(pred_boxes, dtype=np.float64).reshape(-1, 4)
     gt = np.asarray(gt_boxes, dtype=np.float64).reshape(-1, 4)
@@ -111,6 +123,11 @@ def assert_map(
 
     Returns:
         TestResult with per-class AP breakdown.
+
+    Example:
+        >>> preds = [{"boxes": [[0,0,10,10]], "labels": [1], "scores": [0.9]}]
+        >>> gts = [{"boxes": [[1,1,11,11]], "labels": [1]}]
+        >>> assert_map(preds, gts, iou_threshold=0.5, min_map=0.3)
     """
     # Collect all predictions and ground truths
     all_pred_boxes, all_pred_labels, all_pred_scores = [], [], []
@@ -142,7 +159,7 @@ def assert_map(
     pred_scores_all = np.concatenate(all_pred_scores) if all_pred_scores else np.array([])
     gt_labels_all = np.concatenate(all_gt_labels)
 
-    # Compute AP per class
+    # Compute Average Precision (AP) per class using 101-point interpolation
     classes = np.unique(np.concatenate([pred_labels_all, gt_labels_all]))
     class_aps: dict[str, float] = {}
 
@@ -173,7 +190,8 @@ def assert_map(
         precision = cum_tp / (cum_tp + cum_fp)
         recall = cum_tp / n_gt
 
-        # 101-point interpolation
+        # 101-point interpolation (COCO standard): average max precision at
+        # 101 equally spaced recall thresholds from 0 to 1
         ap = 0.0
         for r_thresh in np.linspace(0, 1, 101):
             prec_at_recall = precision[recall >= r_thresh]

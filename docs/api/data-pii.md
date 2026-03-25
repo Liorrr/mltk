@@ -45,21 +45,26 @@ class PiiMatch:
     matched_text: str # the matched string
 ```
 
-### Built-in Patterns (11 categories, ported from ShrimPK)
+### Built-in Patterns (14 patterns in 6 categories, ported from ShrimPK)
 
-| Category | Pattern | Examples |
-|----------|---------|----------|
-| `email` | Standard email format | `user@domain.com` |
-| `phone` | US phone numbers | `555-123-4567`, `5551234567` |
-| `ssn` | US Social Security Numbers | `123-45-6789` |
-| `credit_card` | 16-digit card numbers | `4111-1111-1111-1111` |
-| `api_key_openai` | OpenAI keys | `sk-proj-...`, `sk-...` |
-| `api_key_anthropic` | Anthropic keys | `sk-ant-...` |
-| `api_key_aws` | AWS access keys | `AKIA...` |
-| `api_key_github` | GitHub PATs | `ghp_...` |
-| `api_key_gitlab` | GitLab PATs | `glpat-...` |
-| `api_key_groq` | Groq keys | `gsk_...` |
-| `password` | Password in key=value | `password=secret123` |
+| Pattern | Category | Examples |
+|---------|----------|----------|
+| `email` | `email` | `user@domain.com` |
+| `phone` | `phone` | `555-123-4567`, `5551234567` |
+| `ssn` | `ssn` | `123-45-6789` |
+| `credit_card` | `credit_card` | `4111-1111-1111-1111` |
+| `api_key_openai_project` | `api_key` | `sk-proj-...` |
+| `api_key_openai` | `api_key` | `sk-...` (20+ chars) |
+| `api_key_anthropic` | `api_key` | `sk-ant-...` |
+| `api_key_stripe` | `api_key` | `pk_...` |
+| `api_key_aws` | `api_key` | `AKIA...` (16 uppercase chars) |
+| `api_key_groq` | `api_key` | `gsk_...` |
+| `api_key_xai` | `api_key` | `xai-...` |
+| `api_key_github` | `api_key` | `ghp_...` (36 chars) |
+| `api_key_gitlab` | `api_key` | `glpat-...` |
+| `password` | `password` | `password=secret123` |
+
+When filtering with `patterns=["api_key"]`, all `api_key_*` sub-patterns are checked. You can also filter by specific sub-pattern names (e.g., `patterns=["api_key_openai"]`).
 
 ---
 

@@ -36,7 +36,10 @@ def save_baseline(
         average: Averaging for multiclass metrics.
 
     Returns:
-        Dict with computed metrics.
+        Dict with computed metrics and metadata (sample_count, timestamp).
+
+    Example:
+        >>> save_baseline([1,0,1], [1,0,0], ["accuracy","f1"], "baseline.json")
     """
     y_t = np.asarray(y_true)
     y_p = np.asarray(y_pred)
@@ -62,7 +65,19 @@ def _load_baseline_value(
     baseline: float | dict[str, Any] | str | Path,
     metric: str,
 ) -> float:
-    """Extract baseline metric value from various input types."""
+    """Extract baseline metric value from various input types.
+
+    Args:
+        baseline: A float value, a dict with metrics, or a Path to a JSON file.
+        metric: The metric name to extract.
+
+    Returns:
+        The baseline metric value as a float.
+
+    Raises:
+        KeyError: If metric is not found in the baseline dict.
+        FileNotFoundError: If baseline path does not exist.
+    """
     if isinstance(baseline, (int, float)):
         return float(baseline)
 
@@ -103,6 +118,9 @@ def assert_no_regression(
 
     Returns:
         TestResult with current vs baseline comparison.
+
+    Example:
+        >>> assert_no_regression([1,0,1], [1,0,1], baseline=0.9, metric="accuracy")
     """
     y_t = np.asarray(y_true)
     y_p = np.asarray(y_pred)

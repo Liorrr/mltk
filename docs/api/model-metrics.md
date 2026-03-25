@@ -22,8 +22,8 @@ assert_metric(y_true, y_pred, metric="f1", threshold=0.85)
 assert_metric(y_true, y_pred, metric="accuracy", threshold=0.90)
 assert_metric(y_true, y_prob, metric="auc", threshold=0.95)
 
-# Regression
-assert_metric(y_true, y_pred, metric="mse", threshold=0.1, comparison="lte")
+# Regression (error metrics auto-detect: lower is better)
+assert_metric(y_true, y_pred, metric="mse", threshold=0.1)
 assert_metric(y_true, y_pred, metric="r2", threshold=0.8)
 ```
 

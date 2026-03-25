@@ -34,6 +34,12 @@ def assert_robust(
 
     Returns:
         TestResult with stability score and details.
+
+    Example:
+        >>> import numpy as np
+        >>> def clf(x): return (x.sum(axis=1) > 0).astype(int)
+        >>> inputs = np.random.randn(100, 5)
+        >>> assert_robust(clf, inputs, epsilon=0.01, stability=0.9)
     """
     x = np.asarray(inputs, dtype=np.float64)
 

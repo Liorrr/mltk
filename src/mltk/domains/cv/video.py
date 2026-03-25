@@ -29,6 +29,9 @@ def assert_frame_accuracy(
 
     Returns:
         TestResult with accuracy and frame count.
+
+    Example:
+        >>> assert_frame_accuracy([1, 0, 1, 1], [1, 0, 1, 0], threshold=0.7)
     """
     preds = np.asarray(frame_preds)
     labels = np.asarray(frame_labels)
@@ -70,6 +73,10 @@ def assert_temporal_consistency(
 
     Returns:
         TestResult with smoothness score.
+
+    Example:
+        >>> boxes = [[0,0,10,10], [1,1,11,11], [2,2,12,12]]
+        >>> assert_temporal_consistency(boxes, min_smoothness=0.5)
     """
     if len(tracked_boxes) < 2:
         return assert_true(

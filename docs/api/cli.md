@@ -25,22 +25,41 @@ mltk init
 ```
 
 ### mltk scan
-Quick data quality scan on a CSV file.
+Quick data quality scan on a CSV or Parquet file. Reports rows, columns, dtypes, null counts.
 ```bash
 mltk scan data/training.csv
-# Schema: 5 columns, 10000 rows
-# Nulls: 0 found
-# Range: all features within bounds
+# MLTK Data Scan: data/training.csv
+#   Rows: 10,000 | Columns: 5
+#   Columns: ['id', 'age', 'income', 'score', 'label']
+#   Dtypes: {'id': int64, 'age': int64, ...}
+#   [PASS] No null values
+#   [INFO] Row count: 10,000
 ```
 
 ### mltk drift
-Compare two datasets for distribution drift.
+Compare two CSV datasets for distribution drift across all shared numeric columns.
 ```bash
 mltk drift data/reference.csv data/current.csv --method psi
-# PSI per column:
-#   age: 0.03 (stable)
-#   income: 0.18 (moderate)
-#   score: 0.42 (DRIFT)
+# MLTK Drift Analysis: data/reference.csv vs data/current.csv
+#   Method: psi
+#
+#   age                  | 0.0300 | OK
+#   income               | 0.1800 | DRIFT DETECTED
+#   score                | 0.4200 | DRIFT DETECTED
+```
+
+### mltk score
+Show the ML Test Score categories (Google's 28-test rubric). Run `pytest --mltk-report` first to generate scores.
+```bash
+mltk score
+# ML Test Score
+# Run: pytest --mltk-report to generate scores
+#
+# Categories (Google 28-test rubric):
+#   Data:           schema, distribution, drift, freshness, PII, labels
+#   Model:          metrics, regression, slicing, calibration, bias, adversarial
+#   Infrastructure: reproducibility, pipeline, contract, latency, throughput
+#   Monitoring:     drift monitoring, degradation, SLA, alerts
 ```
 
 ---

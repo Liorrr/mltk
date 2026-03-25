@@ -46,14 +46,17 @@ class TestSuite:
 
     @property
     def total(self) -> int:
+        """Total number of test results in the suite."""
         return len(self.results)
 
     @property
     def passed_count(self) -> int:
+        """Number of tests that passed."""
         return sum(1 for r in self.results if r.passed)
 
     @property
     def failed_count(self) -> int:
+        """Number of tests that failed."""
         return sum(1 for r in self.results if not r.passed)
 
     @property

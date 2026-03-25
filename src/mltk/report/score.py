@@ -47,6 +47,11 @@ def compute_ml_test_score(
 
     Returns:
         Dict with total score, max, percentage, and per-category breakdown.
+
+    Example:
+        >>> results = [{"outcome": "passed", "ml_result": mock_result}]
+        >>> score = compute_ml_test_score(results)
+        >>> score["percentage"]  # overall score as percentage
     """
     category_counts: dict[str, dict[str, int]] = {
         cat: {"passed": 0, "total": 0} for cat in _CATEGORIES

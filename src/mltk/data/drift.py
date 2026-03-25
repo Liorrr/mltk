@@ -92,7 +92,16 @@ def assert_no_drift(
 
 
 def _drift_ks(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
-    """KS test: compare empirical CDFs."""
+    """KS test: compare empirical CDFs.
+
+    Args:
+        ref: Reference distribution array.
+        cur: Current distribution array.
+        threshold: P-value threshold; pass if p > threshold.
+
+    Returns:
+        TestResult with KS statistic and p-value.
+    """
     from mltk._rust import ks_test
 
     stat, p_value = ks_test(ref.tolist(), cur.tolist())
@@ -116,7 +125,16 @@ def _drift_ks(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
 
 
 def _drift_psi(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
-    """PSI: Population Stability Index."""
+    """PSI: Population Stability Index.
+
+    Args:
+        ref: Reference distribution array.
+        cur: Current distribution array.
+        threshold: PSI threshold; pass if PSI < threshold.
+
+    Returns:
+        TestResult with PSI value.
+    """
     from mltk._rust import psi
 
     psi_value = psi(ref.tolist(), cur.tolist(), bins=10)
@@ -139,7 +157,16 @@ def _drift_psi(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult
 
 
 def _drift_kl(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
-    """KL divergence via histogram comparison."""
+    """KL divergence via histogram comparison.
+
+    Args:
+        ref: Reference distribution array.
+        cur: Current distribution array.
+        threshold: KL divergence threshold; pass if KL < threshold.
+
+    Returns:
+        TestResult with KL divergence value.
+    """
     bins = np.linspace(
         min(ref.min(), cur.min()),
         max(ref.max(), cur.max()),
@@ -174,7 +201,16 @@ def _drift_kl(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
 def _drift_chi2(
     reference: pd.Series, current: pd.Series, threshold: float
 ) -> TestResult:
-    """Chi-squared test for categorical drift."""
+    """Chi-squared test for categorical drift.
+
+    Args:
+        reference: Reference categorical series.
+        current: Current categorical series.
+        threshold: P-value threshold; pass if p > threshold.
+
+    Returns:
+        TestResult with chi-squared statistic and p-value.
+    """
     try:
         from scipy.stats import chi2_contingency
     except ImportError as err:
@@ -186,10 +222,12 @@ def _drift_chi2(
     ref_counts = reference.value_counts()
     cur_counts = current.value_counts()
 
+    # Align both distributions on the same category set (union of observed categories)
     all_categories = sorted(set(ref_counts.index) | set(cur_counts.index))
     ref_aligned = [ref_counts.get(cat, 0) for cat in all_categories]
     cur_aligned = [cur_counts.get(cat, 0) for cat in all_categories]
 
+    # Build 2xK contingency table for chi-squared independence test
     contingency = np.array([ref_aligned, cur_aligned])
     stat, p_value, _, _ = chi2_contingency(contingency)
     passed = bool(p_value > threshold)

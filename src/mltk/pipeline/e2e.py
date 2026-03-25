@@ -24,6 +24,10 @@ def assert_pipeline(
 
     Returns:
         TestResult with pipeline execution details.
+
+    Example:
+        >>> steps = [lambda x: x * 2, lambda x: x + 1]
+        >>> assert_pipeline(steps, input_data=5, expected_output_type=int)
     """
     current = input_data
     completed_steps = 0

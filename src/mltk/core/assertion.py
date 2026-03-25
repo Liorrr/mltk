@@ -23,7 +23,21 @@ def assert_true(
     severity: Severity = Severity.CRITICAL,
     **details: Any,
 ) -> TestResult:
-    """Base assertion. Raises MltkAssertionError if condition is False."""
+    """Base assertion. Raises MltkAssertionError if condition is False.
+
+    Args:
+        condition: Boolean condition to assert.
+        name: Test name identifier (e.g., "data.schema").
+        message: Human-readable result message.
+        severity: Severity level; CRITICAL raises on failure.
+        **details: Additional key-value details stored in TestResult.
+
+    Returns:
+        TestResult capturing the assertion outcome, timing, and details.
+
+    Example:
+        >>> result = assert_true(len(df) > 0, name="data.non_empty", message="Has rows")
+    """
     result = TestResult(
         name=name,
         passed=condition,
@@ -37,7 +51,22 @@ def assert_true(
 
 
 def timed_assertion(func):  # type: ignore[no-untyped-def]
-    """Decorator that adds timing to assertion functions."""
+    """Decorator that adds wall-clock timing to assertion functions.
+
+    Wraps any function returning a TestResult, measuring elapsed time
+    in milliseconds and storing it in ``result.duration_ms``.
+
+    Args:
+        func: Assertion function that returns a TestResult.
+
+    Returns:
+        Wrapped function with the same signature that populates duration_ms.
+
+    Example:
+        >>> @timed_assertion
+        ... def assert_fast(data):
+        ...     return assert_true(len(data) > 0, "fast", "ok")
+    """
 
     def wrapper(*args: Any, **kwargs: Any) -> TestResult:
         start = time.perf_counter()
