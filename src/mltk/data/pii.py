@@ -43,6 +43,23 @@ _PII_PATTERNS: dict[str, re.Pattern[str]] = {
     "email": re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"),
     "phone": re.compile(r"\b\d{3}[\s.\-]?\d{3}[\s.\-]?\d{4}\b"),
     "password": re.compile(r"(?i)(?:password|pwd|passwd|pass)\s*[:=]\s*\S+"),
+    # Sprint 13: Tier 1 expansion (10 new patterns)
+    "ipv4": re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),
+    "jwt": re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+    "pem_private_key": re.compile(r"-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    "db_connection_string": re.compile(
+        r"(?:postgres|mysql|mongodb|redis|amqp)://[^:]+:[^@]+@[^\s]+"
+    ),
+    "api_key_stripe_secret": re.compile(r"(?:sk_live|sk_test)_[0-9a-zA-Z]{24,}"),
+    "bearer_token": re.compile(r"Bearer\s+[a-zA-Z0-9\-._~+/]{20,}=*"),
+    "api_key_google": re.compile(r"AIza[0-9A-Za-z_\-]{35}"),
+    "iban": re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}[A-Z0-9]{0,16}\b"),
+    "url_auth_token": re.compile(
+        r"https?://[^\s]*[?&](?:token|key|api_key|access_token|auth)=[^\s&]+"
+    ),
+    "slack_webhook": re.compile(
+        r"https://hooks\.slack\.com/services/T[a-zA-Z0-9_]{8,10}/B[a-zA-Z0-9_]{8,10}/[a-zA-Z0-9_]{24}"
+    ),
 }
 
 # Group API key patterns under a single category for filtering
@@ -53,6 +70,14 @@ _PATTERN_CATEGORIES: dict[str, list[str]] = {
     "email": ["email"],
     "phone": ["phone"],
     "password": ["password"],
+    "ipv4": ["ipv4"],
+    "jwt": ["jwt"],
+    "pem_private_key": ["pem_private_key"],
+    "db_connection_string": ["db_connection_string"],
+    "bearer_token": ["bearer_token"],
+    "iban": ["iban"],
+    "url_auth_token": ["url_auth_token"],
+    "slack_webhook": ["slack_webhook"],
 }
 
 
