@@ -1,6 +1,6 @@
 # Speech Testing
 
-Speech-specific assertions for recognition accuracy (WER, CER), real-time performance (RTF), and accent fairness. Maps to mycompany's speech recognition capabilities.
+Speech-specific assertions for recognition accuracy (WER, CER), real-time performance (RTF), and accent fairness.
 
 **Module:** `mltk.domains.speech`
 

@@ -1,6 +1,6 @@
 # NLP Testing
 
-NLP-specific assertions for text generation (BLEU, ROUGE), named entity recognition (NER F1), and security (prompt injection detection). Maps to mycompany's NLP and customer service AI capabilities.
+NLP-specific assertions for text generation (BLEU, ROUGE), named entity recognition (NER F1), and security (prompt injection detection).
 
 **Module:** `mltk.domains.nlp`
 

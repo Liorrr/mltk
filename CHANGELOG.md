@@ -1,6 +1,19 @@
 # Changelog
 
-## [Unreleased] — Sprint 31
+## [Unreleased] — Sprint 32
+
+### Added
+- **RAGAS composite score** (`mltk.domains.llm.ragas`):
+  - compute_ragas_score, assert_ragas_score — average of faithfulness + answer relevancy + context precision + recall
+- **Coherence** (`mltk.domains.llm.coherence`):
+  - assert_coherence — sentence-to-sentence consistency check
+- **OWASP LLM Top 10** (`mltk.compliance.owasp_llm`):
+  - OWASP_LLM_MAPPING, owasp_llm_scan, assert_owasp_coverage
+
+### Sprint 31
+- Multi-turn conversation, data quality preset, sentiment analysis. 767 tests.
+
+## [Previous] — Sprint 31
 
 ### Added
 - **Multi-turn conversation** (`mltk.domains.llm.conversation`):

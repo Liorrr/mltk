@@ -68,10 +68,15 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] ML: overfitting detection, label drift
 - [x] v0.5.0 (108 assertions, 724 tests)
 
-### Sprint 31 -- Multi-turn + Data Preset + Sentiment (ACTIVE)
-- [ ] Multi-turn conversation: knowledge retention, turn relevancy, completeness
-- [ ] Data quality preset: one-call assert_data_quality()
-- [ ] Sentiment: assert_sentiment_positive, assert_no_sentiment_drift
+### Sprint 31 -- Multi-turn + Data Preset + Sentiment
+- [x] Multi-turn conversation: knowledge retention, turn relevancy, completeness
+- [x] Data quality preset: assert_data_quality, data_quality_report
+- [x] Sentiment: assert_sentiment_positive, assert_no_sentiment_drift
+
+### Sprint 32 -- RAGAS + Coherence + OWASP LLM (ACTIVE)
+- [ ] RAGAS composite score (average of 4 RAG metrics)
+- [ ] Coherence check (sentence-to-sentence consistency)
+- [ ] OWASP LLM Top 10 mapping + scan entrypoint
 
 ---
 

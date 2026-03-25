@@ -1,7 +1,7 @@
-"""Example: mycompany-style CV testing with mltk.
+"""Example: CV testing with mltk.
 
 This file demonstrates how to test video analytics and object detection
-models at mycompany using mltk's CV domain kit.
+models using mltk's CV domain kit.
 """
 
 import numpy as np

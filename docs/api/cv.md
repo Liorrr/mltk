@@ -1,6 +1,6 @@
 # Computer Vision Testing
 
-CV-specific assertions for object detection (IoU, mAP), video analytics (frame accuracy, temporal consistency), and image classification (top-K accuracy). Designed for mycompany-style workloads: video analytics, face recognition, tracking.
+CV-specific assertions for object detection (IoU, mAP), video analytics (frame accuracy, temporal consistency), and image classification (top-K accuracy). Designed for production CV workloads: video analytics, face recognition, tracking.
 
 **Module:** `mltk.domains.cv`
 

@@ -52,7 +52,7 @@ With max_ratio=5.0  → FAIL (9.0 > 5.0)
 
 ### Why it matters for ML
 
-Imbalanced datasets are the most common data quality issue in ML. A model trained on 99% negative, 1% positive will learn to predict "negative" for everything and achieve 99% accuracy — while being completely useless. mycompany's domains are especially prone:
+Imbalanced datasets are the most common data quality issue in ML. A model trained on 99% negative, 1% positive will learn to predict "negative" for everything and achieve 99% accuracy — while being completely useless. CV and NLP domains are especially prone:
 - **Face recognition**: some demographics underrepresented
 - **Anomaly detection**: anomalies are rare by definition
 - **NLP classification**: some categories naturally less frequent

@@ -5,6 +5,7 @@ from mltk.domains.llm.agentic import (
     assert_tool_call_correctness,
     assert_tool_selection,
 )
+from mltk.domains.llm.coherence import assert_coherence
 from mltk.domains.llm.conversation import (
     assert_conversation_completeness,
     assert_knowledge_retention,
@@ -18,6 +19,7 @@ from mltk.domains.llm.rag import (
     assert_context_relevancy,
     assert_faithfulness,
 )
+from mltk.domains.llm.ragas import assert_ragas_score, compute_ragas_score
 from mltk.domains.llm.safety import assert_no_hallucination, assert_no_toxicity
 from mltk.domains.llm.similarity import assert_semantic_similarity
 from mltk.domains.llm.text_quality import (
@@ -45,6 +47,11 @@ __all__ = [
     "assert_answer_relevancy",
     "assert_context_precision",
     "assert_context_recall",
+    # RAGAS composite
+    "compute_ragas_score",
+    "assert_ragas_score",
+    # coherence
+    "assert_coherence",
     # agentic evaluation
     "assert_task_completion",
     "assert_tool_selection",
