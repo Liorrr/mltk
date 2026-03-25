@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] — Sprint 29
+
+### Added
+- **RAG evaluation** (`mltk.domains.llm.rag`):
+  - assert_faithfulness, assert_context_relevancy, assert_answer_relevancy
+  - assert_context_precision, assert_context_recall
+- **Agentic evaluation** (`mltk.domains.llm.agentic`):
+  - assert_task_completion, assert_tool_selection, assert_tool_call_correctness
+- **Text quality** (`mltk.domains.llm.text_quality`):
+  - assert_text_length, assert_output_format, assert_readability
+- **Training-serving skew** (`mltk.training.skew`):
+  - assert_no_training_serving_skew
+
 ## [0.4.0] — 2026-03-25
 
 **87+ assertions, 606+ tests, 19 CLI commands, 102 source files.**

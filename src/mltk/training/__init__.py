@@ -1,4 +1,4 @@
-"""Training bug detection — gradient health, numerical stability, and data leakage."""
+"""Training bug detection — gradient health, numerical stability, data leakage, and serving skew."""
 
 from mltk.training.augmentation import (
     assert_augmentation_preserves_signal,
@@ -33,6 +33,7 @@ from mltk.training.numerical import (
     assert_no_nan_inf,
     assert_softmax_valid,
 )
+from mltk.training.skew import assert_no_training_serving_skew
 
 __all__ = [
     # augmentation.py
@@ -61,4 +62,6 @@ __all__ = [
     # memory.py
     "assert_no_memory_leak",
     "assert_loss_is_detached",
+    # skew.py
+    "assert_no_training_serving_skew",
 ]

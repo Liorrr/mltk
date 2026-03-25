@@ -52,7 +52,15 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## PLANNED
 
-### Sprint 28 -- v0.4.0 Release + EU PII Tier 4 (ACTIVE)
+### Sprint 28 -- v0.4.0 Release + EU PII Tier 4
+- [x] PII Tier 4: France NIR, Italy Codice Fiscale, Spain DNI
+- [x] BACKLOG major rewrite, v0.4.0, competitor gap analysis
+
+### Sprint 29 -- RAG + Agentic + Text Quality (ACTIVE)
+- [ ] RAG: faithfulness, context relevancy/precision/recall, answer relevancy
+- [ ] Agentic: task completion, tool selection, tool call correctness
+- [ ] Text quality: text length, output format, readability
+- [ ] Training-serving skew detection
 - [ ] PII Tier 4: France NIR, Italy Codice Fiscale, Spain DNI
 - [ ] Version bump to v0.4.0
 - [ ] README update (87+ assertions, 606+ tests, 19 CLI commands)

@@ -51,6 +51,7 @@ nav:
       - Monitoring: api/monitor.md
       - Embedding Drift: api/drift-advanced.md
       - LLM Evaluation: api/llm.md
+      - RAG, Agentic & Text Quality: api/rag-evaluation.md
       - Training Bugs: api/training-bugs.md
   - Guides:
       - Data Contracts: api/contracts.md
