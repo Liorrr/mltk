@@ -16,6 +16,7 @@ from mltk.data.statistics import (
 )
 from mltk.data.validation import (
     assert_datetime_format,
+    assert_feature_label_correlation_stable,
     assert_no_conflicting_labels,
     assert_values_in_set,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "assert_datetime_format",
     "assert_values_in_set",
     "assert_no_conflicting_labels",
+    "assert_feature_label_correlation_stable",
     # preset — one-call quality check
     "assert_data_quality",
     "data_quality_report",

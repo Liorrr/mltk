@@ -67,7 +67,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (108+ assertions)
+## Feature Matrix (119+ assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|

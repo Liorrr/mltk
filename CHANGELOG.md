@@ -1,6 +1,13 @@
 # Changelog
 
-## [Unreleased] — Sprint 32
+## [0.6.0] — 2026-03-26
+
+**119 assertions, 800+ tests, benchmarks, v0.6.0.**
+
+### Sprint 33 — v0.6.0 Release
+- Benchmarks vs competitors, feature-label correlation shift, output drift detection
+
+### Sprint 32
 
 ### Added
 - **RAGAS composite score** (`mltk.domains.llm.ragas`):

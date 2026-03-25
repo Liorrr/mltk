@@ -73,10 +73,14 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Data quality preset: assert_data_quality, data_quality_report
 - [x] Sentiment: assert_sentiment_positive, assert_no_sentiment_drift
 
-### Sprint 32 -- RAGAS + Coherence + OWASP LLM (ACTIVE)
-- [ ] RAGAS composite score (average of 4 RAG metrics)
-- [ ] Coherence check (sentence-to-sentence consistency)
-- [ ] OWASP LLM Top 10 mapping + scan entrypoint
+### Sprint 32 -- RAGAS + Coherence + OWASP LLM
+- [x] RAGAS composite score, coherence check, OWASP LLM Top 10 mapping
+
+### Sprint 33 -- v0.6.0 + Benchmarks + Quick Wins (ACTIVE)
+- [ ] Benchmarks vs competitors
+- [ ] Feature-label correlation shift
+- [ ] Output drift detection
+- [ ] v0.6.0 release
 
 ---
 

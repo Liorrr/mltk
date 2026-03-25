@@ -31,7 +31,7 @@ heavy optional dependencies. Import them directly when needed:
     from mltk.monitor.azure import assert_endpoint_latency
 """
 
-from mltk.monitor.drift_monitor import assert_no_degradation, assert_sla
+from mltk.monitor.drift_monitor import assert_no_degradation, assert_no_output_drift, assert_sla
 from mltk.monitor.prometheus import (
     assert_gpu_utilization,
     assert_prometheus_metric,
@@ -41,6 +41,7 @@ from mltk.monitor.prometheus import (
 __all__ = [
     "assert_no_degradation",
     "assert_sla",
+    "assert_no_output_drift",
     "assert_prometheus_metric",
     "assert_gpu_utilization",
     "assert_triton_healthy",

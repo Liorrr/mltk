@@ -10,6 +10,7 @@ All three checks should run before any training pipeline ingests data.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from mltk.core.assertion import assert_true, timed_assertion
@@ -202,4 +203,105 @@ def assert_no_conflicting_labels(
         label_col=label_col,
         conflict_count=conflict_count,
         total_groups=total_groups,
+    )
+
+
+@timed_assertion
+def assert_feature_label_correlation_stable(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    feature_cols: list[str],
+    label_col: str,
+    max_shift: float = 0.1,
+) -> TestResult:
+    """Assert feature-label correlations haven't shifted between train and test.
+
+    Computes Pearson correlation between each feature and the label in both
+    datasets. Fails if the maximum absolute correlation shift across all
+    features exceeds max_shift.
+
+    This catches label leakage reversal, feature degradation, and silent
+    annotation changes — none of which show up in schema checks.
+
+    Args:
+        train_df: Training DataFrame (baseline correlations).
+        test_df: Test/evaluation DataFrame (current correlations).
+        feature_cols: List of numeric feature column names to check.
+        label_col: Name of the label/target column.
+        max_shift: Maximum allowed absolute correlation shift per feature
+            (default: 0.1).
+
+    Returns:
+        TestResult with shifted_features, max_shift_observed, and
+        per_feature_shifts mapping each feature to its shift magnitude.
+
+    Example:
+        >>> assert_feature_label_correlation_stable(
+        ...     train_df, test_df,
+        ...     feature_cols=["age", "income", "score"],
+        ...     label_col="churn",
+        ...     max_shift=0.1,
+        ... )
+    """
+    name = "data.feature_label_correlation_stable"
+
+    if train_df.empty or test_df.empty:
+        return assert_true(
+            True,
+            name=name,
+            message="No rows to check (empty DataFrame)",
+            severity=Severity.CRITICAL,
+            feature_cols=feature_cols,
+            label_col=label_col,
+            shifted_features=[],
+            max_shift_observed=0.0,
+            per_feature_shifts={},
+        )
+
+    per_feature_shifts: dict[str, float] = {}
+    for col in feature_cols:
+        train_corr = float(
+            np.corrcoef(
+                train_df[col].astype(float),
+                train_df[label_col].astype(float),
+            )[0, 1]
+        )
+        test_corr = float(
+            np.corrcoef(
+                test_df[col].astype(float),
+                test_df[label_col].astype(float),
+            )[0, 1]
+        )
+        # NaN arises when a column is constant — treat as zero shift
+        shift = abs(train_corr - test_corr)
+        per_feature_shifts[col] = float(shift) if not np.isnan(shift) else 0.0
+
+    shifted_features = [
+        col for col, shift in per_feature_shifts.items() if shift > max_shift
+    ]
+    max_shift_observed = max(per_feature_shifts.values()) if per_feature_shifts else 0.0
+    passed = len(shifted_features) == 0
+
+    message = (
+        f"All {len(feature_cols)} feature-label correlations stable "
+        f"(max shift: {max_shift_observed:.4f} <= {max_shift})"
+        if passed
+        else (
+            f"{len(shifted_features)}/{len(feature_cols)} features shifted beyond "
+            f"{max_shift}: {shifted_features} "
+            f"(max shift: {max_shift_observed:.4f})"
+        )
+    )
+
+    return assert_true(
+        passed,
+        name=name,
+        message=message,
+        severity=Severity.CRITICAL,
+        feature_cols=feature_cols,
+        label_col=label_col,
+        max_shift=max_shift,
+        shifted_features=shifted_features,
+        max_shift_observed=max_shift_observed,
+        per_feature_shifts=per_feature_shifts,
     )
