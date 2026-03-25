@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S20: 76+ assertions, 450 tests, 5 Rust tests)
+## DONE (S0-S22: 84+ assertions, 496 tests, 13 Rust tests)
 
 ### Sprint 0 -- Project Skeleton
 - [x] Repo structure, pyproject.toml, Cargo.toml, CI/CD, Makefile, README
@@ -142,7 +142,16 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Python bridge + scipy/numpy fallbacks
 - [x] Benchmarks: bench_drift.py + bench_pii.py
 
-### Sprint 22 -- Training Bug P2 (ACTIVE)
+### Sprint 22 -- Training Bug P2
+- [x] Augmentation: assert_no_augmentation_on_test, assert_augmentation_preserves_signal
+- [x] Checkpoint: assert_checkpoint_complete, assert_resume_loss_continuous
+- [x] Distributed: assert_effective_batch_size, assert_gradient_sync
+- [x] Memory: assert_no_memory_leak, assert_loss_is_detached
+
+### Sprint 23 -- v0.3.0 Release + PII Tier 3 (ACTIVE)
+- [ ] PII Tier 3: UK NHS, UK NINO, Germany Steuer-ID, India Aadhaar, India PAN
+- [ ] Version bump to v0.3.0
+- [ ] README + BACKLOG cleanup
 - [ ] Rust: KL divergence, chi-squared, Wasserstein, JS divergence
 - [ ] Rust: PII regex scanning (regex crate)
 - [ ] Python bridge: update _rust.py with new functions + fallbacks

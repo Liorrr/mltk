@@ -1,13 +1,15 @@
 # Changelog
 
-## [Unreleased] — Sprint 22
+## [0.3.0] — 2026-03-25
 
-### Added
-- **Training Bug P2** (`mltk.training`):
-  - Augmentation: assert_no_augmentation_on_test, assert_augmentation_preserves_signal
-  - Checkpoint: assert_checkpoint_complete, assert_resume_loss_continuous
-  - Distributed: assert_effective_batch_size, assert_gradient_sync
-  - Memory: assert_no_memory_leak, assert_loss_is_detached
+**84+ assertions, 496+ tests, PII Tier 3, Rust acceleration, Training Bug P2.**
+
+### Sprint 23 — v0.3.0 Release
+- PII Tier 3: UK NHS, UK NINO, Germany Steuer-ID, India Aadhaar, India PAN
+- Version bump, README update, backlog cleanup
+
+### Sprint 22
+- Training Bug P2: augmentation, checkpoint, distributed, memory. 8 new assertions.
 
 ### Sprint 21
 - Rust: KL, chi2, JS, Wasserstein, PII scanning. 13 Rust tests. Benchmarks.

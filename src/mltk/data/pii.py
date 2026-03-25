@@ -7,6 +7,10 @@ API keys, and passwords in DataFrame text columns.
 
 Sprint 18: Israel PII patterns added -- Teudat Zehut (national ID with
 Luhn checksum), Israel phone numbers, and IBAN with MOD-97 validation.
+
+Sprint 23: Tier 3 international PII patterns added -- UK NHS Number (MOD-11),
+UK National Insurance Number (NINO), Germany Steuer-ID (structural),
+India Aadhaar (Verhoeff checksum), and India PAN (format).
 """
 
 from __future__ import annotations
@@ -84,6 +88,154 @@ def _validate_iban(text: str) -> bool:
         return False
 
 
+def _validate_nhs(text: str) -> bool:
+    """Validate a UK NHS Number using the MOD-11 algorithm.
+
+    The NHS Number is a 10-digit identifier issued to every patient registered
+    with the National Health Service in England, Wales, and the Isle of Man.
+
+    Algorithm (NHS Digital specification):
+      1. Strip spaces to get exactly 10 digits.
+      2. Multiply the first 9 digits by weights 10, 9, 8, 7, 6, 5, 4, 3, 2.
+      3. Sum the products.
+      4. Compute remainder = sum mod 11.
+      5. Check digit = 11 - remainder.
+      6. If check digit == 11, check digit is treated as 0.
+      7. If check digit == 10, the number is invalid (no valid NHS number exists).
+      8. Check digit must equal the 10th digit.
+
+    Args:
+        text: Raw NHS Number string (may contain spaces).
+
+    Returns:
+        True if the MOD-11 checksum passes, False otherwise.
+    """
+    digits = text.replace(" ", "")
+    if len(digits) != 10 or not digits.isdigit():
+        return False
+    weights = [10, 9, 8, 7, 6, 5, 4, 3, 2]
+    total = sum(int(d) * w for d, w in zip(digits[:9], weights, strict=False))
+    remainder = total % 11
+    check = 11 - remainder
+    if check == 11:
+        check = 0
+    if check == 10:
+        return False
+    return check == int(digits[9])
+
+
+def _validate_steuerid(text: str) -> bool:
+    """Validate a German Steuer-Identifikationsnummer (tax ID) structurally.
+
+    The German tax ID (Steuer-ID / IdNr) has 11 digits. The structural rules
+    apply to positions 1-10 (the first 10 digits); position 11 is a check digit
+    computed separately (ISO 7064 MOD-11,10) and is not constrained structurally.
+
+    Rules applied here (Bundeszentralamt fuer Steuern specification):
+      1. First digit must not be 0.
+      2. Among positions 1-10, exactly one digit value (0-9) appears more than once
+         (i.e., exactly one digit is duplicated in those first 10 positions).
+      3. Among positions 1-10, exactly one digit value (0-9) does not appear at all.
+      (Rules 2+3 together: 9 distinct values across 10 positions, one repeated once,
+       one absent -- 2 + 8*1 + 0 = 10 positions with 9 distinct values.)
+
+    Note: Full Elster check digit verification (ISO 7064 MOD-11,10) requires the
+    actual check digit formula; these structural rules are the publicly documented
+    format constraints sufficient for PII detection (high specificity, low FPR).
+
+    Args:
+        text: Raw Steuer-ID string (11 digits, no spaces or dashes).
+
+    Returns:
+        True if the structural constraints pass, False otherwise.
+    """
+    s = text.strip()
+    if len(s) != 11 or not s.isdigit():
+        return False
+    # Rule 1: first digit must not be 0
+    if s[0] == "0":
+        return False
+    # Rules 2 & 3: applied to the first 10 digits (positions 1-10)
+    # Position 11 (s[10]) is the check digit -- not structurally constrained here.
+    body = s[:10]
+    counts = [0] * 10
+    for ch in body:
+        counts[int(ch)] += 1
+    # Rule 2: exactly one digit appears more than once in positions 1-10
+    duplicated = sum(1 for c in counts if c > 1)
+    if duplicated != 1:
+        return False
+    # Rule 3: exactly one digit does not appear at all in positions 1-10
+    absent = sum(1 for c in counts if c == 0)
+    if absent != 1:
+        return False
+    return True
+
+
+# Verhoeff algorithm tables (standard, per Verhoeff 1969).
+#
+# D is the Cayley table of the dihedral group D5 (order 10).
+# P is the permutation table derived from the cyclic permutation
+#   sigma = (0 1 5 8 9 4 3 7 6 2), applied 0..7 times to the identity.
+#   P[i][j] = sigma^i(j).  Computed analytically from sigma.
+_VERHOEFF_D = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    [1, 2, 3, 4, 0, 6, 7, 8, 9, 5],
+    [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
+    [3, 4, 0, 1, 2, 8, 9, 5, 6, 7],
+    [4, 0, 1, 2, 3, 9, 5, 6, 7, 8],
+    [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
+    [6, 5, 9, 8, 7, 1, 0, 4, 3, 2],
+    [7, 6, 5, 9, 8, 2, 1, 0, 4, 3],
+    [8, 7, 6, 5, 9, 3, 2, 1, 0, 4],
+    [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+]
+
+_VERHOEFF_P = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],  # sigma^0 = identity
+    [1, 5, 7, 6, 2, 8, 3, 0, 9, 4],  # sigma^1
+    [5, 8, 0, 3, 7, 9, 6, 1, 4, 2],  # sigma^2
+    [8, 9, 1, 6, 0, 4, 3, 5, 2, 7],  # sigma^3
+    [9, 4, 5, 3, 1, 2, 6, 8, 7, 0],  # sigma^4
+    [4, 2, 8, 6, 5, 7, 3, 9, 0, 1],  # sigma^5
+    [2, 7, 9, 3, 8, 0, 6, 4, 1, 5],  # sigma^6
+    [7, 0, 4, 6, 9, 1, 3, 2, 5, 8],  # sigma^7
+]
+
+
+def _validate_aadhaar(text: str) -> bool:
+    """Validate an India Aadhaar number using the Verhoeff checksum algorithm.
+
+    Aadhaar is a 12-digit Unique Identification number issued by the Unique
+    Identification Authority of India (UIDAI). The last digit is a Verhoeff
+    check digit computed over the first 11 digits.
+
+    Algorithm:
+      1. Strip spaces to obtain 12 digits.
+      2. Process digits right-to-left with position index i starting at 0.
+      3. c = 0; for each digit: c = D[c][P[i % 8][digit]]; i++.
+      4. Result c must equal 0 for a valid number.
+
+    The first digit of an Aadhaar number is never 0 or 1 (UIDAI policy).
+
+    Args:
+        text: Raw Aadhaar string (may contain spaces).
+
+    Returns:
+        True if the Verhoeff checksum passes and format is valid, False otherwise.
+    """
+    digits = text.replace(" ", "")
+    if len(digits) != 12 or not digits.isdigit():
+        return False
+    # UIDAI: first digit must be 2-9
+    if digits[0] in ("0", "1"):
+        return False
+    c = 0
+    for i, ch in enumerate(reversed(digits)):
+        c = _VERHOEFF_D[c][_VERHOEFF_P[i % 8][int(ch)]]
+    return c == 0
+
+
 @dataclass
 class PiiMatch:
     """A single PII detection result."""
@@ -139,6 +291,25 @@ _PII_PATTERNS: dict[str, re.Pattern[str]] = {
     "israel_phone": re.compile(
         r"\b0(?:5\d-?\d{3}-?\d{4}|[2-9]\d?-?\d{3}-?\d{4})\b"
     ),
+    # Sprint 23: Tier 3 international PII patterns
+    # UK NHS Number -- 10 digits, optional spaces after 3rd and 6th digit.
+    # MOD-11 checksum validation (_validate_nhs) applied in scan_pii.
+    "uk_nhs": re.compile(r"\b\d{3}\s?\d{3}\s?\d{4}\b"),
+    # UK National Insurance Number (NINO) -- 2 letters + 6 digits + 1 letter.
+    # First two letters exclude certain characters per HMRC rules.
+    # No checksum; format validation is sufficient.
+    "uk_nino": re.compile(
+        r"\b[A-CEGHJ-PR-TW-Z]{2}\s?\d{2}\s?\d{2}\s?\d{2}\s?[A-D]\b"
+    ),
+    # Germany Steuer-Identifikationsnummer (tax ID) -- 11 digits.
+    # Structural validator (_validate_steuerid) applied in scan_pii.
+    "de_steuerid": re.compile(r"\b\d{11}\b"),
+    # India Aadhaar -- 12 digits, optional spaces after 4th and 8th digit.
+    # Verhoeff checksum validation (_validate_aadhaar) applied in scan_pii.
+    "in_aadhaar": re.compile(r"\b\d{4}\s?\d{4}\s?\d{4}\b"),
+    # India Permanent Account Number (PAN) -- 5 letters + 4 digits + 1 letter.
+    # No checksum; format is sufficiently specific to avoid false positives.
+    "in_pan": re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b"),
 }
 
 # Checksum validators keyed by pattern name.
@@ -147,6 +318,9 @@ _PII_PATTERNS: dict[str, re.Pattern[str]] = {
 _VALIDATORS: dict[str, object] = {
     "israel_tz": _validate_tz_match,
     "iban": _validate_iban,
+    "uk_nhs": _validate_nhs,
+    "de_steuerid": _validate_steuerid,
+    "in_aadhaar": _validate_aadhaar,
 }
 
 # Group API key patterns under a single category for filtering
@@ -167,6 +341,12 @@ _PATTERN_CATEGORIES: dict[str, list[str]] = {
     "slack_webhook": ["slack_webhook"],
     "israel_tz": ["israel_tz"],
     "israel_phone": ["israel_phone"],
+    # Sprint 23 Tier 3
+    "uk_nhs": ["uk_nhs"],
+    "uk_nino": ["uk_nino"],
+    "de_steuerid": ["de_steuerid"],
+    "in_aadhaar": ["in_aadhaar"],
+    "in_pan": ["in_pan"],
 }
 
 
