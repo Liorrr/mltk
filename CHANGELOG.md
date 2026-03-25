@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased] — Sprint 25
+## [Unreleased] — Sprint 26
+
+### Added
+- **GitHub Issues adapter** (`mltk.integrations.github_adapter`) — create/search/update issues
+- **Slack notifications** (`mltk.integrations.slack`) — webhook-based failure alerts
+- **Plugin system** (`mltk.core.plugin`) — `@register_assertion` + `discover_plugins()`
+- **CLI**: `mltk notify slack`
+
+### Sprint 25
+- Test resource registry: push/pull/list. 563 tests.
+
+## [Previous] — Sprint 25
 
 ### Added
 - **Test resource registry** (`mltk.registry`):

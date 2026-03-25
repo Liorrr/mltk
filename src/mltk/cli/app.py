@@ -533,4 +533,71 @@ quality:
 
     app.add_typer(registry_app)
 
+    # Notify subcommands
+    notify_app = typer.Typer(name="notify", help="Send notifications")
+
+    @notify_app.command("slack")
+    def notify_slack_cmd(
+        webhook_url: str = typer.Option(
+            ...,
+            envvar="MLTK_SLACK_WEBHOOK",
+            help="Slack incoming webhook URL",
+        ),
+        results_json: str = typer.Option(
+            None,
+            help="Path to mltk results JSON file (from --mltk-export-json)",
+        ),
+        message: str = typer.Option(None, help="Custom plain-text message to send"),
+    ) -> None:
+        """Send test results (or a custom message) to Slack.
+
+        Reads a JSON results file produced by ``--mltk-export-json`` and posts
+        a formatted Block Kit summary to the configured Slack webhook.
+        Use ``--message`` to send a standalone plain-text notification instead.
+
+        Example::
+
+            mltk notify slack --results-json mltk-reports/results.json
+            mltk notify slack --message "Nightly ML tests passed"
+        """
+        import json as _json
+
+        from mltk.core.result import Severity, TestResult, TestSuite
+        from mltk.integrations.slack import notify_slack
+
+        suite: TestSuite | None = None
+
+        if results_json is not None:
+            p = Path(results_json)
+            if not p.exists():
+                print(f"Results file not found: {results_json}")  # noqa: T201
+                raise typer.Exit(1)
+
+            raw = _json.loads(p.read_text())
+            suite = TestSuite()
+            for item in raw.get("results", []):
+                suite.add(
+                    TestResult(
+                        name=item.get("name", "unknown"),
+                        passed=item.get("passed", False),
+                        severity=Severity(item.get("severity", "critical")),
+                        message=item.get("message", ""),
+                        details=item.get("details", {}),
+                        duration_ms=item.get("duration_ms", 0.0),
+                    )
+                )
+
+        if suite is None and message is None:
+            print("Provide --results-json or --message (or both)")  # noqa: T201
+            raise typer.Exit(1)
+
+        ok = notify_slack(webhook_url=webhook_url, suite=suite, message=message)
+        if ok:
+            print("Slack notification sent")  # noqa: T201
+        else:
+            print("Failed to send Slack notification")  # noqa: T201
+            raise typer.Exit(1)
+
+    app.add_typer(notify_app)
+
     app()

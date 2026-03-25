@@ -156,7 +156,15 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Flaky detection, golden test sets, retry with Wilson CI, smart test selection
 - [x] mltk docs serve/build/open CLI commands, mltk.local.yaml.example
 
-### Sprint 25 -- Test Resource Registry (ACTIVE)
+### Sprint 25 -- Test Resource Registry
+- [x] save_collection, load_collection, list_collections
+- [x] mltk registry push/pull/list CLI commands
+
+### Sprint 26 -- More Integrations (ACTIVE)
+- [ ] GitHub Issues adapter (create/search/update via API)
+- [ ] Slack webhook notifications (failure alerts)
+- [ ] Plugin system (@register_assertion + discover_plugins)
+- [ ] mltk notify slack CLI command
 - [ ] Flaky test detection: detect_flaky(), FlakySummary
 - [ ] Golden test sets: save_golden(), load_golden(), assert_matches_golden()
 - [ ] Non-deterministic retry: retry_until_confident()
