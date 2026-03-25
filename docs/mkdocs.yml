@@ -58,6 +58,7 @@ nav:
       - CLI: api/cli.md
       - HTML Reports: api/report.md
       - ML Test Score: api/ml-test-score.md
+      - Integrations (Jira): api/integrations.md
 
 markdown_extensions:
   - admonition
