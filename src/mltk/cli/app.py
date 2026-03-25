@@ -424,6 +424,113 @@ quality:
         else:
             raise typer.Exit(1)
 
+    @docs_app.command("open")
+    def docs_open(
+        port: int = typer.Option(8000, help="Port to serve on"),
+    ) -> None:
+        """Build docs, start a local server, and open in browser."""
+        import http.server
+        import os
+        import subprocess
+        import sys
+        import threading
+        import webbrowser
+
+        port = int(os.environ.get("MLTK_DOCS_PORT", str(port)))
+
+        # Build first
+        mkdocs_yml = Path("mkdocs.yml")
+        if not mkdocs_yml.exists():
+            print("mkdocs.yml not found in current directory")  # noqa: T201
+            raise typer.Exit(1)
+
+        print("Building docs...")  # noqa: T201
+        build_result = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "mkdocs", "build", "-d", "site"],
+            check=False,
+        )
+        if build_result.returncode != 0:
+            print("Build failed")  # noqa: T201
+            raise typer.Exit(1)
+
+        # Serve with Python's built-in HTTP server
+        site_dir = Path("site")
+        os.chdir(str(site_dir))
+
+        handler = http.server.SimpleHTTPRequestHandler
+        server = http.server.HTTPServer(("127.0.0.1", port), handler)
+
+        url = f"http://127.0.0.1:{port}"
+        print(f"Docs available at: {url}")  # noqa: T201
+        print("Press Ctrl+C to stop")  # noqa: T201
+
+        # Open browser after a short delay
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            print("\nStopped.")  # noqa: T201
+            server.shutdown()
+
     app.add_typer(docs_app)
+
+    # Registry subcommands
+    registry_app = typer.Typer(name="registry", help="Test resource registry")
+
+    @registry_app.command("push")
+    def registry_push(
+        name: str,
+        source: str = typer.Option(".", help="Source directory to push"),
+        description: str = typer.Option("", help="Collection description"),
+        version: str = typer.Option("1.0", help="Collection version"),
+        tags: str = typer.Option("", help="Comma-separated tags"),
+    ) -> None:
+        """Push a directory of test files to the registry as a named collection."""
+        from mltk.registry import save_collection
+
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+        col_dir = save_collection(
+            name,
+            source_dir=source,
+            description=description,
+            version=version,
+            tags=tag_list,
+        )
+        print(f"Saved collection '{name}' to {col_dir}")  # noqa: T201
+
+    @registry_app.command("pull")
+    def registry_pull(
+        name: str,
+        target: str = typer.Option(".", help="Target directory to restore into"),
+    ) -> None:
+        """Pull a named collection from the registry into a local directory."""
+        from mltk.registry import load_collection
+
+        try:
+            loaded = load_collection(name, target_dir=target)
+            print(f"Loaded collection '{name}' to {loaded}")  # noqa: T201
+        except ValueError as exc:
+            print(f"Error: {exc}")  # noqa: T201
+            raise typer.Exit(1) from exc
+
+    @registry_app.command("list")
+    def registry_list() -> None:
+        """List all collections in the registry."""
+        from mltk.registry import list_collections
+
+        manifests = list_collections()
+        if not manifests:
+            print("Registry is empty. Use 'mltk registry push <name>' to add a collection.")  # noqa: T201
+            return
+
+        print(f"{'NAME':<20} {'VERSION':<10} {'TAGS':<30} DESCRIPTION")  # noqa: T201
+        print("-" * 80)  # noqa: T201
+        for m in manifests:
+            tags_str = ", ".join(m.tags) if m.tags else ""
+            desc = m.description[:40] + "..." if len(m.description) > 40 else m.description
+            print(f"{m.name:<20} {m.version:<10} {tags_str:<30} {desc}")  # noqa: T201
+
+    app.add_typer(registry_app)
 
     app()
