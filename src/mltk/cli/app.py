@@ -600,4 +600,16 @@ quality:
 
     app.add_typer(notify_app)
 
+    @app.command()
+    def chat(
+        results_json: str = typer.Option(
+            None, "--results-json",
+            help="Path to results JSON from --mltk-export-json",
+        ),
+    ) -> None:
+        """Interactive Q&A about test results."""
+        from mltk.chat import chat_repl
+
+        chat_repl(results_json)
+
     app()

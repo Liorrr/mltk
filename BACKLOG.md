@@ -160,7 +160,11 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] save_collection, load_collection, list_collections
 - [x] mltk registry push/pull/list CLI commands
 
-### Sprint 26 -- More Integrations (ACTIVE)
+### Sprint 26 -- More Integrations
+- [x] GitHub Issues adapter, Slack notifications, plugin system
+- [x] mltk notify slack CLI command
+
+### Sprint 27 -- Chat Interface (ACTIVE)
 - [ ] GitHub Issues adapter (create/search/update via API)
 - [ ] Slack webhook notifications (failure alerts)
 - [ ] Plugin system (@register_assertion + discover_plugins)

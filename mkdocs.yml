@@ -69,6 +69,7 @@ nav:
       - Model Card Generator: api/model-card.md
       - Testing Patterns: api/testing-patterns.md
       - Test Registry: api/registry.md
+      - Chat Interface: api/chat.md
 
 markdown_extensions:
   - admonition
