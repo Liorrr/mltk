@@ -369,4 +369,61 @@ quality:
 
     app.add_typer(contract_app)
 
+    # Docs subcommands
+    docs_app = typer.Typer(name="docs", help="Documentation server")
+
+    @docs_app.command("serve")
+    def docs_serve(
+        port: int = typer.Option(8000, help="Port to serve on"),
+        host: str = typer.Option("127.0.0.1", help="Host to bind to"),
+    ) -> None:
+        """Serve documentation locally with hot reload."""
+        import os
+        import subprocess
+        import sys
+
+        port = int(os.environ.get("MLTK_DOCS_PORT", str(port)))
+        host = os.environ.get("MLTK_DOCS_HOST", host)
+
+        mkdocs_yml = Path("mkdocs.yml")
+        if not mkdocs_yml.exists():
+            print("mkdocs.yml not found in current directory")  # noqa: T201
+            raise typer.Exit(1)
+
+        print(f"Serving docs at http://{host}:{port}")  # noqa: T201
+        print("Press Ctrl+C to stop")  # noqa: T201
+        subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "mkdocs", "serve",
+             "-a", f"{host}:{port}"],
+            check=False,
+        )
+
+    @docs_app.command("build")
+    def docs_build(
+        output: str = typer.Option("site", help="Output directory"),
+    ) -> None:
+        """Build static HTML documentation."""
+        import subprocess
+        import sys
+
+        mkdocs_yml = Path("mkdocs.yml")
+        if not mkdocs_yml.exists():
+            print("mkdocs.yml not found in current directory")  # noqa: T201
+            raise typer.Exit(1)
+
+        result = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "mkdocs", "build",
+             "-d", output],
+            check=False,
+        )
+        if result.returncode == 0:
+            print(f"Docs built to: {output}/")  # noqa: T201
+            print(  # noqa: T201
+                f"Open: {Path(output) / 'index.html'}"
+            )
+        else:
+            raise typer.Exit(1)
+
+    app.add_typer(docs_app)
+
     app()

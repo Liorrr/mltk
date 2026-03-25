@@ -148,7 +148,16 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Distributed: assert_effective_batch_size, assert_gradient_sync
 - [x] Memory: assert_no_memory_leak, assert_loss_is_detached
 
-### Sprint 23 -- v0.3.0 Release + PII Tier 3 (ACTIVE)
+### Sprint 23 -- v0.3.0 Release + PII Tier 3
+- [x] PII Tier 3: UK NHS, UK NINO, Germany Steuer-ID, India Aadhaar, India PAN
+- [x] Version bump to v0.3.0, README update, backlog cleanup
+
+### Sprint 24 -- Testing Patterns + Local Docs (ACTIVE)
+- [ ] Flaky test detection: detect_flaky(), FlakySummary
+- [ ] Golden test sets: save_golden(), load_golden(), assert_matches_golden()
+- [ ] Non-deterministic retry: retry_until_confident()
+- [ ] Smart test selection: select_affected_tests(), build_test_map()
+- [ ] Local docs: `mltk docs serve/build` CLI commands
 - [ ] PII Tier 3: UK NHS, UK NINO, Germany Steuer-ID, India Aadhaar, India PAN
 - [ ] Version bump to v0.3.0
 - [ ] README + BACKLOG cleanup

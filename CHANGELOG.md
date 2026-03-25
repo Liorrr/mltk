@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased] — Sprint 24
+
+### Added
+- **Testing patterns** (`mltk.testing`):
+  - `detect_flaky()` — run test N times, flag as flaky if pass rate below threshold
+  - `save_golden()` / `load_golden()` / `assert_matches_golden()` — versioned baseline management
+  - `retry_until_confident()` — retry with confidence intervals for non-deterministic tests
+  - `select_affected_tests()` / `build_test_map()` — smart test selection from imports
+- **Local docs server**: `mltk docs serve` (hot reload) + `mltk docs build` (static HTML)
+
 ## [0.3.0] — 2026-03-25
 
 **84+ assertions, 496+ tests, PII Tier 3, Rust acceleration, Training Bug P2.**

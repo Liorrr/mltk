@@ -34,6 +34,10 @@ htmlcov/
 # Reports
 mltk-reports/
 
+# Local config (per-developer settings)
+mltk.local.yaml
+.env
+
 # OS
 .DS_Store
 Thumbs.db

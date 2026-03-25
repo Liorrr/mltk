@@ -1,0 +1,11 @@
+# Local mltk configuration — copy to mltk.local.yaml (gitignored)
+# Override with env vars: MLTK_DOCS_PORT, MLTK_DOCS_HOST
+
+docs:
+  port: 8000
+  host: "127.0.0.1"
+
+# Override global mltk settings locally
+# drift_method: psi
+# drift_threshold: 0.1
+# report_dir: ./my-reports
