@@ -1,27 +1,27 @@
 # Changelog
 
-## [Unreleased] — Sprint 6: Reports + Pipeline + ML Test Score
+## [Unreleased] — Sprint 7: CV Domain Kit
 
 ### Added
-- **HTML report generation** (`generate_report`):
-  - Self-contained single-file HTML with dark theme
-  - Pass/fail summary, per-module breakdown, test details table
-  - Auto-generated when `pytest --mltk-report` is run
-- **ML Test Score** (`compute_ml_test_score`):
-  - Google's 28-test rubric (data/model/infrastructure/monitoring)
-  - `mltk score` CLI command
-- **Pipeline testing**:
-  - `assert_reproducible()` — deterministic training with seed control
-  - `assert_checksum()` — SHA-256 artifact validation
-  - `assert_pipeline()` — E2E pipeline execution with type checking
-- **Milestone:** `pytest --mltk-report` generates HTML report
-- **162 tests** (16 new)
+- **Computer vision domain kit** (`mltk.domains.cv`):
+  - `compute_iou()` — vectorized NxM IoU matrix computation (pure numpy)
+  - `assert_iou()` — minimum mean IoU between predicted and ground-truth boxes
+  - `assert_map()` — mean Average Precision with per-class AP breakdown (COCO/VOC-style)
+  - `assert_frame_accuracy()` — per-frame detection/classification accuracy for video
+  - `assert_temporal_consistency()` — frame-to-frame tracking smoothness validation
+  - `assert_topk_accuracy()` — top-K accuracy for image classification
+- **mycompany CV example** (`examples/mycompany_cv_test.py`)
+- **3 research agents dispatched**: LLM/GenAI evaluation, data contracts, embedding drift
+- **178 tests** (16 new)
+
+### Sprint 6
+- HTML reports, pipeline (reproducibility, checksum, E2E), ML Test Score. 162 tests.
 
 ### Sprint 5
 - Inference (latency, throughput, contract), CLI (init, scan, drift). 146 tests.
 
 ### Sprint 4
-- Bias (5 methods), adversarial, --mltk-report terminal. 124 tests.
+- Bias (5 methods), adversarial, --mltk-report. 124 tests.
 
 ### Sprint 3
 - Model metrics (9), regression, slicing, calibration. 102 tests.
