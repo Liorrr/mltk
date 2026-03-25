@@ -44,6 +44,7 @@ contracts = ["pyyaml>=6.0"]
 integrations = ["jira>=3.0"]
 llm = []  # lightweight (numpy only), future: sentence-transformers, detoxify
 torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)
+mlflow = ["mlflow>=2.0"]  # MLflow integration for logging test results
 all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations]"]
 dev = [
     "pytest>=8.0",

@@ -105,7 +105,7 @@ class MltkReportCollector:
 
 
 def pytest_addoption(parser):  # type: ignore[no-untyped-def]
-    """Add --mltk-report and --mltk-export-json options."""
+    """Add --mltk-report, --mltk-export-json, and --mltk-mlflow options."""
     parser.addoption(
         "--mltk-report",
         action="store_true",
@@ -118,6 +118,17 @@ def pytest_addoption(parser):  # type: ignore[no-untyped-def]
         default=None,
         metavar="PATH",
         help="Export mltk test results as JSON to the specified file path",
+    )
+    parser.addoption(
+        "--mltk-mlflow",
+        action="store",
+        default=None,
+        metavar="EXPERIMENT",
+        help=(
+            "Log mltk test results to MLflow under the given experiment name. "
+            "Set MLFLOW_TRACKING_URI to point at a remote server, or omit for "
+            "local ./mlruns storage. Requires: pip install mlflow"
+        ),
     )
 
 
@@ -189,6 +200,11 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
     if json_export_path and collector is not None:
         _export_json(collector, json_export_path, session)
 
+    # --- MLflow logging (independent of --mltk-report) ---
+    mlflow_experiment = session.config.getoption("--mltk-mlflow", default=None)
+    if mlflow_experiment and collector is not None:
+        _log_mlflow(collector, mlflow_experiment, session)
+
     # --- HTML/terminal report ---
     if not session.config.getoption("--mltk-report", default=False):
         return
@@ -247,6 +263,57 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
         writer.line(f"HTML report: {report_path}")
     except ImportError:
         pass  # plotly/jinja2 not installed — skip HTML report
+
+
+def _log_mlflow(
+    collector: MltkReportCollector,
+    experiment_name: str,
+    session: object,
+) -> None:
+    """Log collected test results to MLflow.
+
+    Converts the flat collector records into a :class:`~mltk.core.result.TestSuite`
+    and delegates to :class:`~mltk.integrations.mlflow_logger.MlflowLogger`.
+
+    Args:
+        collector: The report collector with accumulated results.
+        experiment_name: MLflow experiment name (value of ``--mltk-mlflow``).
+        session: pytest session (used for terminal reporter access).
+    """
+    from mltk.core.result import Severity, TestResult, TestSuite  # noqa: PLC0415
+    from mltk.integrations.mlflow_logger import MlflowLogger  # noqa: PLC0415
+
+    suite = TestSuite()
+    for r in collector.results:
+        ml_result = r.get("ml_result")
+        duration_s = float(r.get("duration", 0.0))  # type: ignore[arg-type]
+
+        if ml_result is not None:
+            # Re-use the existing TestResult from the assertion
+            suite.add(ml_result)
+        else:
+            # Synthesise a minimal TestResult from the pytest record
+            suite.add(
+                TestResult(
+                    name=str(r["nodeid"]),
+                    passed=r["outcome"] == "passed",
+                    severity=Severity.INFO,
+                    message="",
+                    duration_ms=round(duration_s * 1000, 3),
+                )
+            )
+
+    try:
+        logger = MlflowLogger(experiment_name=experiment_name)
+        logger.log_results(suite)
+    except Exception as exc:  # noqa: BLE001
+        # Non-fatal — report the error but do not break the test session
+        try:
+            reporter = session.config.pluginmanager.get_plugin("terminalreporter")  # type: ignore[union-attr]
+            if reporter is not None:
+                reporter._tw.line(f"mltk MLflow logging failed: {exc}")
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _export_json(

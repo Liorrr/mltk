@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased] — Sprint 19
+
+### Added
+- **MLflow integration** (`mltk.integrations.mlflow_logger`):
+  - `MlflowLogger` — log test results as MLflow metrics + attach reports as artifacts
+  - `pytest --mltk-mlflow` flag for auto-logging
+- **Jupyter notebook** (`mltk.core.result._repr_html_`):
+  - Rich HTML display for TestResult and TestSuite in notebooks
+  - `display_report(suite)` for inline reports
+- **Model card generator** (`mltk.report.model_card`):
+  - `generate_model_card()` — auto-generate Google Model Cards from test results
+  - `mltk model-card` CLI command
+- `mltk[mlflow]` optional dependency
+
 ## [0.2.0] — 2026-03-25
 
 **66+ assertions, 361+ tests, YAML test defs, EU AI Act compliance, mltk doctor, 11 CLI commands.**

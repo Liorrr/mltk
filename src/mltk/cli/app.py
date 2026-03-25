@@ -233,6 +233,40 @@ def test_data_quality():
         if passed < total:
             raise typer.Exit(1)
 
+    @app.command("model-card")
+    def model_card_cmd(
+        results_json: str,
+        model_name: str = "AI Model",
+        model_version: str = "1.0",
+        output: str = "model-card.md",
+    ) -> None:
+        """Generate a Google Model Card from test results JSON.
+
+        Reads a JSON file produced by ``--mltk-export-json`` and writes a
+        Markdown model card covering metrics, fairness, calibration, robustness,
+        data quality, and known limitations.
+
+        Args:
+            results_json: Path to JSON file with mltk test results.
+            model_name: Display name of the model (default: "AI Model").
+            model_version: Version string for the model (default: "1.0").
+            output: Destination path for the Markdown file (default: model-card.md).
+        """
+        from mltk.report import generate_model_card
+
+        p = Path(results_json)
+        if not p.exists():
+            print(f"Results file not found: {results_json}")  # noqa: T201
+            raise typer.Exit(1)
+
+        card_path = generate_model_card(
+            results_path=p,
+            model_name=model_name,
+            model_version=model_version,
+            output_path=output,
+        )
+        print(f"Model card generated: {card_path}")  # noqa: T201
+
     @app.command()
     def compliance(
         results_json: str,

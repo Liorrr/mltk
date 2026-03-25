@@ -121,7 +121,14 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## PLANNED
 
-### Sprint 19 -- Cloud Monitoring Integration
+### Sprint 19 -- Production Integrations (ACTIVE)
+- [ ] MLflow integration: log test results as metrics + attach reports as artifacts
+- [ ] Jupyter notebook: rich _repr_html_ for TestResult/TestSuite, display_report()
+- [ ] Model card generator: auto-generate Google Model Cards from test results
+- [ ] CLI: mltk model-card, pytest --mltk-mlflow flag
+- [ ] pyproject.toml: mltk[mlflow] extra
+
+### Sprint 20 -- Cloud Monitoring Integration
 - [ ] **AWS SageMaker**: endpoint health, CloudWatch metrics, Model Monitor integration
 - [ ] **GCP Vertex AI**: prediction endpoint monitoring, TPU utilization
 - [ ] **Azure ML**: managed endpoint metrics, Responsible AI Dashboard

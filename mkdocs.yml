@@ -62,6 +62,9 @@ nav:
       - EU AI Act Compliance: api/eu-ai-act.md
       - mltk doctor: api/doctor.md
       - Integrations (Jira): api/integrations.md
+      - MLflow Integration: api/mlflow.md
+      - Jupyter Notebooks: api/jupyter.md
+      - Model Card Generator: api/model-card.md
 
 markdown_extensions:
   - admonition
