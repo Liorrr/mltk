@@ -4,11 +4,14 @@ Drift is silent. A model doesn't crash when data drifts -- it just produces
 increasingly wrong predictions. Drift detection is the bridge between
 "model works on test set" and "model works in production."
 
-Supports 4 methods:
+Supports 7 methods:
 - KS test: non-parametric, best for continuous numeric features
 - PSI: industry standard for financial models, interpretable buckets
 - KL divergence: information-theoretic, captures distributional shape
 - Chi-squared: designed for categorical features
+- Jensen-Shannon: symmetric, bounded [0,1], Evidently's default for categorical
+- Wasserstein: proportional to mean shift, Evidently's default for numeric n>1000
+- Auto: auto-selects best method based on sample size and dtype
 """
 
 from __future__ import annotations
@@ -21,10 +24,13 @@ from mltk.core.result import Severity, TestResult
 
 # Default thresholds per method (pass if below/above these)
 _DEFAULT_THRESHOLDS: dict[str, float] = {
-    "ks": 0.05,    # p-value: pass if p > 0.05 (no significant difference)
-    "psi": 0.1,    # PSI: pass if PSI < 0.1 (stable)
-    "kl": 0.1,     # KL divergence: pass if KL < 0.1
-    "chi2": 0.05,  # p-value: pass if p > 0.05
+    "ks": 0.05,         # p-value: pass if p > 0.05
+    "psi": 0.1,         # PSI: pass if PSI < 0.1
+    "kl": 0.1,          # KL divergence: pass if KL < 0.1
+    "chi2": 0.05,       # p-value: pass if p > 0.05
+    "js": 0.1,          # Jensen-Shannon: pass if JS < 0.1 (bounded [0,1])
+    "wasserstein": 0.1,  # Wasserstein: pass if W < 0.1
+    "auto": 0.05,       # Auto: uses method-specific threshold
 }
 
 
@@ -83,12 +89,21 @@ def assert_no_drift(
             severity=Severity.CRITICAL,
         )
 
-    if method == "ks":
+    if method == "auto":
+        # Auto-select: Wasserstein for numeric n>1000, KS otherwise
+        if len(ref_arr) > 1000:
+            return _drift_wasserstein(ref_arr, cur_arr, _DEFAULT_THRESHOLDS["wasserstein"])
+        return _drift_ks(ref_arr, cur_arr, _DEFAULT_THRESHOLDS["ks"])
+    elif method == "ks":
         return _drift_ks(ref_arr, cur_arr, thresh)
     elif method == "psi":
         return _drift_psi(ref_arr, cur_arr, thresh)
-    else:  # kl
+    elif method == "kl":
         return _drift_kl(ref_arr, cur_arr, thresh)
+    elif method == "js":
+        return _drift_js(ref_arr, cur_arr, thresh)
+    else:  # wasserstein
+        return _drift_wasserstein(ref_arr, cur_arr, thresh)
 
 
 def _drift_ks(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
@@ -245,5 +260,66 @@ def _drift_chi2(
         statistic=float(stat),
         p_value=float(p_value),
         threshold=threshold,
+        drift_detected=not passed,
+    )
+
+
+def _drift_js(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
+    """Jensen-Shannon divergence: symmetric, bounded [0,1].
+
+    Args:
+        ref: Reference distribution array.
+        cur: Current distribution array.
+        threshold: JS threshold; pass if JS < threshold.
+
+    Returns:
+        TestResult with JS divergence value.
+    """
+    bins = np.linspace(min(ref.min(), cur.min()), max(ref.max(), cur.max()), 11)
+    ref_hist = np.histogram(ref, bins=bins)[0].astype(float) / len(ref)
+    cur_hist = np.histogram(cur, bins=bins)[0].astype(float) / len(cur)
+    ref_hist = np.clip(ref_hist, 1e-10, None)
+    cur_hist = np.clip(cur_hist, 1e-10, None)
+    m = 0.5 * (ref_hist + cur_hist)
+    js_value = float(
+        0.5 * np.sum(ref_hist * np.log(ref_hist / m))
+        + 0.5 * np.sum(cur_hist * np.log(cur_hist / m))
+    )
+    passed = js_value < threshold
+    return assert_true(
+        passed, name="data.drift.js",
+        message=(f"JS: {js_value:.4f} (threshold: {threshold})" if passed
+                 else f"Drift detected: JS={js_value:.4f} >= {threshold}"),
+        severity=Severity.CRITICAL,
+        method="js", statistic=js_value, threshold=threshold,
+        drift_detected=not passed,
+    )
+
+
+def _drift_wasserstein(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
+    """Wasserstein (Earth Mover's) distance.
+
+    Args:
+        ref: Reference distribution array.
+        cur: Current distribution array.
+        threshold: Wasserstein threshold; pass if W < threshold.
+
+    Returns:
+        TestResult with Wasserstein distance value.
+    """
+    try:
+        from scipy.stats import wasserstein_distance
+    except ImportError as err:
+        raise ImportError(
+            "scipy required for Wasserstein. Install: pip install mltk[scipy]"
+        ) from err
+    w_value = float(wasserstein_distance(ref, cur))
+    passed = w_value < threshold
+    return assert_true(
+        passed, name="data.drift.wasserstein",
+        message=(f"Wasserstein: {w_value:.4f} (threshold: {threshold})" if passed
+                 else f"Drift detected: W={w_value:.4f} >= {threshold}"),
+        severity=Severity.CRITICAL,
+        method="wasserstein", statistic=w_value, threshold=threshold,
         drift_detected=not passed,
     )

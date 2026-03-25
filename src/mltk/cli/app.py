@@ -154,4 +154,58 @@ def test_data_quality():
         print("  Infrastructure: reproducibility, pipeline, contract, latency, throughput")  # noqa: T201
         print("  Monitoring:     drift monitoring, degradation, SLA, alerts")  # noqa: T201
 
+    # Contract subcommands
+    contract_app = typer.Typer(name="contract", help="Data contract operations")
+
+    @contract_app.command("init")
+    def contract_init() -> None:
+        """Scaffold an example data contract YAML file."""
+        example = """\
+name: my_dataset
+version: "1.0"
+
+columns:
+  id:
+    type: int64
+    nullable: false
+    unique: true
+  value:
+    type: float64
+    nullable: false
+    range: [0, 100]
+  label:
+    type: int64
+    nullable: false
+
+quality:
+  min_rows: 100
+"""
+        Path("contract.yaml").write_text(example)
+        print("Created contract.yaml")  # noqa: T201
+
+    @contract_app.command("validate")
+    def contract_validate(
+        data: str,
+        contract: str = typer.Option("contract.yaml", help="Contract YAML path"),
+    ) -> None:
+        """Validate a data file against a contract."""
+        import pandas as pd
+
+        from mltk.contracts import validate_data
+
+        p = Path(data)
+        if not p.exists():
+            print(f"File not found: {data}")  # noqa: T201
+            raise typer.Exit(1)
+
+        df = pd.read_csv(p) if p.suffix != ".parquet" else pd.read_parquet(p)
+        suite = validate_data(df, contract)
+
+        print(f"Contract validation: {suite.passed_count}/{suite.total} passed")  # noqa: T201
+        for r in suite.results:
+            status = "PASS" if r.passed else "FAIL"
+            print(f"  [{status}] {r.name}: {r.message}")  # noqa: T201
+
+    app.add_typer(contract_app)
+
     app()
