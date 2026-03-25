@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased] — Sprint 24
+## [Unreleased] — Sprint 25
+
+### Added
+- **Test resource registry** (`mltk.registry`):
+  - `save_collection()` / `load_collection()` / `list_collections()`
+  - `mltk registry push/pull/list` CLI commands
+  - Collection format: manifest.json + YAML test defs + golden data
+
+### Sprint 24
+- Testing patterns (flaky, golden, retry, selection). Local docs server. 547 tests.
+
+## [Previous Unreleased] — Sprint 24
 
 ### Added
 - **Testing patterns** (`mltk.testing`):

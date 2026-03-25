@@ -152,7 +152,11 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] PII Tier 3: UK NHS, UK NINO, Germany Steuer-ID, India Aadhaar, India PAN
 - [x] Version bump to v0.3.0, README update, backlog cleanup
 
-### Sprint 24 -- Testing Patterns + Local Docs (ACTIVE)
+### Sprint 24 -- Testing Patterns + Local Docs
+- [x] Flaky detection, golden test sets, retry with Wilson CI, smart test selection
+- [x] mltk docs serve/build/open CLI commands, mltk.local.yaml.example
+
+### Sprint 25 -- Test Resource Registry (ACTIVE)
 - [ ] Flaky test detection: detect_flaky(), FlakySummary
 - [ ] Golden test sets: save_golden(), load_golden(), assert_matches_golden()
 - [ ] Non-deterministic retry: retry_until_confident()

@@ -67,6 +67,7 @@ nav:
       - Jupyter Notebooks: api/jupyter.md
       - Model Card Generator: api/model-card.md
       - Testing Patterns: api/testing-patterns.md
+      - Test Registry: api/registry.md
 
 markdown_extensions:
   - admonition
