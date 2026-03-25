@@ -50,6 +50,7 @@ nav:
       - Tabular: api/tabular.md
       - Monitoring: api/monitor.md
       - Embedding Drift: api/drift-advanced.md
+      - LLM Evaluation: api/llm.md
   - Guides:
       - Data Contracts: api/contracts.md
       - pytest Plugin: api/pytest-plugin.md
