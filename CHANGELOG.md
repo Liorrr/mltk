@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased] — Sprint 9: Monitoring + Tabular (Final Feature Sprint)
+## [0.1.0] — 2026-03-25 — First Public Release
+
+**47 assertion functions, 204 tests, 4 domain kits, Rust acceleration, pytest plugin, CLI, HTML reports.**
 
 ### Added
 - **Production monitoring** (`mltk.monitor`):
