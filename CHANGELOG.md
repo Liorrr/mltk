@@ -1,22 +1,21 @@
 # Changelog
 
-## [Unreleased] — Sprint 17
+## [0.2.0] — 2026-03-25
 
-### Added
-- **YAML test definitions** (`mltk.testdefs`):
-  - Write ML tests in YAML, run with `mltk test tests.yaml`
-  - 11 data assertions mapped: schema, no_nulls, range, unique, no_pii, row_count, etc.
-  - `env:VAR_NAME` data source support for CI/CD
-- **EU AI Act compliance report** (`mltk.compliance`):
-  - `generate_compliance_report()` — auto-map test results to EU AI Act articles
-  - Risk classification: unacceptable/high/limited/minimal
-  - HTML report with evidence table + gap analysis
-- **mltk doctor** (`mltk.doctor`):
-  - `diagnose()` — 9 diagnostic checks with fix hints
-  - Checks: Python version, deps, config, dirs, Rust extension, pytest plugin
-- **CLI commands**: `mltk doctor`, `mltk test`, `mltk compliance`
-- **Env var config**: `MLTK_*` prefix overrides (highest priority in cascade)
-- **pytest JSON export**: `--mltk-export-json` flag
+**66+ assertions, 361+ tests, YAML test defs, EU AI Act compliance, mltk doctor, 11 CLI commands.**
+
+### Sprint 18 — v0.2.0 Release
+- Israel PII: Teudat Zehut (Luhn checksum), Israel phone numbers
+- IBAN MOD-97 checksum validation
+- README overhaul, version bump, backlog cleanup
+
+### Sprint 17
+- YAML test definitions (mltk.testdefs): write YAML, run with `mltk test`
+- EU AI Act compliance report (mltk.compliance): article mapping + evidence HTML
+- mltk doctor: 9 diagnostic checks with fix hints
+- Env var config: MLTK_* prefix (highest priority)
+- CLI: mltk doctor, mltk test, mltk compliance (11 total)
+- pytest: --mltk-export-json flag
 
 ### Sprint 16
 - CV tracking: assert_mota, assert_motp, assert_idf1. Training P1: gradient + numerical. Docs deployment. 314 tests.

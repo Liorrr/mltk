@@ -1,6 +1,6 @@
 """mltk — pytest for ML. Unified testing across the entire ML lifecycle."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Convenience imports for the most common assertions
 from mltk.data import (

@@ -4,6 +4,9 @@ ML models can memorize and reproduce PII from training data. GDPR fines
 reach 4% of global revenue. This module ports battle-tested regex patterns
 from ShrimPK's pii.rs to detect emails, phones, SSNs, credit cards,
 API keys, and passwords in DataFrame text columns.
+
+Sprint 18: Israel PII patterns added -- Teudat Zehut (national ID with
+Luhn checksum), Israel phone numbers, and IBAN with MOD-97 validation.
 """
 
 from __future__ import annotations
@@ -15,6 +18,70 @@ import pandas as pd
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+
+# ---------------------------------------------------------------------------
+# Checksum validators
+# ---------------------------------------------------------------------------
+
+
+def _validate_tz(digits: str) -> bool:
+    """Validate an Israeli Teudat Zehut (national ID) via its Luhn variant.
+
+    The Israeli ID checksum algorithm:
+      1. Multiply alternating digits by 1 and 2 (starting at index 0 with 1).
+      2. If a product is >= 10, sum its two digits (e.g., 14 -> 1+4 = 5).
+      3. Sum all processed values; result must be divisible by 10.
+
+    Args:
+        digits: Exactly 9-digit string (no dashes).
+
+    Returns:
+        True if the checksum is valid, False otherwise.
+    """
+    if len(digits) != 9 or not digits.isdigit():
+        return False
+    total = 0
+    for i, ch in enumerate(digits):
+        val = int(ch) * (1 if i % 2 == 0 else 2)
+        if val >= 10:
+            val = val // 10 + val % 10
+        total += val
+    return total % 10 == 0
+
+
+def _validate_tz_match(text: str) -> bool:
+    """Validate a TZ match string (strips optional dashes before checking)."""
+    digits = text.replace("-", "")
+    return _validate_tz(digits)
+
+
+def _validate_iban(text: str) -> bool:
+    """Validate an IBAN string using the MOD-97 algorithm (ISO 13616).
+
+    Algorithm:
+      1. Remove spaces; ensure uppercase.
+      2. Move the first 4 characters to the end.
+      3. Replace each letter with its numeric value (A=10 .. Z=35).
+      4. Compute the resulting integer mod 97; result must equal 1.
+
+    Args:
+        text: Raw IBAN string (may contain spaces).
+
+    Returns:
+        True if MOD-97 checksum passes, False otherwise.
+    """
+    iban = text.replace(" ", "").upper()
+    if len(iban) < 4:
+        return False
+    rearranged = iban[4:] + iban[:4]
+    numeric_str = "".join(
+        str(ord(ch) - ord("A") + 10) if ch.isalpha() else ch
+        for ch in rearranged
+    )
+    try:
+        return int(numeric_str) % 97 == 1
+    except ValueError:
+        return False
 
 
 @dataclass
@@ -53,13 +120,33 @@ _PII_PATTERNS: dict[str, re.Pattern[str]] = {
     "api_key_stripe_secret": re.compile(r"(?:sk_live|sk_test)_[0-9a-zA-Z]{24,}"),
     "bearer_token": re.compile(r"Bearer\s+[a-zA-Z0-9\-._~+/]{20,}=*"),
     "api_key_google": re.compile(r"AIza[0-9A-Za-z_\-]{35}"),
-    "iban": re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}[A-Z0-9]{0,16}\b"),
+    # IBAN -- regex catches the shape; MOD-97 validation is applied in scan_pii
+    "iban": re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}[A-Z0-9]\b"),
     "url_auth_token": re.compile(
         r"https?://[^\s]*[?&](?:token|key|api_key|access_token|auth)=[^\s&]+"
     ),
     "slack_webhook": re.compile(
         r"https://hooks\.slack\.com/services/T[a-zA-Z0-9_]{8,10}/B[a-zA-Z0-9_]{8,10}/[a-zA-Z0-9_]{24}"
     ),
+    # Sprint 18: Israel-specific PII patterns
+    # Israeli national ID (Teudat Zehut) -- 9 digits, optional dashes.
+    # Checksum validation (_validate_tz_match) is applied in scan_pii to
+    # eliminate false positives (plain 9-digit numbers that fail Luhn).
+    "israel_tz": re.compile(r"\b\d{3}-?\d{3}-?\d{3}\b"),
+    # Israeli mobile numbers: 05X-XXX-XXXX (10 digits).
+    # Israeli landline numbers: 0[2-9]-XXX-XXXX / 0[2-9]X-XXX-XXXX (9-10 digits).
+    # Combined into one pattern; the mobile prefix (05) is the most specific.
+    "israel_phone": re.compile(
+        r"\b0(?:5\d-?\d{3}-?\d{4}|[2-9]\d?-?\d{3}-?\d{4})\b"
+    ),
+}
+
+# Checksum validators keyed by pattern name.
+# scan_pii applies these after a regex match to filter out false positives.
+# Only matches that pass the validator are included in results.
+_VALIDATORS: dict[str, object] = {
+    "israel_tz": _validate_tz_match,
+    "iban": _validate_iban,
 }
 
 # Group API key patterns under a single category for filtering
@@ -78,6 +165,8 @@ _PATTERN_CATEGORIES: dict[str, list[str]] = {
     "iban": ["iban"],
     "url_auth_token": ["url_auth_token"],
     "slack_webhook": ["slack_webhook"],
+    "israel_tz": ["israel_tz"],
+    "israel_phone": ["israel_phone"],
 }
 
 
@@ -117,7 +206,14 @@ def scan_pii(
         pattern = _PII_PATTERNS.get(name)
         if pattern is None:
             continue
+        validator = _VALIDATORS.get(name)
         for match in pattern.finditer(text):
+            matched = match.group()
+            # Apply checksum validator when present; skip invalid matches to
+            # reduce false positives (e.g., random 9-digit numbers, malformed IBANs).
+            if validator is not None and not validator(matched):  # type: ignore[operator]
+                continue
+
             # Determine the user-facing type (collapse api_key subtypes)
             display_type = name
             for category, members in _PATTERN_CATEGORIES.items():
@@ -130,7 +226,7 @@ def scan_pii(
                     type=display_type,
                     start=match.start(),
                     end=match.end(),
-                    matched_text=match.group(),
+                    matched_text=matched,
                 )
             )
 

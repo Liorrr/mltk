@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S16: 75 assertions, 314 tests, 5 Rust tests)
+## DONE (S0-S18: 66+ assertions, 361+ tests, 5 Rust tests)
 
 ### Sprint 0 -- Project Skeleton
 - [x] Repo structure, pyproject.toml, Cargo.toml, CI/CD, Makefile, README
@@ -100,17 +100,28 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
+## DONE (continued)
+
+### Sprint 17 -- QA Practitioner Toolkit + EU AI Act Compliance
+- [x] YAML test definitions: mltk.testdefs (schema, runner, pytest hook)
+- [x] EU AI Act compliance report: mltk.compliance (article mapping, risk classification, HTML evidence)
+- [x] mltk doctor: 9 diagnostic checks with fix hints
+- [x] Env var config: MLTK_* prefix, highest priority in cascade
+- [x] CLI expansion: mltk doctor, mltk test, mltk compliance (11 total commands)
+- [x] pytest JSON export: --mltk-export-json flag
+
+### Sprint 18 -- v0.2.0 Release + Israel PII + Polish
+- [x] Israel PII: Teudat Zehut (9 digits + Luhn), Israel phone numbers
+- [x] IBAN MOD-97 checksum validation
+- [x] README overhaul (66+ assertions, 11 CLI commands, new features)
+- [x] Version bump to v0.2.0
+- [x] Backlog cleanup
+
+---
+
 ## PLANNED
 
-### Sprint 17 -- QA Practitioner Toolkit + EU AI Act Compliance (ACTIVE)
-- [ ] **YAML test definitions**: mltk.testdefs — write tests in YAML, run with `mltk test tests.yaml`
-- [ ] **EU AI Act compliance report**: mltk.compliance — auto-map test results to articles, generate evidence HTML
-- [ ] **mltk doctor**: 10 diagnostic checks with fix hints
-- [ ] **Env var config**: MLTK_* prefix, highest priority in cascade
-- [ ] **CLI expansion**: mltk doctor, mltk test, mltk compliance
-- [ ] **pytest JSON export**: --mltk-export-json flag
-
-### Sprint 18 -- Cloud Monitoring Integration (deferred from S17)
+### Sprint 19 -- Cloud Monitoring Integration
 - [ ] **AWS SageMaker**: endpoint health, CloudWatch metrics, Model Monitor integration
 - [ ] **GCP Vertex AI**: prediction endpoint monitoring, TPU utilization
 - [ ] **Azure ML**: managed endpoint metrics, Responsible AI Dashboard
@@ -140,9 +151,9 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ## BACKLOG (not yet scheduled)
 
 ### Core Enhancements
-- [ ] YAML-driven test definitions (run tests from config, no code)
+- [x] ~~YAML-driven test definitions~~ (DONE S17: mltk.testdefs)
 - [ ] Test registry with @register_test decorator for custom assertions
-- [ ] Config from environment variables (MLTK_DRIFT_METHOD, etc.)
+- [x] ~~Config from environment variables~~ (DONE S17: MLTK_* prefix)
 - [ ] Plugin system for third-party assertion libraries
 
 ### Training Bug Detection P2
@@ -166,7 +177,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Allowlists for known-safe patterns
 
 ### Regulatory / Compliance
-- [ ] EU AI Act compliance report template (deadline: Aug 2, 2026)
+- [x] ~~EU AI Act compliance report~~ (DONE S17: mltk.compliance)
 - [ ] FDA AI device audit trail export
 - [ ] Bias/fairness report with demographic breakdowns
 - [ ] Regulatory compliance automation (test results → evidence docs)
@@ -195,7 +206,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## IDEAS (needs evaluation)
 
-- [ ] `mltk doctor` -- diagnose common ML pipeline issues automatically
+- [x] ~~`mltk doctor`~~ (DONE S17: 9 diagnostic checks)
 - [ ] Visual diff for model predictions (before/after comparison)
 - [ ] Slack/Teams notifications for drift alerts
 - [ ] Data lineage tracking (where does each feature come from?)
@@ -252,4 +263,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 17 start (March 25, 2026)*
+*Last updated: Sprint 18 — v0.2.0 release (March 25, 2026)*
