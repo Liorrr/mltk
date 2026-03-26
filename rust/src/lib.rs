@@ -485,6 +485,122 @@ fn scan_pii_rust(
     Ok(results)
 }
 
+// ─── Cosine Similarity ───────────────────────────────────────────────────────
+
+/// Compute cosine similarity between two vectors.
+/// Returns dot(a, b) / (||a|| * ||b||).
+/// Returns 0.0 for zero-length or zero-norm vectors.
+#[pyfunction]
+fn cosine_similarity(a: Vec<f64>, b: Vec<f64>) -> f64 {
+    if a.is_empty() || b.is_empty() || a.len() != b.len() {
+        return 0.0;
+    }
+
+    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let norm_b: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
+
+    if norm_a < 1e-10 || norm_b < 1e-10 {
+        return 0.0;
+    }
+
+    dot / (norm_a * norm_b)
+}
+
+/// Compute cosine distance between centroids of two embedding sets.
+/// centroid = mean of all vectors in the set.
+/// distance = 1.0 - cosine_similarity(centroid_ref, centroid_cur)
+#[pyfunction]
+fn centroid_cosine_distance(ref_embs: Vec<Vec<f64>>, cur_embs: Vec<Vec<f64>>) -> f64 {
+    if ref_embs.is_empty() || cur_embs.is_empty() {
+        return 0.0;
+    }
+
+    let dim = ref_embs[0].len();
+    if dim == 0 || cur_embs[0].len() != dim {
+        return 0.0;
+    }
+
+    // Compute centroid for ref
+    let n_ref = ref_embs.len() as f64;
+    let mut centroid_ref = vec![0.0_f64; dim];
+    for vec in &ref_embs {
+        for (i, &v) in vec.iter().enumerate() {
+            centroid_ref[i] += v;
+        }
+    }
+    for v in &mut centroid_ref {
+        *v /= n_ref;
+    }
+
+    // Compute centroid for cur
+    let n_cur = cur_embs.len() as f64;
+    let mut centroid_cur = vec![0.0_f64; dim];
+    for vec in &cur_embs {
+        for (i, &v) in vec.iter().enumerate() {
+            centroid_cur[i] += v;
+        }
+    }
+    for v in &mut centroid_cur {
+        *v /= n_cur;
+    }
+
+    1.0 - cosine_similarity(centroid_ref, centroid_cur)
+}
+
+/// BERTScore precision, recall, and F1 via token-level cosine similarity.
+///
+/// Precision: for each hypothesis token embedding, find max cosine similarity
+///            against all reference token embeddings → mean over hypothesis tokens.
+/// Recall:    for each reference token embedding, find max cosine similarity
+///            against all hypothesis token embeddings → mean over reference tokens.
+/// F1:        2 * P * R / (P + R), or 0 if P + R == 0.
+#[pyfunction]
+fn bertscore_precision_recall(
+    ref_embs: Vec<Vec<f64>>,
+    hyp_embs: Vec<Vec<f64>>,
+) -> (f64, f64, f64) {
+    if ref_embs.is_empty() || hyp_embs.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+
+    // Precision: for each hyp token, max sim over all ref tokens
+    let precision: f64 = {
+        let sum: f64 = hyp_embs
+            .iter()
+            .map(|hyp_tok| {
+                ref_embs
+                    .iter()
+                    .map(|ref_tok| cosine_similarity(hyp_tok.clone(), ref_tok.clone()))
+                    .fold(f64::NEG_INFINITY, f64::max)
+            })
+            .sum();
+        sum / hyp_embs.len() as f64
+    };
+
+    // Recall: for each ref token, max sim over all hyp tokens
+    let recall: f64 = {
+        let sum: f64 = ref_embs
+            .iter()
+            .map(|ref_tok| {
+                hyp_embs
+                    .iter()
+                    .map(|hyp_tok| cosine_similarity(ref_tok.clone(), hyp_tok.clone()))
+                    .fold(f64::NEG_INFINITY, f64::max)
+            })
+            .sum();
+        sum / ref_embs.len() as f64
+    };
+
+    let f1 = if precision + recall > 0.0 {
+        2.0 * precision * recall / (precision + recall)
+    } else {
+        0.0
+    };
+
+    (precision, recall, f1)
+}
+
 // ─── Module registration ─────────────────────────────────────────────────────
 
 /// ML Test Kit — Rust acceleration module.
@@ -497,6 +613,9 @@ fn _mltk_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(js_divergence, m)?)?;
     m.add_function(wrap_pyfunction!(wasserstein, m)?)?;
     m.add_function(wrap_pyfunction!(scan_pii_rust, m)?)?;
+    m.add_function(wrap_pyfunction!(cosine_similarity, m)?)?;
+    m.add_function(wrap_pyfunction!(centroid_cosine_distance, m)?)?;
+    m.add_function(wrap_pyfunction!(bertscore_precision_recall, m)?)?;
     Ok(())
 }
 
@@ -619,5 +738,79 @@ mod tests {
         let result = wasserstein(ref_data, cur_data);
         // W-1 for uniform shift of 10 units should be ~10
         assert!(result > 5.0, "Wasserstein should be > 0 for shifted dists: {result}");
+    }
+
+    // ── Cosine Similarity ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_cosine_identical() {
+        let v = vec![1.0, 2.0, 3.0];
+        let result = cosine_similarity(v.clone(), v);
+        assert!(
+            (result - 1.0).abs() < 1e-10,
+            "Cosine similarity of identical vectors should be 1.0, got {result}"
+        );
+    }
+
+    #[test]
+    fn test_cosine_orthogonal() {
+        let a = vec![1.0, 0.0, 0.0];
+        let b = vec![0.0, 1.0, 0.0];
+        let result = cosine_similarity(a, b);
+        assert!(
+            result.abs() < 1e-10,
+            "Cosine similarity of orthogonal vectors should be 0.0, got {result}"
+        );
+    }
+
+    #[test]
+    fn test_cosine_opposite() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![-1.0, -2.0, -3.0];
+        let result = cosine_similarity(a, b);
+        assert!(
+            (result - (-1.0)).abs() < 1e-10,
+            "Cosine similarity of opposite vectors should be -1.0, got {result}"
+        );
+    }
+
+    // ── Centroid Cosine Distance ─────────────────────────────────────────────
+
+    #[test]
+    fn test_centroid_identical() {
+        let embs = vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 1.0],
+        ];
+        let result = centroid_cosine_distance(embs.clone(), embs);
+        assert!(
+            result.abs() < 1e-10,
+            "Centroid cosine distance for identical sets should be 0.0, got {result}"
+        );
+    }
+
+    // ── BERTScore ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_bertscore_identical() {
+        let embs = vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 1.0],
+        ];
+        let (p, r, f1) = bertscore_precision_recall(embs.clone(), embs);
+        assert!(
+            (p - 1.0).abs() < 1e-10,
+            "BERTScore precision for identical should be 1.0, got {p}"
+        );
+        assert!(
+            (r - 1.0).abs() < 1e-10,
+            "BERTScore recall for identical should be 1.0, got {r}"
+        );
+        assert!(
+            (f1 - 1.0).abs() < 1e-10,
+            "BERTScore F1 for identical should be 1.0, got {f1}"
+        );
     }
 }

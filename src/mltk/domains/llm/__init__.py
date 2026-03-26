@@ -5,6 +5,7 @@ from mltk.domains.llm.agentic import (
     assert_tool_call_correctness,
     assert_tool_selection,
 )
+from mltk.domains.llm.bertscore import assert_bertscore
 from mltk.domains.llm.coherence import assert_coherence
 from mltk.domains.llm.conversation import (
     assert_conversation_completeness,
@@ -29,6 +30,8 @@ from mltk.domains.llm.text_quality import (
 )
 
 __all__ = [
+    # bertscore
+    "assert_bertscore",
     # similarity
     "assert_semantic_similarity",
     # safety

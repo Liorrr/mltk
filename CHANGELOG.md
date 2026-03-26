@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased] — Sprint 34
+## [Unreleased] — Sprint 35
+
+### Added
+- **Rust SIMD cosine**: cosine_similarity, cosine_distance_matrix, centroid_cosine_distance
+- **Rust BERTScore**: bertscore_precision_recall (greedy max cosine matching)
+- **assert_bertscore** (`mltk.domains.llm.bertscore`) — BERTScore F1 assertion
+- Embedding drift now uses Rust cosine when available
+
+### Sprint 34
+- PII: international phones, MAC, Bitcoin/Ethereum. Allowlists. Bias report. 817 tests.
+
+## [Previous] — Sprint 34
 
 ### Added
 - **PII remaining**: international phone numbers, MAC addresses, Bitcoin/Ethereum wallets

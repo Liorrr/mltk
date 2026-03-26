@@ -79,10 +79,14 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Sprint 33 -- v0.6.0 + Benchmarks + Quick Wins
 - [x] Benchmarks, feature-label correlation shift, output drift, v0.6.0
 
-### Sprint 34 -- PII Completion + Bias Report + Allowlists (ACTIVE)
-- [ ] PII: international phones, MAC addresses, crypto wallets
-- [ ] PII allowlists (suppress known-safe patterns)
-- [ ] Bias/fairness demographic breakdown report
+### Sprint 34 -- PII Completion + Bias Report + Allowlists
+- [x] PII: international phones, MAC, crypto. Allowlists. Bias report.
+
+### Sprint 35 -- Rust SIMD Cosine + BERTScore (ACTIVE)
+- [ ] SIMD cosine similarity + centroid distance in Rust
+- [ ] BERTScore token matching in Rust
+- [ ] assert_bertscore Python assertion
+- [ ] Bridge + embedding drift integration
 
 ---
 

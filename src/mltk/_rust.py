@@ -5,7 +5,10 @@ from __future__ import annotations
 RUST_AVAILABLE = False
 
 try:
+    from mltk._mltk_rust import bertscore_precision_recall as _bertscore_pr_rust
+    from mltk._mltk_rust import centroid_cosine_distance as _centroid_cosine_distance_rust
     from mltk._mltk_rust import chi_squared as _chi_squared_rust
+    from mltk._mltk_rust import cosine_similarity as _cosine_similarity_rust
     from mltk._mltk_rust import js_divergence as _js_divergence_rust
     from mltk._mltk_rust import kl_divergence as _kl_divergence_rust
     from mltk._mltk_rust import ks_test as _ks_test_rust
@@ -231,6 +234,113 @@ def wasserstein(reference: list[float], current: list[float]) -> float:
     widths = np.diff(all_vals, prepend=all_vals[0])
     widths[0] = 0.0
     return float(np.sum(np.abs(cdf_ref - cdf_cur) * widths))
+
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Cosine similarity between two vectors: dot(a, b) / (||a|| * ||b||).
+
+    Args:
+        a: First vector as a list of floats.
+        b: Second vector as a list of floats.
+
+    Returns:
+        Cosine similarity in [-1, 1]. Returns 0.0 for zero-norm vectors.
+
+    Example:
+        >>> sim = cosine_similarity([1.0, 0.0], [0.0, 1.0])
+        >>> assert abs(sim) < 1e-10  # orthogonal
+    """
+    if RUST_AVAILABLE:
+        return _cosine_similarity_rust(a, b)
+    import numpy as np
+
+    va = np.array(a, dtype=np.float64)
+    vb = np.array(b, dtype=np.float64)
+    norm_a = np.linalg.norm(va)
+    norm_b = np.linalg.norm(vb)
+    if norm_a < 1e-10 or norm_b < 1e-10:
+        return 0.0
+    return float(np.dot(va, vb) / (norm_a * norm_b))
+
+
+def centroid_cosine_distance(
+    ref_embs: list[list[float]], cur_embs: list[list[float]]
+) -> float:
+    """Cosine distance between centroids of two embedding sets.
+
+    Centroid = mean of all vectors. Distance = 1 - cosine_similarity(c_ref, c_cur).
+
+    Args:
+        ref_embs: Reference embeddings as list of float vectors.
+        cur_embs: Current embeddings as list of float vectors.
+
+    Returns:
+        Cosine distance in [0, 2]. 0.0 = identical centroids.
+
+    Example:
+        >>> d = centroid_cosine_distance([[1.0, 0.0]], [[1.0, 0.0]])
+        >>> assert d < 1e-10
+    """
+    if RUST_AVAILABLE:
+        return _centroid_cosine_distance_rust(ref_embs, cur_embs)
+    import numpy as np
+
+    ref = np.array(ref_embs, dtype=np.float64)
+    cur = np.array(cur_embs, dtype=np.float64)
+    ref_centroid = ref.mean(axis=0)
+    cur_centroid = cur.mean(axis=0)
+    return float(1.0 - cosine_similarity(ref_centroid.tolist(), cur_centroid.tolist()))
+
+
+def bertscore_precision_recall(
+    ref_embs: list[list[float]], hyp_embs: list[list[float]]
+) -> tuple[float, float, float]:
+    """BERTScore precision, recall, and F1 via token-level cosine similarity.
+
+    Precision: for each hypothesis token, max cosine similarity against all
+               reference tokens → mean over hypothesis tokens.
+    Recall:    for each reference token, max cosine similarity against all
+               hypothesis tokens → mean over reference tokens.
+    F1:        2 * P * R / (P + R), or 0.0 if P + R == 0.
+
+    Args:
+        ref_embs: Reference token embeddings, shape (N, D).
+        hyp_embs: Hypothesis token embeddings, shape (M, D).
+
+    Returns:
+        Tuple of (precision, recall, f1).
+
+    Example:
+        >>> embs = [[1.0, 0.0], [0.0, 1.0]]
+        >>> p, r, f1 = bertscore_precision_recall(embs, embs)
+        >>> assert abs(f1 - 1.0) < 1e-10
+    """
+    if RUST_AVAILABLE:
+        return _bertscore_pr_rust(ref_embs, hyp_embs)
+    import numpy as np
+
+    ref = np.array(ref_embs, dtype=np.float64)
+    hyp = np.array(hyp_embs, dtype=np.float64)
+
+    if ref.size == 0 or hyp.size == 0:
+        return (0.0, 0.0, 0.0)
+
+    # Precision: for each hyp token, max cosine sim against all ref tokens
+    precision_scores = []
+    for hyp_tok in hyp:
+        sims = [cosine_similarity(hyp_tok.tolist(), ref_tok.tolist()) for ref_tok in ref]
+        precision_scores.append(max(sims))
+    precision = float(np.mean(precision_scores))
+
+    # Recall: for each ref token, max cosine sim against all hyp tokens
+    recall_scores = []
+    for ref_tok in ref:
+        sims = [cosine_similarity(ref_tok.tolist(), hyp_tok.tolist()) for hyp_tok in hyp]
+        recall_scores.append(max(sims))
+    recall = float(np.mean(recall_scores))
+
+    f1 = (2.0 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
+    return (precision, recall, f1)
 
 
 def scan_pii_fast(

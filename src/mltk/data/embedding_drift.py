@@ -77,6 +77,14 @@ def assert_no_embedding_drift(
 
 def _cosine_centroid_distance(ref: np.ndarray, cur: np.ndarray) -> float:
     """Cosine distance between centroids of two embedding sets."""
+    try:
+        from mltk._rust import centroid_cosine_distance as _rust_centroid
+
+        return _rust_centroid(ref.tolist(), cur.tolist())
+    except (ImportError, Exception):
+        pass
+
+    # numpy fallback
     ref_centroid = ref.mean(axis=0)
     cur_centroid = cur.mean(axis=0)
     cos_sim = np.dot(ref_centroid, cur_centroid) / (
