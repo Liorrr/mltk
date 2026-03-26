@@ -31,6 +31,7 @@ matches = scan_pii("Contact john@example.com or call 555-123-4567")
 |------|------|---------|-------------|
 | `text` | `str` | *(required)* | Text to scan for PII |
 | `patterns` | `list[str] \| None` | `None` | Pattern categories to check. None = all patterns |
+| `allowlist` | `list[str] \| None` | `None` | Exact strings to suppress. Matches whose text appears in this list are skipped. Useful for known-safe values like internal service addresses or test fixtures. |
 
 ### Returns
 
@@ -45,7 +46,7 @@ class PiiMatch:
     matched_text: str # the matched string
 ```
 
-### Built-in Patterns (14 patterns in 6 categories, ported from ShrimPK)
+### Built-in Patterns (14 patterns in 6 categories)
 
 | Pattern | Category | Examples |
 |---------|----------|----------|
@@ -85,6 +86,7 @@ assert_no_pii(df, columns=["user_notes", "feedback_text"])
 | `df` | `pd.DataFrame` | *(required)* | DataFrame to scan |
 | `columns` | `list[str] \| None` | `None` | Text columns to scan. None = all object/string columns |
 | `patterns` | `list[str] \| None` | `None` | Pattern categories to check. None = all |
+| `allowlist` | `list[str] \| None` | `None` | Exact strings to suppress across all columns. Passed through to `scan_pii()` for each cell value. |
 
 ### Returns
 

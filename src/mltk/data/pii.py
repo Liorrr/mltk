@@ -2,7 +2,7 @@
 
 ML models can memorize and reproduce PII from training data. GDPR fines
 reach 4% of global revenue. This module ports battle-tested regex patterns
-from ShrimPK's pii.rs to detect emails, phones, SSNs, credit cards,
+from battle-tested Rust patterns to detect emails, phones, SSNs, credit cards,
 API keys, and passwords in DataFrame text columns.
 
 Sprint 18: Israel PII patterns added -- Teudat Zehut (national ID with
@@ -307,7 +307,7 @@ class PiiMatch:
     matched_text: str
 
 
-# Patterns ported from ShrimPK pii.rs (battle-tested, production-proven)
+# Patterns ported from internal Rust library (battle-tested, production-proven)
 _PII_PATTERNS: dict[str, re.Pattern[str]] = {
     "api_key_openai_project": re.compile(r"sk-proj-[a-zA-Z0-9_-]{20,}"),
     "api_key_anthropic": re.compile(r"sk-ant-[a-zA-Z0-9_-]{20,}"),

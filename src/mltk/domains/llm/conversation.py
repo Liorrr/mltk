@@ -12,11 +12,6 @@ def _assistant_turns(turns: list[dict[str, str]]) -> list[str]:
     return [t["content"] for t in turns if t.get("role") == "assistant"]
 
 
-def _user_turns(turns: list[dict[str, str]]) -> list[str]:
-    """Extract user message contents from a turn list."""
-    return [t["content"] for t in turns if t.get("role") == "user"]
-
-
 @timed_assertion
 def assert_knowledge_retention(
     turns: list[dict[str, str]],

@@ -20,5 +20,6 @@ Quick start::
 """
 
 from mltk.registry.collection import list_collections, load_collection, save_collection
+from mltk.registry.manifest import CollectionManifest
 
-__all__ = ["save_collection", "load_collection", "list_collections"]
+__all__ = ["save_collection", "load_collection", "list_collections", "CollectionManifest"]

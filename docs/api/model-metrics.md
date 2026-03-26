@@ -82,3 +82,114 @@ def test_regression_model(y_true, y_pred):
 | `test_perfect_predictions` | Perfect predictions give metric=1.0 |
 
 ---
+
+## assert_no_overfitting
+
+Assert the gap between training and test metrics is bounded. Overfitting is the most common silent ML failure: the model memorizes training data but generalizes poorly.
+
+**Module:** `mltk.model.overfitting`
+
+```python
+from mltk.model import assert_no_overfitting
+
+assert_no_overfitting(train_score=0.95, test_score=0.88, max_gap=0.1)
+```
+
+### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `train_score` | `float` | *(required)* | Metric value on the training set |
+| `test_score` | `float` | *(required)* | Metric value on the held-out test set |
+| `max_gap` | `float` | `0.1` | Maximum allowed gap (train - test). Default 0.1 (10 pp). |
+| `metric_name` | `str` | `"accuracy"` | Human-readable metric label used in messages |
+
+### Returns
+
+`TestResult` with details:
+- `train_score` -- training metric value
+- `test_score` -- test metric value
+- `gap` -- actual gap (train_score - test_score)
+- `max_gap` -- configured threshold
+- `metric_name` -- metric label
+
+### How it works
+
+```
+gap = train_score - test_score
+PASS if gap <= max_gap
+FAIL if gap > max_gap
+```
+
+### Example
+
+```python
+import pytest
+from mltk.model import assert_no_overfitting
+
+@pytest.mark.ml_model
+def test_model_not_overfitting():
+    """Training/test accuracy gap is acceptable."""
+    assert_no_overfitting(
+        train_score=0.97,
+        test_score=0.91,
+        max_gap=0.1,
+        metric_name="f1",
+    )
+```
+
+---
+
+## assert_label_drift
+
+Assert label distribution hasn't shifted between train and test splits. Computes total variation distance (TV) between label distributions. A label shift can silently invalidate evaluation metrics.
+
+**Module:** `mltk.model.overfitting`
+
+```python
+from mltk.model import assert_label_drift
+
+assert_label_drift([0, 0, 1, 1], [0, 1, 1, 1], max_drift=0.2)
+```
+
+### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `train_labels` | `list \| np.ndarray` | *(required)* | Label array from the training split |
+| `test_labels` | `list \| np.ndarray` | *(required)* | Label array from the test split |
+| `max_drift` | `float` | `0.1` | Maximum allowed total variation distance |
+
+### Returns
+
+`TestResult` with details:
+- `tv_distance` -- computed total variation distance
+- `max_drift` -- configured threshold
+- `train_distribution` -- dict mapping label to fraction in train set
+- `test_distribution` -- dict mapping label to fraction in test set
+
+### How it works
+
+```
+TV = 0.5 * sum(|P(y) - Q(y)|)  for all unique labels
+PASS if TV <= max_drift
+FAIL if TV > max_drift
+```
+
+### Example
+
+```python
+import pytest
+from mltk.model import assert_label_drift
+
+@pytest.mark.ml_model
+def test_label_distribution_stable():
+    """Train/test label distributions are close."""
+    assert_label_drift(
+        train_labels=y_train,
+        test_labels=y_test,
+        max_drift=0.1,
+    )
+```
+
+---

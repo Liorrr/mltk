@@ -165,6 +165,55 @@ See [EU AI Act Compliance](eu-ai-act.md).
 
 ---
 
+### mltk fda-audit
+Generate an FDA 21 CFR Part 11 compliant audit trail from a `--mltk-export-json` results file. Produces a Markdown document with timestamped entries, electronic signatures, and traceability metadata required for FDA-regulated ML/AI systems.
+
+```bash
+pytest --mltk-export-json results.json
+mltk fda-audit results.json \
+  --system-name "Diagnostic Classifier v3" \
+  --operator "Jane Smith" \
+  --output fda-audit-trail.md
+# FDA audit trail generated: fda-audit-trail.md
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `results_json` | *(required, positional)* | Path to JSON results from `--mltk-export-json` |
+| `--system-name` | `"AI System"` | Name of the AI/ML system under audit |
+| `--operator` | `"QA Engineer"` | Name of the person generating the audit trail |
+| `--output` | `fda-audit-trail.md` | Destination path for the audit trail |
+
+See [FDA Audit Trail](fda-audit.md) for the full format specification.
+
+---
+
+### mltk compliance-pdf
+Convert an HTML compliance report (EU AI Act or OWASP) to a print-ready PDF. Requires the `weasyprint` package (`pip install mltk[pdf]`).
+
+```bash
+# First generate the HTML report
+mltk compliance results.json --risk-level high
+
+# Then convert to PDF
+mltk compliance-pdf mltk-reports/eu-ai-act-report.html \
+  --output compliance-report.pdf
+# Compliance PDF exported: compliance-report.pdf
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `html_file` | *(required, positional)* | Path to the HTML compliance report |
+| `--output` | *(auto-generated)* | Output PDF path. Defaults to the HTML filename with `.pdf` extension. |
+
+See [Compliance PDF Export](compliance-pdf.md) for styling and formatting details.
+
+---
+
 ## Contract Subcommands
 
 ### mltk contract init

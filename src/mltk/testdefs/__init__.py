@@ -36,6 +36,6 @@ Usage::
 """
 
 from mltk.testdefs.runner import run_test_suite
-from mltk.testdefs.schema import load_test_suite
+from mltk.testdefs.schema import TestDef, TestSuiteYaml, load_test_suite
 
-__all__ = ["load_test_suite", "run_test_suite"]
+__all__ = ["load_test_suite", "run_test_suite", "TestDef", "TestSuiteYaml"]

@@ -50,7 +50,7 @@ server = ["fastapi>=0.110", "uvicorn>=0.27"]  # mltk server platform
 aws = ["boto3>=1.28"]  # AWS SageMaker + CloudWatch monitoring
 gcp = ["google-cloud-aiplatform>=1.40"]  # GCP Vertex AI monitoring
 azure = ["azure-ai-ml>=1.12"]  # Azure ML monitoring
-all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations]"]
+all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,torch,mlflow,server,aws,gcp,azure]"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",

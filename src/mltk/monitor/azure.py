@@ -68,24 +68,6 @@ def _require_ml_client(
     )
 
 
-def _require_monitor_client(subscription_id: str | None) -> Any:
-    """Lazy-import azure-monitor-query and return a MetricsQueryClient."""
-    try:
-        from azure.identity import DefaultAzureCredential  # type: ignore[import]
-        from azure.monitor.query import MetricsQueryClient  # type: ignore[import]
-    except ImportError as exc:
-        raise ImportError(
-            "azure-monitor-query and azure-identity are required for Azure latency monitoring. "
-            "Install them with: pip install mltk[azure]"
-        ) from exc
-
-    import os
-
-    sub = subscription_id or os.environ.get("AZURE_SUBSCRIPTION_ID")
-    credential = DefaultAzureCredential()
-    return MetricsQueryClient(credential), sub
-
-
 @timed_assertion
 def assert_endpoint_healthy(
     endpoint_name: str,

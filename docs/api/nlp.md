@@ -99,6 +99,71 @@ assert_ner_f1(y_true_entities, y_pred_entities, min_f1=0.8)
 
 ---
 
+## Sentiment Analysis
+
+### assert_sentiment_positive
+
+Assert at least a minimum ratio of texts have positive sentiment. Uses keyword-based sentiment analysis (no external model required).
+
+```python
+from mltk.domains.nlp import assert_sentiment_positive
+
+texts = ["Great product!", "Love it!", "Not bad.", "Terrible service."]
+assert_sentiment_positive(texts, min_ratio=0.5)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `texts` | `list[str]` | *(required)* | List of text strings to evaluate |
+| `min_ratio` | `float` | `0.5` | Minimum fraction of texts that must be positive (0-1) |
+
+#### Returns
+
+`TestResult` with details:
+- `num_texts` -- total number of texts evaluated
+- `positive_count` -- number of texts classified as positive
+- `negative_count` -- number of texts classified as negative
+- `neutral_count` -- number of texts classified as neutral
+- `positive_ratio` -- fraction of texts that are positive
+- `min_ratio` -- configured threshold
+
+---
+
+### assert_no_sentiment_drift
+
+Assert sentiment distribution hasn't shifted between a reference and current dataset. Compares positive/negative/neutral ratios; drift is the max absolute difference across categories.
+
+```python
+from mltk.domains.nlp import assert_no_sentiment_drift
+
+ref = ["Great service!", "Love this product.", "Amazing quality."]
+cur = ["Terrible service.", "Hate this.", "Awful experience."]
+assert_no_sentiment_drift(ref, cur, max_drift=0.1)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `ref_texts` | `list[str]` | *(required)* | Reference (baseline) texts |
+| `cur_texts` | `list[str]` | *(required)* | Current texts to compare against reference |
+| `max_drift` | `float` | `0.1` | Maximum allowed absolute ratio shift (0-1) |
+
+#### Returns
+
+`TestResult` with details:
+- `max_drift` -- configured threshold
+- `observed_drift` -- maximum observed ratio shift across categories
+- `ref_distribution` -- dict with positive/negative/neutral ratios for reference
+- `cur_distribution` -- dict with positive/negative/neutral ratios for current
+- `category_diffs` -- dict with per-category absolute differences
+- `num_ref` -- number of reference texts
+- `num_cur` -- number of current texts
+
+---
+
 ## Security
 
 ### assert_no_prompt_injection

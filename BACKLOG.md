@@ -10,9 +10,9 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S27: 87 assertions, 606 tests, 13 Rust tests)
+## DONE (S0-S37: 121 assertions, 1053 tests, 13 Rust tests)
 
-### Phase A: Core Library (S0-S10) — v0.1.0
+### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
 - [x] S1: Config, 8 data assertions, MkDocs docs
 - [x] S2: 4 drift methods, 14 PII patterns, Rust KS/PSI
@@ -25,8 +25,8 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S9: Monitoring (degradation, SLA), Tabular (feature drift, SHAP)
 - [x] S10: v0.1.0 on PyPI, README, CONTRIBUTING.md
 
-### Phase B: Post-Release Expansion (S11-S18) — v0.2.0
-- [x] S11: Data contracts (YAML→tests), JS/Wasserstein/auto drift, embedding drift
+### Phase B: Post-Release Expansion (S11-S18) -- v0.2.0
+- [x] S11: Data contracts (YAML->tests), JS/Wasserstein/auto drift, embedding drift
 - [x] S12: LLM eval (semantic similarity, toxicity, hallucination, TTFT/ITL)
 - [x] S13: 10 Tier 1 PII + Luhn, training bug P0 (leakage detection)
 - [x] S14: Jira integration (adapter, dedup, templates)
@@ -35,7 +35,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S17: YAML test defs, EU AI Act compliance, mltk doctor, env vars, JSON export
 - [x] S18: v0.2.0, Israel PII (Teudat Zehut), IBAN MOD-97
 
-### Phase C: Performance + Polish (S19-S23) — v0.3.0
+### Phase C: Performance + Polish (S19-S23) -- v0.3.0
 - [x] S19: MLflow integration, Jupyter _repr_html_, model card generator
 - [x] S20: Cloud monitoring (AWS, GCP, Azure, Prometheus/Triton)
 - [x] S21: Rust acceleration (KL, chi2, JS, Wasserstein, PII scanning)
@@ -48,83 +48,66 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S26: GitHub Issues, Slack notifications, plugin system
 - [x] S27: Chat interface (rule-based Q&A)
 
----
-
-## PLANNED
-
-### Sprint 28 -- v0.4.0 Release + EU PII Tier 4
-- [x] PII Tier 4: France NIR, Italy Codice Fiscale, Spain DNI
-- [x] BACKLOG major rewrite, v0.4.0, competitor gap analysis
-
-### Sprint 29 -- RAG + Agentic + Text Quality
-- [x] RAG: faithfulness, context relevancy/precision/recall, answer relevancy
-- [x] Agentic: task completion, tool selection, tool call correctness
-- [x] Text quality: text length, output format, readability
-- [x] Training-serving skew detection
-
-### Sprint 30 -- Data Quality Quick Wins + v0.5.0
-- [x] Statistics: mean, median, stdev, quantiles
-- [x] Validation: datetime format, values in set, conflicting labels
-- [x] ML: overfitting detection, label drift
-- [x] v0.5.0 (108 assertions, 724 tests)
-
-### Sprint 31 -- Multi-turn + Data Preset + Sentiment
-- [x] Multi-turn conversation: knowledge retention, turn relevancy, completeness
-- [x] Data quality preset: assert_data_quality, data_quality_report
-- [x] Sentiment: assert_sentiment_positive, assert_no_sentiment_drift
-
-### Sprint 32 -- RAGAS + Coherence + OWASP LLM
-- [x] RAGAS composite score, coherence check, OWASP LLM Top 10 mapping
-
-### Sprint 33 -- v0.6.0 + Benchmarks + Quick Wins
-- [x] Benchmarks, feature-label correlation shift, output drift, v0.6.0
-
-### Sprint 34 -- PII Completion + Bias Report + Allowlists
-- [x] PII: international phones, MAC, crypto. Allowlists. Bias report.
-
-### Sprint 35 -- Rust SIMD Cosine + BERTScore
-- [x] SIMD cosine, centroid distance, BERTScore in Rust. assert_bertscore. 824 tests.
-
-### Sprint 36 -- Server Platform + Dashboard API
-- [x] FastAPI server, SQLite storage, dashboard HTML, Docker, --mltk-server
-
-### Sprint 37 -- Platform Max: Auth + CI/CD + Webhooks (ACTIVE)
-- [ ] API key auth (generate/verify, protected endpoints)
-- [ ] CI/CD GitHub integration (PR comments, check runs)
-- [ ] Webhooks (on_failure/on_success/on_drift)
-- [ ] Run comparison (diff two runs)
+### Phase E: Assertion Expansion + Server (S28-S37) -- v0.4.0-v0.6.0
+- [x] S28: PII Tier 4 (France NIR, Italy Codice Fiscale, Spain DNI), v0.4.0
+- [x] S29: RAG evaluation (faithfulness, context precision/recall/relevancy, answer relevancy), agentic (task completion, tool selection, tool call correctness), text quality, training-serving skew
+- [x] S30: Data statistics (mean, median, stdev, quantiles), data validation (datetime, set membership, conflicting labels), overfitting detection, label drift, v0.5.0
+- [x] S31: Multi-turn conversation (retention, relevancy, completeness), data quality preset, sentiment analysis
+- [x] S32: RAGAS composite score, coherence, OWASP LLM Top 10 mapping
+- [x] S33: Benchmarks, feature-label correlation shift, output drift, v0.6.0
+- [x] S34: PII remaining (international phones, MAC, crypto wallets), allowlists, bias report
+- [x] S35: Rust SIMD cosine, centroid distance, BERTScore in Rust, assert_bertscore
+- [x] S36: FastAPI server, SQLite storage, dashboard HTML, Docker, --mltk-server
+- [x] S37: API key auth, GitHub CI (PR comments, check runs), webhooks, run comparison
 
 ---
 
 ## BACKLOG (not yet scheduled)
 
-### Regulatory / Compliance
-- [ ] FDA device audit trail export
-- [ ] Bias/fairness report with demographic breakdowns
-
-### Performance / Rust
-- [ ] SIMD cosine similarity for embedding drift
-- [ ] BERTScore token matching in Rust
-- [ ] Benchmarks vs Great Expectations, Deepchecks, Evidently
-
 ### Integrations
 - [ ] VS Code extension (inline test results)
 - [ ] Linear/Asana adapters
-
-### PII Remaining
-- [ ] International phone numbers, MAC addresses, crypto wallets
-- [ ] Allowlists for known-safe patterns
+- [ ] GitHub App for auto-running mltk on PRs
 
 ### Advanced Features
 - [ ] Resource summarization + AI predictions
-- [ ] Visual diff for model predictions
-- [ ] Data lineage tracking
+- [ ] Data lineage visualization (DAG rendering)
+- [ ] Test impact analysis (dependency graph)
+- [ ] Anomaly detection on test result time series
 
 ### Monetization (Pro tier)
 - [ ] Cloud dashboard: hosted report aggregation, team views
-- [ ] CI/CD GitHub App: auto-run mltk on PRs
-- [ ] Compliance PDF exports (EU AI Act, FDA)
+- [ ] Multi-tenant server with SSO
+- [ ] Scheduled test runs with alerting
 
 ---
 
-*Last updated: Sprint 34 (March 26, 2026)*
+## POST-v1.0 ROADMAP (ideas from capability gap research)
+
+### Observability
+- [ ] OpenTelemetry integration for test execution tracing
+- [ ] Grafana plugin for mltk dashboards
+- [ ] Real-time streaming drift detection
+
+### ML Platform Integration
+- [ ] Kubeflow pipeline assertions
+- [ ] SageMaker Pipeline step validation
+- [ ] Weights & Biases adapter
+- [ ] DVC data version assertions
+
+### Advanced ML Testing
+- [ ] Counterfactual fairness testing
+- [ ] Causal inference validation
+- [ ] Federated learning test patterns
+- [ ] Multi-modal (image+text) evaluation
+- [ ] Reinforcement learning reward validation
+
+### Enterprise
+- [ ] RBAC for server platform
+- [ ] Audit log export (SOC 2 compatible)
+- [ ] Custom compliance framework builder
+- [ ] HIPAA compliance report template
+
+---
+
+*Last updated: Sprint 37 (March 26, 2026)*

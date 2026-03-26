@@ -109,3 +109,53 @@ def test_sla_compliance():
 - **Partial checks**: You can pass only `latency_p99` or only `error_rate` -- the other is skipped.
 
 ---
+
+## assert_no_output_drift
+
+Detect behavioral drift in model outputs. Compares output score/probability distributions between a reference window and the current window using KS test or PSI. Catches cases where model predictions shift even if input features look stable.
+
+```python
+from mltk.monitor import assert_no_output_drift
+
+ref_scores = [0.8, 0.82, 0.79, 0.81, 0.83]
+cur_scores = [0.6, 0.58, 0.62, 0.55, 0.59]
+assert_no_output_drift(ref_scores, cur_scores, method="ks", threshold=0.05)
+```
+
+### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `ref_outputs` | `list[float] \| np.ndarray` | *(required)* | Baseline model outputs (e.g., from a reference window) |
+| `cur_outputs` | `list[float] \| np.ndarray` | *(required)* | Current model outputs to compare against baseline |
+| `method` | `str` | `"ks"` | Comparison method: `"ks"` (KS test p-value) or `"psi"` (Population Stability Index) |
+| `threshold` | `float` | `0.05` | Significance threshold. For KS: pass if p > threshold. For PSI: pass if PSI < threshold. |
+
+### Returns
+
+`TestResult` with details:
+- `method` -- comparison method used
+- `statistic` -- test statistic (KS statistic or PSI value)
+- `p_value` -- p-value (KS method only)
+- `threshold` -- configured threshold
+- `drift_detected` -- boolean flag
+
+### Example
+
+```python
+import pytest
+from mltk.monitor import assert_no_output_drift
+
+def test_prediction_distribution_stable():
+    """Model output distribution hasn't shifted from the baseline."""
+    ref_scores = load_baseline_scores()
+    cur_scores = get_current_scores()
+    assert_no_output_drift(ref_scores, cur_scores, method="psi", threshold=0.1)
+```
+
+### Edge Cases
+
+- **Empty arrays**: Returns a passing result with `drift_detected=False` if either array is empty.
+- **Unknown method**: Fails with a descriptive error if method is not `"ks"` or `"psi"`.
+
+---

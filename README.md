@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-870%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1053%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 ```bash
@@ -59,11 +59,17 @@ pytest --mltk-report
 
 **Data contracts** — define column types, ranges, and uniqueness rules in YAML. Use `mltk contract generate-tests` to auto-generate a pytest file from the contract — zero boilerplate.
 
-**LLM evaluation** — `assert_semantic_similarity`, `assert_no_toxicity`, `assert_no_hallucination`, `assert_ttft`, and `assert_itl` for GenAI systems.
+**LLM evaluation** — `assert_semantic_similarity`, `assert_no_toxicity`, `assert_no_hallucination`, `assert_ttft`, `assert_itl`, RAG evaluation (faithfulness, context precision/recall, RAGAS composite), agentic testing (task completion, tool selection), multi-turn conversation, coherence, BERTScore, and text quality assertions for GenAI systems.
 
-**Training bug detection** — catch data leakage (`assert_no_train_test_overlap`, `assert_temporal_split`, `assert_no_target_leakage`), gradient failures (`assert_gradient_flow`, `assert_no_vanishing_gradient`, `assert_no_exploding_gradient`, `assert_loss_finite`), and numerical instability (`assert_no_nan_inf`, `assert_loss_decreasing`, `assert_no_loss_divergence`, `assert_softmax_valid`).
+**Training bug detection** — catch data leakage (P0), gradient failures (P1), numerical instability, plus P2 bugs: augmentation corruption, checkpoint integrity, distributed training sync, memory leaks, and training-serving skew detection.
 
-**Server platform** — `mltk server` starts a self-hosted result-tracking server with REST API, live dashboard, webhooks, and GitHub CI integration.
+**Server platform** — `mltk server` starts a self-hosted result-tracking server with REST API, live dashboard, API key auth, webhooks, run comparison, and GitHub CI integration (PR comments + check runs).
+
+**Cloud monitoring** — AWS SageMaker/CloudWatch, GCP Vertex AI, Azure ML, and Prometheus/Triton adapters for production endpoint health, latency, and error rate assertions.
+
+**FDA audit trail** — `mltk fda-audit` generates a device-grade audit trail from test results for regulatory submissions.
+
+**Compliance PDF** — `mltk compliance-pdf` exports any HTML compliance report (EU AI Act, OWASP) to PDF for auditors.
 
 **Model Card Generator** — `mltk model-card results.json` generates a Google-format Model Card in Markdown from test results.
 
@@ -73,37 +79,55 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (120+ assertions)
+## Feature Matrix (121 assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
 | **Data Schema** | `assert_schema`, `assert_no_nulls`, `assert_dtypes` | Validate DataFrame structure |
 | **Data Distribution** | `assert_range`, `assert_unique`, `assert_no_outliers` | Verify statistical properties |
+| **Data Statistics** | `assert_column_mean`, `assert_column_median`, `assert_column_stdev`, `assert_quantiles` | Statistical bounds checking |
+| **Data Validation** | `assert_datetime_format`, `assert_values_in_set`, `assert_no_conflicting_labels`, `assert_feature_label_correlation_stable` | Value-level data checks |
 | **Data Drift** | `assert_no_drift` (KS, PSI, KL, Chi2) | Detect distribution shifts |
 | **Data Drift (Advanced)** | `assert_no_embedding_drift` + 7 methods (KS, PSI, KL, Chi2, JS, Wasserstein, auto) | Embedding + tabular drift |
-| **Data PII** | `assert_no_pii`, `scan_pii` (24 patterns + Luhn) | Find leaked personal data |
+| **Data PII** | `assert_no_pii`, `scan_pii` (24 patterns + Luhn + intl phones, MAC, crypto) | Find leaked personal data |
 | **Data Freshness** | `assert_freshness`, `assert_row_count` | Verify data recency and size |
 | **Data Labels** | `assert_label_balance`, `assert_label_coverage` | Validate label quality |
 | **Data Contracts** | `validate_data`, `generate_tests_from_contract` | YAML → auto-test generation |
+| **Data Quality Preset** | `assert_data_quality`, `data_quality_report` | One-call full data audit |
+| **Data Lineage** | `assert_lineage_complete` | Track data provenance |
 | **Model Metrics** | `assert_metric` (9 metrics: accuracy, F1, AUC, MSE, R2...) | Quality gates |
 | **Model Regression** | `assert_no_regression`, `save_baseline` | Catch silent degradation |
 | **Model Slicing** | `assert_slice_performance`, `assert_calibration` | Subgroup fairness + ECE |
 | **Model Bias** | `assert_no_bias` (5 methods) | EU AI Act / four-fifths rule |
 | **Model Adversarial** | `assert_robust` | Perturbation stability |
+| **Model Overfitting** | `assert_no_overfitting`, `assert_label_drift` | Training vs. validation gaps |
 | **Training Bugs (P0)** | `assert_no_train_test_overlap`, `assert_temporal_split`, `assert_no_target_leakage` | Data leakage |
 | **Training Bugs (P1)** | `assert_gradient_flow`, `assert_no_vanishing_gradient`, `assert_no_exploding_gradient`, `assert_loss_finite` | Gradient health |
 | **Training Numerical** | `assert_no_nan_inf`, `assert_loss_decreasing`, `assert_no_loss_divergence`, `assert_softmax_valid` | Numerical stability |
+| **Training Bugs (P2)** | `assert_augmentation_preserves_signal`, `assert_no_augmentation_on_test`, `assert_checkpoint_complete`, `assert_resume_loss_continuous`, `assert_effective_batch_size`, `assert_gradient_sync`, `assert_loss_is_detached`, `assert_no_memory_leak` | Augmentation, checkpoint, distributed, memory |
+| **Training Skew** | `assert_no_training_serving_skew` | Training-serving distribution mismatch |
 | **Inference** | `assert_latency`, `assert_cold_start`, `assert_throughput`, `assert_api_contract` | Performance SLAs |
 | **Pipeline** | `assert_reproducible`, `assert_checksum`, `assert_pipeline` | Determinism + E2E |
-| **Monitor** | `assert_no_degradation`, `assert_sla` | Production health |
+| **Monitor** | `assert_no_degradation`, `assert_sla`, `assert_no_output_drift` | Production health |
+| **Cloud Monitor** | AWS (`assert_endpoint_healthy/latency/error_rate`), GCP (`assert_endpoint_healthy`, `assert_prediction_latency`), Azure (`assert_endpoint_healthy/latency`), Prometheus/Triton | Multi-cloud monitoring |
 | **LLM Evaluation** | `assert_semantic_similarity`, `assert_no_toxicity`, `assert_no_hallucination`, `assert_ttft`, `assert_itl` | GenAI testing |
+| **LLM RAG** | `assert_faithfulness`, `assert_context_relevancy`, `assert_context_precision`, `assert_context_recall`, `assert_answer_relevancy`, `assert_ragas_score` | RAG pipeline evaluation (RAGAS) |
+| **LLM Agentic** | `assert_task_completion`, `assert_tool_selection`, `assert_tool_call_correctness` | Agent/tool-use testing |
+| **LLM Text Quality** | `assert_text_length`, `assert_output_format`, `assert_readability` | Output quality gates |
+| **LLM Multi-turn** | `assert_knowledge_retention`, `assert_turn_relevancy`, `assert_conversation_completeness` | Conversation evaluation |
+| **LLM Coherence** | `assert_coherence` | Logical consistency |
+| **LLM BERTScore** | `assert_bertscore` (Rust-accelerated token matching) | Semantic similarity via BERT |
+| **NLP** | `assert_bleu`, `assert_rouge`, `assert_ner_f1`, `assert_no_prompt_injection` | Text + security |
+| **NLP Sentiment** | `assert_sentiment_positive`, `assert_no_sentiment_drift` | Sentiment analysis + drift |
+| **Speech** | `assert_wer`, `assert_cer`, `assert_rtf`, `assert_accent_coverage` | Recognition + fairness |
 | **CV** | `assert_iou`, `assert_map`, `assert_frame_accuracy`, `assert_temporal_consistency`, `assert_topk_accuracy` | Video analytics |
 | **CV Tracking** | `assert_mota`, `assert_motp`, `assert_idf1` | Multi-object tracking (CLEAR-MOT) |
 | **CV Face** | `assert_face_far` | False accept rate (NIST FRVT) |
-| **NLP** | `assert_bleu`, `assert_rouge`, `assert_ner_f1`, `assert_no_prompt_injection` | Text + security |
-| **Speech** | `assert_wer`, `assert_cer`, `assert_rtf`, `assert_accent_coverage` | Recognition + fairness |
 | **Tabular** | `assert_feature_drift`, `assert_feature_importance_stable`, `assert_class_balance` | Feature validation |
-| **Integrations** | `JiraAdapter`, `TicketDecisionEngine` | Jira ticket creation |
+| **Compliance** | EU AI Act report, OWASP LLM Top 10, FDA audit trail, compliance PDF export | Regulatory evidence |
+| **Testing Patterns** | `assert_matches_golden`, flaky detection, retry, test selection | Advanced test strategies |
+| **Reports** | Visual diff, test history summarizer, bias report, model card | Analysis + reporting |
+| **Integrations** | `JiraAdapter`, `TicketDecisionEngine`, MLflow, GitHub Issues, Slack, webhooks | Ecosystem connectors |
 
 ## Installation
 
@@ -128,6 +152,15 @@ pip install mltk[contracts]   # Data contracts (YAML)
 pip install mltk[torch]       # Gradient inspection
 pip install mltk[llm]         # LLM evaluation
 
+# Integrations
+pip install mltk[integrations]  # Jira adapter
+pip install mltk[mlflow]        # MLflow logging
+pip install mltk[aws]           # AWS SageMaker/CloudWatch
+pip install mltk[gcp]           # GCP Vertex AI
+pip install mltk[azure]         # Azure ML monitoring
+pip install mltk[pdf]           # Compliance PDF export
+pip install mltk[server]        # Self-hosted server platform
+
 # Everything
 pip install mltk[all]
 ```
@@ -147,6 +180,8 @@ mltk doctor                               # Diagnose environment
 mltk test tests.yaml                      # Run YAML-defined tests
 mltk model-card results.json              # Generate Google Model Card
 mltk compliance results.json              # EU AI Act compliance report
+mltk fda-audit results.json              # FDA device audit trail export
+mltk compliance-pdf report.html          # Export compliance report to PDF
 
 # Data contracts
 mltk contract init                        # Scaffold contract YAML
