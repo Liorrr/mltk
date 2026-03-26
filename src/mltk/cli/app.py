@@ -612,4 +612,22 @@ quality:
 
         chat_repl(results_json)
 
+    @app.command()
+    def server(
+        host: str = typer.Option("127.0.0.1", help="Host"),
+        port: int = typer.Option(8080, help="Port"),
+        db: str = typer.Option("mltk_server.db", help="SQLite database path"),
+    ) -> None:
+        """Start the mltk server platform."""
+        try:
+            import uvicorn
+        except ImportError as err:
+            print("Server requires: pip install mltk[server]")  # noqa: T201
+            raise typer.Exit(1) from err
+        from mltk.server import create_app
+
+        application = create_app(db_path=db)
+        print(f"mltk server at http://{host}:{port}")  # noqa: T201
+        uvicorn.run(application, host=host, port=port)
+
     app()

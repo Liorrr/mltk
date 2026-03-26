@@ -82,11 +82,15 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Sprint 34 -- PII Completion + Bias Report + Allowlists
 - [x] PII: international phones, MAC, crypto. Allowlists. Bias report.
 
-### Sprint 35 -- Rust SIMD Cosine + BERTScore (ACTIVE)
-- [ ] SIMD cosine similarity + centroid distance in Rust
-- [ ] BERTScore token matching in Rust
-- [ ] assert_bertscore Python assertion
-- [ ] Bridge + embedding drift integration
+### Sprint 35 -- Rust SIMD Cosine + BERTScore
+- [x] SIMD cosine, centroid distance, BERTScore in Rust. assert_bertscore. 824 tests.
+
+### Sprint 36 -- Server Platform + Dashboard API (ACTIVE)
+- [ ] FastAPI server: /api/results, /api/reports, /api/health
+- [ ] SQLite storage for test results + reports
+- [ ] Dashboard HTML: test history, trends, team view
+- [ ] mltk server CLI command
+- [ ] Docker deployment config
 
 ---
 

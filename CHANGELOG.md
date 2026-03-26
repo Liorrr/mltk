@@ -1,6 +1,20 @@
 # Changelog
 
-## [Unreleased] — Sprint 35
+## [Unreleased] — Sprint 36
+
+### Added
+- **Server platform** (`mltk.server`):
+  - FastAPI server with /api/results, /api/reports, /api/health endpoints
+  - SQLite storage for test results and report history
+  - Dashboard HTML with test trends and team view
+  - `mltk server` CLI command
+  - Docker deployment (Dockerfile + docker-compose)
+- **pytest integration**: `--mltk-server` flag to auto-push results to server
+
+### Sprint 35
+- Rust SIMD cosine, BERTScore, assert_bertscore. 824 tests.
+
+## [Previous] — Sprint 35
 
 ### Added
 - **Rust SIMD cosine**: cosine_similarity, cosine_distance_matrix, centroid_cosine_distance

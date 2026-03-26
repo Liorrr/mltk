@@ -1,0 +1,13 @@
+services:
+  mltk-server:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - mltk-data:/app/data
+    environment:
+      - MLTK_DB_PATH=/app/data/mltk_server.db
+    restart: unless-stopped
+
+volumes:
+  mltk-data:

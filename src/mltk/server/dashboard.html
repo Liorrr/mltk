@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mltk Dashboard</title>
+<style>
+  :root {
+    --bg: #1e1e2e; --bg2: #2a2a3e; --bg3: #313145;
+    --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+    --green: #22c55e; --red: #ef4444; --yellow: #f59e0b; --blue: #60a5fa;
+    --purple: #7c3aed; --purple-light: #a78bfa; --border: #383850;
+    --card-border: #404060;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    background: var(--bg); color: var(--text); line-height: 1.6; font-size: 14px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  /* Header */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg2); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 16px 24px; margin-bottom: 20px;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+  header h1 span { color: var(--purple-light); }
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--text3); transition: background 0.3s;
+  }
+  .status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.offline { background: var(--red); }
+  .status-label { font-size: 12px; color: var(--text2); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .refresh-info { font-size: 11px; color: var(--text3); }
+
+  /* Controls */
+  .controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  select {
+    background: var(--bg2); color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: 8px 12px; font-family: inherit; font-size: 13px;
+    cursor: pointer; min-width: 180px;
+  }
+  select:focus { outline: none; border-color: var(--purple); }
+  .btn {
+    background: var(--purple); color: #fff; border: none; border-radius: 6px;
+    padding: 8px 16px; font-family: inherit; font-size: 13px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: var(--purple-light); }
+  .btn.secondary {
+    background: var(--bg2); color: var(--text2); border: 1px solid var(--card-border);
+  }
+  .btn.secondary:hover { background: var(--bg3); color: var(--text); }
+
+  /* Summary cards */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .card .card-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .card .card-value { font-size: 28px; font-weight: 800; line-height: 1; }
+  .card .card-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+  .card.total .card-value { color: var(--blue); }
+  .card.avg .card-value { color: var(--purple-light); }
+  .card.last-pass .card-value { color: var(--green); }
+  .card.last-fail .card-value { color: var(--red); }
+  .card.trend-up .card-value::after { content: ' ↑'; font-size: 16px; color: var(--green); }
+  .card.trend-down .card-value::after { content: ' ↓'; font-size: 16px; color: var(--red); }
+  .card.trend-flat .card-value::after { content: ' →'; font-size: 16px; color: var(--yellow); }
+
+  /* Chart */
+  .chart-section {
+    background: var(--bg2); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: 13px; font-weight: 600; color: var(--purple-light);
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px;
+  }
+  #chart-container { position: relative; }
+  #score-chart { width: 100%; display: block; }
+  .chart-empty { text-align: center; color: var(--text3); padding: 40px 0; font-size: 13px; }
+
+  /* Runs table */
+  .table-section {
+    background: var(--bg2); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 16px 20px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 8px 10px; color: var(--text3);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    border-bottom: 1px solid var(--border); font-weight: 600;
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(56,56,80,0.5); vertical-align: middle; }
+  tr.run-row { cursor: pointer; transition: background 0.15s; }
+  tr.run-row:hover td { background: rgba(124,58,237,0.06); }
+  tr.run-row.expanded td { background: rgba(124,58,237,0.08); }
+  tr.detail-row td { padding: 0; background: var(--bg3); }
+  .detail-inner { padding: 12px 16px; }
+  .detail-inner table { font-size: 12px; }
+  .detail-inner th { font-size: 10px; }
+  .detail-inner td { padding: 5px 8px; }
+
+  /* Badges */
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 10px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+  }
+  .badge.pass { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge.fail { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge.warn { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .badge.skip { background: rgba(96,165,250,0.15); color: var(--blue); }
+
+  /* Score bar */
+  .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar-bg { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; max-width: 80px; }
+  .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+  .score-val { font-size: 12px; font-weight: 700; min-width: 38px; }
+
+  /* Loading / error */
+  .loading { text-align: center; color: var(--text3); padding: 30px; font-size: 13px; }
+  .error-msg { color: var(--red); font-size: 12px; padding: 8px 0; }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    td.hide-mobile, th.hide-mobile { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-left">
+      <div>
+        <h1>mltk <span>Dashboard</span></h1>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="status-dot" id="status-dot"></div>
+        <span class="status-label" id="status-label">Connecting…</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="refresh-info" id="refresh-info">Auto-refresh in 30s</span>
+    </div>
+  </header>
+
+  <div class="controls">
+    <select id="project-select">
+      <option value="">All projects</option>
+    </select>
+    <button class="btn secondary" id="refresh-btn">Refresh now</button>
+  </div>
+
+  <div class="summary" id="summary-cards">
+    <div class="card total"><div class="card-label">Total Runs</div><div class="card-value" id="c-runs">—</div></div>
+    <div class="card avg"  ><div class="card-label">Avg Score</div><div class="card-value" id="c-avg">—</div><div class="card-sub" id="c-avg-sub"></div></div>
+    <div class="card"      id="c-last-card"><div class="card-label">Last Run</div><div class="card-value" id="c-last">—</div><div class="card-sub" id="c-last-sub"></div></div>
+    <div class="card"      id="c-trend-card"><div class="card-label">Trend</div><div class="card-value" id="c-trend">—</div><div class="card-sub" id="c-trend-sub"></div></div>
+  </div>
+
+  <div class="chart-section">
+    <div class="section-title">Score Trend</div>
+    <div id="chart-container">
+      <div class="chart-empty" id="chart-empty">Select a project to view trend</div>
+      <svg id="score-chart" height="160" style="display:none"></svg>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <div class="section-title">Recent Runs</div>
+    <div id="runs-loading" class="loading">Loading runs…</div>
+    <div id="runs-error" class="error-msg" style="display:none"></div>
+    <table id="runs-table" style="display:none">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Timestamp</th>
+          <th class="hide-mobile">Project</th>
+          <th>Passed</th>
+          <th>Failed</th>
+          <th class="hide-mobile">Total</th>
+          <th>Score</th>
+          <th class="hide-mobile">Duration</th>
+        </tr>
+      </thead>
+      <tbody id="runs-tbody"></tbody>
+    </table>
+    <div id="runs-empty" class="loading" style="display:none">No runs found.</div>
+  </div>
+
+</div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────────────────────────
+  const state = {
+    project: '',
+    runs: [],
+    expandedRun: null,
+    refreshTimer: null,
+    countdown: 30,
+    countdownTimer: null,
+  };
+
+  // ─── Utilities ───────────────────────────────────────────────────────────────
+  function scoreColor(score) {
+    if (score >= 80) return '#22c55e';
+    if (score >= 50) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return iso; }
+  }
+
+  function fmtDuration(ms) {
+    if (ms == null) return '—';
+    if (ms < 1000) return ms + 'ms';
+    return (ms / 1000).toFixed(2) + 's';
+  }
+
+  function escHtml(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // ─── Health check ────────────────────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const data = await fetch('/api/health').then(r => r.json());
+      const dot = document.getElementById('status-dot');
+      const lbl = document.getElementById('status-label');
+      const ok = data.status === 'ok' || data.status === 'healthy';
+      dot.className = 'status-dot ' + (ok ? 'online' : 'offline');
+      lbl.textContent = ok ? 'Online' : 'Degraded';
+    } catch {
+      document.getElementById('status-dot').className = 'status-dot offline';
+      document.getElementById('status-label').textContent = 'Offline';
+    }
+  }
+
+  // ─── Runs ─────────────────────────────────────────────────────────────────────
+  async function loadRuns() {
+    const project = state.project;
+    const url = '/api/runs' + (project ? '?project=' + encodeURIComponent(project) : '');
+    document.getElementById('runs-loading').style.display = '';
+    document.getElementById('runs-table').style.display = 'none';
+    document.getElementById('runs-empty').style.display = 'none';
+    document.getElementById('runs-error').style.display = 'none';
+
+    try {
+      const data = await fetch(url).then(r => r.json());
+      const runs = Array.isArray(data) ? data : (data.runs || data.results || []);
+      state.runs = runs;
+      updateSummaryCards(runs);
+      populateProjectSelect(runs);
+      renderRunsTable(runs);
+    } catch (err) {
+      document.getElementById('runs-loading').style.display = 'none';
+      document.getElementById('runs-error').style.display = '';
+      document.getElementById('runs-error').textContent = 'Failed to load runs: ' + err.message;
+    }
+  }
+
+  function populateProjectSelect(runs) {
+    const sel = document.getElementById('project-select');
+    const current = sel.value;
+    const projects = [...new Set(runs.map(r => r.project).filter(Boolean))].sort();
+    const opts = ['<option value="">All projects</option>'];
+    projects.forEach(p => {
+      opts.push(`<option value="${escHtml(p)}" ${p === current ? 'selected' : ''}>${escHtml(p)}</option>`);
+    });
+    sel.innerHTML = opts.join('');
+  }
+
+  function updateSummaryCards(runs) {
+    document.getElementById('c-runs').textContent = runs.length;
+
+    const scores = runs.map(r => r.score).filter(s => s != null && !isNaN(s));
+    if (scores.length) {
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      document.getElementById('c-avg').textContent = avg.toFixed(1);
+      document.getElementById('c-avg-sub').textContent = 'across ' + scores.length + ' scored runs';
+    } else {
+      document.getElementById('c-avg').textContent = '—';
+    }
+
+    const last = runs[0];
+    const lastCard = document.getElementById('c-last-card');
+    const lastVal = document.getElementById('c-last');
+    const lastSub = document.getElementById('c-last-sub');
+    if (last) {
+      const passed = last.passed ?? 0;
+      const failed = last.failed ?? 0;
+      const status = failed === 0 ? 'PASS' : 'FAIL';
+      lastCard.className = 'card ' + (failed === 0 ? 'last-pass' : 'last-fail');
+      lastVal.textContent = status;
+      lastSub.textContent = fmtTime(last.timestamp || last.created_at);
+    }
+
+    // Trend: compare last 5 vs previous 5
+    const trendCard = document.getElementById('c-trend-card');
+    const trendVal = document.getElementById('c-trend');
+    const trendSub = document.getElementById('c-trend-sub');
+    if (scores.length >= 2) {
+      const recent = scores.slice(0, Math.min(5, scores.length));
+      const older = scores.slice(Math.min(5, scores.length), Math.min(10, scores.length));
+      const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+      if (older.length) {
+        const olderAvg = older.reduce((a, b) => a + b, 0) / older.length;
+        const delta = recentAvg - olderAvg;
+        if (delta > 2) {
+          trendCard.className = 'card trend-up';
+          trendVal.textContent = '+' + Math.abs(delta).toFixed(1);
+          trendSub.textContent = 'vs previous period';
+        } else if (delta < -2) {
+          trendCard.className = 'card trend-down';
+          trendVal.textContent = '−' + Math.abs(delta).toFixed(1);
+          trendSub.textContent = 'vs previous period';
+        } else {
+          trendCard.className = 'card trend-flat';
+          trendVal.textContent = '~0';
+          trendSub.textContent = 'stable';
+        }
+      } else {
+        trendCard.className = 'card avg';
+        trendVal.textContent = recentAvg.toFixed(1);
+        trendSub.textContent = 'recent avg';
+      }
+    }
+  }
+
+  function renderRunsTable(runs) {
+    document.getElementById('runs-loading').style.display = 'none';
+    if (!runs.length) {
+      document.getElementById('runs-empty').style.display = '';
+      return;
+    }
+    document.getElementById('runs-table').style.display = '';
+    const tbody = document.getElementById('runs-tbody');
+    tbody.innerHTML = '';
+    runs.forEach(run => {
+      const runId = run.id || run.run_id || '';
+      const passed = run.passed ?? 0;
+      const failed = run.failed ?? 0;
+      const total = run.total ?? (passed + failed);
+      const score = run.score;
+      const project = run.project || '—';
+      const ts = fmtTime(run.timestamp || run.created_at);
+      const dur = fmtDuration(run.duration_ms ?? run.duration);
+
+      // Main run row
+      const tr = document.createElement('tr');
+      tr.className = 'run-row';
+      tr.dataset.runId = runId;
+      tr.innerHTML = `
+        <td style="width:20px;color:var(--text3);font-size:11px" class="expand-icon">▶</td>
+        <td>${escHtml(ts)}</td>
+        <td class="hide-mobile" style="color:var(--purple-light)">${escHtml(project)}</td>
+        <td><span style="color:var(--green);font-weight:700">${passed}</span></td>
+        <td><span style="color:${failed > 0 ? 'var(--red)' : 'var(--text3)'};font-weight:${failed > 0 ? '700' : '400'}">${failed}</span></td>
+        <td class="hide-mobile" style="color:var(--text2)">${total}</td>
+        <td>${score != null ? renderScoreBar(score) : '<span style="color:var(--text3)">—</span>'}</td>
+        <td class="hide-mobile" style="color:var(--text2);font-size:12px">${escHtml(dur)}</td>
+      `;
+      tr.addEventListener('click', () => toggleRunDetail(tr, runId));
+      tbody.appendChild(tr);
+
+      // Detail row (hidden)
+      const detailTr = document.createElement('tr');
+      detailTr.className = 'detail-row';
+      detailTr.id = 'detail-' + runId;
+      detailTr.style.display = 'none';
+      detailTr.innerHTML = `<td colspan="8"><div class="detail-inner" id="detail-inner-${escHtml(runId)}"><div class="loading">Loading tests…</div></div></td>`;
+      tbody.appendChild(detailTr);
+    });
+  }
+
+  function renderScoreBar(score) {
+    const clampedScore = Math.max(0, Math.min(100, score));
+    const color = scoreColor(clampedScore);
+    return `<div class="score-bar-wrap">
+      <div class="score-bar-bg"><div class="score-bar-fill" style="width:${clampedScore}%;background:${color}"></div></div>
+      <span class="score-val" style="color:${color}">${clampedScore.toFixed(0)}</span>
+    </div>`;
+  }
+
+  async function toggleRunDetail(tr, runId) {
+    const detailTr = document.getElementById('detail-' + runId);
+    if (!detailTr) return;
+    const isOpen = detailTr.style.display !== 'none';
+    const icon = tr.querySelector('.expand-icon');
+    if (isOpen) {
+      detailTr.style.display = 'none';
+      tr.classList.remove('expanded');
+      if (icon) icon.textContent = '▶';
+      return;
+    }
+    tr.classList.add('expanded');
+    if (icon) icon.textContent = '▼';
+    detailTr.style.display = '';
+
+    if (!runId) {
+      document.getElementById('detail-inner-' + runId).innerHTML = '<span style="color:var(--text3)">No run ID available.</span>';
+      return;
+    }
+
+    try {
+      const data = await fetch('/api/runs/' + encodeURIComponent(runId)).then(r => r.json());
+      const tests = data.tests || data.results || [];
+      renderDetailTable('detail-inner-' + runId, tests);
+    } catch (err) {
+      document.getElementById('detail-inner-' + runId).innerHTML =
+        '<span style="color:var(--red)">Failed to load tests: ' + escHtml(err.message) + '</span>';
+    }
+  }
+
+  function renderDetailTable(containerId, tests) {
+    const el = document.getElementById(containerId);
+    if (!tests.length) {
+      el.innerHTML = '<span style="color:var(--text3)">No individual test results available.</span>';
+      return;
+    }
+    let html = `<table>
+      <thead><tr><th>Test</th><th>Status</th><th>Duration</th><th>Message</th></tr></thead>
+      <tbody>`;
+    tests.forEach(t => {
+      const outcome = (t.outcome || t.status || 'unknown').toLowerCase();
+      const badgeClass = outcome === 'passed' ? 'pass' : outcome === 'failed' ? 'fail' : outcome === 'skipped' ? 'skip' : 'warn';
+      const label = outcome === 'passed' ? 'PASS' : outcome === 'failed' ? 'FAIL' : outcome.toUpperCase();
+      const dur = fmtDuration(t.duration_ms ?? t.duration);
+      html += `<tr>
+        <td style="font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(t.nodeid || t.name || '')}">${escHtml(t.nodeid || t.name || '—')}</td>
+        <td><span class="badge ${badgeClass}">${escHtml(label)}</span></td>
+        <td style="color:var(--text2)">${escHtml(dur)}</td>
+        <td style="color:var(--text3);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(t.message || '')}">${escHtml(t.message || '')}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  // ─── Chart ────────────────────────────────────────────────────────────────────
+  async function loadAndDrawChart(project) {
+    const emptyEl = document.getElementById('chart-empty');
+    const svgEl = document.getElementById('score-chart');
+
+    if (!project) {
+      emptyEl.style.display = '';
+      svgEl.style.display = 'none';
+      return;
+    }
+
+    try {
+      const data = await fetch('/api/trends/' + encodeURIComponent(project)).then(r => r.json());
+      const points = Array.isArray(data) ? data : (data.trends || data.points || []);
+      if (!points.length) {
+        emptyEl.textContent = 'No trend data for this project yet.';
+        emptyEl.style.display = '';
+        svgEl.style.display = 'none';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      svgEl.style.display = '';
+      drawChart(svgEl, points);
+    } catch {
+      emptyEl.textContent = 'Could not load trend data.';
+      emptyEl.style.display = '';
+      svgEl.style.display = 'none';
+    }
+  }
+
+  function drawChart(svgEl, trends) {
+    const W = svgEl.clientWidth || svgEl.parentElement.clientWidth || 800;
+    const H = 160;
+    const padL = 40, padR = 20, padT = 16, padB = 30;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+
+    const scores = trends.map(t => parseFloat(t.score ?? t.value ?? 0));
+    const minScore = 0;
+    const maxScore = 100;
+    const n = trends.length;
+
+    function xPos(i) { return padL + (n <= 1 ? chartW / 2 : (i / (n - 1)) * chartW); }
+    function yPos(s) { return padT + chartH - ((s - minScore) / (maxScore - minScore)) * chartH; }
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+
+    // Grid lines
+    const gridLevels = [0, 25, 50, 75, 100];
+    gridLevels.forEach(lvl => {
+      const y = yPos(lvl);
+      svg += `<line x1="${padL}" y1="${y}" x2="${padL + chartW}" y2="${y}" stroke="#383850" stroke-width="1"/>`;
+      svg += `<text x="${padL - 6}" y="${y + 4}" font-size="10" fill="#64748b" text-anchor="end" font-family="monospace">${lvl}</text>`;
+    });
+
+    // X axis labels (show up to 6 evenly)
+    const maxLabels = 6;
+    const step = Math.max(1, Math.floor(n / maxLabels));
+    for (let i = 0; i < n; i += step) {
+      const t = trends[i];
+      const raw = t.timestamp || t.date || t.created_at || '';
+      let label = '';
+      try {
+        const d = new Date(raw);
+        label = isNaN(d) ? String(i + 1) : (d.getMonth() + 1) + '/' + d.getDate();
+      } catch { label = String(i + 1); }
+      svg += `<text x="${xPos(i)}" y="${H - 6}" font-size="10" fill="#64748b" text-anchor="middle" font-family="monospace">${escHtml(label)}</text>`;
+    }
+
+    // Area fill
+    if (n > 1) {
+      let areaPoints = `${xPos(0)},${yPos(scores[0])}`;
+      for (let i = 1; i < n; i++) areaPoints += ` ${xPos(i)},${yPos(scores[i])}`;
+      areaPoints += ` ${xPos(n - 1)},${padT + chartH} ${xPos(0)},${padT + chartH}`;
+      svg += `<polygon points="${areaPoints}" fill="url(#chartGrad)" opacity="0.25"/>`;
+    }
+
+    // Gradient def
+    svg = svg.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" `)
+      .replace('<svg xmlns="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg"', '<svg xmlns="http://www.w3.org/2000/svg"');
+    const gradDef = `<defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient></defs>`;
+    svg = svg.replace('<svg ', '<svg ');
+
+    // Polyline
+    if (n > 1) {
+      const polyPoints = scores.map((s, i) => `${xPos(i)},${yPos(s)}`).join(' ');
+      svg += `<polyline points="${polyPoints}" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    }
+
+    // Dots
+    scores.forEach((s, i) => {
+      const color = scoreColor(s);
+      svg += `<circle cx="${xPos(i)}" cy="${yPos(s)}" r="3.5" fill="${color}" stroke="#1e1e2e" stroke-width="1.5"/>`;
+    });
+
+    svg += gradDef;
+    svg += '</svg>';
+    svgEl.outerHTML = svg.replace(/^<svg /, '<svg id="score-chart" ');
+    // Re-bind reference
+    document.getElementById('score-chart').style.display = '';
+  }
+
+  // ─── Auto-refresh ─────────────────────────────────────────────────────────────
+  function startCountdown() {
+    clearInterval(state.countdownTimer);
+    state.countdown = 30;
+    updateCountdownLabel();
+    state.countdownTimer = setInterval(() => {
+      state.countdown--;
+      updateCountdownLabel();
+      if (state.countdown <= 0) {
+        refresh();
+      }
+    }, 1000);
+  }
+
+  function updateCountdownLabel() {
+    const el = document.getElementById('refresh-info');
+    if (el) el.textContent = state.countdown > 0 ? `Auto-refresh in ${state.countdown}s` : 'Refreshing…';
+  }
+
+  async function refresh() {
+    await checkHealth();
+    await loadRuns();
+    if (state.project) await loadAndDrawChart(state.project);
+    startCountdown();
+  }
+
+  // ─── Event wiring ─────────────────────────────────────────────────────────────
+  document.getElementById('project-select').addEventListener('change', async (e) => {
+    state.project = e.target.value;
+    await loadRuns();
+    await loadAndDrawChart(state.project);
+    startCountdown();
+  });
+
+  document.getElementById('refresh-btn').addEventListener('click', () => {
+    clearInterval(state.countdownTimer);
+    refresh();
+  });
+
+  // ─── Boot ─────────────────────────────────────────────────────────────────────
+  (async function init() {
+    await checkHealth();
+    await loadRuns();
+    startCountdown();
+  })();
+</script>
+</body>
+</html>

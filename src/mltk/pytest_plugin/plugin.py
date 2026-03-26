@@ -105,7 +105,7 @@ class MltkReportCollector:
 
 
 def pytest_addoption(parser):  # type: ignore[no-untyped-def]
-    """Add --mltk-report, --mltk-export-json, and --mltk-mlflow options."""
+    """Add --mltk-report, --mltk-export-json, --mltk-mlflow, and --mltk-server options."""
     parser.addoption(
         "--mltk-report",
         action="store_true",
@@ -128,6 +128,16 @@ def pytest_addoption(parser):  # type: ignore[no-untyped-def]
             "Log mltk test results to MLflow under the given experiment name. "
             "Set MLFLOW_TRACKING_URI to point at a remote server, or omit for "
             "local ./mlruns storage. Requires: pip install mlflow"
+        ),
+    )
+    parser.addoption(
+        "--mltk-server",
+        action="store",
+        default=None,
+        metavar="URL",
+        help=(
+            "Push test results to a running mltk server after the session "
+            "(e.g., http://localhost:8080). Requires: pip install mltk[server]"
         ),
     )
 
@@ -204,6 +214,11 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
     mlflow_experiment = session.config.getoption("--mltk-mlflow", default=None)
     if mlflow_experiment and collector is not None:
         _log_mlflow(collector, mlflow_experiment, session)
+
+    # --- mltk server push (independent of --mltk-report) ---
+    server_url = session.config.getoption("--mltk-server", default=None)
+    if server_url and collector is not None:
+        _push_to_server(collector, server_url, session)
 
     # --- HTML/terminal report ---
     if not session.config.getoption("--mltk-report", default=False):
@@ -312,6 +327,62 @@ def _log_mlflow(
             reporter = session.config.pluginmanager.get_plugin("terminalreporter")  # type: ignore[union-attr]
             if reporter is not None:
                 reporter._tw.line(f"mltk MLflow logging failed: {exc}")
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _push_to_server(
+    collector: MltkReportCollector,
+    server_url: str,
+    session: object,
+) -> None:
+    """POST collected test results to a running mltk server instance.
+
+    Sends results to ``{server_url}/api/runs`` using the standard
+    :class:`SubmitRunRequest` payload (project + results list).
+
+    Args:
+        collector: The report collector with accumulated results.
+        server_url: Base URL of the mltk server (e.g., "http://localhost:8080").
+        session: pytest session (used for terminal reporter access).
+    """
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    records = collector.to_json_records()
+    payload = json.dumps({"project": "default", "results": records}).encode("utf-8")
+    endpoint = server_url.rstrip("/") + "/api/runs"
+
+    try:
+        req = urllib.request.Request(
+            endpoint,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+            response_body = resp.read().decode("utf-8")
+            try:
+                run_data = json.loads(response_body)
+                run_id = run_data.get("run_id", "?")
+            except json.JSONDecodeError:
+                run_id = "?"
+
+        try:
+            reporter = session.config.pluginmanager.get_plugin("terminalreporter")  # type: ignore[union-attr]
+            if reporter is not None:
+                reporter._tw.line(
+                    f"mltk server: results pushed to {server_url} (run_id={run_id})"
+                )
+        except Exception:  # noqa: BLE001
+            pass
+    except Exception as exc:  # noqa: BLE001
+        # Non-fatal — report the error but do not break the test session
+        try:
+            reporter = session.config.pluginmanager.get_plugin("terminalreporter")  # type: ignore[union-attr]
+            if reporter is not None:
+                reporter._tw.line(f"mltk server push failed: {exc}")
         except Exception:  # noqa: BLE001
             pass
 
