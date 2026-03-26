@@ -35,6 +35,7 @@ nav:
       - CI/CD Integration: guides/cicd-integration.md
       - Canary Testing: guides/canary-testing.md
       - VS Code Integration: guides/vscode-integration.md
+      - Playwright Integration: guides/playwright-integration.md
       - YAML Test Definitions: api/yaml-tests.md
       - Data Contracts: api/contracts.md
       - Testing Patterns: api/testing-patterns.md

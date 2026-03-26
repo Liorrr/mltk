@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from mltk.report.summarizer import summarize_test_history
 from mltk.server.auth import require_api_key
 from mltk.server.comparison import compare_runs
-from mltk.server.webhooks import send_webhook, should_fire
+from mltk.server.webhooks import send_webhook, should_fire, validate_webhook_url
 
 router = APIRouter()
 
@@ -150,7 +150,16 @@ async def create_webhook(
     request: Request,
     _project: str = Depends(require_api_key),
 ) -> dict:  # type: ignore[type-arg]
-    """Register a new webhook. Requires Bearer API key."""
+    """Register a new webhook. Requires Bearer API key.
+
+    The URL is validated before saving — private/loopback addresses and
+    non-HTTP schemes are rejected with HTTP 422.
+    """
+    if not validate_webhook_url(req.url):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid webhook URL: must be a public http(s) endpoint",
+        )
     storage = request.app.state.storage
     webhook_id = storage.save_webhook(req.url, req.events, req.project)
     return {"webhook_id": webhook_id, "status": "created"}

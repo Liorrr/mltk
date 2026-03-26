@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import socket
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -26,6 +28,22 @@ _PRIVATE_NETWORKS = [
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
 ]
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Return True if *ip_str* belongs to a private/loopback network.
+
+    Args:
+        ip_str: An IPv4 or IPv6 address string.
+
+    Returns:
+        True if the address falls within any blocked network, False otherwise.
+    """
+    try:
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    return any(addr in net for net in _PRIVATE_NETWORKS)
 
 
 def validate_webhook_url(url: str) -> bool:
@@ -60,33 +78,62 @@ def validate_webhook_url(url: str) -> bool:
         return False
 
     # Reject private/loopback IP addresses
-    try:
-        addr = ipaddress.ip_address(host)
-        for net in _PRIVATE_NETWORKS:
-            if addr in net:
-                return False
-    except ValueError:
-        # host is a domain name, not an IP — allow it
-        pass
+    if _is_private_ip(host):
+        return False
 
     return True
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Handler that raises on any redirect, preventing SSRF bypass via
+    3xx responses that redirect to internal addresses."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]  # noqa: ARG002
+        raise urllib.error.HTTPError(
+            req.full_url, code, "Redirects are not allowed for webhooks", headers, fp,
+        )
 
 
 def send_webhook(url: str, payload: dict, headers: dict | None = None) -> bool:  # type: ignore[type-arg]
     """POST JSON payload to webhook URL. Returns True on success.
 
     Validates the URL before dispatching to prevent SSRF attacks.
+    To mitigate DNS rebinding attacks the hostname is resolved
+    *immediately before* the request and the resolved IP is checked
+    against the private-network blocklist a second time.  This closes
+    the TOCTOU gap where an attacker's DNS returns a safe IP during
+    ``validate_webhook_url()`` then switches to ``127.0.0.1`` at
+    dispatch time.  Redirect following is also disabled so a 3xx
+    cannot bypass the checks.
     """
     if not validate_webhook_url(url):
         return False
     try:
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+        # --- DNS-rebinding defence -----------------------------------
+        # Resolve the hostname NOW and validate the resolved IP before
+        # handing the request to urllib which would resolve again.
+        if host:
+            addrinfo = socket.getaddrinfo(host, port)
+            if not addrinfo:
+                return False
+            resolved_ip = addrinfo[0][4][0]
+            if _is_private_ip(resolved_ip):
+                return False
+
         data = json.dumps(payload).encode()
         req = urllib.request.Request(
             url,
             data=data,
             headers={"Content-Type": "application/json", **(headers or {})},
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+        # Use _NoRedirectHandler so 3xx responses raise instead of
+        # following the redirect to a potentially internal address.
+        opener = urllib.request.build_opener(_NoRedirectHandler)
+        with opener.open(req, timeout=10) as resp:  # noqa: S310
             return resp.status == 200
     except Exception:  # noqa: BLE001
         return False

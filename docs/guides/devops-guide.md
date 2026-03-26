@@ -1365,14 +1365,37 @@ docker compose exec mltk-server ls -la /app/data/mltk_server.db
 
 ### Database Schema
 
-The server creates four tables automatically:
+The server creates five tables automatically via the migration system:
 
 | Table | Purpose |
 |-------|---------|
+| `schema_versions` | Tracks which migrations have been applied (version + timestamp) |
 | `runs` | Test run summaries (project, timestamp, score, pass/fail counts) |
 | `results` | Per-test results linked to runs (name, passed, severity, details) |
 | `api_keys` | SHA-256 hashed API keys with project association |
 | `webhooks` | Registered webhook URLs, events, and project filters |
+
+### Storage Architecture
+
+The SQLite storage layer includes several production-hardening features:
+
+**WAL Journal Mode** — `PRAGMA journal_mode=WAL` is enabled at startup for concurrent-read performance. Dashboard queries do not block run submissions.
+
+**Foreign Key Enforcement** — `PRAGMA foreign_keys = ON` prevents orphan rows in `results` that reference non-existent `runs`. Any such insert raises an `IntegrityError`.
+
+**Performance Indexes** — Three indexes are created automatically:
+
+```
+idx_runs_project   → runs(project, id DESC)    — project-filtered listings
+idx_results_run    → results(run_id)           — per-run result lookups
+idx_api_keys_hash  → api_keys(key_hash)        — API key verification
+```
+
+**Singleton Connection** — A single `sqlite3.Connection` with `check_same_thread=False` is reused across all requests, avoiding per-request connection overhead. Call `storage.close()` for clean shutdown.
+
+**Batch Inserts** — `save_run()` uses `executemany()` for result rows, which is significantly faster than per-row `execute()` for large test suites.
+
+**Webhook URL Validation** — URLs are validated at registration time (`POST /api/webhooks`). Private IPs, localhost, and non-HTTP schemes are rejected with HTTP 422 before being persisted. Redirect following is disabled in webhook dispatch to prevent SSRF bypass.
 
 ### Backup Strategy
 
@@ -1423,6 +1446,44 @@ journalctl -u mltk-server -f
 docker run -d --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 mltk-server
 ```
 
+### Schema Migration System
+
+The server uses a versioned migration system to manage database schema changes safely. Every schema change is defined as a numbered migration in `_MIGRATIONS` (inside `storage.py`), and the server tracks which migrations have been applied in a `schema_versions` table.
+
+**How it works:**
+
+1. On startup, the server creates the `schema_versions` table if it does not exist.
+2. It reads the highest applied version from that table.
+3. Any migrations with a version number higher than the current version are executed in order.
+4. Each migration is recorded with its version number and a timestamp.
+
+**Current migrations:**
+
+| Version | Description |
+|---------|-------------|
+| 1 | Initial schema: `runs`, `results`, `api_keys`, `webhooks` tables + performance indexes |
+
+**Adding a new migration:**
+
+To add a schema change in a future release, append a new tuple to the `_MIGRATIONS` list in `src/mltk/server/storage.py`:
+
+```python
+_MIGRATIONS = [
+    (1, "Initial schema ...", [...]),
+    (2, "Add tags column to runs", [
+        "ALTER TABLE runs ADD COLUMN tags TEXT NOT NULL DEFAULT ''",
+    ]),
+]
+```
+
+The migration engine uses `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS` so it is safe for existing databases that already have the tables. A pre-migration database (created before the migration system was added) will have migration v1 applied on first startup with the new code, which creates the tracking table and indexes without data loss.
+
+**Inspecting migration status:**
+
+```bash
+sqlite3 /data/mltk_server.db "SELECT version, applied_at FROM schema_versions ORDER BY version"
+```
+
 ### Upgrading mltk
 
 ```bash
@@ -1432,15 +1493,13 @@ pip install --upgrade mltk[server]
 # Check version
 mltk version
 
-# Restart the server
-# Database migrations are automatic — the server creates tables if they don't exist
-# and existing tables are preserved
+# Restart the server — migrations run automatically on startup
 systemctl restart mltk-server
 # or
 docker compose up -d --build mltk-server
 ```
 
-The SQLite schema uses `CREATE TABLE IF NOT EXISTS` so upgrades are non-destructive. No manual migration is needed.
+Database migrations are applied automatically when the server starts. Existing data is preserved. You can verify the current schema version with the `schema_versions` query shown above.
 
 ---
 

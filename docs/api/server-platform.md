@@ -39,7 +39,7 @@ mltk server
 open http://localhost:8080
 ```
 
-The server auto-creates `mltk_server.db` on first run. All data is stored locally in SQLite.
+The server auto-creates `mltk_server.db` on first run. All data is stored locally in SQLite with WAL journal mode for concurrent-read performance.
 
 ---
 
@@ -522,6 +522,42 @@ The generated comment includes:
 ### Check Run
 
 Sets `conclusion` to `"success"` when all tests pass, `"failure"` when any fail. Adds per-test annotations for failing tests (capped at 50 per GitHub API limit).
+
+---
+
+## Storage Architecture
+
+The server uses SQLite with several production-hardening features enabled at initialization:
+
+### WAL Journal Mode
+
+Write-Ahead Logging (WAL) is enabled via `PRAGMA journal_mode=WAL`, which allows concurrent readers while a write is in progress. This is critical for dashboard queries not blocking run submissions.
+
+### Foreign Key Enforcement
+
+`PRAGMA foreign_keys = ON` ensures referential integrity between `results.run_id` and `runs.id`. Attempts to insert orphan result rows will raise an `IntegrityError`.
+
+### Performance Indexes
+
+Three indexes are created automatically:
+
+| Index | Columns | Purpose |
+|-------|---------|---------|
+| `idx_runs_project` | `runs(project, id DESC)` | Fast project-filtered run listing |
+| `idx_results_run` | `results(run_id)` | Fast per-run result lookups |
+| `idx_api_keys_hash` | `api_keys(key_hash)` | Fast API key verification |
+
+### Connection Pooling
+
+A singleton `sqlite3.Connection` with `check_same_thread=False` is reused across all operations, avoiding the overhead of opening/closing connections per request. Call `storage.close()` for clean shutdown.
+
+### Batch Inserts
+
+`save_run()` uses `executemany()` for inserting result rows, which is significantly faster than individual `execute()` calls for large test suites.
+
+### Webhook URL Validation
+
+Webhook URLs are validated at creation time (`POST /api/webhooks`) before being persisted. Invalid URLs (private IPs, localhost, non-HTTP schemes) return HTTP 422. Redirect following is disabled in webhook dispatch to prevent SSRF bypass via 3xx responses.
 
 ---
 
