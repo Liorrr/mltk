@@ -26,7 +26,29 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Configuration: configuration.md
+  - Guides:
+      - Getting Started: getting-started.md
+      - QA Engineer Guide: guides/qa-engineer-guide.md
+      - DevOps Guide: guides/devops-guide.md
+      - Developer Guide: guides/developer-guide.md
+      - Product Manager Guide: guides/product-manager-guide.md
+      - CI/CD Integration: guides/cicd-integration.md
+      - Canary Testing: guides/canary-testing.md
+      - VS Code Integration: guides/vscode-integration.md
+      - YAML Test Definitions: api/yaml-tests.md
+      - Data Contracts: api/contracts.md
+      - Testing Patterns: api/testing-patterns.md
+      - CLI Reference: api/cli.md
+      - pytest Plugin: api/pytest-plugin.md
+      - HTML Reports: api/report.md
+      - ML Test Score: api/ml-test-score.md
+      - mltk doctor: api/doctor.md
+      - Server Platform: api/server-platform.md
+      - Chat Interface: api/chat.md
+      - Test Registry: api/registry.md
   - API Reference:
+      - Assertion Index: api/assertion-index.md
+      - Test Coverage Index: api/test-index.md
       - Core: api/core.md
       - Data Schema: api/data-schema.md
       - Data Distribution: api/data-distribution.md
@@ -34,6 +56,7 @@ nav:
       - Data Drift: api/data-drift.md
       - Data PII: api/data-pii.md
       - Data Labels: api/data-labels.md
+      - Data Statistics: api/data-statistics.md
       - Model Metrics: api/model-metrics.md
       - Model Regression: api/model-regression.md
       - Model Slicing: api/model-slicing.md
@@ -51,14 +74,19 @@ nav:
       - Monitoring: api/monitor.md
       - Embedding Drift: api/drift-advanced.md
       - LLM Evaluation: api/llm.md
+      - RAG, Agentic & Text Quality: api/rag-evaluation.md
       - Training Bugs: api/training-bugs.md
-  - Guides:
-      - Data Contracts: api/contracts.md
-      - pytest Plugin: api/pytest-plugin.md
-      - CLI: api/cli.md
-      - HTML Reports: api/report.md
-      - ML Test Score: api/ml-test-score.md
+  - Compliance & Integrations:
+      - EU AI Act Compliance: api/eu-ai-act.md
+      - FDA Audit Trail: api/fda-audit.md
+      - Compliance PDF: api/compliance-pdf.md
+      - Model Card Generator: api/model-card.md
+      - Cloud Monitoring: api/cloud-monitoring.md
       - Integrations (Jira): api/integrations.md
+      - GitHub, Slack & Plugins: api/github-integration.md
+      - MLflow Integration: api/mlflow.md
+      - Jupyter Notebooks: api/jupyter.md
+      - Resource Summarization: api/summarization.md
 
 markdown_extensions:
   - admonition

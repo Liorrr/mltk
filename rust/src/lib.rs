@@ -1,10 +1,10 @@
 use pyo3::prelude::*;
 use regex::Regex;
 
-/// Compute KS test statistic between two distributions.
-/// Uses empirical CDF comparison. Returns (statistic, approximate p_value).
-#[pyfunction]
-fn ks_test(mut reference: Vec<f64>, mut current: Vec<f64>) -> (f64, f64) {
+// ─── Core implementations (slice-based, zero-copy capable) ──────────────────
+
+/// Core KS test on borrowed slices. Caller owns the data.
+fn ks_test_core(reference: &mut [f64], current: &mut [f64]) -> (f64, f64) {
     let n1 = reference.len() as f64;
     let n2 = current.len() as f64;
 
@@ -65,6 +65,79 @@ fn ks_test(mut reference: Vec<f64>, mut current: Vec<f64>) -> (f64, f64) {
     (d_max, p_value)
 }
 
+/// Core PSI on borrowed slices.
+fn psi_core(reference: &[f64], current: &[f64], bins: usize) -> f64 {
+    if reference.is_empty() || current.is_empty() || bins == 0 {
+        return 0.0;
+    }
+
+    let ref_min = reference.iter().cloned().fold(f64::INFINITY, f64::min);
+    let ref_max = reference.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let cur_min = current.iter().cloned().fold(f64::INFINITY, f64::min);
+    let cur_max = current.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+
+    let global_min = ref_min.min(cur_min);
+    let global_max = ref_max.max(cur_max);
+
+    if (global_max - global_min).abs() < 1e-10 {
+        return 0.0;
+    }
+
+    let bin_width = (global_max - global_min) / bins as f64;
+    let n_ref = reference.len() as f64;
+    let n_cur = current.len() as f64;
+
+    let mut ref_counts = vec![0.0f64; bins];
+    let mut cur_counts = vec![0.0f64; bins];
+
+    for &v in reference {
+        let idx = ((v - global_min) / bin_width).floor() as usize;
+        let idx = idx.min(bins - 1);
+        ref_counts[idx] += 1.0;
+    }
+    for &v in current {
+        let idx = ((v - global_min) / bin_width).floor() as usize;
+        let idx = idx.min(bins - 1);
+        cur_counts[idx] += 1.0;
+    }
+
+    let epsilon = 1e-6;
+    let mut psi_val = 0.0;
+    for i in 0..bins {
+        let ref_pct = (ref_counts[i] / n_ref).max(epsilon);
+        let cur_pct = (cur_counts[i] / n_cur).max(epsilon);
+        psi_val += (cur_pct - ref_pct) * (cur_pct / ref_pct).ln();
+    }
+
+    psi_val
+}
+
+/// Core cosine similarity on borrowed slices.
+fn cosine_similarity_core(a: &[f64], b: &[f64]) -> f64 {
+    if a.is_empty() || b.is_empty() || a.len() != b.len() {
+        return 0.0;
+    }
+
+    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let norm_b: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
+
+    if norm_a < 1e-10 || norm_b < 1e-10 {
+        return 0.0;
+    }
+
+    dot / (norm_a * norm_b)
+}
+
+// ─── PyO3 wrappers (take Vec<f64>, delegate to core) ────────────────────────
+
+/// Compute KS test statistic between two distributions.
+/// Uses empirical CDF comparison. Returns (statistic, approximate p_value).
+#[pyfunction]
+fn ks_test(mut reference: Vec<f64>, mut current: Vec<f64>) -> (f64, f64) {
+    ks_test_core(&mut reference, &mut current)
+}
+
 /// Approximate KS p-value using the asymptotic series expansion.
 fn ks_p_value(lambda: f64) -> f64 {
     if lambda < 0.001 {
@@ -91,49 +164,7 @@ fn ks_p_value(lambda: f64) -> f64 {
 /// PSI < 0.1 = stable, 0.1-0.2 = moderate, > 0.2 = significant drift.
 #[pyfunction]
 fn psi(reference: Vec<f64>, current: Vec<f64>, bins: usize) -> f64 {
-    if reference.is_empty() || current.is_empty() || bins == 0 {
-        return 0.0;
-    }
-
-    let ref_min = reference.iter().cloned().fold(f64::INFINITY, f64::min);
-    let ref_max = reference.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let cur_min = current.iter().cloned().fold(f64::INFINITY, f64::min);
-    let cur_max = current.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-
-    let global_min = ref_min.min(cur_min);
-    let global_max = ref_max.max(cur_max);
-
-    if (global_max - global_min).abs() < 1e-10 {
-        return 0.0; // All values identical
-    }
-
-    let bin_width = (global_max - global_min) / bins as f64;
-    let n_ref = reference.len() as f64;
-    let n_cur = current.len() as f64;
-
-    let mut ref_counts = vec![0.0f64; bins];
-    let mut cur_counts = vec![0.0f64; bins];
-
-    for &v in &reference {
-        let idx = ((v - global_min) / bin_width).floor() as usize;
-        let idx = idx.min(bins - 1);
-        ref_counts[idx] += 1.0;
-    }
-    for &v in &current {
-        let idx = ((v - global_min) / bin_width).floor() as usize;
-        let idx = idx.min(bins - 1);
-        cur_counts[idx] += 1.0;
-    }
-
-    let epsilon = 1e-6;
-    let mut psi_val = 0.0;
-    for i in 0..bins {
-        let ref_pct = (ref_counts[i] / n_ref).max(epsilon);
-        let cur_pct = (cur_counts[i] / n_cur).max(epsilon);
-        psi_val += (cur_pct - ref_pct) * (cur_pct / ref_pct).ln();
-    }
-
-    psi_val
+    psi_core(&reference, &current, bins)
 }
 
 // ─── Histogram helper ────────────────────────────────────────────────────────
@@ -492,19 +523,7 @@ fn scan_pii_rust(
 /// Returns 0.0 for zero-length or zero-norm vectors.
 #[pyfunction]
 fn cosine_similarity(a: Vec<f64>, b: Vec<f64>) -> f64 {
-    if a.is_empty() || b.is_empty() || a.len() != b.len() {
-        return 0.0;
-    }
-
-    let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
-    let norm_b: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
-
-    if norm_a < 1e-10 || norm_b < 1e-10 {
-        return 0.0;
-    }
-
-    dot / (norm_a * norm_b)
+    cosine_similarity_core(&a, &b)
 }
 
 /// Compute cosine distance between centroids of two embedding sets.
@@ -545,7 +564,7 @@ fn centroid_cosine_distance(ref_embs: Vec<Vec<f64>>, cur_embs: Vec<Vec<f64>>) ->
         *v /= n_cur;
     }
 
-    1.0 - cosine_similarity(centroid_ref, centroid_cur)
+    1.0 - cosine_similarity_core(&centroid_ref, &centroid_cur)
 }
 
 /// BERTScore precision, recall, and F1 via token-level cosine similarity.
@@ -571,7 +590,7 @@ fn bertscore_precision_recall(
             .map(|hyp_tok| {
                 ref_embs
                     .iter()
-                    .map(|ref_tok| cosine_similarity(hyp_tok.clone(), ref_tok.clone()))
+                    .map(|ref_tok| cosine_similarity_core(hyp_tok, ref_tok))
                     .fold(f64::NEG_INFINITY, f64::max)
             })
             .sum();
@@ -585,7 +604,7 @@ fn bertscore_precision_recall(
             .map(|ref_tok| {
                 hyp_embs
                     .iter()
-                    .map(|hyp_tok| cosine_similarity(ref_tok.clone(), hyp_tok.clone()))
+                    .map(|hyp_tok| cosine_similarity_core(ref_tok, hyp_tok))
                     .fold(f64::NEG_INFINITY, f64::max)
             })
             .sum();

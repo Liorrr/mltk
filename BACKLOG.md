@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S37: 121 assertions, 1053 tests, 13 Rust tests)
+## DONE (S0-S41: 121 assertions, 1053+ tests, 13 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -60,18 +60,24 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S36: FastAPI server, SQLite storage, dashboard HTML, Docker, --mltk-server
 - [x] S37: API key auth, GitHub CI (PR comments, check runs), webhooks, run comparison
 
+### Phase F: Compliance, Integrations & Polish (S38-S41)
+- [x] S38: FDA 21 CFR Part 11 audit trail, compliance PDF export, CLI commands (fda-audit, compliance-pdf)
+- [x] S39: Resource summarization (trend analysis, flaky detection, recommendations), visual diff reports
+- [x] S40: Linear adapter (GraphQL), Asana adapter (REST), data lineage tracking (assert_lineage_complete)
+- [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 24 CLI commands total
+
 ---
 
 ## BACKLOG (not yet scheduled)
 
 ### Integrations
-- [ ] VS Code extension (inline test results)
-- [ ] Linear/Asana adapters
+- [x] VS Code extension (inline test results) -- DONE S41, separate repo mltk-vscode
+- [x] Linear/Asana adapters -- DONE S40
 - [ ] GitHub App for auto-running mltk on PRs
 
 ### Advanced Features
-- [ ] Resource summarization + AI predictions
-- [ ] Data lineage visualization (DAG rendering)
+- [x] Resource summarization + AI predictions -- DONE S39 (summarizer with trend/flaky/recommendations)
+- [x] Data lineage visualization (DAG rendering) -- DONE S40 (lineage graph + assert_lineage_complete)
 - [ ] Test impact analysis (dependency graph)
 - [ ] Anomaly detection on test result time series
 
@@ -110,4 +116,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 37 (March 26, 2026)*
+*Last updated: Sprint 41 (March 26, 2026)*

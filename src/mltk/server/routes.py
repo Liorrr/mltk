@@ -39,7 +39,18 @@ async def submit_run(
     request: Request,
     _project: str = Depends(require_api_key),
 ) -> dict:  # type: ignore[type-arg]
-    """Submit test results from a test run. Requires Bearer API key."""
+    """Submit test results from a test run. Requires Bearer API key.
+
+    If the API key is scoped to a specific project (not "default" or empty),
+    the request's ``project`` must match the key's project.
+    """
+    # Enforce project scope: scoped keys can only write to their own project
+    if _project and _project != "default" and req.project != _project:
+        raise HTTPException(
+            status_code=403,
+            detail=f"API key is scoped to project '{_project}', "
+            f"cannot write to '{req.project}'",
+        )
     storage = request.app.state.storage
     run_id = storage.save_run(req.project, req.results)
 

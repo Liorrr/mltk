@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -48,6 +50,27 @@ def _make_results_json(path: Path, results: list[dict]) -> Path:
     return path
 
 
+def _run_cli(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
+    """Invoke the mltk CLI via subprocess and return the result.
+
+    Uses ``sys.executable -c`` to call ``main()`` with the given arguments,
+    ensuring the same Python interpreter and installed packages are used.
+    """
+    cli_args = list(args)
+    code = (
+        "import sys; "
+        f"sys.argv = ['mltk'] + {cli_args!r}; "
+        "from mltk.cli.app import main; main()"
+    )
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=cwd,
+    )
+
+
 # ---------------------------------------------------------------------------
 # TestCliInit
 # ---------------------------------------------------------------------------
@@ -68,15 +91,11 @@ class TestCliInit:
         intended configuration.
         Expected: mltk.yaml exists and contains "drift_method".
         """
-        original_dir = os.getcwd()
-        os.chdir(tmp_path)
-        try:
-            config_path = tmp_path / "mltk.yaml"
-            config_path.write_text("drift_method: ks\n")
-            assert config_path.exists()
-            assert "drift_method" in config_path.read_text()
-        finally:
-            os.chdir(original_dir)
+        result = _run_cli("init", cwd=str(tmp_path))
+        assert result.returncode == 0
+        config_path = tmp_path / "mltk.yaml"
+        assert config_path.exists()
+        assert "drift_method" in config_path.read_text()
 
     def test_init_content_defaults(self, tmp_path: Path) -> None:
         """PASS: mltk init config includes all required default fields.
@@ -86,25 +105,14 @@ class TestCliInit:
         Expected: All four keys (drift_method, drift_threshold, report_dir,
         seed) are present in the generated config content.
         """
-        original_dir = os.getcwd()
-        os.chdir(tmp_path)
-        try:
-            config_content = (
-                "drift_method: ks\n"
-                "drift_threshold: 0.05\n"
-                "report_dir: ./mltk-reports\n"
-                "seed: 42\n"
-            )
-            config_path = tmp_path / "mltk.yaml"
-            config_path.write_text(config_content)
-
-            text = config_path.read_text()
-            assert "drift_method" in text
-            assert "drift_threshold" in text
-            assert "report_dir" in text
-            assert "seed" in text
-        finally:
-            os.chdir(original_dir)
+        result = _run_cli("init", cwd=str(tmp_path))
+        assert result.returncode == 0
+        config_path = tmp_path / "mltk.yaml"
+        text = config_path.read_text()
+        assert "drift_method" in text
+        assert "drift_threshold" in text
+        assert "report_dir" in text
+        assert "seed" in text
 
     def test_init_creates_example_test_file(self, tmp_path: Path) -> None:
         """PASS: mltk init creates tests/ directory with example test file.
@@ -113,18 +121,11 @@ class TestCliInit:
         and must write their first test from scratch — reducing adoption.
         Expected: tests/test_mltk_example.py exists and imports pytest.
         """
-        original_dir = os.getcwd()
-        os.chdir(tmp_path)
-        try:
-            test_dir = tmp_path / "tests"
-            test_dir.mkdir(exist_ok=True)
-            test_file = test_dir / "test_mltk_example.py"
-            test_file.write_text('"""Example."""\nimport pytest\n')
-
-            assert test_file.exists()
-            assert "pytest" in test_file.read_text()
-        finally:
-            os.chdir(original_dir)
+        result = _run_cli("init", cwd=str(tmp_path))
+        assert result.returncode == 0
+        test_file = tmp_path / "tests" / "test_mltk_example.py"
+        assert test_file.exists()
+        assert "pytest" in test_file.read_text()
 
 
 # ---------------------------------------------------------------------------
@@ -174,19 +175,18 @@ class TestCliScanLogic:
         assert nulls["b"] == 1
 
     def test_scan_file_not_found_raises(self, tmp_path: Path) -> None:
-        """PASS: Scan raises SystemExit(1) when file does not exist.
+        """PASS: Scan exits with code 1 when file does not exist.
 
         WHY: A missing file is the most common user error. The command must
         exit with code 1 and print a helpful message — not raise an
         unhandled FileNotFoundError traceback.
-        Expected: SystemExit with code 1.
+        Expected: Process exits with code 1.
         """
         missing = tmp_path / "does_not_exist.csv"
         assert not missing.exists()
-        # Simulate the file-not-found guard the scan command performs
-        with pytest.raises(SystemExit) as exc_info:
-            raise SystemExit(1)
-        assert exc_info.value.code == 1
+        result = _run_cli("scan", str(missing))
+        assert result.returncode == 1
+        assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
 
     def test_scan_reads_parquet(self, tmp_path: Path) -> None:
         """PASS: Scan can load a Parquet file as well as CSV.
@@ -247,13 +247,14 @@ class TestCliDriftLogic:
         WHY: If one of the two required files is absent, drift would silently
         compare an empty DataFrame against real data, producing nonsense
         results that could be mistaken for valid drift signals.
-        Expected: SystemExit with code 1.
+        Expected: Process exits with code 1.
         """
         missing = tmp_path / "missing.csv"
+        existing = tmp_path / "existing.csv"
+        pd.DataFrame({"x": [1, 2, 3]}).to_csv(existing, index=False)
         assert not missing.exists()
-        with pytest.raises(SystemExit) as exc_info:
-            raise SystemExit(1)
-        assert exc_info.value.code == 1
+        result = _run_cli("drift", str(missing), str(existing))
+        assert result.returncode == 1
 
     def test_drift_numeric_column_comparison(self, tmp_path: Path) -> None:
         """PASS: Drift correctly identifies numeric columns for comparison.
@@ -371,13 +372,13 @@ class TestCliTest:
 
         WHY: If the YAML path is wrong, the command must fail loudly instead
         of silently running zero tests and reporting success.
-        Expected: SystemExit(1) raised when file is absent.
+        Expected: Process exits with code 1.
         """
         missing = tmp_path / "nonexistent_suite.yaml"
         assert not missing.exists()
-        with pytest.raises(SystemExit) as exc_info:
-            raise SystemExit(1)
-        assert exc_info.value.code == 1
+        result = _run_cli("test", str(missing))
+        assert result.returncode == 1
+        assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
 
     def test_load_test_suite_valid_yaml(self, tmp_path: Path) -> None:
         """PASS: load_test_suite parses a well-formed YAML suite.
@@ -415,13 +416,13 @@ class TestCliModelCard:
 
         WHY: Downstream pipelines may call model-card with a stale path.
         A missing file must fail loudly with exit code 1.
-        Expected: SystemExit(1).
+        Expected: Process exits with code 1.
         """
         missing = tmp_path / "no_results.json"
         assert not missing.exists()
-        with pytest.raises(SystemExit) as exc_info:
-            raise SystemExit(1)
-        assert exc_info.value.code == 1
+        result = _run_cli("model-card", str(missing))
+        assert result.returncode == 1
+        assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
 
     def test_generate_model_card_from_results(self, tmp_path: Path) -> None:
         """PASS: generate_model_card produces a Markdown file.
@@ -470,13 +471,13 @@ class TestCliCompliance:
         """PASS: compliance exits 1 when results JSON is missing.
 
         WHY: Same as model-card — must fail loudly with a missing file.
-        Expected: SystemExit(1).
+        Expected: Process exits with code 1.
         """
         missing = tmp_path / "no_results.json"
         assert not missing.exists()
-        with pytest.raises(SystemExit) as exc_info:
-            raise SystemExit(1)
-        assert exc_info.value.code == 1
+        result = _run_cli("compliance", str(missing))
+        assert result.returncode == 1
+        assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
 
     def test_generate_compliance_report(self, tmp_path: Path) -> None:
         """PASS: generate_compliance_report creates an HTML report file.
@@ -579,13 +580,12 @@ class TestCliContract:
         """PASS: contract validate exits 1 when data file is missing.
 
         WHY: Same file-not-found pattern as other commands — must fail clearly.
-        Expected: SystemExit(1).
+        Expected: Process exits with code 1.
         """
         missing = tmp_path / "no_data.csv"
         assert not missing.exists()
-        with pytest.raises(SystemExit) as exc_info:
-            raise SystemExit(1)
-        assert exc_info.value.code == 1
+        result = _run_cli("contract", "validate", str(missing))
+        assert result.returncode == 1
 
     def test_contract_generate_tests_from_yaml(self, tmp_path: Path) -> None:
         """PASS: contract generate-tests produces a pytest test file.
@@ -776,23 +776,30 @@ class TestCliNotifySlack:
 
         WHY: Without this check, a typo in the file path would silently
         send an empty notification — falsely indicating all tests passed.
-        Expected: SystemExit(1).
+        Expected: Process exits with code 1.
         """
         missing = tmp_path / "no_results.json"
         assert not missing.exists()
-        with pytest.raises(SystemExit) as exc_info:
-            raise SystemExit(1)
-        assert exc_info.value.code == 1
+        result = _run_cli(
+            "notify", "slack",
+            "--webhook-url", "https://hooks.slack.com/test",
+            "--results-json", str(missing),
+        )
+        assert result.returncode == 1
+        assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
 
     def test_notify_slack_no_args_raises(self) -> None:
         """PASS: notify slack requires at least one of --results-json or --message.
 
         WHY: Calling notify slack with no arguments is a user error. The
         command must fail with a helpful message and exit 1.
-        Expected: SystemExit(1) when neither flag is provided.
+        Expected: Process exits with non-zero code when neither flag is provided.
         """
-        with pytest.raises(SystemExit):
-            raise SystemExit(1)
+        result = _run_cli(
+            "notify", "slack",
+            "--webhook-url", "https://hooks.slack.com/test",
+        )
+        assert result.returncode != 0
 
 
 # ---------------------------------------------------------------------------
@@ -807,51 +814,39 @@ class TestCliDocsCommands:
 
         WHY: Without mkdocs.yml, mkdocs serve would fail with a confusing
         error. The command must pre-check and give a clear message.
-        Expected: SystemExit(1).
+        Expected: Process exits with code 1.
         """
-        original_dir = os.getcwd()
-        os.chdir(tmp_path)
-        try:
-            mkdocs_yml = tmp_path / "mkdocs.yml"
-            assert not mkdocs_yml.exists()
-            with pytest.raises(SystemExit):
-                raise SystemExit(1)
-        finally:
-            os.chdir(original_dir)
+        mkdocs_yml = tmp_path / "mkdocs.yml"
+        assert not mkdocs_yml.exists()
+        result = _run_cli("docs", "serve", cwd=str(tmp_path))
+        assert result.returncode == 1
+        assert "mkdocs.yml" in result.stdout.lower() or "mkdocs" in result.stderr.lower()
 
     def test_docs_build_missing_mkdocs_yml_raises(self, tmp_path: Path) -> None:
         """PASS: docs build exits 1 when mkdocs.yml is absent.
 
         WHY: Same pre-check as docs serve — prevents a confusing mkdocs
         error from reaching the user.
-        Expected: SystemExit(1).
+        Expected: Process exits with code 1.
         """
-        original_dir = os.getcwd()
-        os.chdir(tmp_path)
-        try:
-            mkdocs_yml = tmp_path / "mkdocs.yml"
-            assert not mkdocs_yml.exists()
-            with pytest.raises(SystemExit):
-                raise SystemExit(1)
-        finally:
-            os.chdir(original_dir)
+        mkdocs_yml = tmp_path / "mkdocs.yml"
+        assert not mkdocs_yml.exists()
+        result = _run_cli("docs", "build", cwd=str(tmp_path))
+        assert result.returncode == 1
+        assert "mkdocs.yml" in result.stdout.lower() or "mkdocs" in result.stderr.lower()
 
     def test_docs_open_missing_mkdocs_yml_raises(self, tmp_path: Path) -> None:
         """PASS: docs open exits 1 when mkdocs.yml is absent.
 
         WHY: docs open builds before serving. Without mkdocs.yml the build
         step fails; the pre-check prevents a cryptic error.
-        Expected: SystemExit(1).
+        Expected: Process exits with code 1.
         """
-        original_dir = os.getcwd()
-        os.chdir(tmp_path)
-        try:
-            mkdocs_yml = tmp_path / "mkdocs.yml"
-            assert not mkdocs_yml.exists()
-            with pytest.raises(SystemExit):
-                raise SystemExit(1)
-        finally:
-            os.chdir(original_dir)
+        mkdocs_yml = tmp_path / "mkdocs.yml"
+        assert not mkdocs_yml.exists()
+        result = _run_cli("docs", "open", cwd=str(tmp_path))
+        assert result.returncode == 1
+        assert "mkdocs.yml" in result.stdout.lower() or "mkdocs" in result.stderr.lower()
 
 
 # ---------------------------------------------------------------------------

@@ -33,8 +33,33 @@ jobs:
           name: sdist
           path: dist/
 
-  publish:
+  test-wheels:
     needs: [wheels, sdist]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Install from wheel
+        shell: bash
+        run: |
+          pip install dist/*.whl || pip install dist/*.tar.gz
+          pip install pytest scipy
+      - name: Verify import and version
+        run: python -c "import mltk; print(mltk.__version__)"
+      - name: Run bridge smoke test
+        run: python -m pytest tests/test_rust_bridge.py -q
+
+  publish:
+    needs: [test-wheels]
     runs-on: ubuntu-latest
     permissions:
       id-token: write

@@ -1,68 +1,161 @@
 # mltk -- ML Test Kit
 
-**pytest for ML** -- unified testing across the entire ML lifecycle.
+**pytest for ML** -- catch silent failures across data, models, training, inference, LLMs, and production monitoring.
 
-mltk is a Python testing toolkit that brings the simplicity of `assert` statements to ML system testing. One package covers data quality, model validation, drift detection, fairness testing, inference benchmarking, and production monitoring.
+mltk is a Python testing toolkit that gives you `assert_*` functions for every stage of the ML lifecycle. Write tests in plain Python or YAML, run them with `pytest`, and get interactive HTML reports -- all from a single `pip install`.
 
-## Why mltk?
+---
 
-ML systems fail silently. A model can train successfully on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional software testing does not catch these failure modes.
-
-mltk provides purpose-built assertions for every stage of the ML lifecycle -- from raw data ingestion through production monitoring -- all runnable with `pytest`.
-
-## Features
-
-- **Data Testing** -- schema validation, distribution checks, drift detection, PII scanning, label quality
-- **Model Testing** -- metrics, regression detection, slicing analysis, bias auditing, adversarial robustness
-- **Inference Testing** -- latency benchmarks (P50/P95/P99), throughput measurement, API contract validation
-- **Domain Kits** -- specialized assertions for CV, NLP, Speech, and Tabular data (optional extras)
-- **pytest Plugin** -- ML-specific markers, fixtures, and auto-registration via entry points
-- **Rust Acceleration** -- optional 10-100x speedup for drift detection via PyO3/Maturin
-- **HTML Reports** -- interactive Plotly charts for test results
-- **CLI** -- `mltk scan`, `mltk drift`, `mltk score` commands
-- **YAML Config** -- no-code test definitions via `mltk.yaml` or `pyproject.toml`
-
-## Quick Start
-
-Install mltk:
+## Install in 30 seconds
 
 ```bash
-pip install mltk
+pip install mltk[cli,report]
+mltk doctor
 ```
 
-Write your first ML data test:
+Then write your first test:
 
 ```python
 import pandas as pd
-from mltk.data import assert_schema, assert_no_nulls, assert_freshness
+from mltk.data import assert_schema, assert_no_nulls, assert_range
 
 def test_training_data():
     df = pd.read_parquet("data/training.parquet")
 
-    # Verify structure
-    assert_schema(df, {
-        "user_id": "int64",
-        "feature_a": "float64",
-        "feature_b": "float64",
-        "label": "int64",
-    })
-
-    # Verify completeness
-    assert_no_nulls(df, columns=["label", "feature_a", "feature_b"])
-
-    # Verify recency
-    assert_freshness(df, date_column="created_at", max_age_days=7)
+    assert_schema(df, {"user_id": "int64", "score": "float64", "label": "int64"})
+    assert_no_nulls(df, columns=["label", "score"])
+    assert_range(df["score"], min_val=0.0, max_val=1.0)
 ```
-
-Run with pytest:
 
 ```bash
-pytest -m ml_data --tb=short
+pytest --mltk-report -v
 ```
+
+:point_right: **[Full getting-started tutorial](getting-started.md)** -- install, scaffold, write, run, view reports in 5 minutes.
+
+---
+
+## Why mltk?
+
+ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional software testing does not catch these failures.
+
+mltk provides **118 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring -- all runnable with `pytest`.
+
+| What you get | Without mltk |
+|---|---|
+| `assert_no_nulls(df)` catches missing labels before training | Silent model degradation |
+| `assert_drift(reference, current)` detects feature shift | Stale predictions in production |
+| `assert_latency(fn, p99=200)` benchmarks inference | Surprise timeouts under load |
+| `assert_bias(predictions, groups)` audits fairness | Regulatory violations |
+| `assert_rag_faithfulness(answer, context)` validates RAG | Hallucinated responses |
+
+---
+
+## Feature Highlights
+
+### :mag: Data Testing
+Schema validation, null detection, range checks, distribution analysis, PII scanning, drift detection, label quality, data lineage, embedding drift.
+
+:point_right: [Data Schema](api/data-schema.md) | [Distribution](api/data-distribution.md) | [Drift](api/data-drift.md) | [PII](api/data-pii.md) | [Labels](api/data-labels.md)
+
+### :dart: Model Testing
+Metric thresholds, regression detection, slice analysis, bias auditing, adversarial robustness, overfitting detection.
+
+:point_right: [Metrics](api/model-metrics.md) | [Regression](api/model-regression.md) | [Slicing](api/model-slicing.md) | [Bias](api/model-bias.md) | [Adversarial](api/model-adversarial.md)
+
+### :rocket: Inference Testing
+Latency benchmarks (P50/P95/P99), throughput measurement, API contract validation.
+
+:point_right: [Latency](api/inference-latency.md) | [Throughput](api/inference-throughput.md) | [Contract](api/inference-contract.md)
+
+### :brain: LLM & RAG Evaluation
+Faithfulness, relevance, coherence, conversation quality, BERTScore, agentic tool use, text safety, RAGAS metrics.
+
+:point_right: [LLM Evaluation](api/llm.md) | [RAG & Agentic](api/rag-evaluation.md)
+
+### :shield: Compliance & Audit
+EU AI Act evidence reports, FDA 21 CFR Part 11 audit trails, OWASP LLM Top 10 checks, compliance PDF export.
+
+:point_right: [EU AI Act](api/eu-ai-act.md) | [FDA Audit](api/fda-audit.md) | [Compliance PDF](api/compliance-pdf.md)
+
+### :bar_chart: Server Platform
+Self-hosted test result tracking -- persistent storage, live dashboard, REST API, webhooks, GitHub CI integration.
+
+:point_right: [Server Platform](api/server-platform.md)
+
+### :wrench: Training & Pipeline
+Gradient health, data leakage detection, checkpoint validation, numerical stability, augmentation verification, distributed training checks, skew detection, end-to-end pipeline reproducibility.
+
+:point_right: [Training Bugs](api/training-bugs.md) | [Pipeline](api/pipeline.md)
+
+### :cloud: Production Monitoring
+AWS CloudWatch, Azure Monitor, GCP monitoring, Prometheus metrics export, output drift detection.
+
+:point_right: [Cloud Monitoring](api/cloud-monitoring.md)
+
+---
+
+## Who is mltk for?
+
+=== "QA Engineer"
+
+    You write test suites for a living. mltk gives you **118 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
+
+    :point_right: Start with [Getting Started](getting-started.md), then explore [YAML Test Definitions](api/yaml-tests.md) for no-code tests.
+
+=== "DevOps / MLOps"
+
+    You need ML tests in CI/CD that block bad deployments. mltk runs as a standard `pytest` step with exit codes, JUnit XML, and HTML reports. Add drift detection and latency gates to your pipeline in minutes.
+
+    :point_right: Start with [CI/CD Integration](guides/cicd-integration.md), then explore [Server Platform](api/server-platform.md) for trend tracking.
+
+=== "ML Developer"
+
+    You build models and need to validate them systematically. mltk covers the full lifecycle: data quality, training health, model metrics, inference performance, and production monitoring.
+
+    :point_right: Start with [Getting Started](getting-started.md), then explore [Model Metrics](api/model-metrics.md) and [Training Bugs](api/training-bugs.md).
+
+=== "Product Manager"
+
+    You need evidence that the ML system works. mltk generates interactive HTML reports and compliance documents (EU AI Act, FDA) that non-technical stakeholders can read.
+
+    :point_right: Start with [HTML Reports](api/report.md), then explore [EU AI Act Compliance](api/eu-ai-act.md) and [ML Test Score](api/ml-test-score.md).
+
+---
+
+## By the Numbers
+
+| Metric | Count |
+|--------|-------|
+| Assertions | 118 across 61 modules |
+| Tests | 1058 |
+| CLI commands | 14 |
+| Domain kits | 5 (CV, NLP, Speech, Tabular, LLM) |
+| Compliance frameworks | 3 (EU AI Act, FDA, OWASP LLM) |
+| Cloud providers | 3 (AWS, Azure, GCP) |
+| Integrations | 7 (GitHub, Slack, Jira, MLflow, Linear, Asana, Prometheus) |
+
+---
+
+## Architecture
+
+| Layer | Modules | What |
+|-------|---------|------|
+| **pytest plugin** | auto-registered | markers, fixtures, `--mltk-report` |
+| **Assertions** | data, model, inference, llm | 121 `assert_*` functions |
+| **Training** | training, pipeline, monitor | gradient, leakage, drift, cloud |
+| **Domains** | cv, nlp, speech, tabular | specialized domain assertions |
+| **Compliance** | compliance, contracts, testdefs | EU AI Act, FDA, YAML, data contracts |
+| **Platform** | report, server, integrations | HTML, dashboard, Jira/Slack/GitHub |
+| **Foundation** | cli, core, rust extension | 24 commands, TestResult, PyO3 |
+
+Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, `.details`, and `.duration_ms`. Critical failures raise `MltkAssertionError` (a subclass of `AssertionError`), so pytest catches them naturally.
+
+---
 
 ## Project Status
 
-mltk is in **v0.6.0** (beta). The core data quality, model, inference, domain, server, and contract modules are stable and tested.
+mltk is at **v0.6.0** (beta). Core modules are stable and tested. See the [changelog](https://github.com/Liorrr/mltk/releases) for release notes.
 
 ## License
 

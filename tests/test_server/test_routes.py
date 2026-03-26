@@ -30,7 +30,8 @@ def client(tmp_path):
     db_file = str(tmp_path / "routes_test.db")
     app = create_app(db_path=db_file)
     raw_key = generate_api_key()
-    app.state.storage.save_api_key(hash_key(raw_key), "test-project")
+    # Use "default" scope so the key works for any project name in tests
+    app.state.storage.save_api_key(hash_key(raw_key), "default")
     with TestClient(app) as c:
         yield c, raw_key
 

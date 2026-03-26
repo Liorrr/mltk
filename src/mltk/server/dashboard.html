@@ -172,7 +172,6 @@
     <div class="section-title">Score Trend</div>
     <div id="chart-container">
       <div class="chart-empty" id="chart-empty">Select a project to view trend</div>
-      <svg id="score-chart" height="160" style="display:none"></svg>
     </div>
   </div>
 
@@ -440,9 +439,10 @@
       <thead><tr><th>Test</th><th>Status</th><th>Duration</th><th>Message</th></tr></thead>
       <tbody>`;
     tests.forEach(t => {
-      const outcome = (t.outcome || t.status || 'unknown').toLowerCase();
-      const badgeClass = outcome === 'passed' ? 'pass' : outcome === 'failed' ? 'fail' : outcome === 'skipped' ? 'skip' : 'warn';
-      const label = outcome === 'passed' ? 'PASS' : outcome === 'failed' ? 'FAIL' : outcome.toUpperCase();
+      // Server returns t.passed (boolean), not t.outcome
+      const didPass = typeof t.passed === 'boolean' ? t.passed : (t.outcome || t.status || 'unknown').toLowerCase() === 'passed';
+      const badgeClass = didPass ? 'pass' : 'fail';
+      const label = didPass ? 'PASS' : 'FAIL';
       const dur = fmtDuration(t.duration_ms ?? t.duration);
       html += `<tr>
         <td style="font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(t.nodeid || t.name || '')}">${escHtml(t.nodeid || t.name || '—')}</td>
@@ -458,11 +458,14 @@
   // ─── Chart ────────────────────────────────────────────────────────────────────
   async function loadAndDrawChart(project) {
     const emptyEl = document.getElementById('chart-empty');
-    const svgEl = document.getElementById('score-chart');
+    const container = document.getElementById('chart-container');
+
+    // Remove any existing SVG from previous draws
+    const oldSvg = container.querySelector('#score-chart');
 
     if (!project) {
       emptyEl.style.display = '';
-      svgEl.style.display = 'none';
+      if (oldSvg) oldSvg.remove();
       return;
     }
 
@@ -472,21 +475,20 @@
       if (!points.length) {
         emptyEl.textContent = 'No trend data for this project yet.';
         emptyEl.style.display = '';
-        svgEl.style.display = 'none';
+        if (oldSvg) oldSvg.remove();
         return;
       }
-      emptyEl.style.display = 'none';
-      svgEl.style.display = '';
-      drawChart(svgEl, points);
+      drawChart(null, points);
     } catch {
       emptyEl.textContent = 'Could not load trend data.';
       emptyEl.style.display = '';
-      svgEl.style.display = 'none';
+      if (oldSvg) oldSvg.remove();
     }
   }
 
   function drawChart(svgEl, trends) {
-    const W = svgEl.clientWidth || svgEl.parentElement.clientWidth || 800;
+    const container = document.getElementById('chart-container');
+    const W = container.clientWidth || 800;
     const H = 160;
     const padL = 40, padR = 20, padT = 16, padB = 30;
     const chartW = W - padL - padR;
@@ -500,7 +502,11 @@
     function xPos(i) { return padL + (n <= 1 ? chartW / 2 : (i / (n - 1)) * chartW); }
     function yPos(s) { return padT + chartH - ((s - minScore) / (maxScore - minScore)) * chartH; }
 
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+    // Gradient def goes inside the SVG, right after opening tag
+    const gradDef = `<defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient></defs>`;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" id="score-chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">`;
+    svg += gradDef;
 
     // Grid lines
     const gridLevels = [0, 25, 50, 75, 100];
@@ -532,12 +538,6 @@
       svg += `<polygon points="${areaPoints}" fill="url(#chartGrad)" opacity="0.25"/>`;
     }
 
-    // Gradient def
-    svg = svg.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" `)
-      .replace('<svg xmlns="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg"', '<svg xmlns="http://www.w3.org/2000/svg"');
-    const gradDef = `<defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient></defs>`;
-    svg = svg.replace('<svg ', '<svg ');
-
     // Polyline
     if (n > 1) {
       const polyPoints = scores.map((s, i) => `${xPos(i)},${yPos(s)}`).join(' ');
@@ -550,11 +550,16 @@
       svg += `<circle cx="${xPos(i)}" cy="${yPos(s)}" r="3.5" fill="${color}" stroke="#1e1e2e" stroke-width="1.5"/>`;
     });
 
-    svg += gradDef;
     svg += '</svg>';
-    svgEl.outerHTML = svg.replace(/^<svg /, '<svg id="score-chart" ');
-    // Re-bind reference
-    document.getElementById('score-chart').style.display = '';
+
+    // Replace container content instead of using outerHTML (which breaks DOM references)
+    // Keep the empty-state div but hide it, and replace the SVG safely
+    const emptyEl = document.getElementById('chart-empty');
+    if (emptyEl) emptyEl.style.display = 'none';
+    // Remove old SVG if present
+    const oldSvg = container.querySelector('#score-chart');
+    if (oldSvg) oldSvg.remove();
+    container.insertAdjacentHTML('beforeend', svg);
   }
 
   // ─── Auto-refresh ─────────────────────────────────────────────────────────────

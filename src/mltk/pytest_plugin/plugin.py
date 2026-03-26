@@ -346,11 +346,16 @@ def _push_to_server(
     Sends results to ``{server_url}/api/runs`` using the standard
     :class:`SubmitRunRequest` payload (project + results list).
 
+    Authentication is read from the ``MLTK_API_KEY`` environment variable
+    or the ``api_key`` field in ``mltk.yaml`` / ``pyproject.toml [tool.mltk]``.
+    If neither is set the request is sent without auth (server may not require it).
+
     Args:
         collector: The report collector with accumulated results.
         server_url: Base URL of the mltk server (e.g., "http://localhost:8080").
         session: pytest session (used for terminal reporter access).
     """
+    import os
     import urllib.error
     import urllib.parse
     import urllib.request
@@ -359,11 +364,24 @@ def _push_to_server(
     payload = json.dumps({"project": "default", "results": records}).encode("utf-8")
     endpoint = server_url.rstrip("/") + "/api/runs"
 
+    # Resolve API key: env var takes priority, then mltk.yaml / pyproject.toml
+    api_key = os.environ.get("MLTK_API_KEY", "")
+    if not api_key:
+        try:
+            config = MltkConfig.load()
+            api_key = getattr(config, "api_key", "") or ""
+        except Exception:  # noqa: BLE001
+            api_key = ""
+
     try:
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
         req = urllib.request.Request(
             endpoint,
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310

@@ -158,3 +158,63 @@ def test_verify_unknown_key_returns_none(tmp_path):
     storage = Storage(str(tmp_path / "unknown_key.db"))
     result = storage.verify_api_key("a" * 64)  # valid-looking SHA-256 hex
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Project-scoped write enforcement (Issue 9)
+# ---------------------------------------------------------------------------
+
+def test_scoped_key_cannot_write_to_other_project(tmp_path):
+    # SCENARIO: API key is scoped to "project-a", but request targets "project-b"
+    # WHY: a scoped key must only be able to write to its own project; this
+    #      prevents cross-project data contamination
+    # EXPECTED: HTTP 403 with a clear error message
+    db_file = str(tmp_path / "scope_test.db")
+    application = create_app(db_path=db_file)
+    raw_key = generate_api_key()
+    application.state.storage.save_api_key(hash_key(raw_key), "project-a")
+    with TestClient(application) as client:
+        resp = client.post(
+            "/api/runs",
+            json={"project": "project-b", "results": SAMPLE_RESULTS},
+            headers={"Authorization": f"Bearer {raw_key}"},
+        )
+        assert resp.status_code == 403, resp.text
+        assert "project-a" in resp.json()["detail"]
+        assert "project-b" in resp.json()["detail"]
+
+
+def test_scoped_key_can_write_to_own_project(tmp_path):
+    # SCENARIO: API key is scoped to "my-project", request also targets "my-project"
+    # WHY: the positive path — scoped keys must succeed when project matches
+    # EXPECTED: HTTP 200, run saved successfully
+    db_file = str(tmp_path / "scope_match.db")
+    application = create_app(db_path=db_file)
+    raw_key = generate_api_key()
+    application.state.storage.save_api_key(hash_key(raw_key), "my-project")
+    with TestClient(application) as client:
+        resp = client.post(
+            "/api/runs",
+            json={"project": "my-project", "results": SAMPLE_RESULTS},
+            headers={"Authorization": f"Bearer {raw_key}"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "saved"
+
+
+def test_default_key_can_write_to_any_project(tmp_path):
+    # SCENARIO: API key is scoped to "default", request targets "any-project"
+    # WHY: backward compatibility — keys with "default" scope are unrestricted
+    # EXPECTED: HTTP 200, run saved successfully
+    db_file = str(tmp_path / "scope_default.db")
+    application = create_app(db_path=db_file)
+    raw_key = generate_api_key()
+    application.state.storage.save_api_key(hash_key(raw_key), "default")
+    with TestClient(application) as client:
+        resp = client.post(
+            "/api/runs",
+            json={"project": "any-project", "results": SAMPLE_RESULTS},
+            headers={"Authorization": f"Bearer {raw_key}"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "saved"

@@ -26,6 +26,7 @@ class MltkConfig:
     - ``MLTK_BASELINE_DIR``    — baseline_dir (str)
     - ``MLTK_SEED``            — seed (int)
     - ``MLTK_PII_PATTERNS``    — pii_patterns (comma-separated list)
+    - ``MLTK_API_KEY``         — api_key (str, for server auth)
     """
 
     drift_method: str = "ks"
@@ -34,6 +35,7 @@ class MltkConfig:
     report_format: str = "html"
     baseline_dir: str = "./mltk-baselines"
     seed: int = 42
+    api_key: str = ""
     pii_patterns: list[str] = field(
         default_factory=lambda: ["email", "phone", "ssn", "credit_card"]
     )
@@ -90,6 +92,7 @@ class MltkConfig:
         - ``MLTK_BASELINE_DIR``    → baseline_dir (str)
         - ``MLTK_SEED``            → seed (int)
         - ``MLTK_PII_PATTERNS``    → pii_patterns (comma-separated, e.g. "email,phone")
+        - ``MLTK_API_KEY``         → api_key (str, for server auth)
 
         Args:
             config: Base config to apply overrides to.
@@ -124,6 +127,10 @@ class MltkConfig:
         pii_patterns = os.environ.get("MLTK_PII_PATTERNS")
         if pii_patterns is not None:
             config.pii_patterns = [p.strip() for p in pii_patterns.split(",") if p.strip()]
+
+        api_key = os.environ.get("MLTK_API_KEY")
+        if api_key is not None:
+            config.api_key = api_key
 
         return config
 
@@ -207,6 +214,7 @@ class MltkConfig:
             "report_format": self.report_format,
             "baseline_dir": self.baseline_dir,
             "seed": self.seed,
+            "api_key": self.api_key,
             "pii_patterns": self.pii_patterns,
         }
 

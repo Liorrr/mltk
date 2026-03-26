@@ -458,3 +458,235 @@ tests:
 
         assert results[0].passed is False
         assert "does_not_exist" in results[0].message
+
+    # ------------------------------------------------------------------
+    # column_mean (data statistics category)
+    # ------------------------------------------------------------------
+
+    def test_run_column_mean_pass(self, tmp_path: Path) -> None:
+        # SCENARIO: Column mean of 'score' falls within declared bounds
+        # WHY: Verify 'column_mean' dispatches to assert_column_mean correctly
+        # EXPECTED: passed=True, details contain the actual mean
+        df = pd.DataFrame({"score": [10.0, 20.0, 30.0, 40.0]})
+        csv = _write_csv(tmp_path / "data.csv", df)
+
+        yaml_path = _write_yaml(
+            tmp_path / "suite.yaml",
+            f"""\
+data_source: {csv}
+tests:
+  - name: Mean score in range
+    assertion: column_mean
+    params:
+      column: score
+      min_val: 20.0
+      max_val: 30.0
+""",
+        )
+        suite = load_test_suite(yaml_path)
+        results = run_test_suite(suite)
+
+        assert len(results) == 1
+        assert results[0].passed is True
+
+    # ------------------------------------------------------------------
+    # metric (model category)
+    # ------------------------------------------------------------------
+
+    def test_run_metric_accuracy_pass(self, tmp_path: Path) -> None:
+        # SCENARIO: DataFrame has y_true and y_pred columns; accuracy is 100%
+        # WHY: Verify 'metric' key reads columns from the CSV and passes
+        # EXPECTED: passed=True with accuracy = 1.0
+        df = pd.DataFrame({
+            "y_true": [0, 1, 1, 0, 1],
+            "y_pred": [0, 1, 1, 0, 1],
+        })
+        csv = _write_csv(tmp_path / "data.csv", df)
+
+        yaml_path = _write_yaml(
+            tmp_path / "suite.yaml",
+            f"""\
+data_source: {csv}
+tests:
+  - name: Model accuracy
+    assertion: metric
+    params:
+      y_true_col: y_true
+      y_pred_col: y_pred
+      metric: accuracy
+      threshold: 0.9
+""",
+        )
+        suite = load_test_suite(yaml_path)
+        results = run_test_suite(suite)
+
+        assert len(results) == 1
+        assert results[0].passed is True
+
+    # ------------------------------------------------------------------
+    # no_overfitting (model category — scalar params)
+    # ------------------------------------------------------------------
+
+    def test_run_no_overfitting_pass(self, tmp_path: Path) -> None:
+        # SCENARIO: Train/test scores have a small gap within tolerance
+        # WHY: Verify 'no_overfitting' dispatches correctly with scalar params
+        # EXPECTED: passed=True (gap of 0.03 is below default max_gap of 0.1)
+        df = pd.DataFrame({"x": [1]})  # unused but required by runner
+        csv = _write_csv(tmp_path / "data.csv", df)
+
+        yaml_path = _write_yaml(
+            tmp_path / "suite.yaml",
+            f"""\
+data_source: {csv}
+tests:
+  - name: No overfitting
+    assertion: no_overfitting
+    params:
+      train_score: 0.95
+      test_score: 0.92
+      max_gap: 0.1
+""",
+        )
+        suite = load_test_suite(yaml_path)
+        results = run_test_suite(suite)
+
+        assert len(results) == 1
+        assert results[0].passed is True
+
+    # ------------------------------------------------------------------
+    # no_degradation (monitor category)
+    # ------------------------------------------------------------------
+
+    def test_run_no_degradation_from_column(self, tmp_path: Path) -> None:
+        # SCENARIO: A column tracks metric values over time; no significant decline
+        # WHY: Verify 'no_degradation' reads history from a DataFrame column
+        # EXPECTED: passed=True (values are stable around 0.90-0.93)
+        df = pd.DataFrame({
+            "daily_accuracy": [0.90, 0.91, 0.92, 0.91, 0.90, 0.91, 0.93, 0.92],
+        })
+        csv = _write_csv(tmp_path / "data.csv", df)
+
+        yaml_path = _write_yaml(
+            tmp_path / "suite.yaml",
+            f"""\
+data_source: {csv}
+tests:
+  - name: No accuracy degradation
+    assertion: no_degradation
+    params:
+      column: daily_accuracy
+      window: 4
+      max_decline: 0.05
+""",
+        )
+        suite = load_test_suite(yaml_path)
+        results = run_test_suite(suite)
+
+        assert len(results) == 1
+        assert results[0].passed is True
+
+    # ------------------------------------------------------------------
+    # plugin registry — custom assertions via @register_assertion
+    # ------------------------------------------------------------------
+
+    def test_run_plugin_assertion_called(self, tmp_path: Path) -> None:
+        # SCENARIO: A custom assertion is registered via @register_assertion
+        #   and a YAML test def references it by name
+        # WHY: Verifies the _dispatch fallback into the plugin registry works
+        #   end-to-end: register -> YAML -> dispatch -> result
+        # EXPECTED: The custom assertion runs, returns passed=True, and the
+        #   sentinel detail confirms it was actually called
+        from mltk.core.plugin import _ASSERTION_REGISTRY, register_assertion
+        from mltk.core.result import Severity, TestResult
+
+        key = "custom_yaml_test_check"
+        _ASSERTION_REGISTRY.pop(key, None)
+
+        call_log: list[dict] = []
+
+        @register_assertion(key)
+        def assert_custom_yaml_test_check(df=None, **kwargs):
+            call_log.append({"df_shape": df.shape if df is not None else None,
+                             "kwargs": kwargs})
+            return TestResult(
+                name=f"plugin.{key}",
+                passed=True,
+                severity=Severity.INFO,
+                message="Custom plugin assertion passed",
+                details={"plugin_called": True, "threshold": kwargs.get("threshold")},
+            )
+
+        try:
+            df = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+            csv = _write_csv(tmp_path / "data.csv", df)
+
+            yaml_path = _write_yaml(
+                tmp_path / "suite.yaml",
+                f"""\
+data_source: {csv}
+tests:
+  - name: Custom plugin check
+    assertion: {key}
+    params:
+      threshold: 0.42
+""",
+            )
+            suite = load_test_suite(yaml_path)
+            results = run_test_suite(suite)
+
+            assert len(results) == 1
+            assert results[0].passed is True
+            assert results[0].details["plugin_called"] is True
+            assert results[0].details["threshold"] == 0.42
+
+            # Verify the function was actually called with the DataFrame
+            assert len(call_log) == 1
+            assert call_log[0]["df_shape"] == (3, 2)
+            assert call_log[0]["kwargs"]["threshold"] == 0.42
+        finally:
+            _ASSERTION_REGISTRY.pop(key, None)
+
+    def test_run_plugin_assertion_without_df_param(self, tmp_path: Path) -> None:
+        # SCENARIO: A plugin assertion that does NOT accept a 'df' kwarg
+        # WHY: The dispatcher tries df=df first, catches TypeError, retries
+        #   with only user params — must handle both signatures gracefully
+        # EXPECTED: The assertion still runs and returns a valid result
+        from mltk.core.plugin import _ASSERTION_REGISTRY, register_assertion
+        from mltk.core.result import Severity, TestResult
+
+        key = "custom_no_df_check"
+        _ASSERTION_REGISTRY.pop(key, None)
+
+        @register_assertion(key)
+        def assert_no_df(threshold=0.5):
+            return TestResult(
+                name=f"plugin.{key}",
+                passed=threshold < 1.0,
+                severity=Severity.INFO,
+                message=f"Threshold {threshold} < 1.0",
+                details={"no_df_plugin": True},
+            )
+
+        try:
+            df = pd.DataFrame({"x": [1]})
+            csv = _write_csv(tmp_path / "data.csv", df)
+
+            yaml_path = _write_yaml(
+                tmp_path / "suite.yaml",
+                f"""\
+data_source: {csv}
+tests:
+  - name: Plugin without df
+    assertion: {key}
+    params:
+      threshold: 0.7
+""",
+            )
+            suite = load_test_suite(yaml_path)
+            results = run_test_suite(suite)
+
+            assert len(results) == 1
+            assert results[0].passed is True
+            assert results[0].details["no_df_plugin"] is True
+        finally:
+            _ASSERTION_REGISTRY.pop(key, None)
