@@ -630,4 +630,31 @@ quality:
         print(f"mltk server at http://{host}:{port}")  # noqa: T201
         uvicorn.run(application, host=host, port=port)
 
+    @app.command("server-create-key")
+    def server_create_key(
+        project: str = typer.Option("default", help="Project name to associate with this key"),
+        db: str = typer.Option("mltk_server.db", help="SQLite database path"),
+    ) -> None:
+        """Generate an API key for the mltk server.
+
+        Writes the key hash to the database and prints the raw key to stdout.
+        Store the printed key securely — it cannot be retrieved again.
+
+        Example::
+
+            mltk server-create-key --project my-project
+        """
+        from mltk.server.auth import generate_api_key, hash_key
+        from mltk.server.storage import Storage
+
+        raw_key = generate_api_key(project)
+        key_hash = hash_key(raw_key)
+
+        storage = Storage(db)
+        storage.save_api_key(key_hash, project)
+
+        print(f"API key created for project '{project}':")  # noqa: T201
+        print(f"  {raw_key}")  # noqa: T201
+        print("Store this key securely — it will not be shown again.")  # noqa: T201
+
     app()

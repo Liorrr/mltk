@@ -1,6 +1,18 @@
 # Changelog
 
-## [Unreleased] — Sprint 36
+## [Unreleased] — Sprint 37
+
+### Added
+- **API key auth**: generate/verify keys, protected write endpoints (Bearer mltk_...)
+- **CI/CD GitHub**: post_pr_comment, create_check_run, webhook receiver
+- **Webhooks**: configurable webhook dispatch on run events (failure/success/drift)
+- **Run comparison**: compare_runs diff (new failures, fixed, regressions)
+- `mltk server create-key` CLI command
+
+### Sprint 36
+- Server platform: FastAPI + SQLite + dashboard + Docker. 837 tests.
+
+## [Previous] — Sprint 36
 
 ### Added
 - **Server platform** (`mltk.server`):

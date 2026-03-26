@@ -5,6 +5,8 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 
+from mltk.server.webhooks import WebhookConfig
+
 
 class Storage:
     """SQLite-backed persistence layer for mltk test runs and results."""
@@ -38,6 +40,23 @@ class Storage:
                     message      TEXT    NOT NULL DEFAULT '',
                     details_json TEXT    NOT NULL DEFAULT '{}',
                     duration_ms  REAL    NOT NULL DEFAULT 0.0
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS api_keys (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    key_hash   TEXT    NOT NULL UNIQUE,
+                    project    TEXT    NOT NULL DEFAULT 'default',
+                    created_at TEXT    NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS webhooks (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url         TEXT    NOT NULL,
+                    events_json TEXT    NOT NULL DEFAULT '[]',
+                    project     TEXT,
+                    created_at  TEXT    NOT NULL
                 )
             """)
             conn.commit()
@@ -202,3 +221,120 @@ class Storage:
 
         # Return in chronological order so charts render left-to-right
         return list(reversed([dict(row) for row in rows]))
+
+    # ------------------------------------------------------------------
+    # API key management
+    # ------------------------------------------------------------------
+
+    def save_api_key(self, key_hash: str, project: str) -> None:
+        """Persist a hashed API key bound to a project.
+
+        Args:
+            key_hash: SHA-256 hex digest of the raw key.
+            project: Project name associated with this key.
+        """
+        timestamp = datetime.now(tz=timezone.utc).isoformat()
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO api_keys (key_hash, project, created_at) VALUES (?, ?, ?)",
+                (key_hash, project, timestamp),
+            )
+            conn.commit()
+
+    def verify_api_key(self, key_hash: str) -> str | None:
+        """Look up a key hash and return the associated project name.
+
+        Args:
+            key_hash: SHA-256 hex digest to look up.
+
+        Returns:
+            Project name if found, else None.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT project FROM api_keys WHERE key_hash = ?",
+                (key_hash,),
+            ).fetchone()
+        return row[0] if row else None
+
+    # ------------------------------------------------------------------
+    # Webhook management
+    # ------------------------------------------------------------------
+
+    def save_webhook(self, url: str, events: list[str], project: str | None = None) -> int:
+        """Register a new webhook configuration.
+
+        Args:
+            url: Target URL to POST to.
+            events: List of event names (e.g. ["on_failure", "on_success"]).
+            project: If provided, restrict webhook to this project only.
+
+        Returns:
+            Auto-assigned webhook id.
+        """
+        timestamp = datetime.now(tz=timezone.utc).isoformat()
+        events_json = json.dumps(events)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "INSERT INTO webhooks (url, events_json, project, created_at) VALUES (?, ?, ?, ?)",
+                (url, events_json, project, timestamp),
+            )
+            conn.commit()
+            return cursor.lastrowid  # type: ignore[return-value]
+
+    def get_webhooks(self, project: str | None = None) -> list[WebhookConfig]:
+        """Return all registered webhooks, optionally filtered by project.
+
+        A webhook with project=NULL matches every project.
+
+        Args:
+            project: If given, return webhooks for this project plus global ones.
+
+        Returns:
+            List of WebhookConfig objects.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            if project is not None:
+                rows = conn.execute(
+                    "SELECT id, url, events_json, project FROM webhooks "
+                    "WHERE project = ? OR project IS NULL",
+                    (project,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT id, url, events_json, project FROM webhooks"
+                ).fetchall()
+
+        configs: list[WebhookConfig] = []
+        for row in rows:
+            try:
+                events = json.loads(row["events_json"])
+            except (json.JSONDecodeError, TypeError):
+                events = []
+            configs.append(
+                WebhookConfig(
+                    id=row["id"],
+                    url=row["url"],
+                    events=events,
+                    project=row["project"],
+                )
+            )
+        return configs
+
+    def delete_webhook(self, webhook_id: int) -> bool:
+        """Remove a webhook by id.
+
+        Args:
+            webhook_id: Primary key of the webhook to remove.
+
+        Returns:
+            True if a row was deleted, False if the id did not exist.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "DELETE FROM webhooks WHERE id = ?",
+                (webhook_id,),
+            )
+            conn.commit()
+        return cursor.rowcount > 0

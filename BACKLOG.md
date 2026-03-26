@@ -85,12 +85,14 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Sprint 35 -- Rust SIMD Cosine + BERTScore
 - [x] SIMD cosine, centroid distance, BERTScore in Rust. assert_bertscore. 824 tests.
 
-### Sprint 36 -- Server Platform + Dashboard API (ACTIVE)
-- [ ] FastAPI server: /api/results, /api/reports, /api/health
-- [ ] SQLite storage for test results + reports
-- [ ] Dashboard HTML: test history, trends, team view
-- [ ] mltk server CLI command
-- [ ] Docker deployment config
+### Sprint 36 -- Server Platform + Dashboard API
+- [x] FastAPI server, SQLite storage, dashboard HTML, Docker, --mltk-server
+
+### Sprint 37 -- Platform Max: Auth + CI/CD + Webhooks (ACTIVE)
+- [ ] API key auth (generate/verify, protected endpoints)
+- [ ] CI/CD GitHub integration (PR comments, check runs)
+- [ ] Webhooks (on_failure/on_success/on_drift)
+- [ ] Run comparison (diff two runs)
 
 ---
 
