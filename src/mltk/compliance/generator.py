@@ -6,10 +6,8 @@ mapping each assertion to the relevant EU AI Act article and highlighting gaps.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from mltk.compliance.eu_ai_act import (
     ARTICLE_META,
@@ -17,24 +15,7 @@ from mltk.compliance.eu_ai_act import (
     find_gaps,
     map_results_to_articles,
 )
-
-
-def _load_results(results_path: str | Path) -> list[dict[str, Any]]:
-    """Load test results from a JSON file.
-
-    The file may contain either a list of result dicts or a dict with a
-    ``"results"`` key (as produced by some mltk collectors).
-    """
-    path = Path(results_path)
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    if isinstance(raw, list):
-        return raw
-    if isinstance(raw, dict) and "results" in raw:
-        return raw["results"]
-    raise ValueError(
-        f"Cannot parse results from {path}. "
-        "Expected a JSON list or a dict with a 'results' key."
-    )
+from mltk.report._helpers import _load_results
 
 
 def generate_compliance_report(

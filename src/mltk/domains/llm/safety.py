@@ -6,6 +6,7 @@ import re
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.domains.llm._utils import _tokenize
 
 # Common toxic/harmful keyword patterns (lightweight, no model needed)
 _DEFAULT_TOXIC_PATTERNS = [
@@ -85,14 +86,13 @@ def assert_no_hallucination(
         >>> sources = ["France is a country in Europe. Its capital is Paris."]
         >>> assert_no_hallucination(claims, sources, min_coverage=0.3)
     """
-    source_text = " ".join(sources).lower()
-    source_tokens = set(source_text.split())
+    source_tokens = _tokenize(" ".join(sources))
 
     unsupported = 0
     coverages = []
 
     for claim in claims:
-        claim_tokens = set(claim.lower().split())
+        claim_tokens = _tokenize(claim)
         if not claim_tokens:
             continue
         overlap = len(claim_tokens & source_tokens) / len(claim_tokens)

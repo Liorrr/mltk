@@ -118,6 +118,83 @@ class TestTicketDecisionEngine:
         h2 = engine.get_hash({"test_name": "test_schema"})
         assert h1 != h2
 
+    def test_cooldown_expiry_allows_recreation(self) -> None:
+        """After cooldown expires, same failure is allowed again.
+
+        SCENARIO: manually backdate the stored timestamp by more than cooldown_seconds
+        WHY: the engine must allow recreation once the cooldown window has elapsed;
+             without this, repeated failures would be suppressed indefinitely
+        EXPECTED: should_create returns True after simulated expiry
+        """
+        engine = TicketDecisionEngine(severity_threshold="HIGH", cooldown_seconds=60)
+        failure = {"test_name": "test_cooldown", "severity": "CRITICAL"}
+        engine.should_create(failure)  # first creation, stores timestamp
+
+        # Backdate the stored timestamp by more than the cooldown window
+        content_hash = engine._hash_failure(failure)
+        engine._recent_hashes[content_hash] -= 120  # 120s > 60s cooldown
+
+        assert engine.should_create(failure) is True
+
+    def test_zero_cooldown_always_allows_recreation(self) -> None:
+        """cooldown_seconds=0 means every call is allowed regardless of recency.
+
+        SCENARIO: same failure submitted twice with zero cooldown
+        WHY: zero cooldown is a valid configuration for 'always create a ticket';
+             the condition `now - last < 0` is never true so dedup never blocks
+        EXPECTED: both calls return True
+        """
+        engine = TicketDecisionEngine(severity_threshold="HIGH", cooldown_seconds=0)
+        failure = {"test_name": "test_zero_cooldown", "severity": "CRITICAL"}
+        assert engine.should_create(failure) is True
+        assert engine.should_create(failure) is True
+
+    def test_medium_severity_below_high_threshold(self) -> None:
+        """MEDIUM severity is below HIGH threshold — ticket skipped.
+
+        SCENARIO: threshold is HIGH, failure is MEDIUM
+        WHY: boundary condition — MEDIUM rank (1) must be less than HIGH rank (2)
+        EXPECTED: should_create returns False
+        """
+        engine = TicketDecisionEngine(severity_threshold="HIGH")
+        assert engine.should_create({"test_name": "t", "severity": "MEDIUM"}) is False
+
+    def test_high_severity_at_threshold(self) -> None:
+        """HIGH severity exactly at HIGH threshold — ticket created.
+
+        SCENARIO: threshold is HIGH, failure is HIGH (equal rank)
+        WHY: threshold is inclusive (>=); a failure exactly at threshold must pass
+        EXPECTED: should_create returns True
+        """
+        engine = TicketDecisionEngine(severity_threshold="HIGH")
+        assert engine.should_create({"test_name": "t2", "severity": "HIGH"}) is True
+
+    def test_hash_uses_assertion_type_and_metric(self) -> None:
+        """Failures differing only in assertion_type or metric_name hash differently.
+
+        SCENARIO: two failures with the same test_name but different assertion_type
+        WHY: the hash key is 'test_name#assertion_type#metric_name'; if only
+             test_name contributed, two distinct assertions on the same test
+             would be incorrectly treated as duplicates
+        EXPECTED: hashes differ
+        """
+        engine = TicketDecisionEngine()
+        h1 = engine.get_hash({"test_name": "test_x", "assertion_type": "drift"})
+        h2 = engine.get_hash({"test_name": "test_x", "assertion_type": "schema"})
+        assert h1 != h2
+
+    def test_unknown_severity_treated_as_lowest_rank(self) -> None:
+        """An unrecognised severity string falls back to rank 0 and is skipped.
+
+        SCENARIO: failure dict contains an unrecognised severity value
+        WHY: _severity_rank.get(severity, 0) makes the default rank 0, which is
+             below any non-LOW threshold — this prevents accidental ticket spam
+             from malformed data
+        EXPECTED: should_create returns False (below HIGH threshold)
+        """
+        engine = TicketDecisionEngine(severity_threshold="HIGH")
+        assert engine.should_create({"test_name": "t3", "severity": "BANANAS"}) is False
+
 
 class TestTicketTemplates:
     """Ticket template rendering tests."""
@@ -153,3 +230,96 @@ class TestTicketTemplates:
         assert "test_accuracy" in ticket["description"]
         # Missing fields show {field_name} placeholder
         assert "{metric_name}" in ticket["description"]
+
+    def test_data_quality_template(self) -> None:
+        """data_quality template renders [DATA] prefix and key fields.
+
+        SCENARIO: render data_quality with all required fields
+        WHY: this template was never exercised; its format string uses
+             {assertion_type}, {message}, {timestamp} which are unique to it
+        EXPECTED: title starts with [DATA], description includes assertion and message
+        """
+        ticket = render_ticket(
+            "data_quality",
+            test_name="test_null_rate",
+            assertion_type="assert_no_nulls",
+            message="Null rate 12% exceeds threshold 5%",
+            timestamp="2026-03-26T10:00:00",
+        )
+        assert ticket["title"] == "[DATA] test_null_rate"
+        assert "assert_no_nulls" in ticket["description"]
+        assert "Null rate 12%" in ticket["description"]
+        assert "2026-03-26" in ticket["description"]
+
+    def test_model_regression_template(self) -> None:
+        """model_regression template renders [MODEL] prefix and numeric fields.
+
+        SCENARIO: render with all regression-specific fields
+        WHY: model_regression has unique placeholders ({regression_pct}) not in
+             other templates; they must render, not stay as raw placeholder text
+        EXPECTED: description contains metric name, expected, actual, and pct values
+        """
+        ticket = render_ticket(
+            "model_regression",
+            test_name="test_f1_regression",
+            metric_name="f1_score",
+            expected=0.92,
+            actual=0.81,
+            regression_pct=11.96,
+        )
+        assert "[MODEL]" in ticket["title"]
+        assert "f1_score" in ticket["description"]
+        assert "0.92" in ticket["description"]
+        assert "0.81" in ticket["description"]
+        assert "11.96" in ticket["description"]
+
+    def test_bias_violation_template(self) -> None:
+        """bias_violation template renders [BIAS] prefix and group information.
+
+        SCENARIO: render with fairness-specific fields including affected groups
+        WHY: bias_violation is the only template using {groups} and {disparity};
+             untested meant rendering errors there would silently produce garbled tickets
+        EXPECTED: title contains [BIAS], groups appear in description
+        """
+        ticket = render_ticket(
+            "bias_violation",
+            test_name="test_demographic_parity",
+            method="demographic_parity",
+            disparity=0.18,
+            threshold=0.10,
+            groups="[male, female]",
+        )
+        assert "[BIAS]" in ticket["title"]
+        assert "demographic_parity" in ticket["description"]
+        assert "0.18" in ticket["description"]
+        assert "[male, female]" in ticket["description"]
+
+    def test_title_is_first_line_of_description(self) -> None:
+        """render_ticket title is always the first line of description.
+
+        SCENARIO: render any template and compare title to description's first line
+        WHY: title is extracted as description.split('\\n')[0]; if the template
+             ever changes to put the prefix on a different line, this test catches it
+        EXPECTED: ticket['title'] == ticket['description'].splitlines()[0]
+        """
+        ticket = render_ticket(
+            "drift_detection",
+            test_name="test_age_drift",
+            method="KS",
+            statistic=0.45,
+            threshold=0.05,
+        )
+        assert ticket["title"] == ticket["description"].splitlines()[0]
+
+    def test_all_placeholders_when_no_kwargs(self) -> None:
+        """render_ticket with no kwargs leaves all placeholders intact.
+
+        SCENARIO: call render_ticket with only the template name
+        WHY: _DefaultDict must return '{key}' for every missing key; if it raised
+             KeyError instead, callers sending partial data would crash
+        EXPECTED: description still contains literal placeholder strings
+        """
+        ticket = render_ticket("drift_detection")
+        assert "{test_name}" in ticket["description"]
+        assert "{method}" in ticket["description"]
+        assert "{statistic}" in ticket["description"]

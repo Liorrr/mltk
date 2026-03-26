@@ -222,7 +222,7 @@ def assert_endpoint_latency(
     credential = DefaultAzureCredential()
     monitor_client = MetricsQueryClient(credential)
 
-    end_time = datetime.datetime.utcnow()
+    end_time = datetime.datetime.now(datetime.UTC)
     start_time = end_time - datetime.timedelta(minutes=minutes)
 
     response = monitor_client.query_resource(
