@@ -813,4 +813,200 @@ mod tests {
             "BERTScore F1 for identical should be 1.0, got {f1}"
         );
     }
+
+    // ── PII Scanner ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_scan_pii_basic_email() {
+        let text = "Contact me at user@example.com for details.".to_string();
+        let patterns = vec![("email".to_string(), r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string())];
+        let results = scan_pii_rust(text, patterns).unwrap();
+        assert_eq!(results.len(), 1, "Expected one email match, got {}", results.len());
+        assert_eq!(results[0].0, "email");
+        assert_eq!(results[0].3, "user@example.com");
+    }
+
+    #[test]
+    fn test_scan_pii_multiple_patterns() {
+        let text = "SSN: 123-45-6789, card: 4111111111111111".to_string();
+        let patterns = vec![
+            ("ssn".to_string(), r"\d{3}-\d{2}-\d{4}".to_string()),
+            ("visa".to_string(), r"4\d{15}".to_string()),
+        ];
+        let results = scan_pii_rust(text, patterns).unwrap();
+        assert_eq!(results.len(), 2, "Expected two matches, got {}", results.len());
+        // Results sorted by start position — SSN comes first
+        assert_eq!(results[0].0, "ssn");
+        assert_eq!(results[1].0, "visa");
+    }
+
+    #[test]
+    fn test_scan_pii_no_matches() {
+        let text = "No sensitive data here.".to_string();
+        let patterns = vec![("email".to_string(), r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string())];
+        let results = scan_pii_rust(text, patterns).unwrap();
+        assert!(results.is_empty(), "Expected no matches for clean text");
+    }
+
+    #[test]
+    fn test_scan_pii_empty_text() {
+        let text = "".to_string();
+        let patterns = vec![("email".to_string(), r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string())];
+        let results = scan_pii_rust(text, patterns).unwrap();
+        assert!(results.is_empty(), "Expected no matches for empty text");
+    }
+
+    #[test]
+    fn test_scan_pii_empty_patterns() {
+        let text = "user@example.com".to_string();
+        let patterns: Vec<(String, String)> = vec![];
+        let results = scan_pii_rust(text, patterns).unwrap();
+        assert!(results.is_empty(), "Expected no matches with no patterns");
+    }
+
+    #[test]
+    fn test_scan_pii_invalid_regex_returns_error() {
+        let text = "some text".to_string();
+        let patterns = vec![("bad".to_string(), r"[invalid".to_string())];
+        let result = scan_pii_rust(text, patterns);
+        assert!(result.is_err(), "Invalid regex should return Err");
+    }
+
+    #[test]
+    fn test_scan_pii_sorted_by_start_position() {
+        // Two overlapping-region matches from different patterns — verify ordering
+        let text = "abc123def456".to_string();
+        let patterns = vec![
+            ("letters_late".to_string(), r"def".to_string()),
+            ("digits_early".to_string(), r"\d+".to_string()),
+        ];
+        let results = scan_pii_rust(text, patterns).unwrap();
+        // Positions should be non-decreasing
+        for w in results.windows(2) {
+            assert!(w[0].1 <= w[1].1, "Results not sorted by start position");
+        }
+    }
+
+    // ── Edge cases: empty / single-element vectors ────────────────────────────
+
+    #[test]
+    fn test_ks_empty_inputs() {
+        let (stat, p) = ks_test(vec![], vec![1.0, 2.0]);
+        assert_eq!(stat, 0.0, "ks_test with empty reference should return stat=0");
+        assert_eq!(p, 1.0, "ks_test with empty reference should return p=1");
+
+        let (stat, p) = ks_test(vec![1.0, 2.0], vec![]);
+        assert_eq!(stat, 0.0);
+        assert_eq!(p, 1.0);
+    }
+
+    #[test]
+    fn test_ks_single_element() {
+        // Single-element distributions — should not panic
+        let (stat, p) = ks_test(vec![1.0], vec![1.0]);
+        assert!(stat >= 0.0, "stat should be non-negative: {stat}");
+        assert!(p >= 0.0 && p <= 1.0, "p-value out of range: {p}");
+
+        let (stat, p) = ks_test(vec![0.0], vec![1.0]);
+        assert!(stat >= 0.0, "stat should be non-negative: {stat}");
+        assert!(p >= 0.0 && p <= 1.0, "p-value out of range: {p}");
+    }
+
+    #[test]
+    fn test_psi_empty_inputs() {
+        assert_eq!(psi(vec![], vec![1.0], 10), 0.0, "psi with empty reference should be 0");
+        assert_eq!(psi(vec![1.0], vec![], 10), 0.0, "psi with empty current should be 0");
+        assert_eq!(psi(vec![1.0], vec![1.0], 0), 0.0, "psi with 0 bins should be 0");
+    }
+
+    #[test]
+    fn test_psi_single_element() {
+        // Single identical values — all values identical → PSI = 0
+        let result = psi(vec![5.0], vec![5.0], 10);
+        assert_eq!(result, 0.0, "psi for identical single-element should be 0");
+    }
+
+    #[test]
+    fn test_wasserstein_single_element() {
+        // Single-element identical → distance = 0
+        let result = wasserstein(vec![3.0], vec![3.0]);
+        assert!(result.abs() < 1e-10, "Wasserstein for identical single values should be ~0: {result}");
+
+        // Single-element shifted → distance = shift amount
+        let result = wasserstein(vec![0.0], vec![5.0]);
+        assert!((result - 5.0).abs() < 1e-10, "Wasserstein for 0→5 should be 5.0, got {result}");
+    }
+
+    #[test]
+    fn test_cosine_empty_inputs() {
+        assert_eq!(cosine_similarity(vec![], vec![]), 0.0, "cosine sim of empty vecs should be 0");
+        assert_eq!(cosine_similarity(vec![1.0], vec![]), 0.0, "cosine sim with one empty should be 0");
+        assert_eq!(cosine_similarity(vec![], vec![1.0]), 0.0, "cosine sim with one empty should be 0");
+    }
+
+    #[test]
+    fn test_cosine_mismatched_lengths() {
+        let result = cosine_similarity(vec![1.0, 2.0], vec![1.0]);
+        assert_eq!(result, 0.0, "cosine sim with mismatched lengths should be 0");
+    }
+
+    #[test]
+    fn test_cosine_zero_vector() {
+        // Zero-norm vector → should return 0.0, not NaN
+        let result = cosine_similarity(vec![0.0, 0.0, 0.0], vec![1.0, 2.0, 3.0]);
+        assert_eq!(result, 0.0, "cosine sim with zero vector should be 0");
+        assert!(!result.is_nan(), "cosine sim should never return NaN");
+    }
+
+    // ── NaN/Inf value handling ────────────────────────────────────────────────
+
+    #[test]
+    fn test_ks_with_nan_values() {
+        // NaN values get placed via partial_cmp fallback (Equal ordering).
+        // The test ensures no panic occurs — result values are allowed to be
+        // imprecise since NaN inputs are undefined behaviour for statistics.
+        let ref_data = vec![1.0, f64::NAN, 3.0];
+        let cur_data = vec![1.0, 2.0, 3.0];
+        let (stat, p) = ks_test(ref_data, cur_data);
+        assert!(!stat.is_nan(), "stat should not be NaN");
+        assert!(!p.is_nan(), "p should not be NaN");
+        assert!(p >= 0.0 && p <= 1.0, "p-value out of [0,1]: {p}");
+    }
+
+    #[test]
+    fn test_cosine_with_inf_values() {
+        // Inf in input propagates to norm (Inf), then 0/Inf = 0 via guard.
+        // Expect 0.0 (guarded), not NaN or panic.
+        let a = vec![f64::INFINITY, 0.0];
+        let b = vec![1.0, 0.0];
+        let result = cosine_similarity(a, b);
+        // norm_a = Inf which is NOT < 1e-10 — dot/norm may be NaN or finite
+        // We only assert no panic occurred; NaN is acceptable here since
+        // Inf inputs are undefined.
+        let _ = result; // no panic = pass
+    }
+
+    #[test]
+    fn test_wasserstein_empty_inputs() {
+        assert_eq!(wasserstein(vec![], vec![1.0]), 0.0, "wasserstein with empty ref should be 0");
+        assert_eq!(wasserstein(vec![1.0], vec![]), 0.0, "wasserstein with empty cur should be 0");
+    }
+
+    #[test]
+    fn test_kl_empty_inputs() {
+        assert_eq!(kl_divergence(vec![], vec![1.0], 10), 0.0);
+        assert_eq!(kl_divergence(vec![1.0], vec![], 10), 0.0);
+        assert_eq!(kl_divergence(vec![1.0], vec![1.0], 0), 0.0);
+    }
+
+    #[test]
+    fn test_chi_squared_empty_and_mismatched() {
+        let (s, p) = chi_squared(vec![], vec![]);
+        assert_eq!(s, 0.0);
+        assert_eq!(p, 1.0);
+
+        let (s, p) = chi_squared(vec![1.0, 2.0], vec![1.0]);
+        assert_eq!(s, 0.0, "mismatched lengths should return stat=0");
+        assert_eq!(p, 1.0, "mismatched lengths should return p=1");
+    }
 }

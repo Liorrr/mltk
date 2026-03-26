@@ -153,3 +153,126 @@ def test_score_calculation(storage):
 
     assert run_pass["score"] == pytest.approx(100.0)
     assert run_fail["score"] == pytest.approx(0.0)
+
+
+def test_save_run_empty_results(storage):
+    # SCENARIO: save a run with an empty results list
+    # WHY: CI may submit a run before any tests execute; storage must not crash
+    # EXPECTED: run is saved, total=0, passed=0, failed=0, score=0.0
+    run_id = storage.save_run("empty_proj", [])
+    assert isinstance(run_id, int)
+    run = storage.get_run(run_id)
+    assert run is not None
+    assert run["total"] == 0
+    assert run["passed"] == 0
+    assert run["failed"] == 0
+    assert run["score"] == pytest.approx(0.0)
+    assert run["results"] == []
+
+
+def test_save_run_large_payload(storage):
+    # SCENARIO: save a run with 500 results
+    # WHY: large test suites must be stored without truncation or error
+    # EXPECTED: all 500 results are retrievable with correct counts
+    results = [
+        {"name": f"test_{i}", "passed": i % 2 == 0, "severity": "info",
+         "message": "ok", "details": {}, "duration_ms": 1.0}
+        for i in range(500)
+    ]
+    run_id = storage.save_run("large_proj", results)
+    run = storage.get_run(run_id)
+    assert run is not None
+    assert run["total"] == 500
+    assert run["passed"] == 250
+    assert run["failed"] == 250
+    assert len(run["results"]) == 500
+
+
+def test_get_runs_limit(storage):
+    # SCENARIO: save 10 runs then list with limit=3
+    # WHY: callers must be able to cap results for pagination
+    # EXPECTED: exactly 3 runs returned, the 3 most recent
+    for i in range(10):
+        storage.save_run("limit_proj", [
+            {"name": f"t{i}", "passed": True, "severity": "info",
+             "message": "", "details": {}, "duration_ms": 1.0}
+        ])
+    runs = storage.get_runs(project="limit_proj", limit=3)
+    assert len(runs) == 3
+    # Most recent first
+    ids = [r["id"] for r in runs]
+    assert ids == sorted(ids, reverse=True)
+
+
+def test_details_json_roundtrip_complex(storage):
+    # SCENARIO: save a result with nested/complex details dict
+    # WHY: details_json column must faithfully round-trip nested structures
+    #      including lists, booleans, and null values
+    # EXPECTED: retrieved details matches the original dict exactly
+    complex_details = {
+        "scores": [0.91, 0.87, 0.93],
+        "metadata": {"model": "v3", "threshold": 0.85},
+        "is_baseline": False,
+        "note": None,
+    }
+    results = [{
+        "name": "test_complex",
+        "passed": True,
+        "severity": "info",
+        "message": "ok",
+        "details": complex_details,
+        "duration_ms": 5.0,
+    }]
+    run_id = storage.save_run("detail_proj", results)
+    run = storage.get_run(run_id)
+    saved_result = run["results"][0]
+    assert saved_result["details"] == complex_details
+
+
+def test_webhook_crud_roundtrip(storage):
+    # SCENARIO: save a webhook, list it, then delete it
+    # WHY: full CRUD round-trip must work without errors
+    # EXPECTED: webhook appears in get_webhooks, then disappears after delete
+    wh_id = storage.save_webhook("https://example.com/hook", ["on_failure"], "proj-a")
+    assert isinstance(wh_id, int)
+
+    hooks = storage.get_webhooks("proj-a")
+    assert len(hooks) == 1
+    assert hooks[0].url == "https://example.com/hook"
+    assert hooks[0].events == ["on_failure"]
+    assert hooks[0].project == "proj-a"
+
+    deleted = storage.delete_webhook(wh_id)
+    assert deleted is True
+
+    hooks_after = storage.get_webhooks("proj-a")
+    assert len(hooks_after) == 0
+
+
+def test_delete_nonexistent_webhook_returns_false(storage):
+    # SCENARIO: attempt to delete a webhook id that was never registered
+    # WHY: callers must be able to distinguish "deleted" from "not found"
+    # EXPECTED: returns False without raising
+    result = storage.delete_webhook(99999)
+    assert result is False
+
+
+def test_global_webhook_matches_all_projects(storage):
+    # SCENARIO: save a global webhook (project=None), then query with a project name
+    # WHY: global webhooks must be included in per-project queries — they
+    #      subscribe to ALL projects
+    # EXPECTED: global webhook appears in project-filtered results
+    storage.save_webhook("https://global.example.com/hook", ["on_failure"], None)
+    storage.save_webhook("https://specific.example.com/hook", ["on_success"], "proj-x")
+
+    # Global webhook must appear in proj-x query
+    hooks_for_proj_x = storage.get_webhooks("proj-x")
+    urls = {h.url for h in hooks_for_proj_x}
+    assert "https://global.example.com/hook" in urls
+    assert "https://specific.example.com/hook" in urls
+
+    # proj-y query gets only the global webhook (not proj-x specific one)
+    hooks_for_proj_y = storage.get_webhooks("proj-y")
+    urls_y = {h.url for h in hooks_for_proj_y}
+    assert "https://global.example.com/hook" in urls_y
+    assert "https://specific.example.com/hook" not in urls_y

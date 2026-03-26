@@ -36,7 +36,9 @@ def assert_slice_performance(
         average: Averaging for multiclass metrics.
 
     Returns:
-        TestResult with per-slice metrics.
+        TestResult with per-slice metrics. Empty slices (zero samples) are
+        treated as failing with a score of 0.0, since an empty slice
+        indicates a data pipeline issue.
 
     Example:
         >>> import numpy as np

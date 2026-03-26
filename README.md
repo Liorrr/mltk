@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-700%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-870%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 ```bash
@@ -49,7 +49,7 @@ Run with HTML report:
 pytest --mltk-report
 ```
 
-## New in v0.2.0
+## What's Included (v0.6.0)
 
 **YAML test definitions** — write ML tests in YAML, no Python required. Run with `mltk test tests.yaml`. Supports 11 data assertions with `env:VAR_NAME` data source for CI/CD.
 
@@ -63,11 +63,17 @@ pytest --mltk-report
 
 **Training bug detection** — catch data leakage (`assert_no_train_test_overlap`, `assert_temporal_split`, `assert_no_target_leakage`), gradient failures (`assert_gradient_flow`, `assert_no_vanishing_gradient`, `assert_no_exploding_gradient`, `assert_loss_finite`), and numerical instability (`assert_no_nan_inf`, `assert_loss_decreasing`, `assert_no_loss_divergence`, `assert_softmax_valid`).
 
+**Server platform** — `mltk server` starts a self-hosted result-tracking server with REST API, live dashboard, webhooks, and GitHub CI integration.
+
+**Model Card Generator** — `mltk model-card results.json` generates a Google-format Model Card in Markdown from test results.
+
+**Chat interface** — `mltk chat` provides interactive Q&A about test results with no LLM or external API required.
+
 **Environment variable config** — all config keys available as `MLTK_*` env vars, highest priority in the cascade. Works out of the box in CI/CD pipelines.
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (119+ assertions)
+## Feature Matrix (120+ assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -111,6 +117,9 @@ pip install mltk[cli]
 # With HTML reports
 pip install mltk[report]
 
+# With server platform
+pip install mltk[server]
+
 # Domain kits
 pip install mltk[cv]          # Computer Vision
 pip install mltk[nlp]         # NLP
@@ -126,17 +135,43 @@ pip install mltk[all]
 ## CLI
 
 ```bash
-mltk version                    # Show version
-mltk init                       # Scaffold config + tests
-mltk scan data.csv              # Quick data quality scan
-mltk drift ref.csv cur.csv      # Drift analysis
-mltk score                      # ML Test Score
-mltk doctor                     # Diagnose environment
-mltk test tests.yaml            # Run YAML-defined tests
-mltk compliance results.json    # EU AI Act compliance report
-mltk contract init              # Scaffold contract YAML
-mltk contract validate data.csv # Validate against contract
-mltk contract generate-tests    # Generate pytest from contract
+# Core
+mltk version                              # Show version
+mltk init                                 # Scaffold config + tests
+mltk scan data.csv                        # Quick data quality scan
+mltk drift ref.csv cur.csv                # Drift analysis
+mltk score                                # ML Test Score
+mltk doctor                               # Diagnose environment
+
+# Test execution & reporting
+mltk test tests.yaml                      # Run YAML-defined tests
+mltk model-card results.json              # Generate Google Model Card
+mltk compliance results.json              # EU AI Act compliance report
+
+# Data contracts
+mltk contract init                        # Scaffold contract YAML
+mltk contract validate data.csv          # Validate against contract
+mltk contract generate-tests             # Generate pytest from contract
+
+# Documentation
+mltk docs serve                           # Serve docs locally (hot reload)
+mltk docs build                           # Build static HTML docs
+mltk docs open                            # Build, serve, and open in browser
+
+# Test registry
+mltk registry push my_fixtures            # Save test files to registry
+mltk registry pull my_fixtures            # Restore from registry
+mltk registry list                        # List saved collections
+
+# Notifications
+mltk notify slack --results-json r.json  # Send results to Slack
+
+# Server platform
+mltk server                               # Start result-tracking server
+mltk server-create-key --project myproj  # Generate API key for server
+
+# Interactive
+mltk chat --results-json results.json    # Q&A about test results
 ```
 
 ## pytest Plugin

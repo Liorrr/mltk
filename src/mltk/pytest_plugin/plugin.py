@@ -90,7 +90,12 @@ class MltkReportCollector:
                     details = json.loads(json.dumps(raw_details, default=str))
                 except Exception:  # noqa: BLE001
                     details = {}
-                severity = getattr(ml_result, "severity", "info") or "info"
+                raw_severity = getattr(ml_result, "severity", "info") or "info"
+                # Extract string value from Severity enum if needed
+                if hasattr(raw_severity, "value"):
+                    severity = raw_severity.value
+                else:
+                    severity = str(raw_severity)
 
             records.append({
                 "name": str(r["nodeid"]),

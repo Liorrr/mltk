@@ -81,6 +81,43 @@ class TestTicketDecisionEngine:
         assert engine.should_create(f1) is True
         assert engine.should_create(f2) is True
 
+    def test_get_hash_returns_12_char_hex(self) -> None:
+        """get_hash returns a 12-character hex string for a failure dict."""
+        # SCENARIO: call get_hash with a populated failure dict
+        # WHY: the hash is used as a ticket label; it must be stable and the
+        #      correct length so downstream tools can rely on its format
+        # EXPECTED: 12-character lowercase hex string
+        engine = TicketDecisionEngine()
+        h = engine.get_hash({
+            "test_name": "test_drift",
+            "assertion_type": "drift",
+            "metric_name": "psi",
+        })
+        assert isinstance(h, str)
+        assert len(h) == 12
+        assert all(c in "0123456789abcdef" for c in h)
+
+    def test_get_hash_deterministic(self) -> None:
+        """Same failure dict always produces the same hash."""
+        # SCENARIO: two calls with identical content
+        # WHY: dedup logic depends on the hash being content-stable; a
+        #      non-deterministic hash would break the cooldown logic
+        # EXPECTED: both hashes are identical
+        engine = TicketDecisionEngine()
+        failure = {"test_name": "test_schema", "assertion_type": "schema", "metric_name": ""}
+        assert engine.get_hash(failure) == engine.get_hash(failure)
+
+    def test_get_hash_differs_for_different_failures(self) -> None:
+        """Different failure content produces different hashes."""
+        # SCENARIO: two failures with different test_name fields
+        # WHY: if distinct failures hash to the same value, dedup would
+        #      incorrectly suppress unrelated tickets
+        # EXPECTED: hashes are not equal
+        engine = TicketDecisionEngine()
+        h1 = engine.get_hash({"test_name": "test_drift"})
+        h2 = engine.get_hash({"test_name": "test_schema"})
+        assert h1 != h2
+
 
 class TestTicketTemplates:
     """Ticket template rendering tests."""

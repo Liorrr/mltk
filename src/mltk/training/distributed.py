@@ -113,6 +113,20 @@ def assert_gradient_sync(
     for i, (g0, g1) in enumerate(zip(grads_rank0, grads_rank1, strict=False)):
         arr0 = np.asarray(g0, dtype=float)
         arr1 = np.asarray(g1, dtype=float)
+        if arr0.shape != arr1.shape:
+            return assert_true(
+                False,
+                name="training.gradient_sync",
+                message=(
+                    f"Layer {i} shape mismatch: "
+                    f"rank0={arr0.shape} vs rank1={arr1.shape}"
+                ),
+                severity=Severity.CRITICAL,
+                max_diff=float("inf"),
+                diverged_layers=[i],
+                num_layers=len(grads_rank0),
+                tolerance=tolerance,
+            )
         layer_max_diff = float(np.max(np.abs(arr0 - arr1)))
         if layer_max_diff > max_diff:
             max_diff = layer_max_diff

@@ -15,7 +15,9 @@ def assert_bleu(
     """Assert BLEU score meets minimum threshold.
 
     Args:
-        references: Reference translations/texts.
+        references: Reference translations/texts. Must have the same length as
+            hypotheses; if lengths differ, the shorter list determines the count
+            of pairs evaluated (extra items in the longer list are ignored).
         hypotheses: Model-generated translations/texts.
         min_score: Minimum required BLEU score (0-1).
 
@@ -66,7 +68,9 @@ def assert_rouge(
     """Assert ROUGE score meets minimum threshold.
 
     Args:
-        references: Reference texts.
+        references: Reference texts. Must have the same length as hypotheses;
+            if lengths differ, the shorter list determines the count of pairs
+            evaluated (extra items in the longer list are ignored).
         hypotheses: Model-generated texts.
         variant: ROUGE variant -- "rouge1", "rouge2", "rougeL", "rougeLsum".
         min_score: Minimum required F-measure (0-1).

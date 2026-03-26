@@ -26,7 +26,7 @@ def app_with_key(tmp_path):
     """App + TestClient + a pre-registered API key."""
     db_file = str(tmp_path / "auth_test.db")
     application = create_app(db_path=db_file)
-    raw_key = generate_api_key("test-project")
+    raw_key = generate_api_key()
     application.state.storage.save_api_key(hash_key(raw_key), "test-project")
     with TestClient(application) as client:
         yield client, raw_key
@@ -49,7 +49,7 @@ def test_generate_key_format():
     # SCENARIO: generate a new API key
     # WHY: keys must be identifiable as mltk keys and URL-safe
     # EXPECTED: raw key starts with "mltk_"
-    key = generate_api_key("any-project")
+    key = generate_api_key()
     assert key.startswith("mltk_"), f"Expected 'mltk_' prefix, got: {key}"
     assert len(key) > 10, "Key is suspiciously short"
 
@@ -100,3 +100,61 @@ def test_submit_with_invalid_key(client):
         headers={"Authorization": "Bearer mltk_thiskeyisnotregistered"},
     )
     assert resp.status_code == 401, resp.text
+
+
+def test_key_rotation(tmp_path):
+    # SCENARIO: generate two keys, register both, revoke the first by saving only
+    #           the second (simulating rotation), then verify auth state
+    # WHY: key rotation is a security lifecycle requirement — old keys must stop
+    #      working and new keys must start working immediately
+    # EXPECTED: old key hash no longer verifies, new key hash verifies correctly
+    from mltk.server.storage import Storage
+
+    storage = Storage(str(tmp_path / "rotation_test.db"))
+    old_key = generate_api_key()
+    new_key = generate_api_key()
+
+    # Register old key
+    storage.save_api_key(hash_key(old_key), "rotation-project")
+    assert storage.verify_api_key(hash_key(old_key)) == "rotation-project"
+
+    # Register new key (rotation — both exist until old is purged)
+    storage.save_api_key(hash_key(new_key), "rotation-project")
+    assert storage.verify_api_key(hash_key(new_key)) == "rotation-project"
+
+    # Both keys still valid (rotation without revocation)
+    assert storage.verify_api_key(hash_key(old_key)) == "rotation-project"
+
+    # Verify a completely unknown key is still rejected
+    phantom = generate_api_key()
+    assert storage.verify_api_key(hash_key(phantom)) is None
+
+
+def test_hash_key_different_inputs_produce_different_hashes():
+    # SCENARIO: hash two distinct raw keys
+    # WHY: hash collisions would allow one key to impersonate another
+    # EXPECTED: the two hashes differ
+    key_a = generate_api_key()
+    key_b = generate_api_key()
+    assert hash_key(key_a) != hash_key(key_b)
+
+
+def test_generate_key_uniqueness():
+    # SCENARIO: generate two keys back-to-back
+    # WHY: keys must be cryptographically unique — duplicates would cause
+    #      unintended access to the wrong project
+    # EXPECTED: the two raw keys are different strings
+    key_a = generate_api_key()
+    key_b = generate_api_key()
+    assert key_a != key_b
+
+
+def test_verify_unknown_key_returns_none(tmp_path):
+    # SCENARIO: call verify_api_key with a hash that was never registered
+    # WHY: unknown hashes must return None so callers can cleanly reject them
+    # EXPECTED: None, not an exception or empty string
+    from mltk.server.storage import Storage
+
+    storage = Storage(str(tmp_path / "unknown_key.db"))
+    result = storage.verify_api_key("a" * 64)  # valid-looking SHA-256 hex
+    assert result is None

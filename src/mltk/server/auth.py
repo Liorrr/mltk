@@ -10,10 +10,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def generate_api_key(project: str) -> str:  # noqa: ARG001
-    """Generate a new API key for a project. Returns the raw key (store securely)."""
-    raw_key = f"mltk_{secrets.token_urlsafe(32)}"
-    return raw_key
+def generate_api_key() -> str:
+    """Generate a new raw API key. Returns the raw key — store securely and never log it."""
+    return f"mltk_{secrets.token_urlsafe(32)}"
 
 
 def hash_key(raw_key: str) -> str:

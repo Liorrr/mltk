@@ -60,9 +60,9 @@ def assert_freshness(
 
     most_recent = dates.max()
     ref = reference_date or datetime.now()
-    # Handle timezone-aware dates
+    # Handle timezone-aware dates: convert to UTC then strip tz so subtraction works
     if most_recent.tzinfo is not None and ref.tzinfo is None:
-        most_recent = most_recent.tz_localize(None)
+        most_recent = most_recent.tz_convert(None)
 
     age = ref - most_recent.to_pydatetime()
     age_days = age.days

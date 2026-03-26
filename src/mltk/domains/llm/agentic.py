@@ -2,19 +2,11 @@
 
 from __future__ import annotations
 
-import re
-
 import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
-
-
-def _tokenize(text: str) -> set[str]:
-    """Lowercase, strip punctuation, split on whitespace."""
-    text = text.lower()
-    text = re.sub(r"[^\w\s]", "", text)
-    return set(text.split())
+from mltk.domains.llm._utils import _tokenize
 
 
 def _token_overlap(a: str, b: str) -> float:

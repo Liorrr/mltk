@@ -15,7 +15,8 @@ def assert_wer(
     """Assert Word Error Rate is below threshold.
 
     Args:
-        references: Ground truth transcriptions.
+        references: Ground truth transcriptions. Length must match hypotheses;
+            jiwer evaluates all pairs together as a corpus-level metric.
         hypotheses: Model transcriptions.
         max_wer: Maximum allowed WER (0.1 = 10% error rate).
 
@@ -60,7 +61,8 @@ def assert_cer(
     """Assert Character Error Rate is below threshold.
 
     Args:
-        references: Ground truth transcriptions.
+        references: Ground truth transcriptions. Length must match hypotheses;
+            jiwer evaluates all pairs together as a corpus-level metric.
         hypotheses: Model transcriptions.
         max_cer: Maximum allowed CER (0.05 = 5% error rate).
 

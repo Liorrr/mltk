@@ -110,3 +110,25 @@ class TestAssertSLA:
                 error_rate=0.05,
                 thresholds={"error_rate": 0.01}
             )
+
+    def test_sla_no_metrics_provided(self) -> None:
+        """EDGE: assert_sla called with neither latency_p99 nor error_rate.
+
+        WHY: Neither metric is measured so there are no violations — the result
+             should pass (vacuously compliant) rather than crash.
+        Expected: result.passed is True, zero violations.
+        """
+        result = assert_sla()
+        assert result.passed is True
+        assert result.details["violations"] == []
+
+    def test_no_degradation_exact_window_boundary(self) -> None:
+        """EDGE: History length == window — earlier slice is history[:1].
+
+        WHY: When len(arr) == window, earlier = arr[:1] (single element).
+             Tests the boundary branch where arr[:-window] would be empty.
+             Stable values should still pass.
+        """
+        history = [0.90, 0.90, 0.90, 0.90, 0.90]
+        result = assert_no_degradation(history, window=5, max_decline=0.05)
+        assert result.passed is True

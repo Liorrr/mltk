@@ -574,8 +574,11 @@ quality:
                 raise typer.Exit(1)
 
             raw = _json.loads(p.read_text())
+            # Support both array format (from --mltk-export-json) and
+            # dict format {"results": [...]} for forward compatibility
+            items_list = raw if isinstance(raw, list) else raw.get("results", [])
             suite = TestSuite()
-            for item in raw.get("results", []):
+            for item in items_list:
                 suite.add(
                     TestResult(
                         name=item.get("name", "unknown"),
@@ -647,7 +650,7 @@ quality:
         from mltk.server.auth import generate_api_key, hash_key
         from mltk.server.storage import Storage
 
-        raw_key = generate_api_key(project)
+        raw_key = generate_api_key()
         key_hash = hash_key(raw_key)
 
         storage = Storage(db)

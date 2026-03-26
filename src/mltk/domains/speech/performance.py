@@ -32,6 +32,18 @@ def assert_rtf(
         >>> def fast_asr(duration): pass  # simulate fast processing
         >>> assert_rtf(fast_asr, audio_durations=[5.0, 10.0], max_rtf=1.0)
     """
+    if not audio_durations:
+        return assert_true(
+            False,
+            name="speech.rtf",
+            message="No audio durations provided — cannot compute RTF",
+            severity=Severity.CRITICAL,
+            rtf=float("nan"),
+            max_rtf=max_rtf,
+            total_processing_sec=0.0,
+            total_audio_sec=0.0,
+        )
+
     total_processing = 0.0
     total_audio = sum(audio_durations)
 

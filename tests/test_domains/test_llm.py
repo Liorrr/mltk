@@ -34,6 +34,25 @@ class TestSemanticSimilarity:
         with pytest.raises(MltkAssertionError):
             assert_semantic_similarity(refs, hyps, min_score=0.5)
 
+    def test_empty_lists(self) -> None:
+        """EDGE: Empty reference and hypothesis lists produce score 0.0.
+
+        WHY: zip of two empty lists yields no pairs; avg_score defaults to 0.0.
+             A min_score of 0.0 should pass; anything above should fail.
+        EXPECTED: passes at min_score=0.0, fails at min_score=0.5.
+        """
+        result = assert_semantic_similarity([], [], min_score=0.0)
+        assert result.passed is True
+        assert result.details["num_pairs"] == 0
+
+        with pytest.raises(MltkAssertionError):
+            assert_semantic_similarity([], [], min_score=0.5)
+
+    def test_unknown_method(self) -> None:
+        """FAIL: Unsupported method name raises CRITICAL."""
+        with pytest.raises(MltkAssertionError):
+            assert_semantic_similarity(["hello"], ["hello"], method="cosine")
+
 
 class TestToxicity:
     """Toxicity detection tests."""
@@ -54,6 +73,16 @@ class TestToxicity:
         with pytest.raises(MltkAssertionError):
             assert_no_toxicity(texts, max_toxic_pct=0.01)
 
+    def test_empty_texts_list(self) -> None:
+        """EDGE: Empty list produces 0.0 toxic pct — always passes.
+
+        WHY: toxic_pct = 0 / 0 guard → 0.0. Any max_toxic_pct >= 0 should pass.
+        """
+        result = assert_no_toxicity([], max_toxic_pct=0.0)
+        assert result.passed is True
+        assert result.details["toxic_count"] == 0
+        assert result.details["total_texts"] == 0
+
 
 class TestHallucination:
     """Hallucination detection tests."""
@@ -71,6 +100,24 @@ class TestHallucination:
         sources = ["The Earth orbits the Sun. Water is H2O."]
         with pytest.raises(MltkAssertionError):
             assert_no_hallucination(claims, sources, min_coverage=0.5)
+
+    def test_empty_claims(self) -> None:
+        """EDGE: Empty claims list — nothing to check, passes trivially.
+
+        WHY: avg_coverage defaults to 0.0 when no coverages are recorded, but
+             unsupported count is also 0 so passed=True always.
+        """
+        result = assert_no_hallucination([], ["some source text"], min_coverage=0.5)
+        assert result.passed is True
+        assert result.details["total_claims"] == 0
+
+    def test_empty_sources(self) -> None:
+        """EDGE: Empty sources list means zero source tokens — all claims unsupported.
+
+        WHY: source_tokens is empty so overlap=0 for every claim → all unsupported.
+        """
+        with pytest.raises(MltkAssertionError):
+            assert_no_hallucination(["Paris is the capital"], [], min_coverage=0.3)
 
 
 class TestTTFT:

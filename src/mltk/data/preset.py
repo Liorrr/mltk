@@ -5,7 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from mltk.core.result import TestSuite
+from mltk.core.assertion import assert_true
+from mltk.core.result import Severity, TestSuite
 from mltk.data.freshness import assert_row_count
 from mltk.data.schema import assert_no_nulls
 
@@ -83,9 +84,6 @@ def assert_data_quality(
             suite.add(exc.result)  # type: ignore[attr-defined]
     else:
         # Soft null check — WARNING per column that exceeds threshold
-        from mltk.core.assertion import assert_true
-        from mltk.core.result import Severity
-
         for col in df.columns:
             null_pct = df[col].isnull().mean()
             passed = null_pct <= cfg["max_null_pct"]
@@ -107,9 +105,6 @@ def assert_data_quality(
 
     # 3. Duplicate rows
     if cfg["check_duplicates"]:
-        from mltk.core.assertion import assert_true
-        from mltk.core.result import Severity
-
         dup_count = int(df.duplicated().sum())
         passed = dup_count == 0
         msg = (
@@ -130,9 +125,6 @@ def assert_data_quality(
 
     # 4. Constant columns
     if cfg["check_constants"]:
-        from mltk.core.assertion import assert_true
-        from mltk.core.result import Severity
-
         constant_cols = [col for col in df.columns if df[col].nunique(dropna=False) <= 1]
         passed = len(constant_cols) == 0
         msg = (

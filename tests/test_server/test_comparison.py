@@ -136,7 +136,7 @@ def client_with_key(tmp_path):
     """TestClient + pre-registered API key for integration tests."""
     db_file = str(tmp_path / "compare_test.db")
     application = create_app(db_path=db_file)
-    raw_key = generate_api_key("cmp-project")
+    raw_key = generate_api_key()
     application.state.storage.save_api_key(hash_key(raw_key), "cmp-project")
     with TestClient(application) as c:
         yield c, raw_key
@@ -188,3 +188,107 @@ def test_compare_endpoint_404_on_missing_run(client_with_key):
 
     resp = client.get(f"/api/compare?run_a={run_a_id}&run_b=99999")
     assert resp.status_code == 404, resp.text
+
+
+def test_compare_endpoint_404_on_missing_run_a(client_with_key):
+    # SCENARIO: run_a id does not exist but run_b does
+    # WHY: the 404 guard must apply to BOTH ids, not just run_b
+    # EXPECTED: HTTP 404
+    client, raw_key = client_with_key
+
+    run_b_id = _submit(client, raw_key, [_result("test_x", True)])
+
+    resp = client.get(f"/api/compare?run_a=99999&run_b={run_b_id}")
+    assert resp.status_code == 404, resp.text
+
+
+def test_compare_same_run_id(client_with_key):
+    # SCENARIO: compare a run against itself (run_a == run_b)
+    # WHY: self-comparison must return zero-change diff with all tests in still_passing
+    # EXPECTED: new_failures=[], fixed=[], score_change=0.0, still_passing has all tests
+    client, raw_key = client_with_key
+
+    run_id = _submit(client, raw_key, [
+        _result("test_a", True),
+        _result("test_b", True),
+    ])
+
+    resp = client.get(f"/api/compare?run_a={run_id}&run_b={run_id}")
+    assert resp.status_code == 200, resp.text
+    diff = resp.json()["diff"]
+    assert diff["new_failures"] == []
+    assert diff["fixed"] == []
+    assert diff["score_change"] == 0.0
+    assert sorted(diff["still_passing"]) == ["test_a", "test_b"]
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — compare_runs edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_compare_both_runs_empty():
+    # SCENARIO: both runs have no results (empty results list)
+    # WHY: zero-result runs must not raise exceptions; diff must be all-empty
+    # EXPECTED: all diff lists empty, score_change=0.0
+    run_a = _make_run([], score=0.0)
+    run_b = _make_run([], score=0.0)
+    diff = compare_runs(run_a, run_b)
+    assert diff["new_failures"] == []
+    assert diff["fixed"] == []
+    assert diff["still_failing"] == []
+    assert diff["still_passing"] == []
+    assert diff["new_tests"] == []
+    assert diff["removed_tests"] == []
+    assert diff["score_change"] == 0.0
+
+
+def test_compare_run_a_empty_run_b_has_tests():
+    # SCENARIO: run A has no results but run B has tests
+    # WHY: all of run B's tests must appear as new_tests, never as regressions
+    # EXPECTED: new_tests contains all of run B's test names, no new_failures
+    run_a = _make_run([], score=0.0)
+    run_b = _make_run([_result("test_x", True), _result("test_y", False)], score=50.0)
+    diff = compare_runs(run_a, run_b)
+    assert sorted(diff["new_tests"]) == ["test_x", "test_y"]
+    assert diff["new_failures"] == []
+    assert diff["removed_tests"] == []
+
+
+def test_compare_run_b_empty_run_a_has_tests():
+    # SCENARIO: run A had tests but run B has none
+    # WHY: all of run A's tests must appear as removed_tests
+    # EXPECTED: removed_tests contains all of run A's test names
+    run_a = _make_run([_result("test_a", True), _result("test_b", False)], score=50.0)
+    run_b = _make_run([], score=0.0)
+    diff = compare_runs(run_a, run_b)
+    assert sorted(diff["removed_tests"]) == ["test_a", "test_b"]
+    assert diff["new_tests"] == []
+    assert diff["new_failures"] == []
+
+
+def test_compare_all_still_failing():
+    # SCENARIO: tests fail in both run A and run B
+    # WHY: consistently-failing tests must land in still_failing, not new_failures
+    # EXPECTED: still_failing has both tests, new_failures is empty
+    run_a = _make_run(
+        [_result("test_x", False), _result("test_y", False)], score=0.0
+    )
+    run_b = _make_run(
+        [_result("test_x", False), _result("test_y", False)], score=0.0
+    )
+    diff = compare_runs(run_a, run_b)
+    assert sorted(diff["still_failing"]) == ["test_x", "test_y"]
+    assert diff["new_failures"] == []
+    assert diff["fixed"] == []
+
+
+def test_compare_score_change_precision():
+    # SCENARIO: scores differ by a fractional amount
+    # WHY: score_change is rounded to 4 decimal places; this must not cause
+    #      floating-point drift for typical percentage values
+    # EXPECTED: score_change equals exactly round(B - A, 4)
+    run_a = _make_run([], score=33.3333)
+    run_b = _make_run([], score=66.6667)
+    diff = compare_runs(run_a, run_b)
+    assert diff["score_change"] == pytest.approx(33.3334, abs=1e-4)

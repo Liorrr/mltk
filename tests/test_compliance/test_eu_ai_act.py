@@ -293,3 +293,31 @@ def test_empty_results(tmp_path: Path):
 
     # All required articles should show "NO TESTS"
     assert "NO TESTS" in html
+
+
+# ---------------------------------------------------------------------------
+# Test 7 — results file with wrapper dict format {"results": [...]}
+# ---------------------------------------------------------------------------
+
+
+def test_generate_report_wrapped_results_format(tmp_path: Path):
+    # SCENARIO: results JSON is {"results": [...]} rather than a bare list
+    # WHY:      _load_results supports both formats; the wrapped format is
+    #           produced by --mltk-export-json and must generate a valid report
+    # EXPECTED: HTML file is created with correct content, no ValueError raised
+
+    wrapped = {"results": SAMPLE_RESULTS}
+    p = tmp_path / "wrapped.json"
+    p.write_text(json.dumps(wrapped), encoding="utf-8")
+
+    out_path = generate_compliance_report(
+        results_path=p,
+        risk_level="high",
+        system_name="Wrapped System",
+        output_dir=tmp_path / "reports",
+    )
+
+    assert out_path.exists()
+    html = out_path.read_text(encoding="utf-8")
+    assert "Wrapped System" in html
+    assert "Art. 15" in html  # model.metric results present in SAMPLE_RESULTS

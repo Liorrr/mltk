@@ -86,6 +86,15 @@ def assert_no_nulls(
         >>> assert_no_nulls(df, columns=["label", "feature_a"])
     """
     cols = columns if columns is not None else list(df.columns)
+    missing_cols = [col for col in cols if col not in df.columns]
+    if missing_cols:
+        return assert_true(
+            False,
+            name="data.no_nulls",
+            message=f"Columns not found in DataFrame: {sorted(missing_cols)}",
+            severity=Severity.CRITICAL,
+            missing_columns=sorted(missing_cols),
+        )
     null_counts = {col: int(df[col].isnull().sum()) for col in cols if df[col].isnull().any()}
     total_nulls = sum(null_counts.values())
 

@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-import re
-
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
-
-
-def _tokenize(text: str) -> set[str]:
-    """Lowercase, strip punctuation, split on whitespace."""
-    return set(re.sub(r"[^\w\s]", "", text.lower()).split())
+from mltk.domains.llm._utils import _tokenize
 
 
 def _assistant_turns(turns: list[dict[str, str]]) -> list[str]:

@@ -6,6 +6,7 @@ IDF1 measures identity preservation across the full sequence.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any
 
 import numpy as np
@@ -263,8 +264,6 @@ def assert_idf1(
         >>> assert_idf1(gt, pred, min_idf1=0.5)
     """
     # co_occurrence[gt_id][pred_id] = number of matched frames
-    from collections import defaultdict
-
     co_occur: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
     total_gt_dets: dict[int, int] = defaultdict(int)
     total_pred_dets: dict[int, int] = defaultdict(int)

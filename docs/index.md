@@ -62,7 +62,7 @@ pytest -m ml_data --tb=short
 
 ## Project Status
 
-mltk is in **v0.1.0** (alpha). The core data quality assertions are stable and tested. Model, inference, and domain modules are under active development.
+mltk is in **v0.6.0** (beta). The core data quality, model, inference, domain, server, and contract modules are stable and tested.
 
 ## License
 

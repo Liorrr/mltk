@@ -102,7 +102,7 @@ def assert_endpoint_latency(
     import datetime
 
     cloudwatch = _get_boto3_client("cloudwatch", region)
-    end_time = datetime.datetime.utcnow()
+    end_time = datetime.datetime.now(datetime.UTC)
     start_time = end_time - datetime.timedelta(seconds=period)
 
     response = cloudwatch.get_metric_statistics(
@@ -183,7 +183,7 @@ def assert_endpoint_error_rate(
     import datetime
 
     cloudwatch = _get_boto3_client("cloudwatch", region)
-    end_time = datetime.datetime.utcnow()
+    end_time = datetime.datetime.now(datetime.UTC)
     start_time = end_time - datetime.timedelta(seconds=period)
 
     def _sum_metric(metric_name: str) -> float:

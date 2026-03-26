@@ -105,8 +105,9 @@ async def get_trends(
 async def create_webhook(
     req: WebhookCreateRequest,
     request: Request,
+    _project: str = Depends(require_api_key),
 ) -> dict:  # type: ignore[type-arg]
-    """Register a new webhook."""
+    """Register a new webhook. Requires Bearer API key."""
     storage = request.app.state.storage
     webhook_id = storage.save_webhook(req.url, req.events, req.project)
     return {"webhook_id": webhook_id, "status": "created"}
@@ -129,8 +130,12 @@ async def list_webhooks(
 
 
 @router.delete("/webhooks/{webhook_id}")
-async def delete_webhook(webhook_id: int, request: Request) -> dict:  # type: ignore[type-arg]
-    """Remove a webhook by id."""
+async def delete_webhook(
+    webhook_id: int,
+    request: Request,
+    _project: str = Depends(require_api_key),
+) -> dict:  # type: ignore[type-arg]
+    """Remove a webhook by id. Requires Bearer API key."""
     storage = request.app.state.storage
     deleted = storage.delete_webhook(webhook_id)
     if not deleted:

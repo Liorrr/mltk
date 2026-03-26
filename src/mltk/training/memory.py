@@ -118,7 +118,7 @@ def assert_loss_is_detached(
             True,
             name="training.loss_is_detached",
             message=f"Too few readings ({n}) to estimate trend — skipping check",
-            severity=Severity.CRITICAL,
+            severity=Severity.WARNING,
             slope_mb_per_step=0.0,
             max_growth_per_step_mb=max_growth_per_step_mb,
             num_steps=n,

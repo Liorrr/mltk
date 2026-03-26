@@ -31,14 +31,14 @@ def assert_datetime_format(
     Args:
         df: DataFrame to validate.
         column: Name of the column containing date/datetime strings.
-        format: strftime format string (default: "%Y-%m-%d").
+        fmt: strftime format string (default: "%Y-%m-%d").
 
     Returns:
         TestResult with invalid_count and total_rows.
 
     Example:
         >>> assert_datetime_format(df, "created_at")
-        >>> assert_datetime_format(df, "event_ts", format="%Y-%m-%d %H:%M:%S")
+        >>> assert_datetime_format(df, "event_ts", fmt="%Y-%m-%d %H:%M:%S")
     """
     series = df[column]
     total = len(series)

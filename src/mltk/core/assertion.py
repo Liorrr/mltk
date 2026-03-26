@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import time
 from typing import Any
 
@@ -68,6 +69,7 @@ def timed_assertion(func):  # type: ignore[no-untyped-def]
         ...     return assert_true(len(data) > 0, "fast", "ok")
     """
 
+    @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> TestResult:
         start = time.perf_counter()
         result = func(*args, **kwargs)
@@ -75,6 +77,4 @@ def timed_assertion(func):  # type: ignore[no-untyped-def]
         result.duration_ms = elapsed_ms
         return result
 
-    wrapper.__name__ = func.__name__
-    wrapper.__doc__ = func.__doc__
     return wrapper

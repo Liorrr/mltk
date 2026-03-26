@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mltk.core.result import Severity, TestResult, TestSuite
+from mltk.integrations.mlflow_logger import _sanitize_metric_name
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -277,3 +278,50 @@ class TestMlflowNotInstalled:
                 sys.modules["mlflow"] = original
             if mlflow_logger_mod is not None:
                 sys.modules["mltk.integrations.mlflow_logger"] = mlflow_logger_mod
+
+
+class TestSanitizeMetricName:
+    """Unit tests for _sanitize_metric_name — the MLflow name sanitizer."""
+
+    def test_dots_replaced_with_underscores(self) -> None:
+        # SCENARIO: name contains dots (common in pytest node IDs)
+        # WHY: MLflow rejects dots in metric names; the sanitizer must replace them
+        # EXPECTED: no dots in output
+        result = _sanitize_metric_name("tests/test_model.py")
+        assert "." not in result
+
+    def test_special_chars_stripped(self) -> None:
+        # SCENARIO: name contains colons and brackets (e.g. parametrized node IDs)
+        # WHY: MLflow metric names only allow [a-zA-Z0-9_\-/]; other chars must go
+        # EXPECTED: output contains only allowed characters
+        result = _sanitize_metric_name("test[foo::bar]")
+        for ch in result:
+            assert ch in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-/"
+
+    def test_consecutive_underscores_collapsed(self) -> None:
+        # SCENARIO: multiple special chars in a row produce consecutive underscores
+        # WHY: "__" or "___" in metric names looks noisy and can confuse dashboards
+        # EXPECTED: no consecutive underscores remain
+        result = _sanitize_metric_name("a::b::c")
+        assert "__" not in result
+
+    def test_leading_trailing_underscores_stripped(self) -> None:
+        # SCENARIO: name starts and ends with underscore-producing chars
+        # WHY: MLflow may reject or misparse names with leading/trailing underscores
+        # EXPECTED: result has no leading or trailing underscores
+        result = _sanitize_metric_name("  spaces_around  ")
+        assert not result.startswith("_")
+        assert not result.endswith("_")
+
+    def test_valid_name_unchanged(self) -> None:
+        # SCENARIO: name already contains only safe characters
+        # WHY: sanitizer must be a no-op for already-valid names
+        # EXPECTED: output equals input
+        assert _sanitize_metric_name("model_accuracy") == "model_accuracy"
+
+    def test_slash_preserved(self) -> None:
+        # SCENARIO: name contains a forward slash (valid in MLflow metric names)
+        # WHY: slashes are used for hierarchical metric grouping in MLflow runs
+        # EXPECTED: slash survives sanitisation intact
+        result = _sanitize_metric_name("data/drift_psi")
+        assert "/" in result

@@ -287,7 +287,7 @@ def _check_config_values() -> DiagnosticResult:
             "(typical range: 0.01–0.10)"
         )
 
-    valid_drift_methods = {"ks", "psi", "chi2", "kl", "wasserstein", "jensen_shannon"}
+    valid_drift_methods = {"ks", "psi", "chi2", "kl", "wasserstein", "js", "auto"}
     if config.drift_method not in valid_drift_methods:
         issues.append(
             f"drift_method='{config.drift_method}' is not a recognized method "

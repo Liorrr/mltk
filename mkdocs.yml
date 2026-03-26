@@ -71,6 +71,7 @@ nav:
       - Testing Patterns: api/testing-patterns.md
       - Test Registry: api/registry.md
       - Chat Interface: api/chat.md
+      - Server Platform: api/server-platform.md
 
 markdown_extensions:
   - admonition
