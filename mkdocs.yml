@@ -72,6 +72,7 @@ nav:
       - Test Registry: api/registry.md
       - Chat Interface: api/chat.md
       - Server Platform: api/server-platform.md
+      - Resource Summarization: api/summarization.md
       - FDA Audit Trail: api/fda-audit.md
       - Compliance PDF: api/compliance-pdf.md
       - VS Code Integration: guides/vscode-integration.md

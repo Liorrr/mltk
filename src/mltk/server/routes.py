@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from mltk.report.summarizer import summarize_test_history
 from mltk.server.auth import require_api_key
 from mltk.server.comparison import compare_runs
 from mltk.server.webhooks import send_webhook, should_fire
@@ -95,6 +96,37 @@ async def get_trends(
     """Get score trends for a project."""
     storage = request.app.state.storage
     return {"project": project, "trends": storage.get_trends(project, limit)}
+
+
+# ------------------------------------------------------------------
+# Resource summarization endpoint
+# ------------------------------------------------------------------
+
+@router.get("/summary/{project}")
+async def get_summary(
+    project: str,
+    request: Request,
+    limit: int = 20,
+) -> dict:  # type: ignore[type-arg]
+    """Get test history summary for a project.
+
+    Fetches the most recent *limit* runs (with full per-test results)
+    and produces trend analysis, common failures, flaky tests, and
+    actionable recommendations.
+    """
+    storage = request.app.state.storage
+    run_summaries = storage.get_runs(project, limit)
+
+    # Enrich each run summary with its per-test results so the
+    # summarizer can do failure/flakiness analysis.
+    enriched_runs: list[dict] = []  # type: ignore[type-arg]
+    for rs in run_summaries:
+        full_run = storage.get_run(rs["id"])
+        if full_run is not None:
+            enriched_runs.append(full_run)
+
+    summary = summarize_test_history(enriched_runs)
+    return {"project": project, "summary": summary}
 
 
 # ------------------------------------------------------------------
