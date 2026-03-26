@@ -660,4 +660,43 @@ quality:
         print(f"  {raw_key}")  # noqa: T201
         print("Store this key securely — it will not be shown again.")  # noqa: T201
 
+    @app.command("fda-audit")
+    def fda_audit(
+        results_json: str,
+        system_name: str = "AI System",
+        operator: str = "QA Engineer",
+        output: str = "fda-audit-trail.md",
+    ) -> None:
+        """Generate FDA 21 CFR Part 11 audit trail."""
+        from mltk.compliance import generate_fda_audit_trail
+
+        p = Path(results_json)
+        if not p.exists():
+            print(f"Results file not found: {results_json}")  # noqa: T201
+            raise typer.Exit(1)
+
+        out = generate_fda_audit_trail(
+            results_path=str(p),
+            system_name=system_name,
+            operator=operator,
+            output_path=output,
+        )
+        print(f"FDA audit trail generated: {out}")  # noqa: T201
+
+    @app.command("compliance-pdf")
+    def compliance_pdf(
+        html_file: str,
+        output: str = typer.Option(None, help="Output path"),
+    ) -> None:
+        """Convert HTML compliance report to print-ready PDF."""
+        from mltk.compliance import export_compliance_pdf
+
+        p = Path(html_file)
+        if not p.exists():
+            print(f"HTML file not found: {html_file}")  # noqa: T201
+            raise typer.Exit(1)
+
+        out = export_compliance_pdf(html_path=str(p), output_path=output)
+        print(f"Compliance PDF exported: {out}")  # noqa: T201
+
     app()

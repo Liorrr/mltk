@@ -42,6 +42,7 @@ nlp = ["nltk>=3.8", "rouge-score>=0.1"]
 speech = ["jiwer>=3.0"]
 contracts = ["pyyaml>=6.0"]
 integrations = ["jira>=3.0"]
+pdf = ["weasyprint>=60"]  # PDF export for compliance reports
 llm = []  # lightweight (numpy only), future: sentence-transformers, detoxify
 torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)
 mlflow = ["mlflow>=2.0"]  # MLflow integration for logging test results
