@@ -21,7 +21,11 @@ from mltk.domains.llm.rag import (
     assert_faithfulness,
 )
 from mltk.domains.llm.ragas import assert_ragas_score, compute_ragas_score
-from mltk.domains.llm.safety import assert_no_hallucination, assert_no_toxicity
+from mltk.domains.llm.safety import (
+    assert_no_hallucination,
+    assert_no_system_prompt_leakage,
+    assert_no_toxicity,
+)
 from mltk.domains.llm.similarity import assert_semantic_similarity
 from mltk.domains.llm.text_quality import (
     assert_output_format,
@@ -37,6 +41,7 @@ __all__ = [
     # safety
     "assert_no_toxicity",
     "assert_no_hallucination",
+    "assert_no_system_prompt_leakage",
     # latency
     "assert_ttft",
     "assert_itl",

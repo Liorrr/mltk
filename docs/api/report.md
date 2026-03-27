@@ -1,6 +1,6 @@
 # HTML Reports
 
-Generate self-contained interactive HTML reports from test results. Dark theme by default, Plotly charts embedded inline.
+Generate self-contained interactive HTML reports from test results. Dark theme by default, pure CSS/SVG charts (no external dependencies).
 
 **Module:** `mltk.report`
 
@@ -26,13 +26,13 @@ path = generate_report(results, output_dir="./mltk-reports", title="MLTK Test Re
 
 Single self-contained HTML file with:
 - Pass/fail summary with counts
-- **Pass/fail donut chart** (green/red segments, powered by Plotly)
-- **Duration distribution histogram** (bar chart of test durations)
+- **Pass/fail donut chart** (SVG ring with green/red segments, percentage in center)
+- **Module breakdown bar chart** (horizontal stacked bars per module, pass/fail counts)
 - Per-module breakdown
 - Test details table with severity, duration, messages
 - Dark theme (slate background, purple accent)
 
-The charts require `plotly` (included in the `report` extra). If Plotly is not installed or chart rendering fails, the report degrades gracefully to text-only -- no crash, no missing sections.
+Charts are pure CSS/SVG — no external dependencies, no CDN scripts, no Plotly. The report is fully self-contained and works offline.
 
 ### pytest Integration
 

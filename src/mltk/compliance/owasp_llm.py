@@ -61,7 +61,11 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "LLMs inadvertently reveal confidential data, PII, proprietary "
             "algorithms, or training details in their responses."
         ),
-        "assertions": ["data.pii", "llm.toxicity"],
+        "assertions": [
+            "data.pii",
+            "llm.toxicity",
+            "llm.system_prompt_leakage",
+        ],
     },
     "LLM07": {
         "title": "Insecure Plugin Design",

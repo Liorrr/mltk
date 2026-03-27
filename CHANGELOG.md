@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD GitHub integration: PR comments, check runs, webhook receiver
 - Configurable webhook dispatch on run events (failure/success/drift)
 - Run comparison with diff (new failures, fixed, regressions)
+- `assert_no_system_prompt_leakage` — detect LLM system prompt extraction (34 payloads, 8 categories)
+- Prompt injection payloads expanded from 8 to 50 with categorized vectors (6 categories)
+- OWASP LLM06 mapping updated with system prompt leakage assertion
+- HTML report visualization: pass/fail donut chart + module breakdown bar chart (pure CSS/SVG, no external deps)
 
 ## [0.6.0] — 2026-03-26
 

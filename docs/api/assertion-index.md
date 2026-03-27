@@ -255,6 +255,7 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 75 | `assert_semantic_similarity` | `mltk.domains.llm.similarity` | Verify semantic similarity between reference and candidate texts | v0.1.0 |
 | 76 | `assert_no_toxicity` | `mltk.domains.llm.safety` | Detect toxic content in generated texts via keyword scoring | v0.1.0 |
 | 77 | `assert_no_hallucination` | `mltk.domains.llm.safety` | Verify generated claims are grounded in source documents | v0.1.0 |
+| 78 | `assert_no_system_prompt_leakage` | `mltk.domains.llm.safety` | Detect system prompt leakage via adversarial extraction payloads | v0.7.0 |
 
 ### LLM Latency
 

@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S41: 121 assertions, 1116 tests, 38 Rust tests)
+## DONE (S0-S47: 126 assertions, 1143 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -66,6 +66,12 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S40: Linear adapter (GraphQL), Asana adapter (REST), data lineage tracking (assert_lineage_complete)
 - [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 24 CLI commands total
 
+### Phase G: Audit & Research (S42-S46)
+- [x] S42-S46: Full audit (21 subagent review, 189 suggestions), P0/P1 fixes, 12-topic research offensive
+
+### Phase H: Capability Expansion (S47+)
+- [x] S47: LLM safety hardening — assert_no_system_prompt_leakage, 50 categorized injection payloads, report charts
+
 ---
 
 ## BACKLOG (not yet scheduled)
@@ -82,14 +88,17 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Multi-tenant server with SSO
 - [ ] Scheduled test runs with alerting
 
----
-
-## POST-v1.0 ROADMAP (ideas from capability gap research)
-
-### Observability
+### Observability & Monitoring
 - [ ] OpenTelemetry integration for test execution tracing
-- [ ] Grafana plugin for mltk dashboards
+- [ ] Grafana plugin for mltk dashboards (Grafana OSS — free, self-hosted)
 - [ ] Real-time streaming drift detection
+
+### Monitoring Visualization Portal
+- [ ] **ACTION**: Research build vs. buy — compare custom portal effort against free solutions (Grafana OSS, Apache Superset, Metabase, Redash) before committing to implementation
+- [ ] Live visualization portal connected to mltk server for monitoring state and data
+- [ ] Monitor connects to mltk server to transmit data/state; server provides free port or port range for streaming visualization data (consider WebSocket on existing server port as simpler alternative)
+- [ ] Visualize scale, live processes, and performance metrics in real-time
+- [ ] **GATE**: Security audit required before committing to portal infrastructure — no deployment on non-secured infrastructure
 
 ### ML Platform Integration
 - [ ] Kubeflow pipeline assertions
@@ -112,4 +121,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 41 (March 26, 2026) — counts verified from source*
+*Last updated: Sprint 47 (March 27, 2026) — counts verified from source*
