@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S55: 156 assertions, 1440 tests, 38 Rust tests)
+## DONE (S0-S56: 156 assertions, 1476 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -79,6 +79,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S53: Attribution stability (top-K + cosine), extended LLM safety (refusal consistency + taxonomy)
 - [x] S54: Extended agentic (redundant, hallucinated, cost, recovery) + multi-agent (loop, handoff) — **150 ASSERTION MILESTONE**
 - [x] S55: Advanced conformal (calibration + conditional coverage), v0.7.0 release, README update, TestPyPI
+- [x] S56: GitHub App integration (webhook, check runs, app auth) + OpenTelemetry (MltkTracer, export_json)
 
 ---
 

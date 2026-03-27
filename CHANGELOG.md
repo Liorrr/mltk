@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- GitHub App integration — webhook signature verification (HMAC-SHA256), check run creation with annotations, app auth (JWT → installation token)
+- OpenTelemetry integration — `MltkTracer` with real/no-op modes, `trace_result`, `trace_suite`, `export_json` (works without OTEL installed)
+- `otel` optional dependency extra (`pip install mltk[otel]`)
+- TestPyPI verification step in release workflow
+
 ## [0.7.0] — 2026-03-27
 
 ### Added

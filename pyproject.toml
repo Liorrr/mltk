@@ -47,11 +47,12 @@ llm = []  # lightweight (numpy only), future: detoxify
 embedding = ["sentence-transformers>=2.0"]  # embedding-based LLM similarity evaluation
 torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)
 mlflow = ["mlflow>=2.0"]  # MLflow integration for logging test results
+otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp>=1.20"]  # OpenTelemetry tracing
 server = ["fastapi>=0.110", "uvicorn>=0.27"]  # mltk server platform
 aws = ["boto3>=1.28"]  # AWS SageMaker + CloudWatch monitoring
 gcp = ["google-cloud-aiplatform>=1.40"]  # GCP Vertex AI monitoring
 azure = ["azure-ai-ml>=1.12"]  # Azure ML monitoring
-all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,torch,mlflow,server,aws,gcp,azure]"]
+all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,torch,mlflow,otel,server,aws,gcp,azure]"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",

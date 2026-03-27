@@ -96,6 +96,8 @@ nav:
       - Cloud Monitoring: api/cloud-monitoring.md
       - Integrations (Jira): api/integrations.md
       - GitHub, Slack & Plugins: api/github-integration.md
+      - GitHub App: api/github-app.md
+      - OpenTelemetry: api/otel.md
       - MLflow Integration: api/mlflow.md
       - Jupyter Notebooks: api/jupyter.md
       - Resource Summarization: api/summarization.md
