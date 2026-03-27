@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prompt injection payloads expanded from 8 to 50 with categorized vectors (6 categories)
 - OWASP LLM06 mapping updated with system prompt leakage assertion
 - HTML report visualization: pass/fail donut chart + module breakdown bar chart (pure CSS/SVG, no external deps)
+- NIST AI RMF compliance mapping (Govern, Map, Measure, Manage) with `assert_nist_rmf_coverage` + maturity tiers
+- ISO 42001 compliance mapping (8 Annex A controls) with `assert_iso_42001_coverage`
+- `mltk compliance-gap` CLI command — unified gap analysis across all 5 frameworks (25th CLI command)
 
 ## [0.6.0] — 2026-03-26
 

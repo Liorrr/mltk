@@ -80,6 +80,8 @@ nav:
       - Training Bugs: api/training-bugs.md
   - Compliance & Integrations:
       - EU AI Act Compliance: api/eu-ai-act.md
+      - NIST AI RMF: api/compliance-nist-rmf.md
+      - ISO 42001: api/compliance-iso-42001.md
       - FDA Audit Trail: api/fda-audit.md
       - Compliance PDF: api/compliance-pdf.md
       - Model Card Generator: api/model-card.md

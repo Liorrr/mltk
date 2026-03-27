@@ -369,6 +369,8 @@ Assertions for reproducibility and end-to-end pipeline validation.
 | # | Assertion | Module | Description | Since |
 |---|-----------|--------|-------------|-------|
 | 113 | `assert_owasp_coverage` | `mltk.compliance.owasp_llm` | Verify test results cover all OWASP LLM Top 10 risk categories | v0.6.0 |
+| 114 | `assert_nist_rmf_coverage` | `mltk.compliance.nist_ai_rmf` | Verify test results cover NIST AI RMF functions (Govern, Map, Measure, Manage) | v0.7.0 |
+| 115 | `assert_iso_42001_coverage` | `mltk.compliance.iso_42001` | Verify test results cover ISO 42001 Annex A controls | v0.7.0 |
 
 ---
 

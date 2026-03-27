@@ -699,4 +699,210 @@ quality:
         out = export_compliance_pdf(html_path=str(p), output_path=output)
         print(f"Compliance PDF exported: {out}")  # noqa: T201
 
+    @app.command()
+    def compliance_gap(
+        results_json: str,
+        framework: str = "all",
+    ) -> None:
+        """Run compliance gap analysis across frameworks.
+
+        Reads test results from a JSON file (produced by --mltk-export-json)
+        and identifies which compliance requirements lack test coverage.
+
+        Supported frameworks: all, eu-ai-act, owasp, nist-rmf, iso-42001, fda.
+
+        Args:
+            results_json: Path to JSON file with mltk test results.
+            framework: Framework to analyse — "all" runs every framework.
+        """
+        import json
+
+        p = Path(results_json)
+        if not p.exists():
+            print(f"Results file not found: {results_json}")  # noqa: T201
+            raise typer.Exit(1)
+
+        raw = json.loads(p.read_text())
+        results: list[dict] = (
+            raw if isinstance(raw, list) else raw.get("results", [])
+        )
+
+        valid_frameworks = {"all", "eu-ai-act", "owasp", "nist-rmf", "iso-42001", "fda"}
+        fw = framework.lower().strip()
+        if fw not in valid_frameworks:
+            print(  # noqa: T201
+                f"Unknown framework: {framework!r}. "
+                f"Valid options: {sorted(valid_frameworks)}"
+            )
+            raise typer.Exit(1)
+
+        print("=== mltk Compliance Gap Analysis ===")  # noqa: T201
+        print()  # noqa: T201
+
+        if fw in ("all", "eu-ai-act"):
+            _gap_eu_ai_act(results)
+
+        if fw in ("all", "owasp"):
+            _gap_owasp(results)
+
+        if fw in ("all", "nist-rmf"):
+            _gap_nist(results)
+
+        if fw in ("all", "iso-42001"):
+            _gap_iso(results)
+
+        if fw in ("all", "fda"):
+            _gap_fda(results)
+
+    # ------------------------------------------------------------------
+    # Gap analysis helpers (one per framework)
+    # ------------------------------------------------------------------
+
+    def _gap_symbols() -> tuple[str, str, str]:
+        """Return (pass_sym, fail_sym, dash) safe for the current terminal encoding."""
+        import sys
+
+        encoding = getattr(sys.stdout, "encoding", "") or "ascii"
+        try:
+            "\u2713\u2717\u2014".encode(encoding)
+            return ("\u2713", "\u2717", "\u2014")
+        except (UnicodeEncodeError, LookupError):
+            return ("[PASS]", "[MISS]", "--")
+
+    def _gap_eu_ai_act(results: list[dict]) -> None:
+        """Print EU AI Act gap analysis."""
+        from mltk.compliance.eu_ai_act import (
+            ARTICLE_META,
+            find_gaps,
+            map_results_to_articles,
+        )
+
+        ok, miss, dash = _gap_symbols()
+        grouped = map_results_to_articles(results)
+        gaps = find_gaps(results, "high")
+        total = len(ARTICLE_META)
+        covered = total - len(gaps)
+
+        print("EU AI Act (high risk):")  # noqa: T201
+        for meta in ARTICLE_META:
+            article = meta["article"]
+            title = meta["title"]
+            tests = grouped.get(article, [])
+            count = len(tests)
+            sym = miss if article in gaps else ok
+            print(f"  {sym} {article} {dash} {title} ({count} tests)")  # noqa: T201
+        print(f"  Coverage: {covered}/{total} articles ({_pct(covered, total)}%)")  # noqa: T201
+        print()  # noqa: T201
+
+    def _gap_owasp(results: list[dict]) -> None:
+        """Print OWASP LLM Top 10 gap analysis."""
+        from mltk.compliance.owasp_llm import OWASP_LLM_IDS, owasp_llm_scan
+
+        ok, miss, dash = _gap_symbols()
+        scan = owasp_llm_scan(results)
+        total = len(OWASP_LLM_IDS)
+        covered = sum(1 for entry in scan.values() if entry["covered"])
+
+        print("OWASP LLM Top 10:")  # noqa: T201
+        for owasp_id in OWASP_LLM_IDS:
+            entry = scan[owasp_id]
+            title = entry["title"]
+            count = len(entry["tests"])
+            sym = ok if entry["covered"] else miss
+            print(f"  {sym} {owasp_id} {dash} {title} ({count} tests)")  # noqa: T201
+        print(f"  Coverage: {covered}/{total} categories ({_pct(covered, total)}%)")  # noqa: T201
+        print()  # noqa: T201
+
+    def _gap_nist(results: list[dict]) -> None:
+        """Print NIST AI RMF gap analysis."""
+        try:
+            from mltk.compliance.nist_ai_rmf import (
+                NIST_RMF_FUNCTION_IDS,
+                NIST_RMF_FUNCTIONS,
+                map_results_to_measures,
+            )
+            from mltk.compliance.nist_ai_rmf import (
+                find_gaps as nist_find_gaps,
+            )
+        except ImportError:
+            # Module being built by another agent -- show placeholder.
+            print("NIST AI RMF:")  # noqa: T201
+            print("  (module not yet installed)")  # noqa: T201
+            print()  # noqa: T201
+            return
+
+        ok, miss, dash = _gap_symbols()
+        gaps = nist_find_gaps(results)
+        grouped = map_results_to_measures(results)
+        total = len(NIST_RMF_FUNCTION_IDS)
+        covered = total - len(gaps)
+
+        print("NIST AI RMF:")  # noqa: T201
+        for func_id in NIST_RMF_FUNCTION_IDS:
+            title = NIST_RMF_FUNCTIONS[func_id]["title"]
+            tests = grouped.get(func_id, [])
+            count = len(tests)
+            sym = miss if func_id in gaps else ok
+            print(f"  {sym} {title} {dash} {count} tests")  # noqa: T201
+        print(f"  Coverage: {covered}/{total} functions ({_pct(covered, total)}%)")  # noqa: T201
+        print()  # noqa: T201
+
+    def _gap_iso(results: list[dict]) -> None:
+        """Print ISO 42001 gap analysis."""
+        try:
+            from mltk.compliance.iso_42001 import (
+                ANNEX_A_CONTROLS,
+                ANNEX_A_IDS,
+                map_results_to_clauses,
+            )
+            from mltk.compliance.iso_42001 import (
+                find_gaps as iso_find_gaps,
+            )
+        except ImportError:
+            print("ISO 42001:")  # noqa: T201
+            print("  (module not yet installed)")  # noqa: T201
+            print()  # noqa: T201
+            return
+
+        ok, miss, dash = _gap_symbols()
+        gaps = iso_find_gaps(results)
+        grouped = map_results_to_clauses(results)
+        total = len(ANNEX_A_IDS)
+        covered = total - len(gaps)
+
+        print("ISO 42001:")  # noqa: T201
+        for clause_id in ANNEX_A_IDS:
+            title = ANNEX_A_CONTROLS[clause_id]["title"]
+            tests = grouped.get(clause_id, [])
+            count = len(tests)
+            sym = miss if clause_id in gaps else ok
+            print(f"  {sym} {clause_id} {dash} {title} ({count} tests)")  # noqa: T201
+        print(f"  Coverage: {covered}/{total} clauses ({_pct(covered, total)}%)")  # noqa: T201
+        print()  # noqa: T201
+
+    def _gap_fda(results: list[dict]) -> None:
+        """Print FDA coverage check (simple prefix match)."""
+        ok, miss, _dash = _gap_symbols()
+        fda_prefixes = ("fda.", "pipeline.")
+        fda_tests = [
+            r for r in results
+            if str(r.get("name", "")).startswith(fda_prefixes)
+        ]
+        count = len(fda_tests)
+        sym = ok if count > 0 else miss
+
+        print("FDA (21 CFR Part 11):")  # noqa: T201
+        print(f"  {sym} Test coverage: {count} tests with fda.*/pipeline.* prefix")  # noqa: T201
+        if count > 0:
+            for t in fda_tests:
+                passed_label = "PASS" if t.get("passed") else "FAIL"
+                print(f"    [{passed_label}] {t.get('name', '?')}")  # noqa: T201
+        else:
+            print("  No FDA/pipeline tests found -- add tests with fda.* or pipeline.* names")  # noqa: T201
+        print()  # noqa: T201
+
+    def _pct(covered: int, total: int) -> int:
+        """Return integer percentage, avoiding division by zero."""
+        return round(covered * 100 / total) if total > 0 else 0
+
     app()

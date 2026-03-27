@@ -214,6 +214,35 @@ See [Compliance PDF Export](compliance-pdf.md) for styling and formatting detail
 
 ---
 
+### mltk compliance-gap
+
+Run a unified compliance gap analysis across all supported frameworks. Shows which framework requirements are covered by your test results and which are missing.
+
+```bash
+# Analyze gaps across all frameworks
+mltk compliance-gap results.json
+
+# Analyze a specific framework
+mltk compliance-gap results.json --framework owasp
+mltk compliance-gap results.json --framework nist-rmf
+mltk compliance-gap results.json --framework iso-42001
+mltk compliance-gap results.json --framework eu-ai-act
+mltk compliance-gap results.json --framework fda
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `results_json` | *(required, positional)* | Path to JSON results file (from `--mltk-export-json`) |
+| `--framework` | `all` | Framework to analyze: `all`, `eu-ai-act`, `owasp`, `nist-rmf`, `iso-42001`, `fda` |
+
+**Supported frameworks:** EU AI Act, OWASP LLM Top 10, NIST AI RMF, ISO 42001, FDA 21 CFR Part 11.
+
+See [NIST AI RMF](compliance-nist-rmf.md) and [ISO 42001](compliance-iso-42001.md) for framework details.
+
+---
+
 ## Contract Subcommands
 
 ### mltk contract init

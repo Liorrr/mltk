@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S47: 126 assertions, 1143 tests, 38 Rust tests)
+## DONE (S0-S48: 128 assertions, 1178 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -71,6 +71,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ### Phase H: Capability Expansion (S47+)
 - [x] S47: LLM safety hardening — assert_no_system_prompt_leakage, 50 categorized injection payloads, report charts
+- [x] S48: NIST AI RMF + ISO 42001 compliance, compliance-gap CLI command
 
 ---
 
