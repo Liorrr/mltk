@@ -12,14 +12,19 @@ For RAG-specific assertions (faithfulness, context relevancy, answer relevancy, 
 
 ### assert_semantic_similarity
 
-Assert semantic similarity between reference and generated texts meets a minimum threshold. Supports token-level F1 (default, no dependencies) or embedding cosine similarity.
+Assert semantic similarity between reference and generated texts meets a minimum threshold. Supports token-level F1 (default, no dependencies) or embedding-based cosine similarity (requires `sentence-transformers`).
 
 ```python
 from mltk.domains.llm import assert_semantic_similarity
 
 references = ["The cat sat on the mat."]
 hypotheses = ["A cat was sitting on a mat."]
-assert_semantic_similarity(references, hypotheses, min_score=0.5, method="token_f1")
+
+# Token-level F1 (no dependencies, fast)
+assert_semantic_similarity(references, hypotheses, min_score=0.3, method="token")
+
+# Embedding cosine similarity (requires: pip install mltk[embedding])
+assert_semantic_similarity(references, hypotheses, min_score=0.7, method="embedding")
 ```
 
 #### Parameters
@@ -28,8 +33,17 @@ assert_semantic_similarity(references, hypotheses, min_score=0.5, method="token_
 |------|------|---------|-------------|
 | `references` | `list[str]` | *(required)* | Reference texts |
 | `hypotheses` | `list[str]` | *(required)* | Model-generated texts |
-| `min_score` | `float` | `0.5` | Minimum required similarity score (0-1) |
-| `method` | `str` | `"token_f1"` | Comparison method: `"token_f1"` or `"cosine"` |
+| `min_score` | `float` | `0.7` | Minimum required similarity score (0-1) |
+| `method` | `str` | `"token"` | Comparison method: `"token"` (F1 on token overlap) or `"embedding"` (cosine via sentence-transformers) |
+
+#### Methods
+
+| Method | Dependencies | Speed | Quality | Use when |
+|--------|-------------|-------|---------|----------|
+| `"token"` | None (built-in) | Fast | Basic | CI/CD gates, quick checks, no GPU |
+| `"embedding"` | `sentence-transformers` | Slower | High | Paraphrase detection, semantic equivalence, nuanced comparison |
+
+The `"embedding"` method uses the `all-MiniLM-L6-v2` model by default. Install with `pip install mltk[embedding]` or `pip install sentence-transformers`.
 
 ---
 

@@ -1,6 +1,8 @@
 """FastAPI application for the mltk server platform."""
 from __future__ import annotations
 
+from importlib.metadata import version as _pkg_version
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
@@ -13,6 +15,9 @@ from mltk.server.storage import Storage
 
 # Maximum allowed request body size: 10 MB
 MAX_REQUEST_BODY_BYTES = 10_485_760
+
+# Single-source version — reads from installed package metadata (pyproject.toml)
+_VERSION = _pkg_version("mltk")
 
 
 def create_app(db_path: str = "mltk_server.db") -> FastAPI:
@@ -28,7 +33,7 @@ def create_app(db_path: str = "mltk_server.db") -> FastAPI:
 
     app = FastAPI(
         title="mltk Server",
-        version="0.6.0",
+        version=_VERSION,
         description="Self-hosted ML test results platform — SonarQube for ML testing.",
     )
 

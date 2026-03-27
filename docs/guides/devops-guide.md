@@ -729,6 +729,18 @@ The release workflow includes a `test-wheels` job that runs **between** wheel bu
 
 This gate prevents publishing broken wheels. The publish step only runs after all three platforms pass smoke tests.
 
+### TestPyPI Staging Gate
+
+After wheel smoke tests pass, the release workflow publishes to **TestPyPI** before production PyPI. The pipeline is:
+
+1. **`publish-testpypi`** -- publishes all wheels to `https://test.pypi.org/` using trusted publishing (OIDC)
+2. **`verify-testpypi`** -- installs the package from TestPyPI into a clean environment and runs import smoke tests (`mltk.data`, `mltk.model`)
+3. **`publish`** -- only after TestPyPI verification succeeds, publishes to production PyPI
+
+This catches packaging issues (missing files, broken metadata, dependency conflicts) that only surface during an actual `pip install` from a real index. TestPyPI uses the same infrastructure as PyPI, so if it works there, it will work in production.
+
+To configure TestPyPI trusted publishing, add a pending publisher at [test.pypi.org/manage/account/publishing](https://test.pypi.org/manage/account/publishing/) with the same repository and workflow file as your production PyPI publisher.
+
 ---
 
 ### GitLab CI

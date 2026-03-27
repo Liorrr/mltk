@@ -1,6 +1,8 @@
-"""Semantic similarity — lightweight token-level F1 for LLM output comparison."""
+"""Semantic similarity -- token-level F1 and embedding cosine for LLM output comparison."""
 
 from __future__ import annotations
+
+import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
@@ -29,6 +31,41 @@ def _token_f1(reference: str, hypothesis: str) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
+def _embedding_cosine(
+    references: list[str],
+    hypotheses: list[str],
+    model_name: str = "all-MiniLM-L6-v2",
+) -> list[float]:
+    """Compute cosine similarity between reference and hypothesis embeddings.
+
+    Uses sentence-transformers to encode texts, then computes pairwise
+    cosine similarity. Raises ImportError if sentence-transformers is missing.
+    """
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError:
+        raise ImportError(
+            "sentence-transformers is required for method='embedding'. "
+            "Install with: pip install mltk[embedding] or pip install sentence-transformers"
+        )
+
+    model = SentenceTransformer(model_name)
+    ref_embeddings = model.encode(references, convert_to_numpy=True)
+    hyp_embeddings = model.encode(hypotheses, convert_to_numpy=True)
+
+    # Cosine similarity per pair
+    scores: list[float] = []
+    for ref_emb, hyp_emb in zip(ref_embeddings, hyp_embeddings):
+        ref_norm = np.linalg.norm(ref_emb)
+        hyp_norm = np.linalg.norm(hyp_emb)
+        if ref_norm == 0 or hyp_norm == 0:
+            scores.append(0.0)
+        else:
+            cos_sim = float(np.dot(ref_emb, hyp_emb) / (ref_norm * hyp_norm))
+            scores.append(cos_sim)
+    return scores
+
+
 @timed_assertion
 def assert_semantic_similarity(
     references: list[str],
@@ -42,7 +79,8 @@ def assert_semantic_similarity(
         references: Reference texts (ground truth).
         hypotheses: Model-generated texts.
         min_score: Minimum required average similarity (0-1).
-        method: Similarity method -- "token" (F1 on token overlap).
+        method: Similarity method -- ``"token"`` (F1 on token overlap) or
+            ``"embedding"`` (cosine similarity via sentence-transformers).
 
     Returns:
         TestResult with average similarity score.
@@ -51,18 +89,33 @@ def assert_semantic_similarity(
         >>> refs = ["The cat sat on the mat"]
         >>> hyps = ["A cat is sitting on a mat"]
         >>> assert_semantic_similarity(refs, hyps, min_score=0.3)
+        >>> # With embeddings (requires sentence-transformers):
+        >>> assert_semantic_similarity(refs, hyps, min_score=0.7, method="embedding")
     """
-    if method != "token":
+    if method == "token":
+        scores = [
+            _token_f1(ref, hyp)
+            for ref, hyp in zip(references, hypotheses, strict=False)
+        ]
+    elif method == "embedding":
+        if not references or not hypotheses:
+            scores = []
+        else:
+            try:
+                scores = _embedding_cosine(references, hypotheses)
+            except ImportError as exc:
+                return assert_true(
+                    False, name="llm.similarity",
+                    message=str(exc),
+                    severity=Severity.CRITICAL,
+                )
+    else:
         return assert_true(
             False, name="llm.similarity",
-            message=f"Unknown method: '{method}'. Supported: 'token'",
+            message=f"Unknown method: '{method}'. Supported: 'token', 'embedding'",
             severity=Severity.CRITICAL,
         )
 
-    scores = [
-        _token_f1(ref, hyp)
-        for ref, hyp in zip(references, hypotheses, strict=False)
-    ]
     avg_score = sum(scores) / len(scores) if scores else 0.0
 
     passed = avg_score >= min_score

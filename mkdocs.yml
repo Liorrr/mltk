@@ -33,6 +33,7 @@ nav:
       - Developer Guide: guides/developer-guide.md
       - Product Manager Guide: guides/product-manager-guide.md
       - CI/CD Integration: guides/cicd-integration.md
+      - Security Guide: guides/security-guide.md
       - Canary Testing: guides/canary-testing.md
       - VS Code Integration: guides/vscode-integration.md
       - Playwright Integration: guides/playwright-integration.md

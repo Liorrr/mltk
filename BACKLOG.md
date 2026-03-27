@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S41: 121 assertions, 1053+ tests, 13 Rust tests)
+## DONE (S0-S41: 121 assertions, 1116 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -71,13 +71,9 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ## BACKLOG (not yet scheduled)
 
 ### Integrations
-- [x] VS Code extension (inline test results) -- DONE S41, separate repo mltk-vscode
-- [x] Linear/Asana adapters -- DONE S40
 - [ ] GitHub App for auto-running mltk on PRs
 
 ### Advanced Features
-- [x] Resource summarization + AI predictions -- DONE S39 (summarizer with trend/flaky/recommendations)
-- [x] Data lineage visualization (DAG rendering) -- DONE S40 (lineage graph + assert_lineage_complete)
 - [ ] Test impact analysis (dependency graph)
 - [ ] Anomaly detection on test result time series
 
@@ -116,4 +112,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 41 (March 26, 2026)*
+*Last updated: Sprint 41 (March 26, 2026) — counts verified from source*

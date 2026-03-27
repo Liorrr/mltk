@@ -81,6 +81,58 @@ def generate_report(
             "message": message,
         })
 
+    # Build chart HTML fragments (Plotly, graceful degradation)
+    passfail_chart_html = ""
+    duration_chart_html = ""
+    try:
+        import plotly.graph_objects as go  # type: ignore[import-untyped]
+        import plotly.io as pio  # type: ignore[import-untyped]
+
+        # --- Pass/fail donut chart ---
+        pf_fig = go.Figure(data=[go.Pie(
+            labels=["Passed", "Failed"],
+            values=[passed, failed],
+            hole=0.55,
+            marker=dict(colors=["#3fb950", "#f85149"]),
+            textinfo="value+percent",
+            textfont=dict(size=14, color="#e6edf3"),
+            hoverinfo="label+value+percent",
+        )])
+        pf_fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#e6edf3"),
+            showlegend=True,
+            legend=dict(font=dict(color="#e6edf3")),
+            margin=dict(l=20, r=20, t=10, b=10),
+            height=280,
+        )
+        passfail_chart_html = pio.to_html(pf_fig, full_html=False, include_plotlyjs="cdn")
+
+        # --- Duration histogram ---
+        durations = [r.get("duration", 0) for r in results]
+        if durations:
+            dur_fig = go.Figure(data=[go.Histogram(
+                x=durations,
+                marker=dict(color="#a371f7", line=dict(color="#58a6ff", width=1)),
+                nbinsx=min(20, max(5, len(durations) // 3)),
+            )])
+            dur_fig.update_layout(
+                xaxis_title="Duration (s)",
+                yaxis_title="Count",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e6edf3"),
+                xaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d"),
+                yaxis=dict(gridcolor="#30363d", zerolinecolor="#30363d"),
+                margin=dict(l=50, r=20, t=10, b=50),
+                height=280,
+            )
+            duration_chart_html = pio.to_html(dur_fig, full_html=False, include_plotlyjs=False)
+    except Exception:
+        # Plotly not installed or chart generation failed -- degrade to text-only
+        pass
+
     # Render
     html = template.render(
         title=title,
@@ -91,6 +143,8 @@ def generate_report(
         duration=duration,
         modules=modules,
         results=flat_results,
+        passfail_chart=passfail_chart_html,
+        duration_chart=duration_chart_html,
     )
 
     # Write output

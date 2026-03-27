@@ -4,6 +4,10 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from importlib.metadata import version as _pkg_version
+
+# Single-source version — reads from installed package metadata (pyproject.toml)
+_VERSION = _pkg_version("mltk")
 
 # ---------------------------------------------------------------------------
 # Internal helper
@@ -35,7 +39,7 @@ def _github_api(
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github.v3+json",
         "Content-Type": "application/json",
-        "User-Agent": "mltk-github-ci/0.6.0",
+        "User-Agent": f"mltk-github-ci/{_VERSION}",
     }
     req = urllib.request.Request(url, method=method, headers=headers)
     if body is not None:
@@ -101,7 +105,7 @@ def format_pr_comment(results: dict) -> str:  # type: ignore[type-arg]
     lines += [
         "",
         "---",
-        "_Posted by [mltk](https://github.com/Liorrr/mltk) v0.6.0_",
+        f"_Posted by [mltk](https://github.com/Liorrr/mltk) v{_VERSION}_",
     ]
 
     return "\n".join(lines)

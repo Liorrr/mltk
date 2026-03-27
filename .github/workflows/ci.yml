@@ -30,14 +30,6 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[dev,scipy]"
       - run: pytest --cov=mltk --cov-report=xml --fail-under=80 -q
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage.xml
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   rust:
     strategy:

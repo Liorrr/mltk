@@ -56,6 +56,23 @@
     <div class="stat-card warn"><div class="number">{{ "%.1f"|format(duration) }}s</div><div class="label">Duration</div></div>
   </div>
 
+  {% if passfail_chart or duration_chart %}
+  <div class="summary" style="margin-bottom: 24px;">
+    {% if passfail_chart %}
+    <section style="flex: 1; min-width: 320px;">
+      <h2>Pass / Fail</h2>
+      {{ passfail_chart }}
+    </section>
+    {% endif %}
+    {% if duration_chart %}
+    <section style="flex: 1; min-width: 320px;">
+      <h2>Duration Distribution</h2>
+      {{ duration_chart }}
+    </section>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% if modules %}
   <section>
     <h2>Results by Module</h2>

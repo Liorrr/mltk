@@ -101,12 +101,186 @@ Schema changes are tracked in a `schema_versions` table. Each migration is appli
 
 ---
 
-## 4. Deployment Hardening Checklist
+## 4. API Key Management
+
+### Generation
+
+Generate keys with the CLI. Each key is a 48-character random token prefixed with `mltk_`:
+
+```bash
+mltk server-create-key --project my-project
+```
+
+The raw key is printed once. Store it immediately in a secrets manager (e.g., HashiCorp Vault, AWS Secrets Manager, GitHub Actions secrets).
+
+### Rotation
+
+To rotate a key:
+
+1. Generate a new key with `mltk server-create-key --project my-project`.
+2. Update all clients (CI pipelines, `MLTK_API_KEY` env var) to use the new key.
+3. Delete the old key hash from the `api_keys` table in the SQLite database.
+
+There is no built-in key revocation command yet. For now, connect directly to the SQLite database to remove old hashes:
+
+```bash
+sqlite3 mltk_server.db "DELETE FROM api_keys WHERE project = 'my-project' AND created_at < '2026-01-01';"
+```
+
+### Scoping
+
+Keys are scoped to a project name. A key created with `--project staging` can only submit results tagged to the `staging` project. Use separate keys per environment (dev, staging, production) to limit blast radius.
+
+---
+
+## 5. TLS/HTTPS Configuration
+
+The mltk server does **not** handle TLS termination directly. Use a reverse proxy or load balancer for HTTPS.
+
+### nginx (recommended)
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name mltk.example.com;
+
+    ssl_certificate     /etc/ssl/certs/mltk.pem;
+    ssl_certificate_key /etc/ssl/private/mltk.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    server_name mltk.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+### Caddy (zero-config TLS)
+
+```
+mltk.example.com {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Caddy automatically provisions and renews Let's Encrypt certificates.
+
+---
+
+## 6. Reverse Proxy Setup
+
+### Rate Limiting (nginx)
+
+Protect against abuse and credential-stuffing with rate limits:
+
+```nginx
+http {
+    limit_req_zone $binary_remote_addr zone=mltk_api:10m rate=10r/s;
+
+    server {
+        location /api/ {
+            limit_req zone=mltk_api burst=20 nodelay;
+            proxy_pass http://127.0.0.1:8080;
+        }
+    }
+}
+```
+
+### IP Allowlisting
+
+For internal-only deployments, restrict access to known CIDR ranges:
+
+```nginx
+location /api/ {
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    deny all;
+    proxy_pass http://127.0.0.1:8080;
+}
+```
+
+---
+
+## 7. CORS Configuration
+
+The mltk server does not set CORS headers by default. If you serve the dashboard from a different domain than the API, configure CORS at the reverse proxy level:
+
+```nginx
+location /api/ {
+    add_header Access-Control-Allow-Origin "https://dashboard.example.com" always;
+    add_header Access-Control-Allow-Methods "GET, POST, DELETE, OPTIONS" always;
+    add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+
+    if ($request_method = OPTIONS) {
+        return 204;
+    }
+
+    proxy_pass http://127.0.0.1:8080;
+}
+```
+
+Never use `Access-Control-Allow-Origin: *` when the API requires authentication.
+
+---
+
+## 8. Request Body Limits
+
+The server enforces a **10 MB** maximum request body size via middleware. Requests exceeding this limit receive a `413 Request Entity Too Large` response. This protects against memory exhaustion from oversized payloads.
+
+If you need a different limit, configure it at the reverse proxy level:
+
+```nginx
+client_max_body_size 10m;  # matches the server default
+```
+
+---
+
+## 9. PII Data Handling
+
+### Detection
+
+mltk includes a PII scanner (`assert_no_pii`) that detects 30+ pattern types across international formats (SSN, email, phone, credit card, passport, national IDs). Use it in CI to block datasets containing PII from entering the ML pipeline.
+
+### Best Practices
+
+- **Never log raw PII.** Test results contain pass/fail status and aggregate statistics, not raw data values.
+- **Redact before storing.** If test result messages could contain sample values, sanitize them before submitting to the mltk server.
+- **Use allowlists.** The PII scanner supports allowlists for known-safe patterns (e.g., test fixture phone numbers). Configure via `assert_no_pii(df, allowlist=["555-0100"])`.
+- **Database access control.** The SQLite database may contain test result messages. Restrict file-system access to the database file.
+- **Retention policy.** Periodically purge old test runs from the database. The server stores results indefinitely by default.
+
+---
+
+## 10. Deployment Hardening Checklist
 
 - [ ] Use HTTPS in production (TLS termination via nginx, Caddy, or cloud LB)
 - [ ] Restrict the bind address (`--host 127.0.0.1`) when behind a reverse proxy
 - [ ] Set rate limiting on the reverse proxy (recommended: 10 req/s burst 20)
 - [ ] Store API keys in a secrets manager, not in plaintext config files
+- [ ] Rotate API keys on a regular schedule (quarterly recommended)
 - [ ] Back up the SQLite database regularly (see DevOps Guide)
 - [ ] Monitor webhook delivery failures for signs of SSRF probing
+- [ ] Set CORS headers to allow only trusted origins
+- [ ] Enable security headers (HSTS, X-Content-Type-Options, X-Frame-Options)
+- [ ] Run the server as a non-root user with minimal file-system permissions
+- [ ] Set `client_max_body_size` at the proxy to match the 10 MB server limit
+- [ ] Disable directory listing on the reverse proxy
+- [ ] Enable access logging on the reverse proxy for audit trails
+- [ ] Run `mltk doctor` periodically to check environment health
 - [ ] Keep mltk updated to get the latest security patches

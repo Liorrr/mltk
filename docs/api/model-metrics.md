@@ -193,3 +193,65 @@ def test_label_distribution_stable():
 ```
 
 ---
+
+## assert_ab_significance
+
+Assert model B is significantly better than model A using bootstrap confidence intervals. Avoids parametric assumptions by resampling score differences and checking whether the entire confidence interval is above zero.
+
+**Module:** `mltk.model.ab_test`
+
+```python
+from mltk.model import assert_ab_significance
+
+scores_a = [0.80, 0.82, 0.79, 0.81, 0.83]
+scores_b = [0.88, 0.90, 0.87, 0.89, 0.91]
+assert_ab_significance(scores_a, scores_b, alpha=0.05, n_bootstrap=1000)
+```
+
+### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `scores_a` | `list[float] \| np.ndarray` | *(required)* | Per-sample scores for model A |
+| `scores_b` | `list[float] \| np.ndarray` | *(required)* | Per-sample scores for model B |
+| `method` | `str` | `"bootstrap"` | Statistical method (currently: `"bootstrap"`) |
+| `alpha` | `float` | `0.05` | Significance level (0.05 = 95% CI) |
+| `n_bootstrap` | `int` | `1000` | Number of bootstrap resamples |
+| `severity` | `Severity` | `CRITICAL` | Severity level |
+
+### Returns
+
+`TestResult` with details:
+- `mean_diff` -- observed mean difference (B - A)
+- `ci_lower` -- lower bound of confidence interval
+- `ci_upper` -- upper bound of confidence interval
+- `p_value` -- estimated p-value (fraction of bootstrap means <= 0)
+- `alpha` -- configured significance level
+- `n_samples` -- number of paired samples
+- `n_bootstrap` -- number of bootstrap resamples
+
+### How it works
+
+```
+1. Compute diffs = scores_b - scores_a
+2. Bootstrap: resample diffs with replacement 1000x, compute mean each time
+3. CI = [percentile(alpha/2), percentile(1 - alpha/2)]
+4. PASS if CI lower bound > 0 (B significantly better)
+5. FAIL if CI includes 0 (no significant difference)
+```
+
+### Example
+
+```python
+import pytest
+from mltk.model import assert_ab_significance
+
+@pytest.mark.ml_model
+def test_new_model_better():
+    """New model version significantly outperforms baseline."""
+    baseline_scores = evaluate_model(model_a, test_data)
+    challenger_scores = evaluate_model(model_b, test_data)
+    assert_ab_significance(baseline_scores, challenger_scores, alpha=0.05)
+```
+
+---

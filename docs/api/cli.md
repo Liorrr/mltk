@@ -471,10 +471,35 @@ See [Chat Interface](chat.md).
 
 All CLI commands respect these environment variables:
 
+### CLI-specific
+
 | Variable | Used By | Description |
 |----------|---------|-------------|
 | `MLTK_SLACK_WEBHOOK` | `notify slack` | Default Slack webhook URL |
 | `MLTK_DOCS_PORT` | `docs serve`, `docs open` | Override default docs port |
 | `MLTK_DOCS_HOST` | `docs serve` | Override default docs host |
+
+### Configuration overrides
+
+These override values from `mltk.yaml` and `pyproject.toml`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MLTK_DRIFT_METHOD` | `ks` | Drift detection method (`ks`, `psi`, `kl`, `chi2`) |
+| `MLTK_DRIFT_THRESHOLD` | `0.05` | Drift detection threshold |
+| `MLTK_REPORT_DIR` | `./mltk-reports` | Directory for generated reports |
+| `MLTK_REPORT_FORMAT` | `html` | Report output format |
+| `MLTK_BASELINE_DIR` | — | Directory for baseline metrics |
+| `MLTK_SEED` | `42` | Random seed for reproducibility |
+| `MLTK_PII_PATTERNS` | — | Comma-separated PII pattern list (e.g., `email,phone,ssn`) |
+
+### Server & integration
+
+| Variable | Used By | Description |
+|----------|---------|-------------|
+| `MLTK_API_KEY` | `server`, pytest `--mltk-server` | API key for server authentication |
+| `MLTK_REGISTRY_DIR` | `registry push/pull/list` | Override registry storage directory (default: `~/.mltk/registry/`) |
+| `MLTK_LOG_FORMAT` | `server` | Set to `json` for JSON-formatted server logs |
+| `MLTK_LOG_LEVEL` | `server` | Server log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ---

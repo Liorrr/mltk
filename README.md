@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-1053%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1117%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 ```bash
@@ -79,7 +79,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (121 assertions)
+## Feature Matrix (120 assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -229,24 +229,26 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 
 ## Comparison
 
-| Feature | Great Expectations | Deepchecks | Evidently | **mltk** |
-|---|---|---|---|---|
-| Data validation | Yes | Yes | Limited | **Yes** |
-| Model testing | No | Yes | Limited | **Yes** |
-| Drift detection | No | Yes | Yes | **Yes (Rust)** |
-| Bias/fairness | No | No | No | **Yes** |
-| Inference testing | No | No | No | **Yes** |
-| pytest native | No | No | No | **Yes** |
-| CLI | Yes | No | No | **Yes** |
-| Domain kits | No | Partial | No | **Yes** |
-| ML Test Score | No | No | No | **Yes** |
-| Rust acceleration | No | No | No | **Yes** |
-| YAML test defs | No | No | No | **Yes** |
-| EU AI Act compliance | No | No | No | **Yes** |
-| Training bug detection | No | No | No | **Yes** |
-| LLM evaluation | No | Yes (LLM-only) | No | **Yes** |
-| License | Elastic | AGPL | Apache 2.0 | **Apache 2.0** |
-| Core deps | Heavy | Heavy | Medium | **2 (numpy, pandas)** |
+| Feature | Great Expectations | Deepchecks | Evidently | DeepEval | Giskard | Arize Phoenix | **mltk** |
+|---|---|---|---|---|---|---|---|
+| Data validation | Yes | Yes | Limited | No | Yes | No | **Yes** |
+| Model testing | No | Yes | Limited | No | Yes (tabular) | No | **Yes** |
+| Drift detection | No | Yes | Yes | No | No | No | **Yes (Rust)** |
+| Bias/fairness | No | No | No | No | Yes | No | **Yes** |
+| Inference testing | No | No | No | No | No | No | **Yes** |
+| pytest native | No | No | No | Yes | Yes | No | **Yes** |
+| CLI | Yes | No | No | Yes | Yes | Yes | **Yes** |
+| Domain kits | No | Partial | No | No | No | No | **Yes** |
+| ML Test Score | No | No | No | No | No | No | **Yes** |
+| Rust acceleration | No | No | No | No | No | No | **Yes** |
+| YAML test defs | No | No | No | No | No | No | **Yes** |
+| EU AI Act compliance | No | No | No | No | No | No | **Yes** |
+| Training bug detection | No | No | No | No | No | No | **Yes** |
+| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes** |
+| LLM observability | No | No | No | No | No | **Yes** | No |
+| OWASP LLM scanning | No | No | No | No | **Yes** | No | **Yes** |
+| License | Elastic | AGPL | Apache 2.0 | Apache 2.0 | Apache 2.0 | Elastic | **Apache 2.0** |
+| Core deps | Heavy | Heavy | Medium | Heavy (LLM) | Heavy | Heavy | **2 (numpy, pandas)** |
 
 ## Documentation
 

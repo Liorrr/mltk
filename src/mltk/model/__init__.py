@@ -1,5 +1,6 @@
-"""Model quality testing -- metrics, regression, slicing, bias, adversarial."""
+"""Model quality testing -- metrics, regression, slicing, bias, adversarial, A/B."""
 
+from mltk.model.ab_test import assert_ab_significance
 from mltk.model.adversarial import assert_robust
 from mltk.model.bias import assert_no_bias
 from mltk.model.metrics import assert_metric
@@ -17,4 +18,5 @@ __all__ = [
     "assert_robust",
     "assert_no_overfitting",
     "assert_label_drift",
+    "assert_ab_significance",
 ]

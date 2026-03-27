@@ -1,3 +1,5 @@
+# STEALTH MODE: Build + test only. No publishing.
+# When ready to publish, add PyPI upload steps here.
 name: Release
 on:
   push:
@@ -57,15 +59,3 @@ jobs:
         run: python -c "import mltk; print(mltk.__version__)"
       - name: Run bridge smoke test
         run: python -m pytest tests/test_rust_bridge.py -q
-
-  publish:
-    needs: [test-wheels]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@release/v1

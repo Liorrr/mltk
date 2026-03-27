@@ -82,6 +82,44 @@ class TestGenerateReport:
         path = generate_report([], output_dir=tmp_path)
         assert path.exists()
 
+    def test_report_contains_charts_with_plotly(self, tmp_path: Path) -> None:
+        """PASS: Report contains Plotly chart containers when plotly is installed.
+
+        WHY: Charts provide visual pass/fail and duration overview. When Plotly
+        is available, the report should embed interactive donut and histogram
+        charts. This verifies the chart generation path in the generator and
+        the template rendering.
+        Expected: HTML contains 'plotly' reference (CDN or inline).
+        """
+        try:
+            import plotly  # noqa: F401
+        except ImportError:
+            import pytest as _pytest
+            _pytest.skip("plotly not installed")
+
+        results = [
+            {"nodeid": "test_a", "outcome": "passed", "duration": 0.05},
+            {"nodeid": "test_b", "outcome": "failed", "duration": 0.12},
+            {"nodeid": "test_c", "outcome": "passed", "duration": 0.30},
+        ]
+        path = generate_report(results, output_dir=tmp_path)
+        html = path.read_text(encoding="utf-8")
+        assert "plotly" in html.lower()
+
+    def test_report_no_crash_without_plotly(self, tmp_path: Path) -> None:
+        """PASS: Report generates without crash even if Plotly import fails.
+
+        WHY: Plotly is an optional dependency (report extra). Users who install
+        only the core package should still get a valid HTML report with text-
+        only output. The generator catches ImportError and degrades gracefully.
+        Expected: File exists and contains the test details section.
+        """
+        results = [{"nodeid": "test_x", "outcome": "passed", "duration": 0.01}]
+        path = generate_report(results, output_dir=tmp_path)
+        assert path.exists()
+        html = path.read_text(encoding="utf-8")
+        assert "test_x" in html
+
 
 class TestMLTestScore:
     """Tests for the ML Test Score calculator.

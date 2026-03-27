@@ -26,9 +26,13 @@ path = generate_report(results, output_dir="./mltk-reports", title="MLTK Test Re
 
 Single self-contained HTML file with:
 - Pass/fail summary with counts
+- **Pass/fail donut chart** (green/red segments, powered by Plotly)
+- **Duration distribution histogram** (bar chart of test durations)
 - Per-module breakdown
 - Test details table with severity, duration, messages
 - Dark theme (slate background, purple accent)
+
+The charts require `plotly` (included in the `report` extra). If Plotly is not installed or chart rendering fails, the report degrades gracefully to text-only -- no crash, no missing sections.
 
 ### pytest Integration
 
