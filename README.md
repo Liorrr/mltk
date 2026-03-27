@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-1117%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1422%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 ```bash
@@ -49,7 +49,7 @@ Run with HTML report:
 pytest --mltk-report
 ```
 
-## What's Included (v0.6.0)
+## What's Included (v0.7.0)
 
 **YAML test definitions** — write ML tests in YAML, no Python required. Run with `mltk test tests.yaml`. Supports 11 data assertions with `env:VAR_NAME` data source for CI/CD.
 
@@ -79,7 +79,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (120 assertions)
+## Feature Matrix (156 assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -234,6 +234,7 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | Data validation | Yes | Yes | Limited | No | Yes | No | **Yes** |
 | Model testing | No | Yes | Limited | No | Yes (tabular) | No | **Yes** |
 | Drift detection | No | Yes | Yes | No | No | No | **Yes (Rust)** |
+| Streaming drift | No | No | No | No | No | No | **Yes (ADWIN/CUSUM)** |
 | Bias/fairness | No | No | No | No | Yes | No | **Yes** |
 | Inference testing | No | No | No | No | No | No | **Yes** |
 | pytest native | No | No | No | Yes | Yes | No | **Yes** |
@@ -242,9 +243,14 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | ML Test Score | No | No | No | No | No | No | **Yes** |
 | Rust acceleration | No | No | No | No | No | No | **Yes** |
 | YAML test defs | No | No | No | No | No | No | **Yes** |
-| EU AI Act compliance | No | No | No | No | No | No | **Yes** |
+| Compliance frameworks | No | No | No | No | No | No | **Yes (5 frameworks)** |
 | Training bug detection | No | No | No | No | No | No | **Yes** |
-| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes** |
+| Conformal prediction | No | No | No | No | No | No | **Yes** |
+| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (156 assertions)** |
+| Agent trace testing | No | No | No | Yes (basic) | No | Yes (tracing) | **Yes (9 assertions)** |
+| Multi-agent testing | No | No | No | No | No | No | **Yes** |
+| Synthetic data validation | No | No | No | No | No | No | **Yes (4 assertions)** |
+| Safety taxonomy | No | No | No | Yes (red-teaming) | Yes (OWASP) | No | **Yes (per-category)** |
 | LLM observability | No | No | No | No | No | **Yes** | No |
 | OWASP LLM scanning | No | No | No | No | **Yes** | No | **Yes** |
 | License | Elastic | AGPL | Apache 2.0 | Apache 2.0 | Apache 2.0 | Elastic | **Apache 2.0** |

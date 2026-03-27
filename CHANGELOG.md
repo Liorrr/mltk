@@ -5,56 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] — 2026-03-27
 
 ### Added
-- API key authentication for protected write endpoints (Bearer token)
-- CI/CD GitHub integration: PR comments, check runs, webhook receiver
-- Configurable webhook dispatch on run events (failure/success/drift)
-- Run comparison with diff (new failures, fixed, regressions)
-- `assert_no_system_prompt_leakage` — detect LLM system prompt extraction (34 payloads, 8 categories)
-- Prompt injection payloads expanded from 8 to 50 with categorized vectors (6 categories)
-- OWASP LLM06 mapping updated with system prompt leakage assertion
-- HTML report visualization: pass/fail donut chart + module breakdown bar chart (pure CSS/SVG, no external deps)
-- NIST AI RMF compliance mapping (Govern, Map, Measure, Manage) with `assert_nist_rmf_coverage` + maturity tiers
-- ISO 42001 compliance mapping (8 Annex A controls) with `assert_iso_42001_coverage`
-- `mltk compliance-gap` CLI command — unified gap analysis across all 5 frameworks (25th CLI command)
-- `AgentTrace` and `ToolCall` dataclasses for representing agent execution traces (`from_dict` supports 3 formats)
-- `assert_tool_chain` — verify agent tool call sequence matches expected chain
-- `assert_no_forbidden_actions` — verify agent did not use forbidden tools
-- `assert_step_efficiency` — verify agent completed task within step budget
-- OWASP LLM07/LLM08 mappings updated with trace-based assertions
-- `assert_interval_coverage` — validate prediction interval empirical coverage
-- `assert_prediction_set_size` — validate prediction set cardinality/width budget
-- `assert_n_rank_gradient_sync` — N-rank gradient synchronization check
-- `assert_gradient_alignment` — cosine similarity between gradient vectors across ranks
-- `assert_weight_divergence` — L2 distance between weight checkpoints/ranks
-- `assert_gradient_clipped` — verify gradient global norm within clipping bound
-- NIST AI RMF MEASURE function mapping updated with conformal + distributed assertions
-- `assert_no_streaming_drift` — real-time drift detection with ADWIN and CUSUM detectors
-- `ADWINDetector` — adaptive windowing with Hoeffding bound, O(log W) memory
-- `CUSUMDetector` — cumulative sum change-point detection
-- `assert_no_concept_drift` — P(Y|X) drift detection via chi2/fisher/proportion tests (completes drift story)
-- NIST AI RMF MANAGE mapping updated with streaming + concept drift
-- `assert_marginal_fidelity` — per-column distribution fidelity between real and synthetic data
-- `assert_correlation_preserved` — cross-column correlation preservation with worst-pair reporting
-- `assert_synthetic_novelty` — exact-copy detection for synthetic data privacy
-- `assert_dcr_safe` — Distance to Closest Record privacy metric with vectorized L2
-- `TextPerturber` — 4 perturbation methods (char_swap, char_delete, char_insert, keyboard_proximity)
-- `assert_text_robust` — NLP model prediction stability under text noise perturbations
-- NIST AI RMF GOVERN mapping updated with synthetic data privacy assertions
-- `assert_top_k_stable` — verify top-K feature attribution overlap across runs (Jaccard)
-- `assert_attribution_cosine_stability` — verify attribution vector direction consistency
-- `assert_refusal_consistency` — verify LLM consistently refuses unsafe prompts across phrasings
-- `assert_safety_taxonomy` — per-category safety coverage (violence, self-harm, etc.)
-- OWASP LLM02 mapping updated with refusal + taxonomy assertions
-- `assert_no_redundant_calls` — detect stuck agent loops from consecutive repeated tool calls
-- `assert_no_hallucinated_tools` — verify agent only calls tools that actually exist
-- `assert_cost_budget` — enforce token and duration budget on agent traces
-- `assert_error_recovery` — verify agent recovers from errors without infinite retry
-- `assert_no_agent_loop` — detect circular delegation in multi-agent systems
-- `assert_agent_handoff` — verify agent handoff sequence matches expected flow
-- OWASP LLM07/LLM08 mappings updated with extended agentic + multi-agent assertions
+
+#### LLM Safety & Security (S47, S53)
+- `assert_no_system_prompt_leakage` — 34 extraction payloads across 8 categories
+- `assert_refusal_consistency` — phrasing-dependent safety gap detection
+- `assert_safety_taxonomy` — per-category safety coverage
+- Prompt injection payloads expanded 8 → 50 (6 categories, backward compatible)
+
+#### Compliance (S48)
+- NIST AI RMF mapping (Govern, Map, Measure, Manage) with `assert_nist_rmf_coverage`
+- ISO 42001 mapping (8 Annex A controls) with `assert_iso_42001_coverage`
+- `mltk compliance-gap` CLI — unified gap analysis across 5 frameworks
+
+#### Agent Trace Testing (S49, S54)
+- `AgentTrace`/`ToolCall` dataclasses with `from_dict()` (3 input formats)
+- 9 agentic assertions: tool_chain, no_forbidden_actions, step_efficiency, no_redundant_calls, no_hallucinated_tools, cost_budget, error_recovery
+- 2 multi-agent assertions: no_agent_loop, agent_handoff
+
+#### Conformal Prediction (S50, S55)
+- `assert_interval_coverage`, `assert_prediction_set_size`
+- `assert_conformal_calibration` — two-sided calibration check
+- `assert_conditional_coverage` — per-group fairness (Mondrian)
+
+#### Distributed Training (S50)
+- `assert_n_rank_gradient_sync`, `assert_gradient_alignment`
+- `assert_weight_divergence`, `assert_gradient_clipped`
+
+#### Drift Detection (S51)
+- `assert_no_streaming_drift` with ADWIN and CUSUM detectors
+- `assert_no_concept_drift` — P(Y|X) drift via chi2/fisher/proportion
+- Completes drift story: P(X), P(Ŷ), streaming, P(Y|X)
+
+#### Synthetic Data & NLP Robustness (S52)
+- `assert_marginal_fidelity`, `assert_correlation_preserved`, `assert_synthetic_novelty`, `assert_dcr_safe`
+- `TextPerturber` (4 methods) + `assert_text_robust`
+
+#### Attribution Stability (S53)
+- `assert_top_k_stable`, `assert_attribution_cosine_stability`
+
+#### Infrastructure
+- HTML report: pass/fail donut chart + module bar chart (pure CSS/SVG)
+- TestPyPI step in release workflow
+- OWASP LLM02/LLM06/LLM07/LLM08 mappings updated
+- NIST AI RMF function mappings wired to new assertions
+- 20 new MkDocs documentation pages
 
 ## [0.6.0] — 2026-03-26
 

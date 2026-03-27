@@ -133,6 +133,8 @@ Assertions for validating model performance, fairness, and robustness.
 |---|-----------|--------|-------------|-------|
 | 30 | `assert_interval_coverage` | `mltk.model.conformal` | Verify prediction interval empirical coverage meets target | v0.7.0 |
 | 31 | `assert_prediction_set_size` | `mltk.model.conformal` | Verify prediction set cardinality/width within budget | v0.7.0 |
+| 32 | `assert_conformal_calibration` | `mltk.model.conformal` | Two-sided calibration check (coverage matches promise) | v0.7.0 |
+| 33 | `assert_conditional_coverage` | `mltk.model.conformal` | Per-group coverage fairness check (Mondrian) | v0.7.0 |
 
 ### Overfitting
 
