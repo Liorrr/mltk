@@ -333,6 +333,8 @@ Assertions for production model monitoring and cloud provider health checks.
 | 97 | `assert_no_degradation` | `mltk.monitor.drift_monitor` | Detect sliding-window metric decline in production | v0.1.0 |
 | 98 | `assert_sla` | `mltk.monitor.drift_monitor` | Verify latency P99 and error rate meet SLA targets | v0.1.0 |
 | 99 | `assert_no_output_drift` | `mltk.monitor.drift_monitor` | Detect output distribution shift between reference and current predictions | v0.6.0 |
+| 100 | `assert_no_streaming_drift` | `mltk.monitor.streaming_drift` | Detect real-time distribution shifts using ADWIN or CUSUM | v0.7.0 |
+| 101 | `assert_no_concept_drift` | `mltk.monitor.concept_drift` | Detect P(Y\|X) drift via error rate comparison (chi2/fisher/proportion) | v0.7.0 |
 
 ### AWS SageMaker
 

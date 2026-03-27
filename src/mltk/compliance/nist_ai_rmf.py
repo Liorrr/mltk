@@ -130,7 +130,13 @@ NIST_RMF_FUNCTIONS: dict[str, dict] = {
             "MN-1": "Treatment plans",
             "MN-2": "Monitoring deployed systems",
         },
-        "assertions": ["monitor.degradation", "monitor.sla", "data.drift"],
+        "assertions": [
+            "monitor.degradation",
+            "monitor.sla",
+            "monitor.streaming_drift",
+            "monitor.concept_drift",
+            "data.drift",
+        ],
     },
 }
 

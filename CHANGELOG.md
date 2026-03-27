@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `assert_weight_divergence` — L2 distance between weight checkpoints/ranks
 - `assert_gradient_clipped` — verify gradient global norm within clipping bound
 - NIST AI RMF MEASURE function mapping updated with conformal + distributed assertions
+- `assert_no_streaming_drift` — real-time drift detection with ADWIN and CUSUM detectors
+- `ADWINDetector` — adaptive windowing with Hoeffding bound, O(log W) memory
+- `CUSUMDetector` — cumulative sum change-point detection
+- `assert_no_concept_drift` — P(Y|X) drift detection via chi2/fisher/proportion tests (completes drift story)
+- NIST AI RMF MANAGE mapping updated with streaming + concept drift
 
 ## [0.6.0] — 2026-03-26
 

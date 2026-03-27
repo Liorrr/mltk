@@ -75,6 +75,8 @@ nav:
       - Speech: api/speech.md
       - Tabular: api/tabular.md
       - Monitoring: api/monitor.md
+      - Streaming Drift: api/streaming-drift.md
+      - Concept Drift: api/concept-drift.md
       - Embedding Drift: api/drift-advanced.md
       - LLM Evaluation: api/llm.md
       - RAG, Agentic & Text Quality: api/rag-evaluation.md

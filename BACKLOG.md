@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S50: 137 assertions, 1284 tests, 38 Rust tests)
+## DONE (S0-S51: 139 assertions, 1312 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -74,6 +74,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S48: NIST AI RMF + ISO 42001 compliance, compliance-gap CLI command
 - [x] S49: AgentTrace dataclasses, assert_tool_chain, assert_no_forbidden_actions, assert_step_efficiency
 - [x] S50: Conformal prediction (interval coverage, set size), distributed training (N-rank sync, alignment, divergence, clipping)
+- [x] S51: Streaming drift (ADWIN, CUSUM), concept drift (chi2/fisher/proportion) — completes drift story
 
 ---
 
