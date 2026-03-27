@@ -73,7 +73,11 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "LLM plugins that lack proper access controls, input validation, or "
             "least-privilege principles expand the attack surface significantly."
         ),
-        "assertions": ["llm.tool_selection", "llm.tool_call"],
+        "assertions": [
+            "llm.tool_selection",
+            "llm.tool_call",
+            "llm.agentic.tool_chain",
+        ],
     },
     "LLM08": {
         "title": "Excessive Agency",
@@ -81,7 +85,12 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "LLMs granted excessive functionality, permissions, or autonomy take "
             "unintended actions with real-world consequences beyond user intent."
         ),
-        "assertions": ["llm.tool_selection", "llm.task_completion"],
+        "assertions": [
+            "llm.tool_selection",
+            "llm.task_completion",
+            "llm.agentic.no_forbidden",
+            "llm.agentic.step_efficiency",
+        ],
     },
     "LLM09": {
         "title": "Overreliance",

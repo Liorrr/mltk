@@ -1,8 +1,11 @@
 """LLM/GenAI evaluation — RAG, agentic, text quality, similarity, toxicity, TTFT/ITL."""
 
 from mltk.domains.llm.agentic import (
+    assert_no_forbidden_actions,
+    assert_step_efficiency,
     assert_task_completion,
     assert_tool_call_correctness,
+    assert_tool_chain,
     assert_tool_selection,
 )
 from mltk.domains.llm.bertscore import assert_bertscore
@@ -64,6 +67,10 @@ __all__ = [
     "assert_task_completion",
     "assert_tool_selection",
     "assert_tool_call_correctness",
+    # trace-based agentic evaluation
+    "assert_tool_chain",
+    "assert_no_forbidden_actions",
+    "assert_step_efficiency",
     # multi-turn conversation evaluation
     "assert_knowledge_retention",
     "assert_turn_relevancy",

@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NIST AI RMF compliance mapping (Govern, Map, Measure, Manage) with `assert_nist_rmf_coverage` + maturity tiers
 - ISO 42001 compliance mapping (8 Annex A controls) with `assert_iso_42001_coverage`
 - `mltk compliance-gap` CLI command — unified gap analysis across all 5 frameworks (25th CLI command)
+- `AgentTrace` and `ToolCall` dataclasses for representing agent execution traces (`from_dict` supports 3 formats)
+- `assert_tool_chain` — verify agent tool call sequence matches expected chain
+- `assert_no_forbidden_actions` — verify agent did not use forbidden tools
+- `assert_step_efficiency` — verify agent completed task within step budget
+- OWASP LLM07/LLM08 mappings updated with trace-based assertions
 
 ## [0.6.0] — 2026-03-26
 

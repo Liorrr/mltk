@@ -77,6 +77,7 @@ nav:
       - Embedding Drift: api/drift-advanced.md
       - LLM Evaluation: api/llm.md
       - RAG, Agentic & Text Quality: api/rag-evaluation.md
+      - Agent Trace Testing: api/agentic-trace.md
       - Training Bugs: api/training-bugs.md
   - Compliance & Integrations:
       - EU AI Act Compliance: api/eu-ai-act.md

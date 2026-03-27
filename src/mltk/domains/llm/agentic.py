@@ -7,6 +7,7 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
+from mltk.domains.llm.trace import AgentTrace
 
 
 def _token_overlap(a: str, b: str) -> float:
@@ -236,4 +237,178 @@ def assert_tool_call_correctness(
         mismatch_count=len(mismatches),
         total_args_checked=total_checked,
         tolerance=tolerance,
+    )
+
+
+@timed_assertion
+def assert_tool_chain(
+    trace: AgentTrace,
+    expected_tools: list[str],
+    strict_order: bool = False,
+) -> TestResult:
+    """Assert that an agent trace contains the expected sequence of tool calls.
+
+    In the default (non-strict) mode the assertion checks that every tool in
+    ``expected_tools`` was called at least once, regardless of call order.  When
+    ``strict_order=True`` the expected tools must appear as a subsequence of the
+    actual trace — other tool calls may appear between them, but the relative
+    order must match.
+
+    Args:
+        trace: The agent execution trace to validate.
+        expected_tools: Tool names that should appear in the trace.
+        strict_order: When True, enforce that expected tools appear in order
+            as a subsequence of the actual tool calls.
+
+    Returns:
+        TestResult with expected, actual, missing, and strict_order details.
+
+    Example:
+        >>> from mltk.domains.llm.trace import AgentTrace, ToolCall
+        >>> trace = AgentTrace(tool_calls=[
+        ...     ToolCall(name="search", arguments={"q": "weather"}),
+        ...     ToolCall(name="calculator", arguments={"expr": "2+2"}),
+        ... ])
+        >>> assert_tool_chain(trace, expected_tools=["search", "calculator"])
+    """
+    actual_tools = trace.tool_names
+
+    if strict_order:
+        # Check subsequence: expected tools must appear in order within actual.
+        it = iter(actual_tools)
+        missing = []
+        for tool in expected_tools:
+            found = False
+            for actual in it:
+                if actual == tool:
+                    found = True
+                    break
+            if not found:
+                missing.append(tool)
+        passed = len(missing) == 0
+    else:
+        # Set comparison: all expected tools must appear at least once.
+        actual_set = set(actual_tools)
+        missing = sorted(set(expected_tools) - actual_set)
+        passed = len(missing) == 0
+
+    if passed:
+        mode = "strict order" if strict_order else "unordered"
+        message = (
+            f"Tool chain correct ({mode}): all {len(expected_tools)} "
+            f"expected tools found in trace"
+        )
+    else:
+        mode = "strict order" if strict_order else "unordered"
+        message = (
+            f"Tool chain incorrect ({mode}): missing {missing} "
+            f"from trace {actual_tools}"
+        )
+
+    return assert_true(
+        passed, name="llm.agentic.tool_chain", message=message,
+        severity=Severity.CRITICAL,
+        expected=expected_tools,
+        actual=actual_tools,
+        missing=missing,
+        strict_order=strict_order,
+    )
+
+
+@timed_assertion
+def assert_no_forbidden_actions(
+    trace: AgentTrace,
+    forbidden_tools: list[str],
+) -> TestResult:
+    """Assert that no tool call in the trace used a forbidden tool.
+
+    Scans every tool call in the trace and fails if any tool name matches an
+    entry in ``forbidden_tools``.  Useful for safety guardrails — e.g. ensuring
+    an agent never calls ``"delete_database"`` or ``"send_email"`` in a
+    sandboxed evaluation.
+
+    Args:
+        trace: The agent execution trace to validate.
+        forbidden_tools: Tool names that must NOT appear in the trace.
+
+    Returns:
+        TestResult with forbidden_found list and total_calls count.
+
+    Example:
+        >>> from mltk.domains.llm.trace import AgentTrace, ToolCall
+        >>> trace = AgentTrace(tool_calls=[
+        ...     ToolCall(name="search", arguments={"q": "weather"}),
+        ... ])
+        >>> assert_no_forbidden_actions(trace, forbidden_tools=["delete_database"])
+    """
+    forbidden_set = set(forbidden_tools)
+    forbidden_found = sorted(
+        {tc.name for tc in trace.tool_calls if tc.name in forbidden_set}
+    )
+    total_calls = trace.step_count
+    passed = len(forbidden_found) == 0
+
+    if passed:
+        message = (
+            f"No forbidden actions: {total_calls} tool call(s) checked, "
+            f"none in {sorted(forbidden_set)}"
+        )
+    else:
+        message = (
+            f"Forbidden actions detected: {forbidden_found} "
+            f"found in {total_calls} tool call(s)"
+        )
+
+    return assert_true(
+        passed, name="llm.agentic.no_forbidden_actions", message=message,
+        severity=Severity.CRITICAL,
+        forbidden_found=forbidden_found,
+        total_calls=total_calls,
+    )
+
+
+@timed_assertion
+def assert_step_efficiency(
+    trace: AgentTrace,
+    max_steps: int,
+) -> TestResult:
+    """Assert that the agent completed its task within a step budget.
+
+    Checks that ``trace.step_count <= max_steps``.  A "step" is one tool call
+    in the trace.  Helps catch agents that loop excessively or explore
+    unnecessary paths, which wastes tokens and latency in production.
+
+    Args:
+        trace: The agent execution trace to validate.
+        max_steps: Maximum number of tool calls allowed.
+
+    Returns:
+        TestResult with actual_steps and max_steps details.
+
+    Example:
+        >>> from mltk.domains.llm.trace import AgentTrace, ToolCall
+        >>> trace = AgentTrace(tool_calls=[
+        ...     ToolCall(name="search", arguments={"q": "weather"}),
+        ... ])
+        >>> assert_step_efficiency(trace, max_steps=5)
+    """
+    actual_steps = trace.step_count
+    passed = actual_steps <= max_steps
+
+    if passed:
+        message = (
+            f"Step efficiency OK: {actual_steps} step(s) <= "
+            f"{max_steps} max"
+        )
+    else:
+        message = (
+            f"Step efficiency exceeded: {actual_steps} step(s) > "
+            f"{max_steps} max"
+        )
+
+    return assert_true(
+        passed, name="llm.agentic.step_efficiency", message=message,
+        severity=Severity.CRITICAL,
+        actual_steps=actual_steps,
+        max_steps=max_steps,
     )

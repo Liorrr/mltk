@@ -289,6 +289,9 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 88 | `assert_task_completion` | `mltk.domains.llm.agentic` | Verify agent output matches expected task result | v0.5.0 |
 | 89 | `assert_tool_selection` | `mltk.domains.llm.agentic` | Verify agent selected the correct tools (no missing, no extra) | v0.5.0 |
 | 90 | `assert_tool_call_correctness` | `mltk.domains.llm.agentic` | Verify agent tool call arguments match expected values | v0.5.0 |
+| 91 | `assert_tool_chain` | `mltk.domains.llm.agentic` | Verify agent tool call sequence matches expected chain | v0.7.0 |
+| 92 | `assert_no_forbidden_actions` | `mltk.domains.llm.agentic` | Verify agent did not use forbidden tools | v0.7.0 |
+| 93 | `assert_step_efficiency` | `mltk.domains.llm.agentic` | Verify agent completed task within step budget | v0.7.0 |
 
 ### Text Quality
 
