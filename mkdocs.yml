@@ -66,6 +66,7 @@ nav:
       - Model Bias: api/model-bias.md
       - Model Adversarial: api/model-adversarial.md
       - Conformal Prediction: api/conformal.md
+      - Attribution Stability: api/attribution.md
       - Inference Latency: api/inference-latency.md
       - Inference Throughput: api/inference-throughput.md
       - Inference Contract: api/inference-contract.md
@@ -82,6 +83,7 @@ nav:
       - LLM Evaluation: api/llm.md
       - RAG, Agentic & Text Quality: api/rag-evaluation.md
       - Agent Trace Testing: api/agentic-trace.md
+      - Multi-Agent Testing: api/multi-agent.md
       - Text Noise Robustness: api/nlp-robustness.md
       - Training Bugs: api/training-bugs.md
   - Compliance & Integrations:

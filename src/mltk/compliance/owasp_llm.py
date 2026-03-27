@@ -29,7 +29,13 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "LLM outputs are passed to downstream components without validation, "
             "enabling XSS, SSRF, privilege escalation, or remote code execution."
         ),
-        "assertions": ["llm.text_length", "llm.output_format", "llm.toxicity"],
+        "assertions": [
+            "llm.text_length",
+            "llm.output_format",
+            "llm.toxicity",
+            "llm.safety.refusal_consistency",
+            "llm.safety.taxonomy",
+        ],
     },
     "LLM03": {
         "title": "Training Data Poisoning",
@@ -77,6 +83,7 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "llm.tool_selection",
             "llm.tool_call",
             "llm.agentic.tool_chain",
+            "llm.agentic.no_hallucinated_tools",
         ],
     },
     "LLM08": {
@@ -90,6 +97,11 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "llm.task_completion",
             "llm.agentic.no_forbidden",
             "llm.agentic.step_efficiency",
+            "llm.agentic.no_redundant_calls",
+            "llm.agentic.cost_budget",
+            "llm.agentic.error_recovery",
+            "llm.multi_agent.no_loop",
+            "llm.multi_agent.handoff",
         ],
     },
     "LLM09": {

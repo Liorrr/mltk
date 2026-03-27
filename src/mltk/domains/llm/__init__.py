@@ -1,7 +1,11 @@
 """LLM/GenAI evaluation — RAG, agentic, text quality, similarity, toxicity, TTFT/ITL."""
 
 from mltk.domains.llm.agentic import (
+    assert_cost_budget,
+    assert_error_recovery,
     assert_no_forbidden_actions,
+    assert_no_hallucinated_tools,
+    assert_no_redundant_calls,
     assert_step_efficiency,
     assert_task_completion,
     assert_tool_call_correctness,
@@ -16,6 +20,7 @@ from mltk.domains.llm.conversation import (
     assert_turn_relevancy,
 )
 from mltk.domains.llm.latency import assert_itl, assert_ttft
+from mltk.domains.llm.multi_agent import assert_agent_handoff, assert_no_agent_loop
 from mltk.domains.llm.rag import (
     assert_answer_relevancy,
     assert_context_precision,
@@ -28,6 +33,8 @@ from mltk.domains.llm.safety import (
     assert_no_hallucination,
     assert_no_system_prompt_leakage,
     assert_no_toxicity,
+    assert_refusal_consistency,
+    assert_safety_taxonomy,
 )
 from mltk.domains.llm.similarity import assert_semantic_similarity
 from mltk.domains.llm.text_quality import (
@@ -45,6 +52,8 @@ __all__ = [
     "assert_no_toxicity",
     "assert_no_hallucination",
     "assert_no_system_prompt_leakage",
+    "assert_refusal_consistency",
+    "assert_safety_taxonomy",
     # latency
     "assert_ttft",
     "assert_itl",
@@ -71,6 +80,14 @@ __all__ = [
     "assert_tool_chain",
     "assert_no_forbidden_actions",
     "assert_step_efficiency",
+    # extended agentic evaluation
+    "assert_no_redundant_calls",
+    "assert_no_hallucinated_tools",
+    "assert_cost_budget",
+    "assert_error_recovery",
+    # multi-agent coordination
+    "assert_no_agent_loop",
+    "assert_agent_handoff",
     # multi-turn conversation evaluation
     "assert_knowledge_retention",
     "assert_turn_relevancy",

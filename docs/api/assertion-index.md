@@ -277,6 +277,15 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 76 | `assert_no_toxicity` | `mltk.domains.llm.safety` | Detect toxic content in generated texts via keyword scoring | v0.1.0 |
 | 77 | `assert_no_hallucination` | `mltk.domains.llm.safety` | Verify generated claims are grounded in source documents | v0.1.0 |
 | 78 | `assert_no_system_prompt_leakage` | `mltk.domains.llm.safety` | Detect system prompt leakage via adversarial extraction payloads | v0.7.0 |
+| 79 | `assert_refusal_consistency` | `mltk.domains.llm.safety` | Verify LLM consistently refuses unsafe prompts across phrasings | v0.7.0 |
+| 80 | `assert_safety_taxonomy` | `mltk.domains.llm.safety` | Verify per-category safety coverage (violence, self-harm, etc.) | v0.7.0 |
+
+### Attribution Stability
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 81 | `assert_top_k_stable` | `mltk.model.attribution` | Verify top-K feature attribution overlap across runs (Jaccard) | v0.7.0 |
+| 82 | `assert_attribution_cosine_stability` | `mltk.model.attribution` | Verify attribution vector direction consistency (cosine similarity) | v0.7.0 |
 
 ### LLM Latency
 
@@ -313,6 +322,17 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 91 | `assert_tool_chain` | `mltk.domains.llm.agentic` | Verify agent tool call sequence matches expected chain | v0.7.0 |
 | 92 | `assert_no_forbidden_actions` | `mltk.domains.llm.agentic` | Verify agent did not use forbidden tools | v0.7.0 |
 | 93 | `assert_step_efficiency` | `mltk.domains.llm.agentic` | Verify agent completed task within step budget | v0.7.0 |
+| 94 | `assert_no_redundant_calls` | `mltk.domains.llm.agentic` | Detect stuck agent loops from consecutive repeated tool calls | v0.7.0 |
+| 95 | `assert_no_hallucinated_tools` | `mltk.domains.llm.agentic` | Verify agent only calls tools that actually exist | v0.7.0 |
+| 96 | `assert_cost_budget` | `mltk.domains.llm.agentic` | Enforce token and duration budget on agent traces | v0.7.0 |
+| 97 | `assert_error_recovery` | `mltk.domains.llm.agentic` | Verify agent recovers from errors without infinite retry | v0.7.0 |
+
+### Multi-Agent Coordination
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 98 | `assert_no_agent_loop` | `mltk.domains.llm.multi_agent` | Detect circular delegation in multi-agent systems | v0.7.0 |
+| 99 | `assert_agent_handoff` | `mltk.domains.llm.multi_agent` | Verify agent handoff sequence matches expected flow | v0.7.0 |
 
 ### Text Quality
 

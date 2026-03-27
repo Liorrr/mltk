@@ -43,6 +43,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TextPerturber` — 4 perturbation methods (char_swap, char_delete, char_insert, keyboard_proximity)
 - `assert_text_robust` — NLP model prediction stability under text noise perturbations
 - NIST AI RMF GOVERN mapping updated with synthetic data privacy assertions
+- `assert_top_k_stable` — verify top-K feature attribution overlap across runs (Jaccard)
+- `assert_attribution_cosine_stability` — verify attribution vector direction consistency
+- `assert_refusal_consistency` — verify LLM consistently refuses unsafe prompts across phrasings
+- `assert_safety_taxonomy` — per-category safety coverage (violence, self-harm, etc.)
+- OWASP LLM02 mapping updated with refusal + taxonomy assertions
+- `assert_no_redundant_calls` — detect stuck agent loops from consecutive repeated tool calls
+- `assert_no_hallucinated_tools` — verify agent only calls tools that actually exist
+- `assert_cost_budget` — enforce token and duration budget on agent traces
+- `assert_error_recovery` — verify agent recovers from errors without infinite retry
+- `assert_no_agent_loop` — detect circular delegation in multi-agent systems
+- `assert_agent_handoff` — verify agent handoff sequence matches expected flow
+- OWASP LLM07/LLM08 mappings updated with extended agentic + multi-agent assertions
 
 ## [0.6.0] — 2026-03-26
 
