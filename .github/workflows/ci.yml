@@ -52,3 +52,19 @@ jobs:
       - run: cd rust && cargo fmt --check
       - run: cd rust && cargo clippy -- -D warnings
       - run: cd rust && cargo test
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Python dependency audit
+        run: pip install pip-audit && pip-audit --strict
+
+      - name: Rust dependency audit
+        working-directory: rust
+        run: cargo install cargo-audit && cargo audit

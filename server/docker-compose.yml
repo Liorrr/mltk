@@ -8,6 +8,11 @@ services:
     environment:
       - MLTK_DB_PATH=/app/data/mltk_server.db
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   mltk-data:

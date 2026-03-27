@@ -1762,6 +1762,10 @@ ruff check --fix src/ tests/
 mypy src/mltk/
 ```
 
+#### PEP 561 `py.typed` marker
+
+mltk ships a `py.typed` marker file (`src/mltk/py.typed`) per [PEP 561](https://peps.python.org/pep-0561/). This tells mypy and other type checkers that mltk provides inline type annotations. If you depend on mltk and run mypy with `--strict`, types will be resolved automatically without requiring a `types-mltk` stub package.
+
 Ruff configuration (from `pyproject.toml`):
 
 ```toml

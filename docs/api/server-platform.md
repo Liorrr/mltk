@@ -81,9 +81,34 @@ curl http://localhost:8080/api/health
 
 ---
 
+### `GET /api/health/live`
+
+Liveness probe — confirms the process is alive. Always returns 200 if the server is running, regardless of database state. Use for Kubernetes `livenessProbe`.
+
+```bash
+curl http://localhost:8080/api/health/live
+# {"status": "alive"}
+```
+
+---
+
+### `GET /api/health/ready`
+
+Readiness probe — confirms the server can serve traffic. Executes a lightweight database query and returns 503 if the database is unreachable. Use for Kubernetes `readinessProbe`.
+
+```bash
+curl http://localhost:8080/api/health/ready
+# {"status": "ready"}
+# Returns 503 with {"detail": "Database not ready"} if DB is down
+```
+
+---
+
 ### `POST /api/runs`
 
 Submit test results from a completed test run. **Requires Bearer API key.**
+
+**Request body limit:** 10 MB maximum. Requests exceeding this limit receive HTTP 413.
 
 **Request body:**
 
@@ -106,18 +131,24 @@ Submit test results from a completed test run. **Requires Bearer API key.**
 | Field | Type | Description |
 |-------|------|-------------|
 | `project` | `str` | Project name (default: `"default"`) |
-| `results` | `list[dict]` | Array of test result objects |
+| `results` | `list[ResultItem]` | Array of typed test result objects (max 10,000 per run) |
 
-**Result object fields:**
+**ResultItem fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | `str` | Test identifier |
-| `passed` | `bool` | Whether the test passed |
-| `severity` | `str` | `critical`, `error`, `warning`, or `info` |
-| `message` | `str` | Human-readable result message |
-| `details` | `dict` | Arbitrary extra data |
-| `duration_ms` | `float` | Test execution time in milliseconds |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `str` | Yes | — | Test identifier |
+| `passed` | `bool` | Yes | — | Whether the test passed |
+| `severity` | `str` | No | `"info"` | `critical`, `error`, `warning`, or `info` |
+| `message` | `str` | No | `""` | Human-readable result message |
+| `details` | `dict` | No | `{}` | Arbitrary extra data |
+| `duration_ms` | `float` | No | `0.0` | Test execution time in milliseconds |
+
+**Validation rules:**
+
+- `name` and `passed` are required — requests missing these fields receive HTTP 422
+- Maximum 10,000 results per run — exceeding this limit receives HTTP 422
+- Type mismatches (e.g., string for `passed`) receive HTTP 422
 
 **Response:**
 

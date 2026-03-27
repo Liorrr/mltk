@@ -107,14 +107,124 @@ server {
 }
 ```
 
-### Health Check
+### Health Probes
+
+The mltk server provides three health endpoints for different operational needs:
+
+| Endpoint | Purpose | Returns 200 when | Use for |
+|----------|---------|-------------------|---------|
+| `/api/health` | General health check | Server is running | Load balancers, monitoring |
+| `/api/health/live` | Liveness probe | Process is alive | Kubernetes `livenessProbe` |
+| `/api/health/ready` | Readiness probe | Process is alive AND database is accessible | Kubernetes `readinessProbe` |
 
 ```bash
+# General health
 curl http://localhost:8080/api/health
 # {"status": "ok", "service": "mltk-server"}
+
+# Liveness (always 200 if process is up)
+curl http://localhost:8080/api/health/live
+# {"status": "alive"}
+
+# Readiness (200 if DB is accessible, 503 otherwise)
+curl http://localhost:8080/api/health/ready
+# {"status": "ready"}
 ```
 
-Use this endpoint for load balancer probes, Docker HEALTHCHECK, and Kubernetes readiness checks.
+#### Kubernetes Probe Configuration
+
+```yaml
+# In your Kubernetes Deployment spec
+containers:
+  - name: mltk-server
+    image: mltk-server:latest
+    ports:
+      - containerPort: 8080
+    livenessProbe:
+      httpGet:
+        path: /api/health/live
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /api/health/ready
+        port: 8080
+      initialDelaySeconds: 3
+      periodSeconds: 5
+      failureThreshold: 3
+    startupProbe:
+      httpGet:
+        path: /api/health/ready
+        port: 8080
+      initialDelaySeconds: 2
+      periodSeconds: 3
+      failureThreshold: 10
+```
+
+- **Liveness**: Kubelet restarts the pod if the process is stuck. Uses `/health/live` which has no dependencies.
+- **Readiness**: Kubelet removes the pod from Service endpoints if the database is unreachable. Uses `/health/ready` which checks DB connectivity.
+- **Startup**: Gives the server time to initialize and run DB migrations before liveness kicks in.
+
+### Structured Logging
+
+The mltk server supports structured JSON log output for log aggregation pipelines (ELK, Datadog, Loki, CloudWatch).
+
+#### Configuration
+
+Set environment variables to control logging:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MLTK_LOG_FORMAT` | `text` | `text` for human-readable, `json` for structured JSON |
+| `MLTK_LOG_LEVEL` | `INFO` | Standard Python log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+
+```bash
+# Enable JSON logging
+export MLTK_LOG_FORMAT=json
+export MLTK_LOG_LEVEL=INFO
+mltk server
+```
+
+#### JSON Log Format
+
+When `MLTK_LOG_FORMAT=json`, each log line is a JSON object:
+
+```json
+{"timestamp": "2026-03-26 14:30:00,123", "level": "INFO", "message": "Applying migration v1: Initial schema", "logger": "mltk.server.storage"}
+```
+
+| Field | Description |
+|-------|-------------|
+| `timestamp` | ISO-ish timestamp from Python's `Formatter.formatTime` |
+| `level` | Log level name (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
+| `message` | The formatted log message |
+| `logger` | Logger name (e.g., `mltk.server.storage`) |
+
+#### Docker / Kubernetes
+
+```yaml
+# docker-compose.yml
+services:
+  mltk-server:
+    environment:
+      - MLTK_LOG_FORMAT=json
+      - MLTK_LOG_LEVEL=INFO
+
+# Kubernetes Deployment
+containers:
+  - name: mltk-server
+    env:
+      - name: MLTK_LOG_FORMAT
+        value: "json"
+      - name: MLTK_LOG_LEVEL
+        value: "INFO"
+```
+
+### Request Body Limit
+
+All incoming requests are limited to **10 MB** maximum body size. Requests exceeding this limit receive HTTP 413 (`Request body too large`) before any route processing. This protects against memory exhaustion from oversized payloads.
 
 ---
 
@@ -135,6 +245,32 @@ curl http://localhost:8080/api/health
 ```json
 {"status": "ok", "service": "mltk-server"}
 ```
+
+---
+
+### `GET /api/health/live`
+
+Liveness probe. Always returns 200 if the server process is running.
+
+```bash
+curl http://localhost:8080/api/health/live
+```
+
+**Response:** `{"status": "alive"}`
+
+---
+
+### `GET /api/health/ready`
+
+Readiness probe. Returns 200 if the server is running and the database is accessible, 503 otherwise.
+
+```bash
+curl http://localhost:8080/api/health/ready
+```
+
+**Response (success):** `{"status": "ready"}`
+
+**Response (failure):** HTTP 503 `{"detail": "Database not ready"}`
 
 ---
 
@@ -169,23 +305,25 @@ curl -X POST http://localhost:8080/api/runs \
   }'
 ```
 
-**Request body:**
+**Request body** (max 10 MB)**:**
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `project` | `str` | `"default"` | Project name for grouping |
-| `results` | `list[dict]` | *(required)* | Array of test result objects |
+| `results` | `list[ResultItem]` | *(required)* | Array of typed result objects (max 10,000) |
 
-**Result object fields:**
+**ResultItem fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | `str` | Test identifier (e.g., `data.drift.psi`) |
-| `passed` | `bool` | Whether the test passed |
-| `severity` | `str` | `critical`, `error`, `warning`, or `info` |
-| `message` | `str` | Human-readable result message |
-| `details` | `dict` | Arbitrary metadata (statistic values, thresholds, etc.) |
-| `duration_ms` | `float` | Test execution time in milliseconds |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `str` | Yes | — | Test identifier (e.g., `data.drift.psi`) |
+| `passed` | `bool` | Yes | — | Whether the test passed |
+| `severity` | `str` | No | `"info"` | `critical`, `error`, `warning`, or `info` |
+| `message` | `str` | No | `""` | Human-readable result message |
+| `details` | `dict` | No | `{}` | Arbitrary metadata (statistic values, thresholds, etc.) |
+| `duration_ms` | `float` | No | `0.0` | Test execution time in milliseconds |
+
+**Validation:** Missing required fields (`name`, `passed`) or type mismatches return HTTP 422. Exceeding 10,000 results per run returns HTTP 422.
 
 **Response:**
 
@@ -552,6 +690,30 @@ The CI pipeline enforces a minimum **80% code coverage** threshold via `--fail-u
 ### Cross-Platform Rust CI
 
 Rust compilation, linting (`cargo clippy`), formatting (`cargo fmt --check`), and unit tests (`cargo test`) run on a three-OS matrix: **ubuntu-latest**, **macos-latest**, and **windows-latest**. This catches platform-specific issues in the PyO3 bridge, system-dependent FFI behavior, and C-library linking differences before they reach users.
+
+### Security Scanning
+
+The CI pipeline includes a dedicated `security` job that audits both Python and Rust dependencies for known vulnerabilities on every push and PR to `main`.
+
+- **Python**: `pip-audit --strict` checks all installed packages against the OSV database and fails on any known CVE.
+- **Rust**: `cargo audit` checks `Cargo.lock` against the RustSec Advisory Database and fails on any advisory.
+
+Both tools run in `--strict` mode, meaning the CI job fails if *any* vulnerability is found. To resolve failures:
+
+1. Check the audit output for the affected package and advisory ID.
+2. Upgrade the dependency to a patched version, or add an exclusion if a fix is not yet available and the risk is accepted.
+3. For `pip-audit`, use `pip-audit --ignore-vuln PYSEC-XXXX-YYYY` to exclude false positives.
+4. For `cargo audit`, add `[advisories.ignore]` entries to `.cargo/audit.toml`.
+
+### Docker HEALTHCHECK
+
+The production Dockerfile (`server/Dockerfile`) includes a `HEALTHCHECK` directive that uses `curl` to probe `/api/health` every 30 seconds. Docker marks the container as **unhealthy** after 3 consecutive failures (5-second timeout each). The `docker-compose.yml` file also includes a matching healthcheck so that `docker compose ps` reflects container health status.
+
+Use container health status for:
+
+- Load balancer health probes
+- Orchestrator restart policies (e.g., Kubernetes `livenessProbe`)
+- Monitoring dashboards and alerting
 
 ### Release Smoke Testing
 

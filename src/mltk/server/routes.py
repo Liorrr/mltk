@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from mltk.report.summarizer import summarize_test_history
 from mltk.server.auth import require_api_key
@@ -12,11 +12,29 @@ from mltk.server.webhooks import send_webhook, should_fire, validate_webhook_url
 router = APIRouter()
 
 
+class ResultItem(BaseModel):
+    """A single test result within a run submission."""
+
+    name: str
+    passed: bool
+    severity: str = "info"
+    message: str = ""
+    details: dict = {}  # type: ignore[type-arg]
+    duration_ms: float = 0.0
+
+
 class SubmitRunRequest(BaseModel):
     """Payload for submitting a completed test run."""
 
     project: str = "default"
-    results: list[dict]  # type: ignore[type-arg]
+    results: list[ResultItem]
+
+    @field_validator("results")
+    @classmethod
+    def limit_results(cls, v: list[ResultItem]) -> list[ResultItem]:
+        if len(v) > 10_000:
+            raise ValueError("Maximum 10,000 results per run")
+        return v
 
 
 class WebhookCreateRequest(BaseModel):
@@ -31,6 +49,32 @@ class WebhookCreateRequest(BaseModel):
 async def health() -> dict:  # type: ignore[type-arg]
     """Health check endpoint."""
     return {"status": "ok", "service": "mltk-server"}
+
+
+@router.get("/health/live")
+async def health_live() -> dict:  # type: ignore[type-arg]
+    """Liveness probe — confirms the process is alive.
+
+    Use for Kubernetes ``livenessProbe``. This always returns 200 if
+    the server process is running, regardless of database state.
+    """
+    return {"status": "alive"}
+
+
+@router.get("/health/ready")
+async def health_ready(request: Request) -> dict:  # type: ignore[type-arg]
+    """Readiness probe — confirms the server can serve traffic.
+
+    Use for Kubernetes ``readinessProbe``. Verifies the database is
+    accessible by executing a lightweight query. Returns 503 if the
+    database is unreachable.
+    """
+    storage = request.app.state.storage
+    try:
+        storage.get_runs(limit=1)
+        return {"status": "ready"}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Database not ready") from exc
 
 
 @router.post("/runs")
@@ -52,11 +96,12 @@ async def submit_run(
             f"cannot write to '{req.project}'",
         )
     storage = request.app.state.storage
-    run_id = storage.save_run(req.project, req.results)
+    results_dicts = [r.model_dump() for r in req.results]
+    run_id = storage.save_run(req.project, results_dicts)
 
     # Build run summary for webhook evaluation
     total = len(req.results)
-    passed = sum(1 for r in req.results if r.get("passed", False))
+    passed = sum(1 for r in req.results if r.passed)
     failed = total - passed
     run_summary = {"run_id": run_id, "project": req.project, "passed": passed, "failed": failed}
 
