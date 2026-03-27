@@ -2,6 +2,7 @@
 
 from mltk.testing.flaky import FlakySummary, detect_flaky
 from mltk.testing.golden import assert_matches_golden, load_golden, save_golden
+from mltk.testing.impact import analyze_impact, assert_impact_coverage
 from mltk.testing.retry import RetryResult, retry_until_confident
 from mltk.testing.selection import build_test_map, select_affected_tests
 
@@ -19,4 +20,7 @@ __all__ = [
     # selection
     "build_test_map",
     "select_affected_tests",
+    # impact analysis
+    "analyze_impact",
+    "assert_impact_coverage",
 ]

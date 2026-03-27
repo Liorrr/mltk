@@ -452,3 +452,188 @@ class TestEdgeCases:
         with pytest.raises(MltkAssertionError) as exc:
             assert_synthetic_novelty(real, synth)
         assert "No shared columns" in str(exc.value)
+
+
+# ===========================================================================
+# Hardening: parametrized, edge-case, and integration tests (S-hardening)
+# ===========================================================================
+
+
+class TestMarginalFidelityHardening:
+    """Parametrized and edge-case coverage for marginal fidelity."""
+
+    @pytest.mark.parametrize(
+        ("dist_fn", "dist_kwargs"),
+        [
+            ("normal", {"loc": 0, "scale": 1}),
+            ("uniform", {"low": 0, "high": 1}),
+            ("exponential", {"scale": 1.0}),
+        ],
+        ids=["normal", "uniform", "exponential"],
+    )
+    def test_same_distribution_various_types(
+        self, dist_fn: str, dist_kwargs: dict
+    ) -> None:
+        """PASS: Marginal fidelity passes when real and synthetic are drawn
+        from the same distribution family.
+
+        Tests normal, uniform, and exponential distributions to ensure the
+        KS test generalizes across distribution shapes.
+        """
+        rng_real = np.random.default_rng(42)
+        rng_synth = np.random.default_rng(99)
+        real = pd.Series(getattr(rng_real, dist_fn)(size=1000, **dist_kwargs))
+        synth = pd.Series(getattr(rng_synth, dist_fn)(size=1000, **dist_kwargs))
+        result = assert_marginal_fidelity(real, synth)
+        assert result.passed is True
+        assert result.details["statistic"] < 0.1
+
+
+class TestDCRHardening:
+    """Edge-case coverage for DCR safety."""
+
+    def test_identical_data_fails(self) -> None:
+        """FAIL: DCR with identical real and synthetic data should fail.
+
+        WHY: If synthetic == real, distance is 0 for every record, which is
+        the worst possible privacy outcome. min_dcr > 0 must reject this.
+        """
+        rng = np.random.default_rng(42)
+        df = pd.DataFrame({
+            "x": rng.normal(0, 1, 50),
+            "y": rng.normal(0, 1, 50),
+        })
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_dcr_safe(df, df.copy(), min_dcr=0.01)
+        assert "DCR too low" in str(exc.value)
+
+
+class TestCorrelationHardening:
+    """Edge-case coverage for correlation preservation."""
+
+    def test_perfectly_uncorrelated_data(self) -> None:
+        """PASS: Uncorrelated real and synthetic data should still pass when
+        both are independently drawn.
+
+        WHY: If columns in the real data are uncorrelated, the synthetic data
+        should also show near-zero correlations, and the delta should be small.
+        """
+        rng_real = np.random.default_rng(42)
+        rng_synth = np.random.default_rng(99)
+        real = pd.DataFrame({
+            "a": rng_real.normal(0, 1, 500),
+            "b": rng_real.normal(0, 1, 500),
+            "c": rng_real.normal(0, 1, 500),
+        })
+        synth = pd.DataFrame({
+            "a": rng_synth.normal(0, 1, 500),
+            "b": rng_synth.normal(0, 1, 500),
+            "c": rng_synth.normal(0, 1, 500),
+        })
+        result = assert_correlation_preserved(real, synth, max_delta=0.15)
+        assert result.passed is True
+
+
+class TestNoveltyHardening:
+    """Edge-case coverage for synthetic novelty."""
+
+    def test_novelty_with_nan_values(self) -> None:
+        """EDGE: DataFrames containing NaN in every row should not crash.
+
+        WHY: Real-world data often has missing values. When every row has
+        at least one NaN, the merge-based copy detection may treat them
+        as non-copies (NaN != NaN in pandas). The assertion must not crash
+        regardless of NaN placement.
+        """
+        real = pd.DataFrame({"a": [np.nan, np.nan, np.nan], "b": [4.0, 5.0, 6.0]})
+        synth = pd.DataFrame({"a": [np.nan, np.nan, np.nan], "b": [7.0, 8.0, 9.0]})
+        # Different 'b' values, NaN in 'a' -- should pass (no exact copies)
+        result = assert_synthetic_novelty(real, synth)
+        assert result.passed is True
+        assert result.details["n_copies"] == 0
+
+
+class TestSyntheticPerformance:
+    """Performance tests for synthetic data assertions."""
+
+    def test_large_dataframe_marginal_fidelity(self) -> None:
+        """PERF: Marginal fidelity on 1000-row series completes without issue.
+
+        WHY: Validates the KS test handles moderately large data sizes
+        without performance degradation or memory issues.
+        """
+        rng = np.random.default_rng(42)
+        real = pd.Series(rng.normal(0, 1, 1000))
+        synth = pd.Series(np.random.default_rng(99).normal(0, 1, 1000))
+        result = assert_marginal_fidelity(real, synth)
+        assert result.passed is True
+        assert result.details["n_real"] == 1000
+        assert result.details["n_synthetic"] == 1000
+
+    def test_large_dataframe_novelty(self) -> None:
+        """PERF: Novelty check on 1000-row DataFrames completes without issue."""
+        rng_real = np.random.default_rng(42)
+        rng_synth = np.random.default_rng(99)
+        real = pd.DataFrame({
+            "a": rng_real.normal(0, 1, 1000),
+            "b": rng_real.normal(0, 1, 1000),
+        })
+        synth = pd.DataFrame({
+            "a": rng_synth.normal(100, 1, 1000),
+            "b": rng_synth.normal(100, 1, 1000),
+        })
+        result = assert_synthetic_novelty(real, synth)
+        assert result.passed is True
+        assert result.details["n_copies"] == 0
+
+    def test_large_dataframe_dcr(self) -> None:
+        """PERF: DCR on 1000-row DataFrames completes without issue."""
+        rng_real = np.random.default_rng(42)
+        rng_synth = np.random.default_rng(99)
+        real = pd.DataFrame({
+            "x": rng_real.normal(0, 1, 1000),
+            "y": rng_real.normal(0, 1, 1000),
+        })
+        synth = pd.DataFrame({
+            "x": rng_synth.normal(100, 1, 1000),
+            "y": rng_synth.normal(100, 1, 1000),
+        })
+        result = assert_dcr_safe(real, synth, min_dcr=0.01)
+        assert result.passed is True
+
+
+class TestDetailFieldTypes:
+    """Verify that assertion result detail fields have correct types."""
+
+    def test_marginal_fidelity_detail_types(self) -> None:
+        """All detail fields from marginal_fidelity have correct Python types."""
+        rng = np.random.default_rng(42)
+        real = pd.Series(rng.normal(0, 1, 500))
+        synth = pd.Series(np.random.default_rng(99).normal(0, 1, 500))
+        result = assert_marginal_fidelity(real, synth)
+        d = result.details
+        assert isinstance(d["statistic"], float)
+        assert isinstance(d["n_real"], int)
+        assert isinstance(d["n_synthetic"], int)
+        assert isinstance(d["method"], str)
+
+    def test_novelty_detail_types(self) -> None:
+        """All detail fields from novelty have correct Python types."""
+        real = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        synth = pd.DataFrame({"a": [7, 8, 9], "b": [10, 11, 12]})
+        result = assert_synthetic_novelty(real, synth)
+        d = result.details
+        assert isinstance(d["copy_rate"], float)
+        assert isinstance(d["n_copies"], int)
+        assert isinstance(d["n_synthetic"], int)
+
+    def test_dcr_detail_types(self) -> None:
+        """All detail fields from DCR have correct Python types."""
+        rng = np.random.default_rng(42)
+        real = pd.DataFrame({"x": rng.normal(0, 1, 50)})
+        synth = pd.DataFrame({"x": rng.normal(100, 1, 50)})
+        result = assert_dcr_safe(real, synth, min_dcr=0.01)
+        d = result.details
+        assert isinstance(d["median_dcr"], float)
+        assert isinstance(d["p5_dcr"], float)
+        assert isinstance(d["n_sampled"], int)

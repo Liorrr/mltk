@@ -440,6 +440,46 @@ Assertions for reproducibility and end-to-end pipeline validation.
 
 ---
 
+## ML Platform Integrations (S57)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 119 | `assert_kubeflow_pipeline_success` | `mltk.integrations.kubeflow` | Verify KFP pipeline run succeeded | v0.8.0 |
+| 120 | `assert_kubeflow_step_outputs` | `mltk.integrations.kubeflow` | Verify pipeline step produced expected artifacts | v0.8.0 |
+| 121 | `assert_sagemaker_pipeline_success` | `mltk.integrations.sagemaker_pipeline` | Verify SageMaker pipeline execution succeeded | v0.8.0 |
+| 122 | `assert_sagemaker_step_status` | `mltk.integrations.sagemaker_pipeline` | Verify SageMaker pipeline step status | v0.8.0 |
+| 123 | `assert_dvc_file_tracked` | `mltk.integrations.dvc` | Verify file is tracked by DVC | v0.8.0 |
+| 124 | `assert_dvc_data_version` | `mltk.integrations.dvc` | Verify DVC file hash matches expected | v0.8.0 |
+
+## Enterprise (S58)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 125 | `assert_audit_log_complete` | `mltk.server.audit_log` | Verify required actions appear in audit trail | v0.8.0 |
+| 126 | `assert_hipaa_coverage` | `mltk.compliance.hipaa` | Verify test results cover HIPAA rules | v0.8.0 |
+| 127 | `assert_custom_coverage` | `mltk.compliance.custom` | Verify results cover a custom YAML compliance framework | v0.8.0 |
+
+## Advanced ML Testing (S59)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 128 | `assert_counterfactual_fairness` | `mltk.model.counterfactual` | Per-sample fairness via protected attribute perturbation | v0.8.0 |
+| 129 | `assert_ate_significant` | `mltk.model.causal` | Average Treatment Effect statistical significance | v0.8.0 |
+| 130 | `assert_no_confounding` | `mltk.model.causal` | Detect treatment-feature correlations (confounders) | v0.8.0 |
+| 131 | `assert_image_text_alignment` | `mltk.domains.multimodal` | Verify CLIP-style image-text embedding alignment | v0.8.0 |
+| 132 | `assert_cross_modal_consistency` | `mltk.domains.multimodal` | Verify cross-modality prediction agreement | v0.8.0 |
+| 133 | `assert_reward_bounded` | `mltk.domains.rl` | Verify RL rewards within expected bounds | v0.8.0 |
+| 134 | `assert_cumulative_reward` | `mltk.domains.rl` | Verify RL episode cumulative reward meets threshold | v0.8.0 |
+
+## Observability (S60)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 135 | `assert_no_test_anomaly` | `mltk.monitor.anomaly` | Detect anomalous test metrics (Z-score/IQR/percentile) | v0.8.0 |
+| 136 | `assert_impact_coverage` | `mltk.testing.impact` | Verify all impacted tests were executed after code changes | v0.8.0 |
+
+---
+
 ## Core
 
 | # | Assertion | Module | Description | Since |

@@ -449,3 +449,172 @@ class TestEdgeCases:
         result = assert_no_streaming_drift([], method="cusum", target_mean=0.0)
         assert result.passed is True
         assert result.details["drift_point"] == -1
+
+
+# ---------------------------------------------------------------------------
+# Hardening: parametrized, edge-case, and integration tests (S-hardening)
+# ---------------------------------------------------------------------------
+
+
+class TestADWINParametrizedDelta:
+    """Parametrized ADWIN tests across a range of delta values."""
+
+    @pytest.mark.parametrize(
+        "delta",
+        [0.001, 0.01, 0.1, 0.5, 0.99],
+        ids=["very_strict", "strict", "moderate", "loose", "very_loose"],
+    )
+    def test_adwin_stable_stream_various_deltas(self, delta: float) -> None:
+        """PASS: A stable stream should not trigger drift at any delta value.
+
+        WHY: With data from a single distribution N(0, 0.1), no delta value
+        should cause a false positive when the stream is stationary.
+        """
+        rng = np.random.default_rng(42)
+        det = ADWINDetector(delta=delta, min_window=30)
+        for val in rng.normal(0.0, 0.1, 500):
+            det.update(float(val))
+        assert det.drift_detected is False
+
+
+class TestCUSUMParametrizedThreshold:
+    """Parametrized CUSUM tests across a range of thresholds."""
+
+    @pytest.mark.parametrize(
+        "threshold",
+        [2.0, 5.0, 10.0],
+        ids=["low_threshold", "default_threshold", "high_threshold"],
+    )
+    def test_cusum_abrupt_shift_detected_at_various_thresholds(
+        self, threshold: float
+    ) -> None:
+        """FAIL: A jump from mean=0 to mean=10 is detected at all thresholds.
+
+        WHY: A 10-unit mean shift is massive; even the strictest threshold (10.0)
+        should eventually detect it given enough shifted samples.
+        """
+        det = CUSUMDetector(threshold=threshold, drift_level=0.5, target_mean=0.0)
+        for _ in range(50):
+            det.update(0.0)
+        detected = False
+        for _ in range(100):
+            if det.update(10.0):
+                detected = True
+                break
+        assert detected is True
+        assert det.drift_detected is True
+
+
+class TestStreamingDriftHardening:
+    """Additional coverage for streaming drift detectors."""
+
+    def test_adwin_sinusoidal_no_drift(self) -> None:
+        """PASS: ADWIN on a high-frequency sinusoidal signal with small amplitude
+        should not detect drift.
+
+        WHY: A small-amplitude rapid sine wave centered at 0 is effectively
+        stationary noise. With a conservative delta and large min_window,
+        ADWIN should not interpret oscillation as a distributional shift.
+        """
+        t = np.linspace(0, 200 * np.pi, 1000)
+        # Small amplitude so sub-window means are always close to 0
+        stream = 0.05 * np.sin(t)
+        det = ADWINDetector(delta=0.001, min_window=100)
+        for val in stream:
+            det.update(float(val))
+        assert det.drift_detected is False
+
+    def test_cusum_linearly_increasing_drift(self) -> None:
+        """FAIL: CUSUM on linearly increasing data should detect drift.
+
+        WHY: A linear ramp from 0 to 10 causes cumulative deviation from
+        target_mean=0 to grow continuously, crossing the threshold.
+        """
+        stream = np.linspace(0.0, 10.0, 300)
+        det = CUSUMDetector(threshold=5.0, drift_level=0.5, target_mean=0.0)
+        detected = False
+        for val in stream:
+            if det.update(float(val)):
+                detected = True
+                break
+        assert detected is True
+
+    def test_large_stream_no_crash(self) -> None:
+        """PERF: 10,000 elements should complete without crashing or hanging.
+
+        WHY: Production streams can be large. The detector must handle them
+        efficiently without memory or performance issues. We use very low
+        variance so ADWIN does not trigger false drift.
+        """
+        rng = np.random.default_rng(55)
+        stream = rng.normal(0.0, 0.01, 10_000)
+        result = assert_no_streaming_drift(
+            stream.tolist(), method="adwin", delta=0.001, min_window=50,
+        )
+        # Just verify it completes and returns a result
+        assert result.details["n_observations"] == 10_000
+
+    def test_large_stream_cusum_no_crash(self) -> None:
+        """PERF: 10,000 elements through CUSUM completes without error."""
+        rng = np.random.default_rng(56)
+        stream = rng.normal(5.0, 0.5, 10_000)
+        result = assert_no_streaming_drift(
+            stream.tolist(), method="cusum", target_mean=5.0, threshold=5.0,
+        )
+        assert result.details["n_observations"] == 10_000
+        assert result.passed is True
+
+    def test_adwin_window_size_decreases_after_drift(self) -> None:
+        """After drift detection, ADWIN's window_size should be smaller than
+        total observations fed.
+
+        WHY: ADWIN drops the older sub-window when drift is detected. The
+        remaining window should be strictly smaller than the total count.
+        """
+        rng = np.random.default_rng(77)
+        det = ADWINDetector(delta=0.002, min_window=30)
+        # 300 stable, then 300 shifted -- guaranteed drift
+        stable = rng.normal(0.0, 0.1, 300)
+        shifted = rng.normal(10.0, 0.1, 300)
+        total_fed = 0
+        for val in np.concatenate([stable, shifted]):
+            det.update(float(val))
+            total_fed += 1
+        assert det.drift_detected is True
+        assert det.window_size < total_fed
+
+    def test_cusum_drift_detected_matches_update_return(self) -> None:
+        """drift_detected property must be True once update() returned True.
+
+        WHY: The property and the return value are two interfaces to the same
+        state. They must agree at all times.
+        """
+        det = CUSUMDetector(threshold=4.0, drift_level=0.5, target_mean=0.0)
+        update_returned_true = False
+        for _ in range(50):
+            det.update(0.0)
+        for _ in range(50):
+            if det.update(10.0):
+                update_returned_true = True
+                break
+        assert update_returned_true is True
+        assert det.drift_detected is True
+
+    def test_adwin_drift_detected_matches_update_return(self) -> None:
+        """drift_detected property must be True once update() returned True.
+
+        WHY: Same consistency check as CUSUM -- ensures interface contract.
+        """
+        rng = np.random.default_rng(88)
+        det = ADWINDetector(delta=0.01, min_window=20)
+        update_returned_true = False
+        stream = np.concatenate([
+            rng.normal(0.0, 0.1, 200),
+            rng.normal(10.0, 0.1, 200),
+        ])
+        for val in stream:
+            if det.update(float(val)):
+                update_returned_true = True
+                break
+        assert update_returned_true is True
+        assert det.drift_detected is True

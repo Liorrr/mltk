@@ -8,10 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- GitHub App integration — webhook signature verification (HMAC-SHA256), check run creation with annotations, app auth (JWT → installation token)
-- OpenTelemetry integration — `MltkTracer` with real/no-op modes, `trace_result`, `trace_suite`, `export_json` (works without OTEL installed)
-- `otel` optional dependency extra (`pip install mltk[otel]`)
-- TestPyPI verification step in release workflow
+
+#### Integrations (S56-S57)
+- GitHub App — webhook HMAC-SHA256 verification, check run creation, app auth (JWT → installation token)
+- OpenTelemetry — `MltkTracer` (real/no-op modes), `trace_result`, `trace_suite`, `export_json`
+- Weights & Biases — `WandbLogger` (log_result, log_suite, W&B Tables)
+- DVC — `assert_dvc_file_tracked`, `assert_dvc_data_version`
+- Kubeflow — `assert_kubeflow_pipeline_success`, `assert_kubeflow_step_outputs`
+- SageMaker — `assert_sagemaker_pipeline_success`, `assert_sagemaker_step_status`
+- Grafana — dashboard JSON export, provisioning YAML, 4-panel dashboard template
+
+#### Enterprise (S58)
+- RBAC — role-based access control (admin/writer/reader) for mltk server
+- Audit log — SOC 2 compliant action logging with CSV export + `assert_audit_log_complete`
+- HIPAA compliance mapping (4 rules) with `assert_hipaa_coverage`
+- Custom compliance framework builder (YAML-driven)
+
+#### Advanced ML Testing (S59)
+- `assert_counterfactual_fairness` — per-sample fairness via attribute perturbation
+- `assert_ate_significant` — Average Treatment Effect significance (pure numpy t-test)
+- `assert_no_confounding` — detect treatment-feature correlations
+- `assert_image_text_alignment` — multimodal CLIP-style alignment check
+- `assert_cross_modal_consistency` — cross-modality prediction agreement
+- `assert_reward_bounded`, `assert_cumulative_reward` — RL reward validation
+
+#### Observability (S60)
+- `assert_no_test_anomaly` — Z-score/IQR/percentile anomaly detection on test metrics
+- `assert_impact_coverage` — verify all impacted tests were executed
+- `analyze_impact` — import dependency graph for test impact analysis
+- `TestScheduler` — periodic test run scheduling with webhook notifications
+- Live monitoring portal — self-contained HTML with real-time polling (no CDN deps)
+
+#### Test Hardening (S57)
+- 40 new parametrized + edge-case tests across safety, drift, synthetic, conformal modules
 
 ## [0.7.0] — 2026-03-27
 

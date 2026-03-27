@@ -155,7 +155,7 @@ Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, 
 
 ## Project Status
 
-mltk is at **v0.6.0** (beta). Core modules are stable and tested. See the [changelog](https://github.com/Liorrr/mltk/releases) for release notes.
+mltk is at **v0.7.0** (beta). Core modules are stable and tested with 156 assertions and 1,476 tests. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes.
 
 ## License
 

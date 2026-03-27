@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S56: 156 assertions, 1476 tests, 38 Rust tests)
+## DONE (S0-S60: 174 assertions, 1687 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -80,13 +80,18 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S54: Extended agentic (redundant, hallucinated, cost, recovery) + multi-agent (loop, handoff) — **150 ASSERTION MILESTONE**
 - [x] S55: Advanced conformal (calibration + conditional coverage), v0.7.0 release, README update, TestPyPI
 - [x] S56: GitHub App integration (webhook, check runs, app auth) + OpenTelemetry (MltkTracer, export_json)
+- [x] S57: ML platform integrations (Kubeflow, SageMaker, W&B, DVC) + test hardening (+40 tests) + gap research
+- [x] S58: Enterprise (RBAC, audit log, HIPAA, custom compliance builder)
+- [x] S59: Advanced ML (counterfactual fairness, causal inference, multimodal, RL)
+- [x] S60: Observability (test impact, anomaly detection, Grafana, live portal, scheduler) — **v0.8.0**
 
 ---
 
 ## BACKLOG (not yet scheduled)
 
 ### Integrations
-- [ ] GitHub App for auto-running mltk on PRs
+- [x] GitHub App for auto-running mltk on PRs
+- [ ] Create GitHub Releases (v0.1.0-v0.7.0) when stealth mode ends
 
 ### Advanced Features
 - [ ] Test impact analysis (dependency graph)

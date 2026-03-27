@@ -905,4 +905,29 @@ quality:
         """Return integer percentage, avoiding division by zero."""
         return round(covered * 100 / total) if total > 0 else 0
 
+    @app.command()
+    def grafana_export(
+        output: str = "mltk-grafana-dashboard.json",
+        datasource: str = "mltk-sqlite",
+        title: str = "mltk Test Results",
+    ) -> None:
+        """Export a Grafana dashboard JSON for mltk metrics.
+
+        Generates a 4-panel dashboard (pass/fail trend, duration heatmap,
+        failure rate by module, latest run summary) that can be imported
+        into any Grafana instance.
+
+        Args:
+            output: Output file path for the dashboard JSON.
+            datasource: Grafana datasource name.
+            title: Dashboard title.
+        """
+        from mltk.integrations.grafana import export_grafana_dashboard
+
+        path = export_grafana_dashboard(
+            output_path=output,
+            datasource=datasource,
+        )
+        print(f"Grafana dashboard exported: {path}")  # noqa: T201
+
     app()

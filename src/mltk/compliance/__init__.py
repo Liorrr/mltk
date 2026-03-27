@@ -1,8 +1,10 @@
-"""Compliance — EU AI Act, NIST AI RMF, ISO 42001, OWASP LLM Top 10, FDA, PDF."""
+"""Compliance — EU AI Act, NIST AI RMF, ISO 42001, OWASP, FDA, HIPAA, Custom, PDF."""
 
 from mltk.compliance.eu_ai_act import classify_risk, find_gaps, map_results_to_articles
 from mltk.compliance.fda import generate_fda_audit_trail
 from mltk.compliance.generator import generate_compliance_report
+from mltk.compliance.hipaa import assert_hipaa_coverage
+from mltk.compliance.hipaa import find_gaps as find_hipaa_gaps
 from mltk.compliance.iso_42001 import (
     assert_iso_42001_coverage,
     map_results_to_clauses,
@@ -42,4 +44,7 @@ __all__ = [
     "assert_iso_42001_coverage",
     "find_iso_42001_gaps",
     "map_results_to_clauses",
+    # HIPAA
+    "assert_hipaa_coverage",
+    "find_hipaa_gaps",
 ]

@@ -363,3 +363,168 @@ class TestPredictionSetSizeEdgeCases:
         sets = [{"a"}, {"b"}]
         result = assert_prediction_set_size(sets, max_avg_size=5.0)
         assert result.duration_ms >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# Hardening: parametrized, edge-case, and integration tests (S-hardening)
+# ---------------------------------------------------------------------------
+
+
+class TestIntervalCoverageParametrized:
+    """Parametrized interval coverage tests across target levels."""
+
+    @pytest.mark.parametrize(
+        "target_coverage",
+        [0.5, 0.7, 0.8, 0.9, 0.95],
+        ids=["50pct", "70pct", "80pct", "90pct", "95pct"],
+    )
+    def test_perfect_coverage_at_various_targets(
+        self, target_coverage: float
+    ) -> None:
+        """PASS: 100% empirical coverage passes at every target level.
+
+        WHY: If every true value is inside its interval, empirical coverage
+        is 1.0 which always exceeds any target <= 1.0.
+        """
+        rng = np.random.default_rng(42)
+        n = 100
+        y_true = rng.normal(0, 1, n)
+        y_lower = y_true - 2.0
+        y_upper = y_true + 2.0
+        result = assert_interval_coverage(
+            y_true, y_lower, y_upper, target_coverage=target_coverage,
+        )
+        assert result.passed is True
+        assert result.details["empirical_coverage"] == pytest.approx(1.0)
+        assert result.details["target_coverage"] == target_coverage
+
+
+class TestPredictionSetSizeHardening:
+    """Additional edge cases for prediction set size."""
+
+    def test_nested_lists_different_lengths(self) -> None:
+        """PASS: Sets of varying sizes are handled correctly.
+
+        WHY: Real conformal classifiers produce sets of different sizes
+        depending on input confidence. The assertion must compute the
+        average over heterogeneous set sizes.
+        """
+        sets = [
+            ["a"],
+            ["a", "b", "c", "d", "e"],
+            ["a", "b"],
+            [],
+            ["a", "b", "c"],
+        ]
+        result = assert_prediction_set_size(
+            sets, max_avg_size=5.0, max_empty_frac=0.5,
+        )
+        assert result.passed is True
+        # avg = (1 + 5 + 2 + 0 + 3) / 5 = 2.2
+        assert result.details["avg_size"] == pytest.approx(2.2)
+        assert result.details["max_size"] == pytest.approx(5.0)
+        assert result.details["min_size"] == pytest.approx(0.0)
+        assert result.details["empty_count"] == 1
+
+
+class TestConformalPerformance:
+    """Performance tests for conformal prediction assertions."""
+
+    def test_large_arrays_interval_coverage(self) -> None:
+        """PERF: 10,000 element arrays complete without error.
+
+        WHY: Production conformal prediction often produces thousands of
+        intervals. The assertion must handle this without performance issues.
+        """
+        rng = np.random.default_rng(42)
+        n = 10_000
+        y_true = rng.normal(0, 1, n)
+        y_lower = y_true - 1.5
+        y_upper = y_true + 1.5
+        result = assert_interval_coverage(
+            y_true, y_lower, y_upper, target_coverage=0.9,
+        )
+        assert result.passed is True
+        assert result.details["n_total"] == 10_000
+        assert result.details["empirical_coverage"] == pytest.approx(1.0)
+
+    def test_large_arrays_prediction_set_size(self) -> None:
+        """PERF: 10,000 regression widths complete without error."""
+        rng = np.random.default_rng(42)
+        widths = rng.uniform(0.5, 3.0, 10_000)
+        result = assert_prediction_set_size(widths, max_avg_size=5.0)
+        assert result.passed is True
+        assert result.details["n_sets"] == 10_000
+
+
+class TestConformalEdgeCasesHardening:
+    """Additional edge cases for conformal assertions."""
+
+    def test_nan_in_y_true(self) -> None:
+        """EDGE: NaN in y_true should produce coverage < 1.0.
+
+        WHY: NaN comparisons return False in numpy, so NaN values are never
+        covered by any interval. The assertion should not crash; it should
+        count NaN entries as uncovered.
+        """
+        y_true = np.array([1.0, np.nan, 3.0, 4.0, 5.0])
+        y_lower = np.array([0.5, 0.5, 2.5, 3.5, 4.5])
+        y_upper = np.array([1.5, 1.5, 3.5, 4.5, 5.5])
+        result = assert_interval_coverage(
+            y_true, y_lower, y_upper, target_coverage=0.5, tolerance=0.3,
+        )
+        # 4 out of 5 covered (NaN is not covered)
+        assert result.details["empirical_coverage"] == pytest.approx(0.8)
+        assert result.details["n_covered"] == 4
+
+    def test_negative_interval_widths(self) -> None:
+        """EDGE: When y_lower > y_upper, no point can be covered.
+
+        WHY: Inverted intervals (lower bound above upper bound) are
+        mathematically empty sets. Coverage should be 0% and the assertion
+        should fail at any non-zero target.
+        """
+        y_true = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y_lower = np.array([10.0, 20.0, 30.0, 40.0, 50.0])  # higher than y_upper
+        y_upper = np.array([0.0, 0.0, 0.0, 0.0, 0.0])        # lower than y_lower
+        with pytest.raises(MltkAssertionError):
+            assert_interval_coverage(
+                y_true, y_lower, y_upper, target_coverage=0.9,
+            )
+
+    def test_integer_arrays(self) -> None:
+        """PASS: Integer arrays are accepted and produce correct coverage.
+
+        WHY: Users may pass integer labels or counts. The assertion must
+        handle int dtype via np.asarray conversion without error.
+        """
+        y_true = np.array([1, 2, 3, 4, 5])
+        y_lower = np.array([0, 1, 2, 3, 4])
+        y_upper = np.array([2, 3, 4, 5, 6])
+        result = assert_interval_coverage(
+            y_true, y_lower, y_upper, target_coverage=0.9,
+        )
+        assert result.passed is True
+        assert result.details["empirical_coverage"] == pytest.approx(1.0)
+        assert result.details["avg_width"] == pytest.approx(2.0)
+
+    def test_coverage_boundary_with_tolerance(self) -> None:
+        """PASS: Coverage exactly at (target - tolerance) passes.
+
+        WHY: The threshold is inclusive (>=), so empirical coverage that exactly
+        equals target_coverage - tolerance should pass.
+        """
+        # 8 out of 10 covered = 0.80 == 0.90 - 0.10
+        y_true = np.arange(10, dtype=float)
+        y_lower = y_true - 0.5
+        y_upper = y_true + 0.5
+        # Move 2 intervals far away
+        y_lower[0] = 100.0
+        y_upper[0] = 101.0
+        y_lower[1] = 100.0
+        y_upper[1] = 101.0
+        result = assert_interval_coverage(
+            y_true, y_lower, y_upper, target_coverage=0.9, tolerance=0.1,
+        )
+        assert result.passed is True
+        assert result.details["empirical_coverage"] == pytest.approx(0.8)

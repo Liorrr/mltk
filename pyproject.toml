@@ -103,6 +103,9 @@ src = ["src"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "PT"]
 
+[tool.ruff.lint.per-file-ignores]
+"src/mltk/server/portal.py" = ["E501"]  # embedded HTML/JS template
+
 [tool.mypy]
 python_version = "3.10"
 strict = true

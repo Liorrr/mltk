@@ -93,7 +93,7 @@ assert_no_hallucination(claims, sources, method="keyword_overlap")
 Assert that an LLM does not reveal its system prompt when probed with adversarial extraction payloads. Uses token overlap between model responses and the actual system prompt to detect leakage.
 
 !!! warning "Smoke Test"
-    This is a smoke test with 34 built-in payloads, not comprehensive security testing. For thorough red-teaming, use dedicated tools like [Garak](https://github.com/leondz/garak) or [Promptfoo](https://github.com/promptfoo/promptfoo).
+    This is a smoke test with 33 built-in payloads, not comprehensive security testing. For thorough red-teaming, use dedicated tools like [Garak](https://github.com/leondz/garak) or [Promptfoo](https://github.com/promptfoo/promptfoo).
 
 ```python
 from mltk.domains.llm import assert_no_system_prompt_leakage
@@ -115,7 +115,7 @@ assert_no_system_prompt_leakage(
 |------|------|---------|-------------|
 | `model_fn` | `Callable` | *(required)* | Function that takes a prompt string and returns a string response |
 | `system_prompt` | `str` | *(required)* | The actual system prompt to check for leakage |
-| `extraction_payloads` | `list[str] \| None` | `None` | Custom extraction prompts. None = 34 built-in payloads across 8 categories |
+| `extraction_payloads` | `list[str] \| None` | `None` | Custom extraction prompts. None = 33 built-in payloads across 8 categories |
 | `min_overlap_threshold` | `float` | `0.3` | Token overlap ratio above which a response is flagged as leaked |
 
 **OWASP mapping:** LLM06 (Sensitive Information Disclosure)

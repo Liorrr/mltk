@@ -1,4 +1,4 @@
-"""PM integrations — Jira, Linear, Asana, GitHub Issues, MLflow, Slack, OTEL."""
+"""Integrations — Jira, Linear, Asana, GitHub, MLflow, Slack, OTEL, W&B, DVC, Kubeflow, Grafana."""
 
 from mltk.integrations.adapter import IssueTrackerAdapter
 from mltk.integrations.asana_adapter import AsanaAdapter
@@ -10,6 +10,7 @@ from mltk.integrations.mlflow_logger import MlflowLogger
 from mltk.integrations.otel import MltkTracer
 from mltk.integrations.slack import format_slack_message, notify_slack
 from mltk.integrations.templates import render_ticket
+from mltk.integrations.wandb_adapter import WandbLogger
 
 __all__ = [
     "IssueTrackerAdapter",
@@ -19,6 +20,7 @@ __all__ = [
     "LinearAdapter",
     "MlflowLogger",
     "MltkTracer",
+    "WandbLogger",
     "TicketDecisionEngine",
     "format_slack_message",
     "notify_slack",

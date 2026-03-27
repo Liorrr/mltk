@@ -10,12 +10,17 @@ Self-hosted ML test result tracking — SonarQube for ML testing.
 
 The mltk server platform provides:
 
-- **Persistent storage** of test run history in SQLite
-- **Live dashboard** at `http://localhost:8080`
+- **Persistent storage** of test run history in SQLite (WAL mode, indexed)
+- **Live dashboard** at `http://localhost:8080` + **[live portal](portal-scheduler.md)** for real-time monitoring
 - **REST API** for submitting runs, querying trends, and comparing results
 - **Webhooks** for Slack/GitHub/PagerDuty alerting on failures
 - **GitHub CI integration** — PR comments and check runs
-- **API key authentication** for multi-project deployments
+- **[GitHub App](github-app.md)** — webhook-driven check runs with HMAC-SHA256 verification
+- **API key authentication** with **[RBAC](rbac-audit.md)** (admin/writer/reader roles)
+- **[Audit logging](rbac-audit.md)** — SOC 2 compliant action trail with CSV export
+- **[Scheduled test runs](portal-scheduler.md)** — periodic execution with webhook notifications
+- **[Grafana](grafana.md)** dashboard export for existing observability stacks
+- **[OpenTelemetry](otel.md)** tracing for per-assertion performance visibility
 
 ---
 

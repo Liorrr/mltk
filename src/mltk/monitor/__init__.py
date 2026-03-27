@@ -35,6 +35,7 @@ heavy optional dependencies. Import them directly when needed:
     from mltk.monitor.azure import assert_endpoint_latency
 """
 
+from mltk.monitor.anomaly import assert_no_test_anomaly
 from mltk.monitor.concept_drift import assert_no_concept_drift
 from mltk.monitor.drift_monitor import assert_no_degradation, assert_no_output_drift, assert_sla
 from mltk.monitor.gpu import assert_gpu_memory_local, assert_gpu_utilization_local
@@ -64,4 +65,5 @@ __all__ = [
     "ADWINDetector",
     "BaseDriftDetector",
     "CUSUMDetector",
+    "assert_no_test_anomaly",
 ]

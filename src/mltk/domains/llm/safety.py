@@ -186,7 +186,7 @@ def assert_no_system_prompt_leakage(
             response string.
         system_prompt: The actual system prompt to check against.
         extraction_payloads: Custom list of extraction prompts.
-            None = use the built-in 34-payload default set.
+            None = use the built-in 33-payload default set.
         min_overlap_threshold: Minimum token overlap ratio between response and
             system prompt to consider a leak (0.3 = 30%).
 

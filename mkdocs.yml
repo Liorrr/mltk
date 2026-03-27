@@ -67,6 +67,8 @@ nav:
       - Model Adversarial: api/model-adversarial.md
       - Conformal Prediction: api/conformal.md
       - Attribution Stability: api/attribution.md
+      - Counterfactual & Causal: api/counterfactual-causal.md
+      - Multimodal & RL: api/multimodal-rl.md
       - Inference Latency: api/inference-latency.md
       - Inference Throughput: api/inference-throughput.md
       - Inference Contract: api/inference-contract.md
@@ -86,11 +88,13 @@ nav:
       - Multi-Agent Testing: api/multi-agent.md
       - Text Noise Robustness: api/nlp-robustness.md
       - Training Bugs: api/training-bugs.md
+      - Test Impact & Anomaly: api/test-impact.md
   - Compliance & Integrations:
       - EU AI Act Compliance: api/eu-ai-act.md
       - NIST AI RMF: api/compliance-nist-rmf.md
       - ISO 42001: api/compliance-iso-42001.md
       - FDA Audit Trail: api/fda-audit.md
+      - HIPAA & Custom: api/hipaa-custom.md
       - Compliance PDF: api/compliance-pdf.md
       - Model Card Generator: api/model-card.md
       - Cloud Monitoring: api/cloud-monitoring.md
@@ -99,6 +103,13 @@ nav:
       - GitHub App: api/github-app.md
       - OpenTelemetry: api/otel.md
       - MLflow Integration: api/mlflow.md
+      - Weights & Biases: api/wandb.md
+      - DVC: api/dvc.md
+      - Kubeflow: api/kubeflow.md
+      - SageMaker Pipeline: api/sagemaker-pipeline.md
+      - Grafana: api/grafana.md
+      - RBAC & Audit Log: api/rbac-audit.md
+      - Portal & Scheduler: api/portal-scheduler.md
       - Jupyter Notebooks: api/jupyter.md
       - Resource Summarization: api/summarization.md
 
