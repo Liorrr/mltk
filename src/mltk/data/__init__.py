@@ -1,4 +1,4 @@
-"""Data quality testing — schema, distribution, drift, freshness, PII, labels, lineage."""
+"""Data quality — schema, distribution, drift, freshness, PII, labels, lineage, synthetic."""
 
 from mltk.data.distribution import assert_no_outliers, assert_range, assert_unique
 from mltk.data.drift import assert_no_drift
@@ -19,6 +19,12 @@ from mltk.data.statistics import (
     assert_column_median,
     assert_column_stdev,
     assert_quantiles,
+)
+from mltk.data.synthetic import (
+    assert_correlation_preserved,
+    assert_dcr_safe,
+    assert_marginal_fidelity,
+    assert_synthetic_novelty,
 )
 from mltk.data.validation import (
     assert_datetime_format,
@@ -59,4 +65,9 @@ __all__ = [
     # preset — one-call quality check
     "assert_data_quality",
     "data_quality_report",
+    # synthetic data quality
+    "assert_marginal_fidelity",
+    "assert_correlation_preserved",
+    "assert_synthetic_novelty",
+    "assert_dcr_safe",
 ]

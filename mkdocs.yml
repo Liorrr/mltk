@@ -59,6 +59,7 @@ nav:
       - Data PII: api/data-pii.md
       - Data Labels: api/data-labels.md
       - Data Statistics: api/data-statistics.md
+      - Synthetic Data: api/synthetic-data.md
       - Model Metrics: api/model-metrics.md
       - Model Regression: api/model-regression.md
       - Model Slicing: api/model-slicing.md
@@ -81,6 +82,7 @@ nav:
       - LLM Evaluation: api/llm.md
       - RAG, Agentic & Text Quality: api/rag-evaluation.md
       - Agent Trace Testing: api/agentic-trace.md
+      - Text Noise Robustness: api/nlp-robustness.md
       - Training Bugs: api/training-bugs.md
   - Compliance & Integrations:
       - EU AI Act Compliance: api/eu-ai-act.md

@@ -38,6 +38,15 @@ Assertions for validating DataFrame schema, distributions, freshness, and comple
 | 9 | `assert_no_drift` | `mltk.data.drift` | Detect distribution drift via KS, PSI, KL, Chi2, JS, Wasserstein, or auto | v0.1.0 |
 | 10 | `assert_no_embedding_drift` | `mltk.data.embedding_drift` | Detect embedding drift via cosine, euclidean, or MMD distance | v0.1.0 |
 
+### Synthetic Data Quality
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 11 | `assert_marginal_fidelity` | `mltk.data.synthetic` | Verify per-column distribution fidelity (KS/PSI) between real and synthetic | v0.7.0 |
+| 12 | `assert_correlation_preserved` | `mltk.data.synthetic` | Verify cross-column correlations match between real and synthetic | v0.7.0 |
+| 13 | `assert_synthetic_novelty` | `mltk.data.synthetic` | Verify synthetic rows are not exact copies of real records | v0.7.0 |
+| 14 | `assert_dcr_safe` | `mltk.data.synthetic` | Verify Distance to Closest Record meets privacy threshold | v0.7.0 |
+
 ### PII Detection
 
 | # | Assertion | Module | Description | Since |
@@ -243,6 +252,7 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 68 | `assert_no_prompt_injection` | `mltk.domains.nlp.security` | Test model resilience against prompt injection payloads | v0.1.0 |
 | 69 | `assert_sentiment_positive` | `mltk.domains.nlp.sentiment` | Verify positive sentiment ratio meets threshold | v0.5.0 |
 | 70 | `assert_no_sentiment_drift` | `mltk.domains.nlp.sentiment` | Detect sentiment distribution shift between reference and current texts | v0.5.0 |
+| 71 | `assert_text_robust` | `mltk.domains.nlp.robustness` | Verify NLP model prediction stability under text perturbations | v0.7.0 |
 
 ---
 

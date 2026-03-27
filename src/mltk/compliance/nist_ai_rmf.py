@@ -80,7 +80,13 @@ NIST_RMF_FUNCTIONS: dict[str, dict] = {
             "GV-1": "Policies and procedures",
             "GV-2": "Accountability structures",
         },
-        "assertions": ["data.pii", "data.schema", "model.bias"],
+        "assertions": [
+            "data.pii",
+            "data.schema",
+            "data.synthetic.dcr_safe",
+            "data.synthetic.novelty",
+            "model.bias",
+        ],
     },
     "MP": {
         "title": "MAP",

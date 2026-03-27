@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CUSUMDetector` — cumulative sum change-point detection
 - `assert_no_concept_drift` — P(Y|X) drift detection via chi2/fisher/proportion tests (completes drift story)
 - NIST AI RMF MANAGE mapping updated with streaming + concept drift
+- `assert_marginal_fidelity` — per-column distribution fidelity between real and synthetic data
+- `assert_correlation_preserved` — cross-column correlation preservation with worst-pair reporting
+- `assert_synthetic_novelty` — exact-copy detection for synthetic data privacy
+- `assert_dcr_safe` — Distance to Closest Record privacy metric with vectorized L2
+- `TextPerturber` — 4 perturbation methods (char_swap, char_delete, char_insert, keyboard_proximity)
+- `assert_text_robust` — NLP model prediction stability under text noise perturbations
+- NIST AI RMF GOVERN mapping updated with synthetic data privacy assertions
 
 ## [0.6.0] — 2026-03-26
 
