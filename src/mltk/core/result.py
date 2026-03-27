@@ -28,6 +28,35 @@ class TestResult:
     duration_ms: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
 
+    @classmethod
+    def json_schema(cls) -> dict:
+        """Return a JSON Schema describing the serialized TestResult structure.
+
+        The schema matches the output format of ``to_json_records()`` in the
+        pytest plugin, with required fields (name, passed, severity, message)
+        and optional fields (details, duration_ms, timestamp).
+
+        Returns:
+            A dict representing a JSON Schema (draft-compatible) for TestResult.
+
+        Example:
+            >>> schema = TestResult.json_schema()
+            >>> assert schema["required"] == ["name", "passed", "severity", "message"]
+        """
+        return {
+            "type": "object",
+            "required": ["name", "passed", "severity", "message"],
+            "properties": {
+                "name": {"type": "string"},
+                "passed": {"type": "boolean"},
+                "severity": {"type": "string", "enum": ["critical", "warning", "info"]},
+                "message": {"type": "string"},
+                "details": {"type": "object"},
+                "duration_ms": {"type": "number"},
+                "timestamp": {"type": "string"},
+            },
+        }
+
     def _repr_html_(self) -> str:
         """Rich HTML display for Jupyter notebooks."""
         status_color = "#22c55e" if self.passed else "#ef4444"

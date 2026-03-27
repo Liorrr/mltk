@@ -135,15 +135,30 @@ All environment variables are prefixed with `MLTK_` and take the **highest prior
 
 ## All Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `drift_method` | `str` | `"ks"` | Statistical test for drift detection. Supported: `"ks"` (Kolmogorov-Smirnov), `"psi"` (Population Stability Index), `"kl"` (KL divergence), `"chi2"` (chi-squared). |
-| `drift_threshold` | `float` | `0.05` | P-value or score threshold for drift detection. Values below this trigger a drift alert. |
-| `report_dir` | `str` | `"./mltk-reports"` | Directory for generated HTML test reports. Created automatically if it does not exist. |
-| `report_format` | `str` | `"html"` | Report output format. |
-| `baseline_dir` | `str` | `"./mltk-baselines"` | Directory for storing distribution baselines used in drift detection. |
-| `seed` | `int` | `42` | Random seed for reproducible tests. Used by nondeterministic assertions and the `ml_nondeterministic` marker. |
-| `pii_patterns` | `list[str]` | `["email", "phone", "ssn", "credit_card"]` | PII pattern names for `assert_no_pii`. Determines which patterns are scanned. |
+| Option | Type | Default | Valid Values | Description |
+|--------|------|---------|--------------|-------------|
+| `drift_method` | `str` | `"ks"` | `"ks"`, `"psi"`, `"kl"`, `"chi2"`, `"js"`, `"wasserstein"`, `"auto"` | Statistical test for drift detection. |
+| `drift_threshold` | `float` | `0.05` | `0.0` to `1.0` | P-value or score threshold for drift detection. Values below this trigger a drift alert. |
+| `report_dir` | `str` | `"./mltk-reports"` | Any valid path | Directory for generated HTML test reports. Created automatically if it does not exist. |
+| `report_format` | `str` | `"html"` | `"html"` | Report output format. |
+| `baseline_dir` | `str` | `"./mltk-baselines"` | Any valid path | Directory for storing distribution baselines used in drift detection. |
+| `seed` | `int` | `42` | `>= 0` (non-negative) | Random seed for reproducible tests. Used by nondeterministic assertions and the `ml_nondeterministic` marker. |
+| `pii_patterns` | `list[str]` | `["email", "phone", "ssn", "credit_card"]` | See PII pattern names | PII pattern names for `assert_no_pii`. Determines which patterns are scanned. |
+
+### Validation
+
+`MltkConfig` validates all fields at construction time via `__post_init__`. Invalid values raise `ValueError` immediately rather than causing confusing errors downstream:
+
+```python
+from mltk.core import MltkConfig
+
+# These all raise ValueError:
+MltkConfig(drift_threshold=1.5)    # must be 0-1
+MltkConfig(drift_method="invalid") # must be ks/psi/kl/chi2/js/wasserstein/auto
+MltkConfig(seed=-1)                # must be non-negative
+```
+
+This fail-fast behavior applies regardless of how the config is created -- direct construction, YAML loading, or environment variable overrides.
 
 ---
 

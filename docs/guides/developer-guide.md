@@ -639,6 +639,49 @@ from mltk.core import (
 
 Both `TestResult` and `TestSuite` implement `_repr_html_()` for rich display in Jupyter notebooks.
 
+**Severity Override:**
+
+All top-level assertions accept an optional `severity` parameter (default: `Severity.CRITICAL`). This lets callers downgrade a check to `WARNING` or `INFO` without modifying the assertion source:
+
+```python
+from mltk.core.result import Severity
+
+# Default: CRITICAL -- raises MltkAssertionError on failure
+result = assert_schema(df, expected_schema)
+
+# Override: WARNING -- records failure without raising
+result = assert_schema(df, expected_schema, severity=Severity.WARNING)
+
+# Works on all top-level assertions:
+assert_no_nulls(df, severity=Severity.WARNING)
+assert_no_drift(ref, cur, severity=Severity.INFO)
+assert_no_pii(df, severity=Severity.WARNING)
+assert_metric(y_true, y_pred, severity=Severity.WARNING)
+assert_no_bias(y_true, y_pred, groups, severity=Severity.WARNING)
+assert_latency(func, p95=50.0, severity=Severity.INFO)
+```
+
+**JSON Schema:**
+
+`TestResult.json_schema()` returns a JSON Schema dict describing the serialized format. Use it for data contract validation, CI dashboard integration, or API documentation:
+
+```python
+schema = TestResult.json_schema()
+# {
+#     "type": "object",
+#     "required": ["name", "passed", "severity", "message"],
+#     "properties": {
+#         "name": {"type": "string"},
+#         "passed": {"type": "boolean"},
+#         "severity": {"type": "string", "enum": ["critical", "warning", "info"]},
+#         "message": {"type": "string"},
+#         "details": {"type": "object"},
+#         "duration_ms": {"type": "number"},
+#         "timestamp": {"type": "string"},
+#     }
+# }
+```
+
 ### Data Assertions
 
 ```python
@@ -1413,6 +1456,28 @@ pure numpy / Python stdlib (always works)
 ```
 
 Users who install mltk with `pip install mltk` get numpy-based fallbacks. The Rust extension is compiled into the wheel on PyPI for supported platforms. Building from source gives users the Rust path even on unsupported platforms.
+
+### Benchmarks (Criterion)
+
+The Rust crate includes [Criterion](https://bheisler.github.io/criterion.rs/book/) benchmarks for the core drift functions (`ks_test`, `psi`, `cosine_similarity`) at three input sizes (1K, 10K, 100K elements).
+
+```bash
+cd rust && cargo bench
+```
+
+Results are written to `rust/target/criterion/` with HTML reports. To benchmark a specific group:
+
+```bash
+cargo bench -- ks_test
+cargo bench -- psi
+cargo bench -- cosine_similarity
+```
+
+The benchmark file lives at `rust/benches/drift.rs` and calls the `pub` core functions directly (bypassing the PyO3 boundary) for accurate measurement of the algorithmic hot path.
+
+### Unsafe Code Policy
+
+The crate enforces `#![forbid(unsafe_code)]` at the crate root. All memory safety is guaranteed at compile time. This is verified by `cargo check` in CI. If a dependency or future change introduces `unsafe`, the build will fail.
 
 ### Memory Behavior at the PyO3 Boundary
 

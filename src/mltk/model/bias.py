@@ -81,6 +81,7 @@ def assert_no_bias(
     sensitive_feature: Any,
     method: str = "demographic_parity",
     threshold: float | None = None,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert no bias across demographic groups.
 
@@ -90,6 +91,7 @@ def assert_no_bias(
         sensitive_feature: Protected attribute array (e.g., gender, race).
         method: Fairness metric to evaluate.
         threshold: Custom threshold. None = method-specific default.
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with per-group metrics and bias statistics.
@@ -106,7 +108,7 @@ def assert_no_bias(
             False,
             name="model.bias",
             message=f"Unknown method: '{method}'. Supported: {list(_DEFAULT_THRESHOLDS.keys())}",
-            severity=Severity.CRITICAL,
+            severity=severity,
         )
 
     y_t = np.asarray(y_true, dtype=int)
@@ -119,7 +121,7 @@ def assert_no_bias(
             False,
             name="model.bias",
             message="Cannot compute bias on empty arrays",
-            severity=Severity.CRITICAL,
+            severity=severity,
         )
 
     rates = _group_rates(y_t, y_p, groups)
@@ -135,19 +137,22 @@ def assert_no_bias(
         )
 
     if method == "demographic_parity":
-        return _check_demographic_parity(rates, thresh, method)
+        return _check_demographic_parity(rates, thresh, method, severity)
     elif method == "equalized_odds":
-        return _check_equalized_odds(rates, thresh, method)
+        return _check_equalized_odds(rates, thresh, method, severity)
     elif method == "predictive_parity":
-        return _check_predictive_parity(rates, thresh, method)
+        return _check_predictive_parity(rates, thresh, method, severity)
     elif method == "disparate_impact":
-        return _check_disparate_impact(rates, thresh, method)
+        return _check_disparate_impact(rates, thresh, method, severity)
     else:  # equal_opportunity
-        return _check_equal_opportunity(rates, thresh, method)
+        return _check_equal_opportunity(rates, thresh, method, severity)
 
 
 def _check_demographic_parity(
-    rates: dict[str, dict[str, float]], threshold: float, method: str
+    rates: dict[str, dict[str, float]],
+    threshold: float,
+    method: str,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Max selection rate difference across groups.
 
@@ -171,7 +176,7 @@ def _check_demographic_parity(
             if passed
             else f"Bias detected: demographic parity diff={diff:.4f} > {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method=method,
         statistic=diff,
         threshold=threshold,
@@ -180,7 +185,10 @@ def _check_demographic_parity(
 
 
 def _check_equalized_odds(
-    rates: dict[str, dict[str, float]], threshold: float, method: str
+    rates: dict[str, dict[str, float]],
+    threshold: float,
+    method: str,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Max of (TPR diff, FPR diff) across groups.
 
@@ -207,7 +215,7 @@ def _check_equalized_odds(
             if passed
             else f"Bias detected: equalized odds diff={diff:.4f} > {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method=method,
         statistic=diff,
         tpr_diff=tpr_diff,
@@ -218,7 +226,10 @@ def _check_equalized_odds(
 
 
 def _check_predictive_parity(
-    rates: dict[str, dict[str, float]], threshold: float, method: str
+    rates: dict[str, dict[str, float]],
+    threshold: float,
+    method: str,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Max PPV difference across groups.
 
@@ -242,7 +253,7 @@ def _check_predictive_parity(
             if passed
             else f"Bias detected: predictive parity diff={diff:.4f} > {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method=method,
         statistic=diff,
         threshold=threshold,
@@ -251,7 +262,10 @@ def _check_predictive_parity(
 
 
 def _check_disparate_impact(
-    rates: dict[str, dict[str, float]], threshold: float, method: str
+    rates: dict[str, dict[str, float]],
+    threshold: float,
+    method: str,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Min/max selection rate ratio (four-fifths rule).
 
@@ -278,7 +292,7 @@ def _check_disparate_impact(
             else f"Bias detected: disparate impact ratio={ratio:.4f} < {threshold} "
             f"(four-fifths rule)"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method=method,
         statistic=ratio,
         threshold=threshold,
@@ -287,7 +301,10 @@ def _check_disparate_impact(
 
 
 def _check_equal_opportunity(
-    rates: dict[str, dict[str, float]], threshold: float, method: str
+    rates: dict[str, dict[str, float]],
+    threshold: float,
+    method: str,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Max TPR difference across groups (relaxed equalized odds).
 
@@ -311,7 +328,7 @@ def _check_equal_opportunity(
             if passed
             else f"Bias detected: equal opportunity diff={diff:.4f} > {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method=method,
         statistic=diff,
         threshold=threshold,

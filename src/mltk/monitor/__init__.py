@@ -4,6 +4,10 @@ Core assertions (no extra dependencies):
     assert_no_degradation — detect gradual metric decline over a sliding window
     assert_sla            — gate on latency and error rate SLA thresholds
 
+Local GPU monitoring (nvidia-smi, no Prometheus required):
+    assert_gpu_utilization_local — GPU compute utilization via nvidia-smi
+    assert_gpu_memory_local      — GPU memory usage via nvidia-smi
+
 On-prem / Prometheus monitoring (stdlib only — no extra dependencies):
     assert_prometheus_metric  — PromQL threshold check (lte/gte/eq)
     assert_gpu_utilization    — DCGM_FI_DEV_GPU_UTIL via Prometheus (0-1 scale)
@@ -32,6 +36,7 @@ heavy optional dependencies. Import them directly when needed:
 """
 
 from mltk.monitor.drift_monitor import assert_no_degradation, assert_no_output_drift, assert_sla
+from mltk.monitor.gpu import assert_gpu_memory_local, assert_gpu_utilization_local
 from mltk.monitor.prometheus import (
     assert_gpu_utilization,
     assert_prometheus_metric,
@@ -45,4 +50,6 @@ __all__ = [
     "assert_prometheus_metric",
     "assert_gpu_utilization",
     "assert_triton_healthy",
+    "assert_gpu_utilization_local",
+    "assert_gpu_memory_local",
 ]

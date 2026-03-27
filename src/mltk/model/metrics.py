@@ -87,6 +87,7 @@ def assert_metric(
     metric: str = "accuracy",
     threshold: float = 0.8,
     average: str = "weighted",
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert a model metric meets a minimum threshold.
 
@@ -96,6 +97,7 @@ def assert_metric(
         metric: Metric name (accuracy, f1, precision, recall, auc, mse, rmse, mae, r2).
         threshold: Required value. For error metrics (mse/rmse/mae), this is the maximum.
         average: Averaging for multiclass (weighted/macro/micro).
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with actual metric value and threshold.
@@ -110,7 +112,7 @@ def assert_metric(
             False,
             name="model.metric",
             message=f"Unknown metric: '{metric}'. Supported: {sorted(_SUPPORTED_METRICS)}",
-            severity=Severity.CRITICAL,
+            severity=severity,
         )
 
     y_t = np.asarray(y_true)
@@ -121,7 +123,7 @@ def assert_metric(
             False,
             name="model.metric",
             message="Cannot compute metrics on empty arrays",
-            severity=Severity.CRITICAL,
+            severity=severity,
         )
 
     value = _compute_metric(y_t, y_p, metric, average)
@@ -143,7 +145,7 @@ def assert_metric(
         passed,
         name=f"model.metric.{metric}",
         message=message,
-        severity=Severity.CRITICAL,
+        severity=severity,
         metric=metric,
         value=value,
         threshold=threshold,

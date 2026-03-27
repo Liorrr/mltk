@@ -20,6 +20,7 @@ def assert_schema(
     df: pd.DataFrame,
     expected: dict[str, str],
     allow_extra_columns: bool = True,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert DataFrame columns and dtypes match expected schema.
 
@@ -27,6 +28,7 @@ def assert_schema(
         df: DataFrame to validate.
         expected: Dict mapping column names to dtype strings (e.g., {"id": "int64"}).
         allow_extra_columns: If False, fail when df has columns not in expected.
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with details about mismatches.
@@ -61,7 +63,7 @@ def assert_schema(
         passed,
         name="data.schema",
         message=message,
-        severity=Severity.CRITICAL,
+        severity=severity,
         missing_columns=sorted(missing),
         dtype_mismatches=dtype_mismatches,
         extra_columns=sorted(extra),
@@ -72,12 +74,14 @@ def assert_schema(
 def assert_no_nulls(
     df: pd.DataFrame,
     columns: list[str] | None = None,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert no null/NaN values in specified columns (or all columns).
 
     Args:
         df: DataFrame to validate.
         columns: Columns to check. If None, checks all columns.
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with null counts per column.
@@ -92,7 +96,7 @@ def assert_no_nulls(
             False,
             name="data.no_nulls",
             message=f"Columns not found in DataFrame: {sorted(missing_cols)}",
-            severity=Severity.CRITICAL,
+            severity=severity,
             missing_columns=sorted(missing_cols),
         )
     null_counts = {col: int(df[col].isnull().sum()) for col in cols if df[col].isnull().any()}
@@ -109,7 +113,7 @@ def assert_no_nulls(
         passed,
         name="data.no_nulls",
         message=message,
-        severity=Severity.CRITICAL,
+        severity=severity,
         null_counts=null_counts,
         columns_checked=cols,
     )
@@ -119,6 +123,7 @@ def assert_no_nulls(
 def assert_dtypes(
     df: pd.DataFrame,
     expected: dict[str, str],
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert exact dtype match for specified columns.
 
@@ -128,6 +133,7 @@ def assert_dtypes(
     Args:
         df: DataFrame to validate.
         expected: Dict mapping column names to dtype strings.
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with mismatch details.
@@ -157,7 +163,7 @@ def assert_dtypes(
         passed,
         name="data.dtypes",
         message=message,
-        severity=Severity.CRITICAL,
+        severity=severity,
         mismatches=mismatches,
         missing_columns=missing,
     )

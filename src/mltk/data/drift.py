@@ -40,6 +40,7 @@ def assert_no_drift(
     current: pd.Series,
     method: str = "ks",
     threshold: float | None = None,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert no significant distribution drift between reference and current data.
 
@@ -48,6 +49,7 @@ def assert_no_drift(
         current: Current distribution to compare against baseline.
         method: Detection method -- "ks", "psi", "kl", or "chi2".
         threshold: Custom threshold. If None, uses method-specific default.
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with drift statistics.
@@ -60,7 +62,7 @@ def assert_no_drift(
             False,
             name="data.drift",
             message=f"Unknown method: '{method}'. Supported: {list(_DEFAULT_THRESHOLDS.keys())}",
-            severity=Severity.CRITICAL,
+            severity=severity,
         )
 
     thresh = threshold if threshold is not None else _DEFAULT_THRESHOLDS[method]
@@ -74,9 +76,9 @@ def assert_no_drift(
                 False,
                 name="data.drift",
                 message="Cannot compute drift on empty arrays",
-                severity=Severity.CRITICAL,
+                severity=severity,
             )
-        return _drift_chi2(ref_clean, cur_clean, thresh)
+        return _drift_chi2(ref_clean, cur_clean, thresh, severity)
 
     ref_arr = np.asarray(reference.dropna(), dtype=np.float64)
     cur_arr = np.asarray(current.dropna(), dtype=np.float64)
@@ -86,27 +88,39 @@ def assert_no_drift(
             False,
             name="data.drift",
             message="Cannot compute drift on empty arrays",
-            severity=Severity.CRITICAL,
+            severity=severity,
         )
 
     if method == "auto":
         # Auto-select: Wasserstein for numeric n>1000, KS otherwise
         if len(ref_arr) > 1000:
-            return _drift_wasserstein(ref_arr, cur_arr, _DEFAULT_THRESHOLDS["wasserstein"])
-        return _drift_ks(ref_arr, cur_arr, _DEFAULT_THRESHOLDS["ks"])
+            return _drift_wasserstein(
+                ref_arr,
+                cur_arr,
+                _DEFAULT_THRESHOLDS["wasserstein"],
+                severity,
+            )
+        return _drift_ks(
+            ref_arr, cur_arr, _DEFAULT_THRESHOLDS["ks"], severity
+        )
     elif method == "ks":
-        return _drift_ks(ref_arr, cur_arr, thresh)
+        return _drift_ks(ref_arr, cur_arr, thresh, severity)
     elif method == "psi":
-        return _drift_psi(ref_arr, cur_arr, thresh)
+        return _drift_psi(ref_arr, cur_arr, thresh, severity)
     elif method == "kl":
-        return _drift_kl(ref_arr, cur_arr, thresh)
+        return _drift_kl(ref_arr, cur_arr, thresh, severity)
     elif method == "js":
-        return _drift_js(ref_arr, cur_arr, thresh)
+        return _drift_js(ref_arr, cur_arr, thresh, severity)
     else:  # wasserstein
-        return _drift_wasserstein(ref_arr, cur_arr, thresh)
+        return _drift_wasserstein(ref_arr, cur_arr, thresh, severity)
 
 
-def _drift_ks(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
+def _drift_ks(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    threshold: float,
+    severity: Severity = Severity.CRITICAL,
+) -> TestResult:
     """KS test: compare empirical CDFs.
 
     Args:
@@ -130,7 +144,7 @@ def _drift_ks(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
             if passed
             else f"Drift detected: KS p={p_value:.4f} < {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method="ks",
         statistic=stat,
         p_value=p_value,
@@ -139,7 +153,12 @@ def _drift_ks(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
     )
 
 
-def _drift_psi(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
+def _drift_psi(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    threshold: float,
+    severity: Severity = Severity.CRITICAL,
+) -> TestResult:
     """PSI: Population Stability Index.
 
     Args:
@@ -163,7 +182,7 @@ def _drift_psi(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult
             if passed
             else f"Drift detected: PSI={psi_value:.4f} >= {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method="psi",
         statistic=psi_value,
         threshold=threshold,
@@ -171,7 +190,12 @@ def _drift_psi(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult
     )
 
 
-def _drift_kl(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
+def _drift_kl(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    threshold: float,
+    severity: Severity = Severity.CRITICAL,
+) -> TestResult:
     """KL divergence via histogram comparison.
 
     Args:
@@ -205,7 +229,7 @@ def _drift_kl(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
             if passed
             else f"Drift detected: KL={kl_value:.4f} >= {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method="kl",
         statistic=kl_value,
         threshold=threshold,
@@ -214,7 +238,10 @@ def _drift_kl(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
 
 
 def _drift_chi2(
-    reference: pd.Series, current: pd.Series, threshold: float
+    reference: pd.Series,
+    current: pd.Series,
+    threshold: float,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Chi-squared test for categorical drift.
 
@@ -255,7 +282,7 @@ def _drift_chi2(
             if passed
             else f"Drift detected: Chi2 p={p_value:.4f} < {threshold}"
         ),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method="chi2",
         statistic=float(stat),
         p_value=float(p_value),
@@ -264,7 +291,12 @@ def _drift_chi2(
     )
 
 
-def _drift_js(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
+def _drift_js(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    threshold: float,
+    severity: Severity = Severity.CRITICAL,
+) -> TestResult:
     """Jensen-Shannon divergence: symmetric, bounded [0,1].
 
     Args:
@@ -290,13 +322,18 @@ def _drift_js(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
         passed, name="data.drift.js",
         message=(f"JS: {js_value:.4f} (threshold: {threshold})" if passed
                  else f"Drift detected: JS={js_value:.4f} >= {threshold}"),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method="js", statistic=js_value, threshold=threshold,
         drift_detected=not passed,
     )
 
 
-def _drift_wasserstein(ref: np.ndarray, cur: np.ndarray, threshold: float) -> TestResult:
+def _drift_wasserstein(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    threshold: float,
+    severity: Severity = Severity.CRITICAL,
+) -> TestResult:
     """Wasserstein (Earth Mover's) distance.
 
     Args:
@@ -319,7 +356,7 @@ def _drift_wasserstein(ref: np.ndarray, cur: np.ndarray, threshold: float) -> Te
         passed, name="data.drift.wasserstein",
         message=(f"Wasserstein: {w_value:.4f} (threshold: {threshold})" if passed
                  else f"Drift detected: W={w_value:.4f} >= {threshold}"),
-        severity=Severity.CRITICAL,
+        severity=severity,
         method="wasserstein", statistic=w_value, threshold=threshold,
         drift_detected=not passed,
     )

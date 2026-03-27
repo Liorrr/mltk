@@ -58,6 +58,24 @@ assert_endpoint_latency("my-endpoint", max_p99_ms=500)
 
 ---
 
+## Local GPU (nvidia-smi)
+
+No Prometheus or DCGM stack required — queries `nvidia-smi` directly.
+
+```python
+from mltk.monitor.gpu import assert_gpu_utilization_local, assert_gpu_memory_local
+
+assert_gpu_utilization_local(max_util=0.95)
+assert_gpu_memory_local(max_util=0.90)
+```
+
+| Function | Description |
+|----------|-------------|
+| `assert_gpu_utilization_local` | GPU compute utilization below threshold (nvidia-smi) |
+| `assert_gpu_memory_local` | GPU memory usage below threshold (nvidia-smi) |
+
+---
+
 ## Prometheus / On-prem
 
 ```python

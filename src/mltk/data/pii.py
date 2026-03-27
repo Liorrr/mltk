@@ -526,6 +526,7 @@ def assert_no_pii(
     columns: list[str] | None = None,
     patterns: list[str] | None = None,
     allowlist: list[str] | None = None,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert no PII detected in DataFrame text columns.
 
@@ -535,6 +536,7 @@ def assert_no_pii(
         patterns: Pattern categories to check. None = all.
         allowlist: Optional list of exact strings to suppress across all
             columns. Passed through to scan_pii() for each cell value.
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with match details per column and type.
@@ -578,7 +580,7 @@ def assert_no_pii(
         passed,
         name="data.pii",
         message=message,
-        severity=Severity.CRITICAL,
+        severity=severity,
         total_matches=total_matches,
         matches_by_column=matches_by_column,
         matches_by_type=matches_by_type,

@@ -25,6 +25,7 @@ def assert_latency(
     p99: float | None = None,
     iterations: int = 100,
     warmup: int = 5,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert inference latency percentiles are within bounds.
 
@@ -36,6 +37,7 @@ def assert_latency(
         p99: Max P99 latency in milliseconds.
         iterations: Number of measurement iterations.
         warmup: Warmup iterations (excluded from measurement).
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with full latency distribution.
@@ -49,7 +51,7 @@ def assert_latency(
             False,
             name="inference.latency",
             message="At least one percentile threshold required (p50, p95, or p99)",
-            severity=Severity.CRITICAL,
+            severity=severity,
         )
 
     # Warmup phase
@@ -89,7 +91,7 @@ def assert_latency(
         passed,
         name="inference.latency",
         message=message,
-        severity=Severity.CRITICAL,
+        severity=severity,
         p50=actual_p50,
         p95=actual_p95,
         p99=actual_p99,
@@ -108,6 +110,7 @@ def assert_cold_start(
     func: Callable[..., Any],
     *args: Any,
     max_ms: float = 2000.0,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert first-call latency (cold start) is within bounds.
 
@@ -115,6 +118,7 @@ def assert_cold_start(
         func: Function to benchmark (should include model loading).
         *args: Arguments to pass to func.
         max_ms: Maximum allowed cold start time in milliseconds.
+        severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with cold start timing.
@@ -138,7 +142,7 @@ def assert_cold_start(
         passed,
         name="inference.cold_start",
         message=message,
-        severity=Severity.CRITICAL,
+        severity=severity,
         cold_start_ms=cold_ms,
         max_ms=max_ms,
     )

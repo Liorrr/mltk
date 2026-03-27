@@ -683,6 +683,10 @@ jobs:
 | `GITHUB_TOKEN` | Auto-provided by GitHub Actions |
 | `CODECOV_TOKEN` | Token for Codecov coverage uploads (optional) |
 
+### Python Version Matrix
+
+The test job runs on Python **3.10**, **3.12**, and **3.13** across all three OS targets (ubuntu, macOS, Windows). Python 3.13 was added to catch compatibility issues with the latest CPython release, including changes to the C API that affect PyO3-based extensions.
+
 ### Coverage Enforcement
 
 The CI pipeline enforces a minimum **80% code coverage** threshold via `--fail-under=80` on the pytest-cov command. Any PR that drops coverage below 80% will fail the test job. Coverage reports are uploaded to Codecov on the primary matrix combination (ubuntu-latest, Python 3.12).

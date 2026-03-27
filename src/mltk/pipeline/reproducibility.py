@@ -43,6 +43,24 @@ def assert_reproducible(
     for _run in range(runs):
         random.seed(seed)
         np.random.seed(seed)
+
+        # Optional framework seeding — silently skip if not installed
+        try:
+            import torch
+
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+        except ImportError:
+            pass
+
+        try:
+            import tensorflow as tf
+
+            tf.random.set_seed(seed)
+        except ImportError:
+            pass
+
         result = func(*args)
         outputs.append(result)
 

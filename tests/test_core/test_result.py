@@ -87,3 +87,66 @@ def test_empty_suite_score() -> None:
     """
     suite = TestSuite()
     assert suite.score == 0.0
+
+
+# --- P1-37: JSON schema tests ---
+
+
+def test_json_schema_structure() -> None:
+    """TestResult.json_schema() returns a valid JSON Schema dict.
+
+    WHY: External consumers (CI dashboards, Grafana, data contracts) need
+    a machine-readable schema to validate mltk JSON output. If the schema
+    is malformed, downstream integrations silently accept bad data.
+    Expected: Schema has required fields, correct types, severity enum.
+    """
+    schema = TestResult.json_schema()
+    assert schema["type"] == "object"
+    assert schema["required"] == ["name", "passed", "severity", "message"]
+    assert "properties" in schema
+    assert schema["properties"]["passed"]["type"] == "boolean"
+    assert schema["properties"]["severity"]["enum"] == ["critical", "warning", "info"]
+    assert schema["properties"]["duration_ms"]["type"] == "number"
+
+
+def test_json_schema_contract_matches_serialized_result() -> None:
+    """Serialized TestResult output matches the JSON schema contract.
+
+    WHY: If TestResult fields are renamed or the serialization format
+    changes, the schema and actual output will diverge -- breaking
+    consumers that rely on the schema. This contract test catches drift.
+    Expected: Every required field in the schema is present in the
+    serialized output with the correct type.
+    """
+    result = TestResult(
+        name="contract.test",
+        passed=True,
+        severity=Severity.WARNING,
+        message="Contract test passed",
+        details={"key": "value"},
+    )
+    schema = TestResult.json_schema()
+
+    # Serialize to the format that to_json_records produces
+    record = {
+        "name": result.name,
+        "passed": result.passed,
+        "severity": result.severity.value,
+        "message": result.message,
+        "details": result.details,
+        "duration_ms": result.duration_ms,
+        "timestamp": result.timestamp.isoformat(),
+    }
+
+    # Verify all required fields are present
+    for field in schema["required"]:
+        assert field in record, f"Required field '{field}' missing from serialized output"
+
+    # Verify types match schema
+    assert isinstance(record["name"], str)
+    assert isinstance(record["passed"], bool)
+    assert record["severity"] in schema["properties"]["severity"]["enum"]
+    assert isinstance(record["message"], str)
+    assert isinstance(record["details"], dict)
+    assert isinstance(record["duration_ms"], (int, float))
+    assert isinstance(record["timestamp"], str)

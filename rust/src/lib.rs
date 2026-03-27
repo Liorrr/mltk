@@ -1,10 +1,12 @@
+#![forbid(unsafe_code)]
+
 use pyo3::prelude::*;
 use regex::Regex;
 
 // ─── Core implementations (slice-based, zero-copy capable) ──────────────────
 
 /// Core KS test on borrowed slices. Caller owns the data.
-fn ks_test_core(reference: &mut [f64], current: &mut [f64]) -> (f64, f64) {
+pub fn ks_test_core(reference: &mut [f64], current: &mut [f64]) -> (f64, f64) {
     let n1 = reference.len() as f64;
     let n2 = current.len() as f64;
 
@@ -66,7 +68,7 @@ fn ks_test_core(reference: &mut [f64], current: &mut [f64]) -> (f64, f64) {
 }
 
 /// Core PSI on borrowed slices.
-fn psi_core(reference: &[f64], current: &[f64], bins: usize) -> f64 {
+pub fn psi_core(reference: &[f64], current: &[f64], bins: usize) -> f64 {
     if reference.is_empty() || current.is_empty() || bins == 0 {
         return 0.0;
     }
@@ -113,7 +115,7 @@ fn psi_core(reference: &[f64], current: &[f64], bins: usize) -> f64 {
 }
 
 /// Core cosine similarity on borrowed slices.
-fn cosine_similarity_core(a: &[f64], b: &[f64]) -> f64 {
+pub fn cosine_similarity_core(a: &[f64], b: &[f64]) -> f64 {
     if a.is_empty() || b.is_empty() || a.len() != b.len() {
         return 0.0;
     }

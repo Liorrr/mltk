@@ -278,3 +278,40 @@ def test_env_var_apply_env_overrides_direct(monkeypatch: pytest.MonkeyPatch) -> 
     assert result.drift_method == "wasserstein"
     assert result.drift_threshold == pytest.approx(0.10)  # unchanged
     assert result.seed == 99  # unchanged
+
+
+# --- P1-36: __post_init__ validation tests ---
+
+
+def test_invalid_drift_threshold() -> None:
+    """SCENARIO: drift_threshold is set outside the valid 0-1 range.
+    WHY: A threshold of 1.5 or -0.1 is nonsensical for probability-based
+         drift tests. Early validation prevents silent misconfiguration
+         that would make drift detection useless.
+    EXPECTED: ValueError raised with descriptive message.
+    """
+    with pytest.raises(ValueError, match="drift_threshold must be 0-1"):
+        MltkConfig(drift_threshold=1.5)
+
+    with pytest.raises(ValueError, match="drift_threshold must be 0-1"):
+        MltkConfig(drift_threshold=-0.1)
+
+
+def test_invalid_drift_method() -> None:
+    """SCENARIO: drift_method is set to an unsupported value.
+    WHY: Typos like 'kss' or 'PSI' (wrong case) silently produce wrong
+         behavior if not validated. Fail-fast tells the user immediately.
+    EXPECTED: ValueError raised listing valid methods.
+    """
+    with pytest.raises(ValueError, match="drift_method must be one of"):
+        MltkConfig(drift_method="invalid_method")
+
+
+def test_invalid_seed() -> None:
+    """SCENARIO: seed is set to a negative value.
+    WHY: Negative seeds are undefined for numpy/random. Catching this
+         at config time prevents confusing downstream errors.
+    EXPECTED: ValueError raised with descriptive message.
+    """
+    with pytest.raises(ValueError, match="seed must be non-negative"):
+        MltkConfig(seed=-1)

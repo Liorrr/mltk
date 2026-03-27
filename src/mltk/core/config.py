@@ -40,6 +40,16 @@ class MltkConfig:
         default_factory=lambda: ["email", "phone", "ssn", "credit_card"]
     )
 
+    def __post_init__(self) -> None:
+        """Validate configuration values after initialization."""
+        if self.drift_threshold < 0 or self.drift_threshold > 1:
+            raise ValueError(f"drift_threshold must be 0-1, got {self.drift_threshold}")
+        valid_methods = {"ks", "psi", "kl", "chi2", "js", "wasserstein", "auto"}
+        if self.drift_method not in valid_methods:
+            raise ValueError(f"drift_method must be one of {valid_methods}")
+        if self.seed < 0:
+            raise ValueError(f"seed must be non-negative, got {self.seed}")
+
     @classmethod
     def load(cls, path: str | Path | None = None) -> MltkConfig:
         """Load config from mltk.yaml, pyproject.toml, or defaults.
