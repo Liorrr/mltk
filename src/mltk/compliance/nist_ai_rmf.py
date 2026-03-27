@@ -111,8 +111,12 @@ NIST_RMF_FUNCTIONS: dict[str, dict] = {
             "model.regression",
             "model.calibration",
             "model.adversarial",
+            "model.interval_coverage",
+            "model.prediction_set_size",
             "inference.latency",
             "inference.throughput",
+            "training.gradient",
+            "training.weight_divergence",
         ],
     },
     "MN": {

@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `assert_no_forbidden_actions` — verify agent did not use forbidden tools
 - `assert_step_efficiency` — verify agent completed task within step budget
 - OWASP LLM07/LLM08 mappings updated with trace-based assertions
+- `assert_interval_coverage` — validate prediction interval empirical coverage
+- `assert_prediction_set_size` — validate prediction set cardinality/width budget
+- `assert_n_rank_gradient_sync` — N-rank gradient synchronization check
+- `assert_gradient_alignment` — cosine similarity between gradient vectors across ranks
+- `assert_weight_divergence` — L2 distance between weight checkpoints/ranks
+- `assert_gradient_clipped` — verify gradient global norm within clipping bound
+- NIST AI RMF MEASURE function mapping updated with conformal + distributed assertions
 
 ## [0.6.0] — 2026-03-26
 

@@ -64,6 +64,7 @@ nav:
       - Model Slicing: api/model-slicing.md
       - Model Bias: api/model-bias.md
       - Model Adversarial: api/model-adversarial.md
+      - Conformal Prediction: api/conformal.md
       - Inference Latency: api/inference-latency.md
       - Inference Throughput: api/inference-throughput.md
       - Inference Contract: api/inference-contract.md

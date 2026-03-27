@@ -431,3 +431,152 @@ If loss is stored as a tensor (not `.item()` or `.detach()`), the entire computa
 - `num_steps` — number of steps analysed
 
 ---
+
+## Extended Distributed Training (P2)
+
+### assert_n_rank_gradient_sync
+
+Generalize gradient synchronization checks to N ranks instead of only two. After an all-reduce, every rank should hold near-identical gradients. This assertion compares all pairs of rank gradient lists and reports any layer where any pair of ranks diverges beyond the tolerance.
+
+Use this when running on 4+ GPUs where pairwise `assert_gradient_sync` would require O(N^2) manual calls.
+
+```python
+import numpy as np
+from mltk.training import assert_n_rank_gradient_sync
+
+# Collect post-all-reduce gradients from each rank
+grads_by_rank = [
+    [np.array([0.01, 0.02]), np.array([0.1, -0.05])],  # rank 0
+    [np.array([0.01, 0.02]), np.array([0.1, -0.05])],  # rank 1
+    [np.array([0.01, 0.02]), np.array([0.1, -0.05])],  # rank 2
+    [np.array([0.01, 0.02]), np.array([0.1, -0.05])],  # rank 3
+]
+
+result = assert_n_rank_gradient_sync(grads_by_rank, tolerance=1e-5)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `grads_by_rank` | `list[list[np.ndarray]]` | *(required)* | Gradient arrays per rank -- outer list is ranks, inner list is layers |
+| `tolerance` | `float` | `1e-5` | Maximum allowed element-wise absolute difference between any two ranks |
+
+#### Returns
+
+`TestResult` with details:
+
+- `max_diff` — largest element-wise difference found across all rank pairs and layers
+- `diverged_pairs` — list of `(rank_i, rank_j, layer_idx)` tuples exceeding tolerance
+- `num_ranks` — total number of ranks compared
+- `num_layers` — number of layers per rank
+- `tolerance` — threshold used
+
+---
+
+### assert_gradient_alignment
+
+Check that gradient directions are consistent across ranks by measuring the cosine similarity between each rank's flattened gradient vector and the mean gradient. Gradients may differ in magnitude after mixed-precision or gradient scaling, but their *direction* must agree for convergence.
+
+```python
+import numpy as np
+from mltk.training import assert_gradient_alignment
+
+grads_by_rank = [
+    [np.array([1.0, 0.0, 0.0])],   # rank 0
+    [np.array([0.9, 0.1, 0.0])],   # rank 1
+]
+
+result = assert_gradient_alignment(
+    grads_by_rank,
+    min_cosine_similarity=0.95,
+)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `grads_by_rank` | `list[list[np.ndarray]]` | *(required)* | Gradient arrays per rank (outer = ranks, inner = layers) |
+| `min_cosine_similarity` | `float` | `0.95` | Minimum cosine similarity between each rank's gradient and the mean gradient |
+
+#### Returns
+
+`TestResult` with details:
+
+- `per_rank_cosine` — cosine similarity for each rank vs the mean gradient
+- `min_cosine` — lowest cosine similarity observed
+- `num_ranks` — number of ranks compared
+
+---
+
+### assert_weight_divergence
+
+Measure weight divergence across ranks. After several training steps, model weights on each rank should remain nearly identical if gradients are correctly synchronized. Large divergence indicates silent gradient desync, incorrect parameter broadcasts, or optimizer state corruption.
+
+```python
+import numpy as np
+from mltk.training import assert_weight_divergence
+
+weights_by_rank = [
+    [np.array([0.5, 0.3]), np.array([1.0, -0.2])],  # rank 0
+    [np.array([0.5, 0.3]), np.array([1.0, -0.2])],  # rank 1
+]
+
+result = assert_weight_divergence(
+    weights_by_rank,
+    max_l2_divergence=1e-4,
+)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `weights_by_rank` | `list[list[np.ndarray]]` | *(required)* | Weight arrays per rank (outer = ranks, inner = layers) |
+| `max_l2_divergence` | `float` | `1e-4` | Maximum allowed L2 norm of the difference between any rank's weights and the mean weights |
+
+#### Returns
+
+`TestResult` with details:
+
+- `per_rank_l2` — L2 divergence from mean weights for each rank
+- `max_l2` — largest L2 divergence observed
+- `diverged_ranks` — indices of ranks exceeding the threshold
+- `num_ranks` — number of ranks compared
+
+---
+
+### assert_gradient_clipped
+
+Verify that gradient clipping is working correctly by checking that no gradient norm exceeds the specified clip value (within floating-point tolerance). Gradient clipping that silently fails -- due to applying it before the backward pass, or clipping the wrong parameter group -- is a common distributed training bug that causes divergence at scale.
+
+```python
+import numpy as np
+from mltk.training import assert_gradient_clipped
+
+grads = [np.array([0.5, -0.3, 0.1]), np.array([0.8, -0.9])]
+
+result = assert_gradient_clipped(grads, max_norm=1.0, norm_type=2)
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `gradients` | `list[np.ndarray]` | *(required)* | Gradient arrays, one per layer (post-clipping) |
+| `max_norm` | `float` | *(required)* | The clip threshold that should have been applied |
+| `norm_type` | `int` | `2` | Norm type: `2` for L2 (Euclidean) norm, `1` for L1 norm, `0` for max norm |
+| `tolerance` | `float` | `1e-6` | Floating-point tolerance above `max_norm` |
+
+#### Returns
+
+`TestResult` with details:
+
+- `per_layer_norms` — computed norm for each layer
+- `max_observed_norm` — largest norm across all layers
+- `exceeded_layers` — indices of layers whose norm exceeds `max_norm + tolerance`
+- `max_norm` — the clip threshold used
+- `norm_type` — norm type used
+
+---

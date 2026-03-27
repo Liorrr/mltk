@@ -10,7 +10,11 @@ from mltk.training.checkpoint import (
 )
 from mltk.training.distributed import (
     assert_effective_batch_size,
+    assert_gradient_alignment,
+    assert_gradient_clipped,
     assert_gradient_sync,
+    assert_n_rank_gradient_sync,
+    assert_weight_divergence,
 )
 from mltk.training.gradient import (
     assert_gradient_flow,
@@ -58,7 +62,11 @@ __all__ = [
     "assert_no_target_leakage",
     # distributed.py
     "assert_effective_batch_size",
+    "assert_gradient_alignment",
+    "assert_gradient_clipped",
     "assert_gradient_sync",
+    "assert_n_rank_gradient_sync",
+    "assert_weight_divergence",
     # memory.py
     "assert_no_memory_leak",
     "assert_loss_is_detached",

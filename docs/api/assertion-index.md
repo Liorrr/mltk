@@ -118,6 +118,13 @@ Assertions for validating model performance, fairness, and robustness.
 |---|-----------|--------|-------------|-------|
 | 29 | `assert_robust` | `mltk.model.adversarial` | Verify model prediction stability under adversarial perturbation | v0.1.0 |
 
+### Conformal Prediction
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 30 | `assert_interval_coverage` | `mltk.model.conformal` | Verify prediction interval empirical coverage meets target | v0.7.0 |
+| 31 | `assert_prediction_set_size` | `mltk.model.conformal` | Verify prediction set cardinality/width within budget | v0.7.0 |
+
 ### Overfitting
 
 | # | Assertion | Module | Description | Since |
@@ -177,6 +184,10 @@ Assertions for catching training bugs and infrastructure issues.
 |---|-----------|--------|-------------|-------|
 | 47 | `assert_effective_batch_size` | `mltk.training.distributed` | Verify effective batch size equals local_batch * num_gpus * grad_accum | v0.3.0 |
 | 48 | `assert_gradient_sync` | `mltk.training.distributed` | Verify gradients are synchronized across GPU ranks | v0.3.0 |
+| 49 | `assert_n_rank_gradient_sync` | `mltk.training.distributed` | Verify gradient sync across N ranks (all pairs) | v0.7.0 |
+| 50 | `assert_gradient_alignment` | `mltk.training.distributed` | Verify gradient direction consistency via cosine similarity | v0.7.0 |
+| 51 | `assert_weight_divergence` | `mltk.training.distributed` | Verify model weights haven't diverged across ranks/checkpoints | v0.7.0 |
+| 52 | `assert_gradient_clipped` | `mltk.training.distributed` | Verify gradient global norm is within clipping bound | v0.7.0 |
 
 ### Memory
 
