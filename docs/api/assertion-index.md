@@ -316,6 +316,21 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 88 | `assert_recall_at_k` | `mltk.domains.llm.retrieval` | Verify Recall@K (coverage of relevant documents in top K) | v0.8.0 |
 | 89 | `assert_map_at_k` | `mltk.domains.llm.retrieval` | Verify MAP@K (ranking quality with precision at each relevant position) | v0.8.0 |
 
+### LLM-as-Judge
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 90 | `assert_llm_judge_score` | `mltk.domains.llm.judge` | Score model responses via LLM judge on quality criteria | v0.8.0 |
+| 91 | `assert_llm_judge_pairwise` | `mltk.domains.llm.judge` | Pairwise comparison of responses via LLM judge (A/B testing) | v0.8.0 |
+
+### Summarization
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 92 | `assert_summary_coverage` | `mltk.domains.llm.summarization` | Verify summary preserves key source content (token recall) | v0.8.0 |
+| 93 | `assert_summary_compression` | `mltk.domains.llm.summarization` | Verify summary achieves target compression ratio | v0.8.0 |
+| 94 | `assert_summary_faithfulness` | `mltk.domains.llm.summarization` | Verify summary doesn't hallucinate (token precision) | v0.8.0 |
+
 ### Coherence & BERTScore
 
 | # | Assertion | Module | Description | Since |

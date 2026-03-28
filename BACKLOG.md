@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S61: 178 assertions, 1775 tests, 38 Rust tests)
+## DONE (S0-S62: 183 assertions, 1893 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -85,6 +85,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S59: Advanced ML (counterfactual fairness, causal inference, multimodal, RL)
 - [x] S60: Observability (test impact, anomaly detection, Grafana, live portal, scheduler) — **v0.8.0**
 - [x] S61: Retrieval metrics (nDCG, MRR, Recall@K, MAP@K), mltk list CLI, JUnit XML export + test hardening
+- [x] S62: LLM-as-Judge (score + pairwise), summarization metrics (coverage, compression, faithfulness) + test hardening
 
 ---
 

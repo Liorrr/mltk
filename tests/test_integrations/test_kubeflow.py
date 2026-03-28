@@ -324,3 +324,134 @@ class TestKubeflowStepOutputs:
 
         assert exc_info.value.result.passed is False
         assert "error" in exc_info.value.result.details
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+class TestKubeflowPipelineStatesParametrized:
+    """Parametrize pipeline states."""
+
+    @pytest.mark.parametrize(
+        "state,should_pass",
+        [
+            ("SUCCEEDED", True),
+            ("RUNNING", False),
+            ("FAILED", False),
+            ("CANCELLED", False),
+        ],
+    )
+    def test_pipeline_state_variants(
+        self, state: str, should_pass: bool
+    ) -> None:
+        """Various terminal/non-terminal states."""
+        from mltk.integrations.kubeflow import (
+            assert_kubeflow_pipeline_success,
+        )
+
+        resp = {
+            "state": state,
+            "created_at": "2025-06-01T00:00:00Z",
+            "finished_at": "2025-06-01T00:10:00Z",
+            "display_name": "state-test",
+        }
+        mock = _mock_urlopen_response(resp)
+        with patch(
+            "urllib.request.urlopen", return_value=mock
+        ):
+            if should_pass:
+                r = assert_kubeflow_pipeline_success(
+                    run_id="param-run"
+                )
+                assert r.passed is True
+                assert r.details["state"] == state
+            else:
+                with pytest.raises(MltkAssertionError) as ei:
+                    assert_kubeflow_pipeline_success(
+                        run_id="param-run"
+                    )
+                assert ei.value.result.details["state"] == state
+
+
+class TestKubeflowStepEmptyArtifacts:
+    """Step with empty artifact list."""
+
+    def test_step_empty_artifact_list(self) -> None:
+        """Step exists but produced zero artifacts."""
+        from mltk.integrations.kubeflow import (
+            assert_kubeflow_step_outputs,
+        )
+
+        resp = {
+            "run_details": {
+                "task_details": [
+                    {
+                        "display_name": "train",
+                        "outputs": {"artifacts": []},
+                    },
+                ],
+            },
+        }
+        mock = _mock_urlopen_response(resp)
+        with patch(
+            "urllib.request.urlopen", return_value=mock
+        ):
+            with pytest.raises(MltkAssertionError) as ei:
+                assert_kubeflow_step_outputs(
+                    run_id="r-empty",
+                    step_name="train",
+                    expected_artifacts=["model"],
+                )
+        missing = ei.value.result.details["missing_artifacts"]
+        assert "model" in missing
+
+
+class TestKubeflowNetworkTimeout:
+    """Network timeout handling."""
+
+    def test_network_timeout(self) -> None:
+        """urllib timeout produces clean failure."""
+        from mltk.integrations.kubeflow import (
+            assert_kubeflow_pipeline_success,
+        )
+
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.URLError("timed out"),
+        ):
+            with pytest.raises(MltkAssertionError) as ei:
+                assert_kubeflow_pipeline_success(
+                    run_id="r-timeout"
+                )
+        err = ei.value.result.details["error"]
+        assert "timed out" in err
+
+
+class TestKubeflowLongPipelineName:
+    """Very long pipeline name (200 chars)."""
+
+    def test_long_pipeline_name(self) -> None:
+        """200-char display_name is captured correctly."""
+        from mltk.integrations.kubeflow import (
+            assert_kubeflow_pipeline_success,
+        )
+
+        long_name = "p" * 200
+        resp = {
+            "state": "SUCCEEDED",
+            "created_at": "2025-06-01T00:00:00Z",
+            "finished_at": "2025-06-01T01:00:00Z",
+            "display_name": long_name,
+        }
+        mock = _mock_urlopen_response(resp)
+        with patch(
+            "urllib.request.urlopen", return_value=mock
+        ):
+            r = assert_kubeflow_pipeline_success(
+                run_id="r-long"
+            )
+        assert r.passed is True
+        assert r.details["pipeline_name"] == long_name
+        assert len(r.details["pipeline_name"]) == 200

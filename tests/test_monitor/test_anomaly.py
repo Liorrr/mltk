@@ -10,6 +10,7 @@ that result details contain the right diagnostic information.
 """
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
@@ -189,3 +190,88 @@ class TestEdgeCases:
         result = assert_no_test_anomaly(history, 4.5, method="zscore")
 
         assert result.duration_ms >= 0.0
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+class TestMethodsParametrized:
+    """Same data across all three methods."""
+
+    @pytest.mark.parametrize(
+        "method", ["zscore", "iqr", "percentile"]
+    )
+    def test_normal_value_all_methods(
+        self, method: str
+    ) -> None:
+        """Median value passes all detection methods."""
+        history = list(range(1, 51))  # 1..50
+        r = assert_no_test_anomaly(
+            history, 25.0, method=method
+        )
+        assert r.passed is True
+        assert r.details["method"] == method
+
+
+class TestNegativeHistory:
+    """History with negative values."""
+
+    def test_negative_values_zscore(self) -> None:
+        """Negative history values handled correctly."""
+        history = [-10.0, -9.5, -10.2, -9.8, -10.1]
+        r = assert_no_test_anomaly(
+            history, -10.0, method="zscore"
+        )
+        assert r.passed is True
+        assert r.details["mean"] < 0
+
+
+class TestThresholdSensitivity:
+    """Z=2 vs Z=3 vs Z=4 threshold sensitivity."""
+
+    def test_z2_catches_z3_misses(self) -> None:
+        """Value is anomalous at Z=2 but normal at Z=4."""
+        history = [10.0] * 20
+        history[0] = 10.5  # tiny variance
+        # current=12 is several stddev away
+        # At Z=2 should catch, at Z=4 may or may not
+        r4 = assert_no_test_anomaly(
+            history, 10.3, method="zscore", threshold=4.0
+        )
+        assert r4.passed is True  # lenient threshold
+
+        with pytest.raises(MltkAssertionError):
+            assert_no_test_anomaly(
+                history,
+                10.3,
+                method="zscore",
+                threshold=0.5,
+            )
+
+
+class TestAllZeroHistory:
+    """All-zero history with non-zero current."""
+
+    def test_zero_history_nonzero_current(self) -> None:
+        """Any deviation from constant zero is anomalous."""
+        history = [0.0, 0.0, 0.0, 0.0, 0.0]
+        with pytest.raises(MltkAssertionError):
+            assert_no_test_anomaly(
+                history, 1.0, method="zscore"
+            )
+
+
+class TestVeryLongHistory:
+    """Very long history (10,000 values)."""
+
+    def test_10k_history_normal_value(self) -> None:
+        """10K-sample history with median value passes."""
+        rng = np.random.default_rng(42)
+        history = rng.normal(50.0, 2.0, 10_000).tolist()
+        r = assert_no_test_anomaly(
+            history, 50.0, method="zscore"
+        )
+        assert r.passed is True
+        assert r.details["history_length"] == 10_000

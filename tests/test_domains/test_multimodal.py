@@ -181,3 +181,84 @@ class TestCrossModalConsistency:
         """
         with pytest.raises(MltkAssertionError):
             assert_cross_modal_consistency([], [], min_agreement=0.5)
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+class TestMinCosineParametrized:
+    """Parametrize min_cosine thresholds."""
+
+    @pytest.mark.parametrize(
+        "min_cos", [0.0, 0.3, 0.5, 0.8, 0.99]
+    )
+    def test_identical_embeddings_vs_threshold(
+        self, min_cos: float
+    ) -> None:
+        """Identical vectors (cos=1) pass any threshold."""
+        v = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        r = assert_image_text_alignment(
+            v, v, min_cosine=min_cos
+        )
+        assert r.passed is True
+        assert abs(r.details["avg_cosine"] - 1.0) < 1e-6
+
+
+class TestHighDimensionalEmbeddings:
+    """High-dimensional embeddings (512-d)."""
+
+    def test_512d_aligned(self) -> None:
+        """512-d embeddings with small noise pass."""
+        rng = np.random.RandomState(42)
+        base = rng.randn(10, 512)
+        noise = rng.randn(10, 512) * 0.05
+        r = assert_image_text_alignment(
+            base, base + noise, min_cosine=0.5
+        )
+        assert r.passed is True
+        assert r.details["n_pairs"] == 10
+        assert r.details["avg_cosine"] > 0.9
+
+
+class TestCrossModalStringPredictions:
+    """Cross-modal with string predictions."""
+
+    def test_string_predictions_agreement(self) -> None:
+        """String labels are compared correctly."""
+        a = ["cat", "dog", "cat", "bird", "fish"]
+        b = ["cat", "dog", "dog", "bird", "fish"]
+        r = assert_cross_modal_consistency(
+            a, b, min_agreement=0.7
+        )
+        assert r.passed is True
+        assert r.details["agreement_rate"] == 0.8
+        assert r.details["disagreements"] == [2]
+
+
+class TestNormalizedVsUnnormalized:
+    """Normalized vs unnormalized embeddings."""
+
+    def test_unnormalized_same_direction(self) -> None:
+        """Unnormalized but same-direction vectors pass."""
+        img = np.array([[10.0, 0.0, 0.0]])
+        txt = np.array([[0.001, 0.0, 0.0]])
+        r = assert_image_text_alignment(
+            img, txt, min_cosine=0.9
+        )
+        assert r.passed is True
+        assert abs(r.details["avg_cosine"] - 1.0) < 1e-6
+
+
+class TestSinglePairAlignment:
+    """Single pair alignment edge case."""
+
+    def test_single_pair_misaligned(self) -> None:
+        """Single pair below threshold fails cleanly."""
+        img = np.array([[1.0, 0.0]])
+        txt = np.array([[0.0, 1.0]])
+        with pytest.raises(MltkAssertionError):
+            assert_image_text_alignment(
+                img, txt, min_cosine=0.5
+            )

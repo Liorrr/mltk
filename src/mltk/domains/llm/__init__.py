@@ -19,6 +19,7 @@ from mltk.domains.llm.conversation import (
     assert_knowledge_retention,
     assert_turn_relevancy,
 )
+from mltk.domains.llm.judge import assert_llm_judge_pairwise, assert_llm_judge_score
 from mltk.domains.llm.latency import assert_itl, assert_ttft
 from mltk.domains.llm.multi_agent import assert_agent_handoff, assert_no_agent_loop
 from mltk.domains.llm.rag import (
@@ -43,6 +44,11 @@ from mltk.domains.llm.safety import (
     assert_safety_taxonomy,
 )
 from mltk.domains.llm.similarity import assert_semantic_similarity
+from mltk.domains.llm.summarization import (
+    assert_summary_compression,
+    assert_summary_coverage,
+    assert_summary_faithfulness,
+)
 from mltk.domains.llm.text_quality import (
     assert_output_format,
     assert_readability,
@@ -94,6 +100,13 @@ __all__ = [
     # multi-agent coordination
     "assert_no_agent_loop",
     "assert_agent_handoff",
+    # LLM-as-Judge
+    "assert_llm_judge_score",
+    "assert_llm_judge_pairwise",
+    # summarization
+    "assert_summary_coverage",
+    "assert_summary_compression",
+    "assert_summary_faithfulness",
     # retrieval ranking metrics
     "assert_ndcg",
     "assert_mrr",

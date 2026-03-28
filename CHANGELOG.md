@@ -44,8 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mltk list` CLI — assertion discovery with filter and JSON output (27th CLI command)
 - JUnit XML export for Jenkins, GitLab CI, Azure DevOps integration
 
-#### Test Hardening (S57, S61)
-- 73 new parametrized + edge-case tests across safety, drift, synthetic, conformal, attribution, agentic, multi-agent, GitHub App, OTEL
+#### LLM-as-Judge + Summarization (S62)
+- `assert_llm_judge_score` — score model outputs via any LLM (vendor-neutral judge_fn callable)
+- `assert_llm_judge_pairwise` — A/B comparison via LLM judge (pairwise win rate)
+- `assert_summary_coverage` — key information preservation (token recall)
+- `assert_summary_compression` — compression ratio bounds
+- `assert_summary_faithfulness` — no hallucinated content (token precision)
+- `DEFAULT_CRITERIA` — 5 built-in rubrics (helpfulness, correctness, coherence, relevance, harmlessness)
+
+#### Test Hardening (S57, S61, S62)
+- 115 new parametrized + edge-case tests across safety, drift, synthetic, conformal, attribution, agentic, multi-agent, GitHub App, OTEL, kubeflow, sagemaker, dvc, hipaa, counterfactual, multimodal, anomaly, audit
 
 ## [0.7.0] — 2026-03-27
 

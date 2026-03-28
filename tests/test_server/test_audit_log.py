@@ -246,3 +246,101 @@ def test_jsonlines_persistence(tmp_path):
         assert "action" in obj
         assert "timestamp" in obj
         assert "user_key_hash" in obj
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+def test_100_actions_ordering():
+    # SCENARIO: log 100 actions, verify newest-first ordering
+    # WHY: get_log must return in reverse chronological order
+    # EXPECTED: first returned event is the last one logged
+    logger = AuditLogger()
+    for i in range(100):
+        logger.log_action(
+            f"action_{i}",
+            _sample_key_hash(),
+            f"/api/{i}",
+            "success",
+        )
+    results = logger.get_log(limit=100)
+    assert len(results) == 100
+    assert results[0]["action"] == "action_99"
+    assert results[-1]["action"] == "action_0"
+
+
+def test_filter_by_action_and_user():
+    # SCENARIO: filter by both action AND user simultaneously
+    # WHY: AND filtering is needed for forensic investigation
+    # EXPECTED: only events matching BOTH criteria
+    logger = AuditLogger()
+    h1 = "a" * 64
+    h2 = "b" * 64
+    logger.log_action("create", h1, "/a", "success")
+    logger.log_action("create", h2, "/a", "success")
+    logger.log_action("delete", h1, "/a", "success")
+    results = logger.get_log(action="create", user=h1)
+    assert len(results) == 1
+    assert results[0]["action"] == "create"
+    assert results[0]["user_key_hash"] == h1
+
+
+def test_export_csv_special_characters(tmp_path):
+    # SCENARIO: details contain commas, quotes, newlines
+    # WHY: CSV export must handle special chars safely
+    # EXPECTED: CSV is parseable and data is preserved
+    logger = AuditLogger()
+    logger.log_action(
+        "test",
+        _sample_key_hash(),
+        "/api",
+        "success",
+        details={
+            "msg": 'He said "hello, world"\nnewline'
+        },
+    )
+    csv_path = str(tmp_path / "special.csv")
+    logger.export_csv(csv_path)
+    with open(csv_path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        rows = list(reader)
+    assert len(rows) == 1
+    parsed = json.loads(rows[0]["details"])
+    assert '"hello, world"' in parsed["msg"]
+    assert "\n" in parsed["msg"]
+
+
+def test_audit_log_complete_partial_coverage():
+    # SCENARIO: 2 of 3 expected actions present
+    # WHY: partial coverage must correctly report gaps
+    # EXPECTED: passed=False, missing_actions has 1 item
+    entries = [
+        {"action": "create_run"},
+        {"action": "list_results"},
+    ]
+    result = assert_audit_log_complete(
+        entries,
+        ["create_run", "list_results", "export_report"],
+    )
+    assert result.passed is False
+    missing = result.details["missing_actions"]
+    assert missing == ["export_report"]
+
+
+def test_uuid_uniqueness_50_entries():
+    # SCENARIO: log 50 actions, verify all IDs unique
+    # WHY: UUID collisions would break forensic correlation
+    # EXPECTED: 50 distinct UUIDs
+    logger = AuditLogger()
+    ids = set()
+    for i in range(50):
+        e = logger.log_action(
+            f"act_{i}",
+            _sample_key_hash(),
+            f"/api/{i}",
+            "success",
+        )
+        ids.add(e["id"])
+    assert len(ids) == 50

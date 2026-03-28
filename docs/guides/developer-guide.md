@@ -1889,6 +1889,150 @@ def test_drift_detected_with_shifted_distribution(self) -> None:
 5. **Write docs**: `docs/api/{check}.md` with examples
 6. **Update mkdocs.yml**: Add to the nav section
 
+### The LLM-as-Judge Pattern: Writing `judge_fn` Callables
+
+Several mltk assertions accept a `judge_fn` parameter -- a callable that delegates evaluation to an external LLM. This pattern is used by `assert_llm_judge_score`, `assert_llm_judge_pairwise`, and any future assertion that needs subjective quality scoring beyond what keyword overlap can provide.
+
+The `judge_fn` contract is simple: mltk passes the inputs, your function calls whatever LLM you prefer, and returns a numeric score. This keeps mltk provider-agnostic while letting you use any model.
+
+#### judge_fn signature
+
+```python
+def judge_fn(prompt: str, response: str, criterion: str) -> float:
+    """
+    Args:
+        prompt: The original prompt/question that was given to the model.
+        response: The model's generated output to be evaluated.
+        criterion: The quality dimension to score (e.g., "helpfulness",
+                   "coherence", "creativity", "factual_accuracy").
+
+    Returns:
+        A numeric score. The scale is defined by your judge prompt
+        (typically 1-5 or 1-10). mltk normalizes using the scale_max
+        parameter on the assertion.
+    """
+    ...
+```
+
+#### Provider examples
+
+**OpenAI (GPT-4o-mini):**
+
+```python
+import openai
+
+def openai_judge(prompt: str, response: str, criterion: str) -> float:
+    client = openai.OpenAI()  # uses OPENAI_API_KEY env var
+    result = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": (
+                f"You are an expert evaluator. Rate the following response on "
+                f"'{criterion}' from 1 to 5. Consider the original prompt for context. "
+                f"Reply with ONLY a single number, nothing else."
+            )},
+            {"role": "user", "content": f"Prompt: {prompt}\n\nResponse: {response}"},
+        ],
+        temperature=0.0,  # deterministic scoring
+    )
+    return float(result.choices[0].message.content.strip())
+```
+
+**Anthropic (Claude):**
+
+```python
+import anthropic
+
+def anthropic_judge(prompt: str, response: str, criterion: str) -> float:
+    client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
+    result = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=16,
+        system=(
+            f"You are an expert evaluator. Rate the following response on "
+            f"'{criterion}' from 1 to 5. Reply with ONLY a single number."
+        ),
+        messages=[
+            {"role": "user", "content": f"Prompt: {prompt}\n\nResponse: {response}"},
+        ],
+    )
+    return float(result.content[0].text.strip())
+```
+
+**Ollama (local, free, no API key):**
+
+```python
+import requests
+
+def ollama_judge(prompt: str, response: str, criterion: str) -> float:
+    """Use a local Ollama model -- no API key, no cost, runs offline."""
+    resp = requests.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "llama3.1:8b",
+            "prompt": (
+                f"Rate the following response on '{criterion}' from 1 to 5. "
+                f"Reply with ONLY a single number.\n\n"
+                f"Prompt: {prompt}\n\nResponse: {response}"
+            ),
+            "stream": False,
+        },
+    )
+    return float(resp.json()["response"].strip())
+```
+
+#### Best practices for judge functions
+
+| Practice | Why |
+|----------|-----|
+| Set `temperature=0.0` (or equivalent) | Reduces score variance between runs. Evaluation should be deterministic. |
+| Use a small, fast model for CI | `gpt-4o-mini`, `claude-haiku`, or `llama3.1:8b` are cost-effective for scoring. Reserve large models for detailed analysis. |
+| Parse defensively | LLMs occasionally return text instead of a number. Wrap the float conversion in try/except and return a fallback or raise a clear error. |
+| Keep the system prompt minimal | "Rate on X from 1 to N. Reply with ONLY a number." produces cleaner outputs than verbose instructions. |
+| Use `@pytest.mark.llm_judge` | Mark judge-based tests so offline CI can skip them: `pytest -m "not llm_judge"`. |
+| Mock in unit tests | For testing the assertion logic itself (not the judge), pass a lambda: `judge_fn=lambda p, r, c: 4.0`. |
+
+#### Writing a pairwise judge
+
+For `assert_llm_judge_pairwise`, the callable signature is different:
+
+```python
+def pairwise_judge(prompt: str, response_a: str, response_b: str, criterion: str) -> str:
+    """
+    Returns:
+        "A" if response_a is better, "B" if response_b is better, "tie" if equal.
+    """
+    ...
+```
+
+Example implementation:
+
+```python
+def openai_pairwise_judge(
+    prompt: str, response_a: str, response_b: str, criterion: str
+) -> str:
+    client = openai.OpenAI()
+    result = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": (
+                f"Compare two responses on '{criterion}'. "
+                f"Reply with ONLY 'A', 'B', or 'tie'."
+            )},
+            {"role": "user", "content": (
+                f"Prompt: {prompt}\n\n"
+                f"Response A: {response_a}\n\n"
+                f"Response B: {response_b}"
+            )},
+        ],
+        temperature=0.0,
+    )
+    verdict = result.choices[0].message.content.strip().upper()
+    if verdict in ("A", "B", "TIE"):
+        return verdict if verdict != "TIE" else "tie"
+    return "tie"  # fallback on ambiguous output
+```
+
 ### PR Process
 
 1. Fork the repository.

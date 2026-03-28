@@ -449,3 +449,120 @@ assert_itl(my_streaming_fn, "prompt text", max_ms=100)
 | `max_ms` | `float` | `100` | Maximum allowed average inter-token latency in milliseconds |
 
 ---
+
+## LLM-as-Judge Evaluation
+
+Use an external LLM to score model outputs on subjective quality dimensions (helpfulness, coherence, creativity, tone) that cannot be captured by keyword overlap or regex heuristics alone.
+
+For the full API reference, parameters, provider setup, and advanced usage, see **[LLM-as-Judge Evaluation](llm-judge.md)**.
+
+### assert_llm_judge_score
+
+Score a model response using an LLM judge function you provide. The judge returns a numeric score (typically 1-5 or 1-10), and the assertion verifies it meets a minimum threshold.
+
+```python
+from mltk.domains.llm import assert_llm_judge_score
+
+# Define a judge function (any LLM provider — OpenAI, Anthropic, Ollama, etc.)
+def my_judge(prompt: str, response: str, criterion: str) -> float:
+    """Call your LLM and return a numeric score."""
+    result = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": (
+                f"Rate the following response on '{criterion}' from 1 to 5. "
+                "Reply with ONLY a number."
+            )},
+            {"role": "user", "content": f"Prompt: {prompt}\nResponse: {response}"},
+        ],
+    )
+    return float(result.choices[0].message.content.strip())
+
+# Assert the response scores at least 3.5 on helpfulness
+assert_llm_judge_score(
+    judge_fn=my_judge,
+    prompt="Explain photosynthesis to a 10-year-old.",
+    response="Plants eat sunlight! They take in light and CO2 and make sugar and oxygen.",
+    criterion="helpfulness",
+    min_score=3.5,
+    scale_max=5.0,
+)
+```
+
+### assert_llm_judge_pairwise
+
+Compare two responses using a pairwise LLM judge. The judge picks a winner (A or B) or declares a tie, useful for A/B testing model versions.
+
+```python
+from mltk.domains.llm import assert_llm_judge_pairwise
+
+result = assert_llm_judge_pairwise(
+    judge_fn=my_pairwise_judge,
+    prompt="Summarize the key themes of Romeo and Juliet.",
+    response_a="The play is about love, fate, and family feuds in Verona.",
+    response_b="Romeo and Juliet is a Shakespeare play.",
+    expected_winner="A",
+)
+```
+
+!!! note "OWASP Mapping"
+    LLM-as-Judge assertions evaluate **output quality**, not security vulnerabilities. They do not map to any OWASP Top 10 for LLMs category. For security-focused assertions, see `assert_no_toxicity`, `assert_no_system_prompt_leakage`, and `assert_refusal_consistency` in the [Safety](#safety) section above.
+
+---
+
+## Summarization Metrics
+
+Automated evaluation of text summarization quality: faithfulness to source material, coverage of key information, conciseness, and standard n-gram metrics (ROUGE, BLEU) in a summarization-specific context.
+
+For the full API reference, parameters, and scoring methodology, see **[Summarization Metrics](summarization-metrics.md)**.
+
+### assert_summary_faithfulness
+
+Verify a summary does not introduce claims absent from the source document. Similar to `assert_faithfulness` in RAG evaluation, but designed for the summarization use case where a single source document (not retrieved chunks) is condensed.
+
+```python
+from mltk.domains.llm import assert_summary_faithfulness
+
+source = """
+The Eiffel Tower was constructed from 1887 to 1889 as the centerpiece of the
+1889 World's Fair. Gustave Eiffel's company designed and built the structure.
+It stands 330 metres tall and was the world's tallest man-made structure until 1930.
+"""
+
+summary = "The Eiffel Tower, built by Gustave Eiffel's company for the 1889 World's Fair, is 330 metres tall."
+
+assert_summary_faithfulness(source=source, summary=summary, min_score=0.6)
+```
+
+### assert_summary_coverage
+
+Verify a summary captures the key information from the source. Measures what fraction of the source's salient content appears in the summary, catching summaries that are faithful but incomplete.
+
+```python
+from mltk.domains.llm import assert_summary_coverage
+
+assert_summary_coverage(
+    source=source,
+    summary=summary,
+    min_coverage=0.5,
+)
+```
+
+### assert_summary_conciseness
+
+Verify a summary achieves a target compression ratio relative to its source. Catches summaries that are faithful and complete but too verbose (effectively just copying the source).
+
+```python
+from mltk.domains.llm import assert_summary_conciseness
+
+assert_summary_conciseness(
+    source=source,
+    summary=summary,
+    max_ratio=0.4,  # summary should be at most 40% the length of the source
+)
+```
+
+!!! note "OWASP Mapping"
+    Summarization metrics evaluate **output quality and fidelity**, not security. They do not map to OWASP Top 10 for LLMs. However, `assert_summary_faithfulness` can serve as a complementary check alongside `assert_no_hallucination` — the former targets summarization pipelines, the latter targets general LLM safety.
+
+---

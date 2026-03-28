@@ -395,3 +395,271 @@ assert_no_training_serving_skew(train_features, serve_features, tolerance=0.01)
 !!! warning "Severity: CRITICAL"
     Training-serving skew fails with `Severity.CRITICAL`. It is the most common
     cause of unexplained production accuracy drops and must be caught before every deployment.
+
+---
+
+## Full RAG Evaluation Pipeline
+
+A production RAG system has three stages that can fail independently: **retrieval**, **generation**, and **end-to-end quality**. Testing only one stage gives a false sense of coverage. mltk provides assertions for every layer so you can pinpoint exactly where failures originate.
+
+### Pipeline Layers
+
+| Layer | What fails | mltk assertions | Docs |
+|-------|-----------|-----------------|------|
+| **Retriever ranking** | Wrong documents retrieved, poor ordering | `assert_ndcg`, `assert_mrr`, `assert_recall_at_k`, `assert_map_at_k` | [Retrieval Metrics](retrieval-metrics.md) |
+| **Generator faithfulness** | Hallucinated facts not grounded in context | `assert_faithfulness`, `assert_summary_faithfulness` | [RAG Evaluation](#rag-evaluation), [Summarization Metrics](summarization-metrics.md) |
+| **Generator quality** | Output is correct but unhelpful, incoherent, or poorly written | `assert_llm_judge_score`, `assert_llm_judge_pairwise` | [LLM-as-Judge](llm-judge.md) |
+| **End-to-end composite** | Aggregate RAG quality below acceptable threshold | `assert_ragas_score` | [RAG Evaluation](#rag-evaluation) |
+| **Summarization fidelity** | Summary misses key info, is too verbose, or fabricates claims | `assert_summary_faithfulness`, `assert_summary_coverage`, `assert_summary_conciseness` | [Summarization Metrics](summarization-metrics.md) |
+
+### Why test every layer?
+
+A retriever that returns perfect documents can still produce bad answers if the generator hallucinates. A generator that is perfectly faithful can still produce poor answers if the retriever missed key documents. End-to-end metrics can mask which component is the root cause. Layer-by-layer testing isolates the failure:
+
+```
+Retriever broken + Generator OK    -> assert_ndcg FAILS, assert_faithfulness PASSES
+Retriever OK     + Generator broken -> assert_ndcg PASSES, assert_faithfulness FAILS
+Both broken                         -> both FAIL, but assert_ndcg pinpoints retriever
+```
+
+### Complete pytest example
+
+This example tests all layers of a RAG pipeline in a single test module. Each test function targets one layer, so CI failures immediately tell you which component regressed.
+
+```python
+"""tests/test_rag_pipeline.py — Full RAG evaluation across all layers."""
+import pytest
+from mltk.domains.llm import (
+    # Retriever ranking
+    assert_ndcg,
+    assert_mrr,
+    assert_recall_at_k,
+    assert_map_at_k,
+    # Generator faithfulness (keyword-overlap, no LLM needed)
+    assert_faithfulness,
+    assert_context_relevancy,
+    assert_answer_relevancy,
+    # End-to-end composite
+    assert_ragas_score,
+    # LLM-as-Judge (subjective quality)
+    assert_llm_judge_score,
+    # Summarization faithfulness
+    assert_summary_faithfulness,
+    assert_summary_coverage,
+)
+
+
+# ---- Fixtures ----
+
+@pytest.fixture
+def rag_sample():
+    """A single RAG evaluation sample with all required fields."""
+    return {
+        "question": "What year was the Eiffel Tower completed?",
+        "context": [
+            "The Eiffel Tower was completed in 1889 for the World's Fair.",
+            "Gustave Eiffel's engineering company designed the structure.",
+            "The tower stands 330 metres tall in Paris, France.",
+        ],
+        "answer": "The Eiffel Tower was completed in 1889.",
+        "expected_answer": "The Eiffel Tower was completed in 1889 for the World's Fair in Paris.",
+    }
+
+
+@pytest.fixture
+def retrieval_sample():
+    """Retrieval ranking evaluation data."""
+    return {
+        # relevance_labels[i] = relevance grade for document at rank i
+        # 2 = highly relevant, 1 = partially relevant, 0 = irrelevant
+        "relevance_labels": [[2, 1, 0, 0, 1]],
+        "relevant_ids": [{"doc_1", "doc_2", "doc_5"}],
+        "retrieved_ids": [["doc_1", "doc_2", "doc_3", "doc_4", "doc_5"]],
+    }
+
+
+@pytest.fixture
+def judge_fn():
+    """LLM judge function. Replace with your preferred provider."""
+    def _judge(prompt: str, response: str, criterion: str) -> float:
+        # Example: call OpenAI, Anthropic, or a local Ollama model.
+        # For CI, you can mock this or use a lightweight local model.
+        import openai
+        client = openai.OpenAI()
+        result = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": (
+                    f"Rate the response on '{criterion}' from 1 to 5. "
+                    "Reply with ONLY a number."
+                )},
+                {"role": "user", "content": f"Prompt: {prompt}\nResponse: {response}"},
+            ],
+        )
+        return float(result.choices[0].message.content.strip())
+    return _judge
+
+
+# ---- Layer 1: Retriever Ranking ----
+
+class TestRetrieverRanking:
+    """Verify the retrieval component returns and ranks relevant documents."""
+
+    def test_ndcg_at_5(self, retrieval_sample):
+        """PASS: nDCG@5 above threshold — retriever ranks relevant docs higher."""
+        assert_ndcg(
+            relevance_labels=retrieval_sample["relevance_labels"],
+            k=5,
+            min_score=0.5,
+        )
+
+    def test_mrr(self, retrieval_sample):
+        """PASS: MRR above threshold — first relevant doc appears early."""
+        assert_mrr(
+            relevance_labels=retrieval_sample["relevance_labels"],
+            min_score=0.5,
+        )
+
+    def test_recall_at_5(self, retrieval_sample):
+        """PASS: Recall@5 above threshold — most relevant docs are retrieved."""
+        assert_recall_at_k(
+            relevant_ids=retrieval_sample["relevant_ids"],
+            retrieved_ids=retrieval_sample["retrieved_ids"],
+            k=5,
+            min_recall=0.6,
+        )
+
+    def test_map_at_5(self, retrieval_sample):
+        """PASS: MAP@5 above threshold — relevant docs are ranked precisely."""
+        assert_map_at_k(
+            relevant_ids=retrieval_sample["relevant_ids"],
+            retrieved_ids=retrieval_sample["retrieved_ids"],
+            k=5,
+            min_map=0.4,
+        )
+
+
+# ---- Layer 2: Generator Faithfulness ----
+
+class TestGeneratorFaithfulness:
+    """Verify the generator does not hallucinate beyond retrieved context."""
+
+    def test_faithfulness(self, rag_sample):
+        """PASS: Answer is grounded in retrieved context."""
+        assert_faithfulness(
+            answer=rag_sample["answer"],
+            context=rag_sample["context"],
+            min_score=0.5,
+        )
+
+    def test_context_relevancy(self, rag_sample):
+        """PASS: Retrieved chunks are relevant to the question."""
+        assert_context_relevancy(
+            question=rag_sample["question"],
+            context=rag_sample["context"],
+            min_score=0.3,
+        )
+
+    def test_answer_relevancy(self, rag_sample):
+        """PASS: Answer addresses the question asked."""
+        assert_answer_relevancy(
+            question=rag_sample["question"],
+            answer=rag_sample["answer"],
+            min_score=0.3,
+        )
+
+    def test_summary_faithfulness(self, rag_sample):
+        """PASS: If the answer is a summary, verify no fabricated claims."""
+        source_text = " ".join(rag_sample["context"])
+        assert_summary_faithfulness(
+            source=source_text,
+            summary=rag_sample["answer"],
+            min_score=0.5,
+        )
+
+    def test_summary_coverage(self, rag_sample):
+        """PASS: Summary captures key information from context."""
+        source_text = " ".join(rag_sample["context"])
+        assert_summary_coverage(
+            source=source_text,
+            summary=rag_sample["answer"],
+            min_coverage=0.3,
+        )
+
+
+# ---- Layer 3: Generator Quality (LLM Judge) ----
+
+@pytest.mark.llm_judge
+class TestGeneratorQuality:
+    """Subjective quality evaluation via LLM-as-Judge.
+
+    These tests require an LLM API call. Mark with @pytest.mark.llm_judge
+    so they can be skipped in offline CI (pytest -m 'not llm_judge').
+    """
+
+    def test_helpfulness(self, judge_fn, rag_sample):
+        """PASS: Judge rates the answer as helpful (>= 3.5 / 5)."""
+        assert_llm_judge_score(
+            judge_fn=judge_fn,
+            prompt=rag_sample["question"],
+            response=rag_sample["answer"],
+            criterion="helpfulness",
+            min_score=3.5,
+            scale_max=5.0,
+        )
+
+    def test_coherence(self, judge_fn, rag_sample):
+        """PASS: Judge rates the answer as coherent (>= 3.0 / 5)."""
+        assert_llm_judge_score(
+            judge_fn=judge_fn,
+            prompt=rag_sample["question"],
+            response=rag_sample["answer"],
+            criterion="coherence",
+            min_score=3.0,
+            scale_max=5.0,
+        )
+
+
+# ---- Layer 4: End-to-End Composite ----
+
+class TestEndToEnd:
+    """Composite RAG score — catches systemic quality drops."""
+
+    def test_ragas_composite(self, rag_sample):
+        """PASS: RAGAS composite score above threshold."""
+        assert_ragas_score(
+            answer=rag_sample["answer"],
+            question=rag_sample["question"],
+            context=rag_sample["context"],
+            min_score=0.4,
+        )
+```
+
+### Running the layers independently
+
+Use pytest markers to run specific layers in different CI stages:
+
+```bash
+# Fast CI gate — no LLM calls, runs in milliseconds
+pytest tests/test_rag_pipeline.py -m "not llm_judge" -q
+
+# Nightly — include LLM judge evaluation
+pytest tests/test_rag_pipeline.py -q
+
+# Retriever-only (after changing embedding model or index)
+pytest tests/test_rag_pipeline.py -k "TestRetrieverRanking" -q
+
+# Faithfulness-only (after changing prompt template or context window)
+pytest tests/test_rag_pipeline.py -k "TestGeneratorFaithfulness" -q
+```
+
+### Debugging pipeline failures
+
+When the composite `assert_ragas_score` fails, the layer-specific tests tell you where to look:
+
+| Symptom | Failing layer | Root cause |
+|---------|--------------|------------|
+| Low RAGAS score, low nDCG/MRR | Retriever | Embedding model degraded, index stale, chunking strategy wrong |
+| Low RAGAS score, good nDCG, low faithfulness | Generator | LLM hallucinating despite good context — check prompt template |
+| Low RAGAS score, good nDCG, good faithfulness, low judge score | Generator quality | LLM is factual but unhelpful — check system prompt, temperature |
+| Good RAGAS score, low summary coverage | Summarization | LLM omitting key details — check max_tokens, prompt instructions |

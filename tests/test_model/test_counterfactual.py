@@ -284,3 +284,130 @@ class TestReturnDetails:
         # Timing was recorded.
         assert result.duration_ms >= 0.0
         assert result.name == "model.counterfactual_fairness"
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+class TestMaxFlipRateParametrized:
+    """Parametrize max_flip_rate thresholds."""
+
+    @pytest.mark.parametrize(
+        "max_rate", [0.0, 0.01, 0.1, 0.5]
+    )
+    def test_fair_model_passes_all_thresholds(
+        self, max_rate: float
+    ) -> None:
+        """A perfectly fair model has 0 flips at any rate."""
+        rng = np.random.default_rng(99)
+        n = 100
+        X = np.column_stack([
+            rng.integers(0, 2, n),
+            rng.standard_normal(n),
+        ])
+
+        def fair(X: np.ndarray) -> np.ndarray:
+            return (X[:, 1] > 0).astype(int)
+
+        r = assert_counterfactual_fairness(
+            fair, X, sensitive_col=0, max_flip_rate=max_rate
+        )
+        assert r.passed is True
+        assert r.details["flip_rate"] == 0.0
+
+
+class TestLargeDataset:
+    """Large dataset (1000 samples) performance."""
+
+    def test_1000_samples_fair(self) -> None:
+        """1000-sample evaluation completes with 0 flips."""
+        rng = np.random.default_rng(7)
+        n = 1000
+        X = np.column_stack([
+            rng.integers(0, 2, n),
+            rng.standard_normal(n),
+        ])
+
+        def model(X: np.ndarray) -> np.ndarray:
+            return (X[:, 1] > 0).astype(int)
+
+        r = assert_counterfactual_fairness(
+            model, X, sensitive_col=0, max_flip_rate=0.05
+        )
+        assert r.passed is True
+        assert r.details["n_total"] == 1000
+
+
+class TestConstantPredictionModel:
+    """Model that returns constant prediction."""
+
+    def test_constant_model_zero_flips(self) -> None:
+        """Constant output means zero flips."""
+        rng = np.random.default_rng(42)
+        n = 50
+        X = np.column_stack([
+            rng.integers(0, 2, n),
+            rng.standard_normal(n),
+        ])
+
+        def const(X: np.ndarray) -> np.ndarray:
+            return np.ones(len(X), dtype=int)
+
+        r = assert_counterfactual_fairness(
+            const, X, sensitive_col=0, max_flip_rate=0.0
+        )
+        assert r.passed is True
+        assert r.details["n_flipped"] == 0
+
+
+class TestFiveClassSensitiveFeature:
+    """Multi-class sensitive feature with 5 classes."""
+
+    def test_five_class_fair_model(self) -> None:
+        """5 categories, model ignores sensitive col."""
+        rng = np.random.default_rng(42)
+        n = 250
+        cats = np.repeat(np.arange(5), 50)
+        score = rng.standard_normal(n)
+        X = np.column_stack([cats, score])
+
+        def model(X: np.ndarray) -> np.ndarray:
+            return (X[:, 1] > 0).astype(int)
+
+        r = assert_counterfactual_fairness(
+            model, X, sensitive_col=0, max_flip_rate=0.05
+        )
+        assert r.passed is True
+        assert r.details["flip_rate"] == 0.0
+
+
+class TestIdentityPerturbation:
+    """Perturbation that does not change the feature."""
+
+    def test_identity_perturbation_zero_flips(self) -> None:
+        """No-op perturbation means zero flips for any model."""
+        rng = np.random.default_rng(42)
+        n = 50
+        X = np.column_stack([
+            rng.integers(0, 2, n),
+            rng.standard_normal(n),
+        ])
+
+        # Model that USES sensitive col -- would fail default
+        def biased(X: np.ndarray) -> np.ndarray:
+            return X[:, 0].astype(int)
+
+        def identity(X: np.ndarray) -> np.ndarray:
+            return X.copy()
+
+        r = assert_counterfactual_fairness(
+            biased,
+            X,
+            sensitive_col=0,
+            perturbation_fn=identity,
+            max_flip_rate=0.05,
+        )
+        assert r.passed is True
+        assert r.details["n_flipped"] == 0

@@ -262,3 +262,88 @@ def test_uncategorised_results():
     # Verify the enriched "rule" key is set
     for item in grouped["uncategorised"]:
         assert item["rule"] == "uncategorised"
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "prefix,rule_id",
+    [
+        ("data.pii", "privacy_rule"),
+        ("model.bias", "security_rule_admin"),
+        ("monitor.sla", "security_rule_technical"),
+        ("monitor.degradation", "breach_notification"),
+    ],
+)
+def test_prefix_maps_to_correct_rule(
+    prefix: str, rule_id: str
+):
+    """Each assertion prefix routes to its HIPAA rule."""
+    results = [
+        {
+            "name": f"{prefix}.hardening_test",
+            "passed": True,
+            "message": "ok",
+        }
+    ]
+    grouped = map_results_to_rules(results)
+    assert rule_id in grouped
+    names = [r["name"] for r in grouped[rule_id]]
+    assert f"{prefix}.hardening_test" in names
+
+
+def test_full_coverage_passes_at_100():
+    """100% coverage (4/4 rules) always passes."""
+    r = assert_hipaa_coverage(
+        FULL_COVERAGE_RESULTS, min_coverage=1.0
+    )
+    assert r.passed is True
+    assert r.details["coverage"] == 1.0
+    assert r.details["gaps"] == []
+
+
+def test_single_result_maps_to_multiple_rules():
+    """data.pii maps to both privacy_rule and breach."""
+    results = [
+        {
+            "name": "data.pii.multi_rule",
+            "passed": True,
+            "message": "ok",
+        }
+    ]
+    grouped = map_results_to_rules(results)
+    assert "privacy_rule" in grouped
+    assert "breach_notification" in grouped
+
+
+def test_custom_assertion_names_uncategorised():
+    """Assertions with no matching prefix go uncategorised."""
+    results = [
+        {
+            "name": "perf.latency.custom",
+            "passed": True,
+            "message": "ok",
+        },
+        {
+            "name": "xyz.unknown.check",
+            "passed": True,
+            "message": "ok",
+        },
+    ]
+    grouped = map_results_to_rules(results)
+    assert "uncategorised" in grouped
+    assert len(grouped["uncategorised"]) == 2
+    gaps = find_gaps(results)
+    assert len(gaps) == 4  # none of the 4 rules covered
+
+
+def test_coverage_at_exact_threshold_boundary():
+    """3/4 = 0.75 coverage at min_coverage=0.75 passes."""
+    r = assert_hipaa_coverage(
+        PARTIAL_RESULTS, min_coverage=0.75
+    )
+    assert r.passed is True
+    assert r.details["covered_count"] == 3

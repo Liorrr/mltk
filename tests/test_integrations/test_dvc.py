@@ -316,3 +316,127 @@ class TestDvcDataVersion:
         assert result.passed is False
         # Should fail due to parse error or missing hash
         assert "parse" in result.message.lower() or "no md5" in result.message.lower()
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+class TestDvcMultipleFilesInDir:
+    """Multiple .dvc files in the same directory."""
+
+    def test_two_dvc_files_same_dir(
+        self, tmp_path: Path
+    ) -> None:
+        """Each file tracked independently in same dir."""
+        _create_dvc_file(
+            tmp_path, "data/train.csv", md5="aaa"
+        )
+        _create_dvc_file(
+            tmp_path, "data/val.csv", md5="bbb"
+        )
+        _create_gitignore(
+            tmp_path,
+            "data",
+            ["/train.csv", "/val.csv"],
+        )
+
+        r1 = assert_dvc_file_tracked(
+            "data/train.csv", dvc_root=str(tmp_path)
+        )
+        r2 = assert_dvc_file_tracked(
+            "data/val.csv", dvc_root=str(tmp_path)
+        )
+        assert r1.passed is True
+        assert r2.passed is True
+
+
+class TestDvcMultipleOutputs:
+    """.dvc file with multiple outs entries."""
+
+    def test_multi_output_dvc_file(
+        self, tmp_path: Path
+    ) -> None:
+        """Parser extracts first md5 from multi-out file."""
+        content = (
+            "outs:\n"
+            "- md5: first111\n"
+            "  size: 100\n"
+            "  path: file_a.csv\n"
+            "- md5: second222\n"
+            "  size: 200\n"
+            "  path: file_b.csv\n"
+        )
+        dvc_file = tmp_path / "data" / "file_a.csv.dvc"
+        dvc_file.parent.mkdir(parents=True, exist_ok=True)
+        dvc_file.write_text(content, encoding="utf-8")
+
+        r = assert_dvc_data_version(
+            "data/file_a.csv",
+            expected_md5="first111",
+            dvc_root=str(tmp_path),
+        )
+        assert r.passed is True
+        assert r.details["stored_md5"] == "first111"
+
+
+class TestDvcRelativeVsAbsolutePaths:
+    """Relative vs absolute dvc_root paths."""
+
+    def test_absolute_dvc_root(
+        self, tmp_path: Path
+    ) -> None:
+        """Absolute dvc_root resolves correctly."""
+        _create_dvc_file(
+            tmp_path, "models/bert.bin", md5="abs123"
+        )
+        abs_root = str(tmp_path.resolve())
+        r = assert_dvc_data_version(
+            "models/bert.bin", dvc_root=abs_root
+        )
+        assert r.passed is True
+        assert r.details["stored_md5"] == "abs123"
+
+
+class TestDvcGitignoreMultipleEntries:
+    """.gitignore with multiple entries."""
+
+    def test_gitignore_multi_entries(
+        self, tmp_path: Path
+    ) -> None:
+        """Target found among many gitignore lines."""
+        _create_dvc_file(tmp_path, "data/test.csv")
+        _create_gitignore(
+            tmp_path,
+            "data",
+            ["/other.csv", "/test.csv", "/extra.bin"],
+        )
+        r = assert_dvc_file_tracked(
+            "data/test.csv", dvc_root=str(tmp_path)
+        )
+        assert r.passed is True
+
+
+class TestDvcMissingYamlKey:
+    """Missing YAML key in .dvc file."""
+
+    def test_dvc_file_missing_md5_key(
+        self, tmp_path: Path
+    ) -> None:
+        """DVC file with outs but no md5 field."""
+        content = (
+            "outs:\n"
+            "- size: 999\n"
+            "  path: broken.csv\n"
+        )
+        dvc_file = tmp_path / "data" / "broken.csv.dvc"
+        dvc_file.parent.mkdir(parents=True, exist_ok=True)
+        dvc_file.write_text(content, encoding="utf-8")
+
+        r = assert_dvc_data_version(
+            "data/broken.csv",
+            dvc_root=str(tmp_path),
+            severity="warning",  # type: ignore[arg-type]
+        )
+        assert r.passed is False

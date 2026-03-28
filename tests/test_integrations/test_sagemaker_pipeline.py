@@ -365,3 +365,153 @@ class TestSagemakerStepStatus:
                 )
 
         assert "mltk[aws]" in exc_info.value.result.message
+
+
+# -------------------------------------------------------------------
+# Parametrized & edge-case tests (hardening)
+# -------------------------------------------------------------------
+
+
+class TestSagemakerPipelineStatusParametrized:
+    """Parametrize execution status variants."""
+
+    @pytest.mark.parametrize(
+        "status,should_pass",
+        [
+            ("Succeeded", True),
+            ("Failed", False),
+            ("Executing", False),
+            ("Stopped", False),
+        ],
+    )
+    def test_execution_status_variants(
+        self, status: str, should_pass: bool
+    ) -> None:
+        """Each SageMaker status is handled correctly."""
+        boto3_mock = _make_boto3_mock()
+        client = boto3_mock.client.return_value
+        arn = (
+            "arn:aws:sagemaker:us-east-1:123:"
+            "pipeline/p/execution/e-param"
+        )
+        client.describe_pipeline_execution.return_value = {
+            "PipelineExecutionStatus": status,
+            "CreationTime": "2025-06-01T00:00:00Z",
+            "LastModifiedTime": "2025-06-01T00:30:00Z",
+        }
+        with patch.dict("sys.modules", {"boto3": boto3_mock}):
+            _clear_module_cache()
+            from mltk.integrations.sagemaker_pipeline import (
+                assert_sagemaker_pipeline_success,
+            )
+
+            if should_pass:
+                r = assert_sagemaker_pipeline_success(
+                    pipeline_name="param-pipe",
+                    execution_arn=arn,
+                )
+                assert r.passed is True
+                assert r.details["status"] == status
+            else:
+                with pytest.raises(MltkAssertionError) as ei:
+                    assert_sagemaker_pipeline_success(
+                        pipeline_name="param-pipe",
+                        execution_arn=arn,
+                    )
+                d = ei.value.result.details
+                assert d["status"] == status
+
+
+class TestSagemakerLatestNoArn:
+    """Latest execution when no ARN provided."""
+
+    def test_latest_execution_no_arn(self) -> None:
+        """Picks latest when execution_arn is omitted."""
+        boto3_mock = _make_boto3_mock()
+        client = boto3_mock.client.return_value
+        latest = (
+            "arn:aws:sagemaker:us-east-1:123:"
+            "pipeline/p/execution/latest-2"
+        )
+        client.list_pipeline_executions.return_value = {
+            "PipelineExecutionSummaries": [
+                {"PipelineExecutionArn": latest},
+            ],
+        }
+        client.describe_pipeline_execution.return_value = {
+            "PipelineExecutionStatus": "Succeeded",
+            "CreationTime": "2025-06-01T00:00:00Z",
+            "LastModifiedTime": "2025-06-01T00:30:00Z",
+        }
+        with patch.dict("sys.modules", {"boto3": boto3_mock}):
+            _clear_module_cache()
+            from mltk.integrations.sagemaker_pipeline import (
+                assert_sagemaker_pipeline_success,
+            )
+
+            r = assert_sagemaker_pipeline_success(
+                pipeline_name="auto-pipe",
+            )
+        assert r.passed is True
+        assert r.details["execution_arn"] == latest
+
+
+class TestSagemakerEmptyStepList:
+    """Empty step list from execution."""
+
+    def test_empty_step_list(self) -> None:
+        """Step not found when execution has zero steps."""
+        boto3_mock = _make_boto3_mock()
+        client = boto3_mock.client.return_value
+        client.list_pipeline_execution_steps.return_value = {
+            "PipelineExecutionSteps": [],
+        }
+        with patch.dict("sys.modules", {"boto3": boto3_mock}):
+            _clear_module_cache()
+            from mltk.integrations.sagemaker_pipeline import (
+                assert_sagemaker_step_status,
+            )
+
+            with pytest.raises(MltkAssertionError) as ei:
+                assert_sagemaker_step_status(
+                    execution_arn="arn:empty",
+                    step_name="Train",
+                )
+        assert "not found" in ei.value.result.message
+        avail = ei.value.result.details["available_steps"]
+        assert avail == []
+
+
+class TestSagemakerStepNotFoundLargeList:
+    """Step not found in a 10-step execution."""
+
+    def test_step_not_found_in_large_list(self) -> None:
+        """Missing step among 10 existing steps."""
+        boto3_mock = _make_boto3_mock()
+        client = boto3_mock.client.return_value
+        steps = [
+            {
+                "StepName": f"Step{i}",
+                "StepStatus": "Succeeded",
+            }
+            for i in range(10)
+        ]
+        client.list_pipeline_execution_steps.return_value = {
+            "PipelineExecutionSteps": steps,
+        }
+        with patch.dict("sys.modules", {"boto3": boto3_mock}):
+            _clear_module_cache()
+            from mltk.integrations.sagemaker_pipeline import (
+                assert_sagemaker_step_status,
+            )
+
+            with pytest.raises(MltkAssertionError) as ei:
+                assert_sagemaker_step_status(
+                    execution_arn="arn:big",
+                    step_name="MissingStep",
+                )
+        avail = ei.value.result.details["available_steps"]
+        assert len(avail) == 10
+        assert "MissingStep" not in avail
+        assert "Step0" in avail
+        assert "Step9" in avail
