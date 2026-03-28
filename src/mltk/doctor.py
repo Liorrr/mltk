@@ -71,7 +71,7 @@ def _check_optional_deps() -> list[DiagnosticResult]:
         ("rich", "mltk[cli]"),
         ("plotly", "mltk[report]"),
         ("jinja2", "mltk[report]"),
-        ("yaml", "mltk[yaml]"),
+        ("yaml", "mltk[contracts]"),
         ("nltk", "mltk[nlp]"),
         ("jiwer", "mltk[speech]"),
         ("cv2", "mltk[cv]"),

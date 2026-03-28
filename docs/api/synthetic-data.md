@@ -35,8 +35,9 @@ Per-column distribution comparison between real and synthetic data. Each column 
 def assert_marginal_fidelity(
     real: pd.Series,
     synthetic: pd.Series,
-    max_divergence: float = 0.10,
     method: str = "ks",
+    max_divergence: float = 0.1,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult
 ```
 
@@ -63,8 +64,9 @@ Marginal fidelity is the most basic requirement for synthetic data. If the synth
 |------|------|---------|-------------|
 | `real` | `pd.Series` | *(required)* | A single column from the real dataset. |
 | `synthetic` | `pd.Series` | *(required)* | The corresponding column from the synthetic dataset. |
-| `max_divergence` | `float` | `0.10` | Maximum allowed divergence score. Lower is stricter. |
-| `method` | `str` | `"ks"` | Statistical test to use: `"ks"` (Kolmogorov-Smirnov) for continuous columns, `"chi2"` (Chi-squared) for categorical columns. |
+| `method` | `str` | `"ks"` | Statistical test to use: `"ks"` (Kolmogorov-Smirnov) for continuous columns, `"psi"` (Population Stability Index) for both continuous and discretized data. |
+| `max_divergence` | `float` | `0.1` | Maximum allowed divergence score. Lower is stricter. |
+| `severity` | `Severity` | `CRITICAL` | Severity level for the assertion result. |
 
 #### Returns
 
@@ -133,8 +135,9 @@ Cross-column relationship comparison. The correlation structure between columns 
 def assert_correlation_preserved(
     real_df: pd.DataFrame,
     synthetic_df: pd.DataFrame,
-    max_diff: float = 0.10,
-    method: str = "pearson",
+    max_delta: float = 0.1,
+    columns: list[str] | None = None,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult
 ```
 
@@ -163,23 +166,22 @@ Even generators that claim to preserve correlations (copula-based, CTGAN) can fa
 |------|------|---------|-------------|
 | `real_df` | `pd.DataFrame` | *(required)* | The real dataset (numeric columns only, or specify columns). |
 | `synthetic_df` | `pd.DataFrame` | *(required)* | The synthetic dataset with the same columns. |
-| `max_diff` | `float` | `0.10` | Maximum allowed absolute difference in any correlation pair. |
-| `method` | `str` | `"pearson"` | Correlation method: `"pearson"`, `"spearman"`, or `"kendall"`. |
+| `max_delta` | `float` | `0.1` | Maximum allowed normalized Frobenius norm of the correlation matrix difference. |
+| `columns` | `list[str] \| None` | `None` | Subset of columns to compare. If None, uses all numeric columns present in both DataFrames. |
+| `severity` | `Severity` | `CRITICAL` | Severity level for the assertion result. |
 
 #### Returns
 
 `TestResult` with:
 
 - `name`: `"data.synthetic.correlation_preserved"`
-- `passed`: `True` if all correlation differences are within threshold
+- `passed`: `True` if normalized correlation difference is within threshold
 - `severity`: `CRITICAL`
-- `details.max_diff_observed`: the largest absolute correlation difference found
-- `details.max_diff`: the configured threshold
-- `details.worst_pair`: tuple of `(column_a, column_b)` -- the pair with the largest divergence
-- `details.worst_pair_real`: correlation value in the real data for the worst pair
-- `details.worst_pair_synthetic`: correlation value in the synthetic data for the worst pair
-- `details.method`: correlation method used
-- `details.num_pairs`: total number of column pairs compared
+- `details.frobenius_norm`: Frobenius norm of the correlation matrix difference
+- `details.normalized_diff`: normalized difference (frobenius / n_pairs)
+- `details.max_delta`: the configured threshold
+- `details.n_columns`: number of columns compared
+- `details.worst_pair`: string `"column_a-column_b"` -- the pair with the largest divergence
 
 #### Example
 
@@ -205,7 +207,7 @@ def test_correlations_match():
     synth_income = synth_age * 1050 + rng.normal(0, 5500, n)
     synth_df = pd.DataFrame({"age": synth_age, "income": synth_income})
 
-    result = assert_correlation_preserved(real_df, synth_df, max_diff=0.10)
+    result = assert_correlation_preserved(real_df, synth_df, max_delta=0.10)
     assert result.passed
 
 def test_catches_independent_columns():
@@ -224,7 +226,7 @@ def test_catches_independent_columns():
     })
 
     with pytest.raises(MltkAssertionError) as exc:
-        assert_correlation_preserved(real_df, synth_df, max_diff=0.10)
+        assert_correlation_preserved(real_df, synth_df, max_delta=0.10)
     # The worst pair tells you exactly which relationship broke
     assert "worst_pair" in str(exc.value) or True  # details in result
 ```
@@ -248,6 +250,8 @@ def assert_synthetic_novelty(
     real_df: pd.DataFrame,
     synthetic_df: pd.DataFrame,
     max_copy_rate: float = 0.05,
+    columns: list[str] | None = None,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult
 ```
 
@@ -279,6 +283,8 @@ Even from a pure ML perspective, a generator that copies training data is overfi
 | `real_df` | `pd.DataFrame` | *(required)* | The real (training) dataset. |
 | `synthetic_df` | `pd.DataFrame` | *(required)* | The synthetic dataset to validate. |
 | `max_copy_rate` | `float` | `0.05` | Maximum allowed fraction of synthetic rows that are exact copies of real rows (0-1). |
+| `columns` | `list[str] \| None` | `None` | Subset of columns to consider when comparing rows. If None, uses all columns present in both DataFrames. |
+| `severity` | `Severity` | `CRITICAL` | Severity level for the assertion result. |
 
 #### Returns
 
@@ -351,7 +357,9 @@ def assert_dcr_safe(
     real_df: pd.DataFrame,
     synthetic_df: pd.DataFrame,
     min_dcr: float = 0.05,
-    quantile: float = 0.05,
+    sample_size: int = 2000,
+    columns: list[str] | None = None,
+    severity: Severity = Severity.CRITICAL,
 ) -> TestResult
 ```
 
@@ -390,23 +398,24 @@ DCR-based validation is required or recommended by:
 |------|------|---------|-------------|
 | `real_df` | `pd.DataFrame` | *(required)* | The real dataset (numeric columns). Categorical columns should be encoded first. |
 | `synthetic_df` | `pd.DataFrame` | *(required)* | The synthetic dataset with the same columns. |
-| `min_dcr` | `float` | `0.05` | Minimum allowed DCR at the specified quantile. |
-| `quantile` | `float` | `0.05` | Which quantile of the DCR distribution to check (default: 5th percentile, meaning the 5% of synthetic rows closest to real data). |
+| `min_dcr` | `float` | `0.05` | Minimum acceptable median DCR. |
+| `sample_size` | `int` | `2000` | Maximum number of synthetic rows to evaluate (sampled for efficiency). |
+| `columns` | `list[str] \| None` | `None` | Subset of numeric columns to use. If None, uses all numeric columns present in both DataFrames. |
+| `severity` | `Severity` | `CRITICAL` | Severity level for the assertion result. |
 
 #### Returns
 
 `TestResult` with:
 
 - `name`: `"data.synthetic.dcr_safe"`
-- `passed`: `True` if the DCR at the specified quantile exceeds `min_dcr`
+- `passed`: `True` if the median DCR exceeds `min_dcr`
 - `severity`: `CRITICAL`
-- `details.p5_dcr`: the DCR value at the 5th percentile (or whatever quantile is specified)
-- `details.min_dcr`: the configured threshold
-- `details.quantile`: the quantile used
-- `details.mean_dcr`: mean DCR across all synthetic rows
-- `details.median_dcr`: median DCR across all synthetic rows
-- `details.min_dcr_observed`: the smallest DCR in the entire dataset (the single closest synthetic row to any real row)
-- `details.num_below_threshold`: count of synthetic rows with DCR below `min_dcr`
+- `details.median_dcr`: median DCR across sampled synthetic rows
+- `details.mean_dcr`: mean DCR across sampled synthetic rows
+- `details.min_dcr_threshold`: the configured threshold
+- `details.p5_dcr`: the DCR value at the 5th percentile
+- `details.n_sampled`: number of synthetic rows evaluated
+- `details.n_real`: number of real rows used for comparison
 
 #### Example
 
@@ -487,7 +496,7 @@ for col in real_df.columns:
 
 # Step 2: Are column relationships preserved?
 # A generator that models columns independently will fail here
-assert_correlation_preserved(real_df, synth_df, max_diff=0.10)
+assert_correlation_preserved(real_df, synth_df, max_delta=0.10)
 
 # Step 3: Did the generator create new data (not copies)?
 # Catches overfitting and direct memorization
@@ -507,7 +516,7 @@ Choosing thresholds depends on your use case. Stricter thresholds mean higher da
 | Assertion | Conservative | Moderate | Permissive | Unit |
 |-----------|-------------|----------|------------|------|
 | `marginal_fidelity` (max_divergence) | 0.05 | 0.10 | 0.20 | KS statistic or chi2 p-value |
-| `correlation_preserved` (max_diff) | 0.05 | 0.10 | 0.15 | Absolute correlation difference |
+| `correlation_preserved` (max_delta) | 0.05 | 0.10 | 0.15 | Normalized Frobenius norm of correlation difference |
 | `novelty` (max_copy_rate) | 0.01 | 0.05 | 0.10 | Fraction of rows that are copies |
 | `dcr_safe` (min_dcr) | 0.10 | 0.05 | 0.02 | L2 distance (normalized) |
 
@@ -587,7 +596,7 @@ class TestSyntheticDataQuality:
         )
 
     def test_correlation_preserved(self, real_data, synthetic_data):
-        result = assert_correlation_preserved(real_data, synthetic_data, max_diff=0.10)
+        result = assert_correlation_preserved(real_data, synthetic_data, max_delta=0.10)
         # Log the worst pair for debugging
         print(f"Worst pair: {result.details['worst_pair']}")
 

@@ -15,7 +15,7 @@ Drift detection answers the critical question: **has the data changed since the 
 
 ## assert_no_drift
 
-Unified drift detection supporting 4 statistical methods.
+Unified drift detection supporting 7 statistical methods.
 
 ```python
 from mltk.data import assert_no_drift
@@ -31,6 +31,16 @@ assert_no_drift(reference, current, method="kl")
 
 # Chi-squared — for categorical features
 assert_no_drift(reference, current, method="chi2")
+
+# Jensen-Shannon — symmetric, bounded [0,1], good default for categorical
+assert_no_drift(reference, current, method="js")
+
+# Wasserstein (Earth Mover's) — proportional to mean shift, best for large numeric samples
+assert_no_drift(reference, current, method="wasserstein")
+
+# Auto — auto-selects best method based on sample size and dtype
+# Uses Wasserstein for numeric n>1000, KS otherwise
+assert_no_drift(reference, current, method="auto")
 ```
 
 ### Parameters
@@ -39,7 +49,7 @@ assert_no_drift(reference, current, method="chi2")
 |------|------|---------|-------------|
 | `reference` | `pd.Series` | *(required)* | Baseline distribution (e.g., training data) |
 | `current` | `pd.Series` | *(required)* | Current distribution to compare against baseline |
-| `method` | `str` | `"ks"` | Detection method: `"ks"`, `"psi"`, `"kl"`, `"chi2"` |
+| `method` | `str` | `"ks"` | Detection method: `"ks"`, `"psi"`, `"kl"`, `"chi2"`, `"js"`, `"wasserstein"`, `"auto"` |
 | `threshold` | `float \| None` | `None` | Custom threshold. If None, uses method-specific default |
 
 ### Default Thresholds
@@ -50,6 +60,9 @@ assert_no_drift(reference, current, method="chi2")
 | `psi` | < 0.1 | Stable distribution (0.1-0.2 = moderate, >0.2 = significant) |
 | `kl` | < 0.1 | Low information divergence |
 | `chi2` | p-value > 0.05 | No significant categorical distribution change |
+| `js` | < 0.1 | Low symmetric divergence (bounded [0, 1]) |
+| `wasserstein` | < 0.1 | Low earth mover's distance (proportional to mean shift) |
+| `auto` | method-specific | Auto-selects Wasserstein (n>1000) or KS, uses that method's default |
 
 ### Returns
 
@@ -72,6 +85,9 @@ assert_no_drift(reference, current, method="chi2")
 | **PSI** | Production monitoring | Industry standard, interpretable buckets | Sensitive to binning |
 | **KL** | Information theory | Captures distributional shape | Asymmetric, undefined if P(x)=0 |
 | **Chi2** | Categorical features | Handles discrete values natively | Needs sufficient samples per category |
+| **JS** | Categorical (Evidently default) | Symmetric, bounded [0,1], handles zeros better than KL | Requires binning for continuous data |
+| **Wasserstein** | Large numeric samples (n>1000) | Proportional to actual shift magnitude, Evidently default for numeric | Requires scipy, slower than KS |
+| **Auto** | General-purpose | No method choice needed, picks best for your data | Less control over which test is used |
 
 ### Example
 

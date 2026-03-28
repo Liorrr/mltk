@@ -24,6 +24,7 @@ _CATEGORY_LABELS: dict[str, str] = {
     "domains.recommendation": "Recommendation Systems",
     "domains.codegen": "Code Generation",
     "domains.healthcare": "Healthcare",
+    "compliance": "Compliance",
     "monitor": "Monitoring",
     "inference": "Inference",
     "pipeline": "Pipeline",
@@ -53,6 +54,7 @@ _SCAN_TARGETS: list[str] = [
     "mltk.pipeline",
     "mltk.training",
     "mltk.testing",
+    "mltk.compliance",
 ]
 
 
@@ -134,6 +136,11 @@ def _collect_from_package(
                     continue
                 obj = getattr(child, attr, None)
                 if obj is None or not callable(obj):
+                    continue
+                # Skip imported names (e.g. assert_true) —
+                # only include functions defined in this module
+                obj_mod = getattr(obj, "__module__", None)
+                if obj_mod and obj_mod != full:
                     continue
                 entries.append({
                     "name": attr,

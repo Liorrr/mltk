@@ -24,7 +24,6 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
   - Configuration: configuration.md
   - Guides:
       - Getting Started: getting-started.md
@@ -94,6 +93,8 @@ nav:
       - Summarization Metrics: api/summarization-metrics.md
       - Long-Context LLM Testing: api/long-context.md
       - Recommendation Systems: api/recommendation.md
+      - Healthcare: api/healthcare.md
+      - Code Generation: api/codegen.md
       - Training Bugs: api/training-bugs.md
       - Test Impact & Anomaly: api/test-impact.md
   - Compliance & Integrations:
@@ -102,6 +103,7 @@ nav:
       - ISO 42001: api/compliance-iso-42001.md
       - FDA Audit Trail: api/fda-audit.md
       - HIPAA & Custom: api/hipaa-custom.md
+      - SR 11-7: api/sr-11-7.md
       - Compliance PDF: api/compliance-pdf.md
       - Model Card Generator: api/model-card.md
       - Cloud Monitoring: api/cloud-monitoring.md

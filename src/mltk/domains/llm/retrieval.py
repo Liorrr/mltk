@@ -22,6 +22,14 @@ import math
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+__all__ = [
+    "assert_ndcg",
+    "assert_mrr",
+    "assert_recall_at_k",
+    "assert_map_at_k",
+]
+
+
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
@@ -42,7 +50,6 @@ def _dcg_at_k(relevances: list[int], k: int) -> float:
     for i, rel in enumerate(relevances[:k]):
         dcg += (2.0 ** rel - 1.0) / math.log2(i + 2)
     return dcg
-
 
 def _ndcg_single(
     y_true: list[int],
@@ -79,7 +86,6 @@ def _ndcg_single(
     if idcg == 0.0:
         return 1.0  # no relevant docs -- trivially perfect
     return dcg / idcg
-
 
 # ------------------------------------------------------------------
 # Public assertions
@@ -165,7 +171,6 @@ def assert_ndcg(
         per_query_ndcg=per_query,
     )
 
-
 @timed_assertion
 def assert_mrr(
     queries_results: list[list[bool]],
@@ -244,7 +249,6 @@ def assert_mrr(
         per_query_rr=reciprocals,
     )
 
-
 @timed_assertion
 def assert_recall_at_k(
     relevant: list[set],
@@ -322,7 +326,6 @@ def assert_recall_at_k(
         num_queries=len(per_query),
         per_query_recall=per_query,
     )
-
 
 @timed_assertion
 def assert_map_at_k(

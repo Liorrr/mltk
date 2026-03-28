@@ -1,3 +1,5 @@
+
+
 """LLM long-context evaluation -- needle retrieval, utilization, lost-in-middle."""
 
 from __future__ import annotations
@@ -8,9 +10,15 @@ from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
 
+__all__ = [
+    "assert_needle_in_haystack",
+    "assert_context_utilization",
+    "assert_no_lost_in_middle",
+]
+
+
 # Default probe positions spanning the full context window.
 _DEFAULT_POSITIONS: list[float] = [0.0, 0.25, 0.5, 0.75, 1.0]
-
 
 def _insert_needle(
     haystack: str, needle: str, position: float,
@@ -23,7 +31,6 @@ def _insert_needle(
     pos = max(0.0, min(1.0, position))
     idx = int(len(haystack) * pos)
     return haystack[:idx] + " " + needle + " " + haystack[idx:]
-
 
 def _check_needle_in_response(
     response: str, needle: str, min_overlap: float = 0.5,
@@ -40,7 +47,6 @@ def _check_needle_in_response(
     response_tokens = _tokenize(response)
     overlap = len(needle_tokens & response_tokens) / len(needle_tokens)
     return overlap >= min_overlap
-
 
 @timed_assertion
 def assert_needle_in_haystack(
@@ -138,7 +144,6 @@ def assert_needle_in_haystack(
         needle_length=len(needle),
         haystack_length=len(haystack),
     )
-
 
 @timed_assertion
 def assert_context_utilization(
@@ -244,7 +249,6 @@ def assert_context_utilization(
         total_facts=len(facts),
         per_fact_found=per_fact_found,
     )
-
 
 @timed_assertion
 def assert_no_lost_in_middle(

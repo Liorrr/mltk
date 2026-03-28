@@ -30,6 +30,11 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+__all__ = [
+    "assert_reward_bounded",
+    "assert_cumulative_reward",
+]
+
 
 @timed_assertion
 def assert_reward_bounded(
@@ -70,7 +75,7 @@ def assert_reward_bounded(
     if min_reward is None and max_reward is None:
         return assert_true(
             False,
-            name="domains.rl.reward_bounded",
+            name="rl.reward_bounded",
             message="At least one of min_reward or max_reward must be provided",
             severity=Severity.CRITICAL,
         )
@@ -81,7 +86,7 @@ def assert_reward_bounded(
     if n_total == 0:
         return assert_true(
             False,
-            name="domains.rl.reward_bounded",
+            name="rl.reward_bounded",
             message="Cannot check bounds on empty rewards array",
             severity=Severity.CRITICAL,
         )
@@ -120,7 +125,7 @@ def assert_reward_bounded(
 
     return assert_true(
         passed,
-        name="domains.rl.reward_bounded",
+        name="rl.reward_bounded",
         message=message,
         severity=Severity.CRITICAL,
         actual_min=actual_min,
@@ -128,7 +133,6 @@ def assert_reward_bounded(
         n_violations=n_violations,
         n_total=n_total,
     )
-
 
 @timed_assertion
 def assert_cumulative_reward(
@@ -172,7 +176,7 @@ def assert_cumulative_reward(
     if n_steps == 0:
         return assert_true(
             False,
-            name="domains.rl.cumulative_reward",
+            name="rl.cumulative_reward",
             message="Cannot compute cumulative reward on empty rewards array",
             severity=Severity.CRITICAL,
         )
@@ -193,7 +197,7 @@ def assert_cumulative_reward(
 
     return assert_true(
         passed,
-        name="domains.rl.cumulative_reward",
+        name="rl.cumulative_reward",
         message=message,
         severity=Severity.CRITICAL,
         cumulative_reward=cumulative,

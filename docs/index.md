@@ -39,7 +39,7 @@ pytest --mltk-report -v
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional software testing does not catch these failures.
 
-mltk provides **195+ purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems and long-context LLM evaluation -- all runnable with `pytest`.
+mltk provides **197 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems and long-context LLM evaluation -- all runnable with `pytest`.
 
 | What you get | Without mltk |
 |---|---|
@@ -104,7 +104,7 @@ AWS CloudWatch, Azure Monitor, GCP monitoring, Prometheus metrics export, output
 
 === "QA Engineer"
 
-    You write test suites for a living. mltk gives you **195+ ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
+    You write test suites for a living. mltk gives you **197 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
 
     :point_right: Start with [Getting Started](getting-started.md), then explore [YAML Test Definitions](api/yaml-tests.md) for no-code tests.
 
@@ -132,8 +132,8 @@ AWS CloudWatch, Azure Monitor, GCP monitoring, Prometheus metrics export, output
 
 | Metric | Count |
 |--------|-------|
-| Assertions | 195+ across 70+ modules |
-| Tests | 1,476 |
+| Assertions | 197 across 70+ modules |
+| Tests | 2,177 |
 | CLI commands | 24 |
 | Domain kits | 12 (CV, NLP, Speech, Tabular, LLM, Multimodal, RL, Recommendation, Healthcare, Code Generation, and more) |
 | Compliance frameworks | 5 (EU AI Act, FDA, OWASP LLM, NIST AI RMF, ISO 42001) |
@@ -147,7 +147,7 @@ AWS CloudWatch, Azure Monitor, GCP monitoring, Prometheus metrics export, output
 | Layer | Modules | What |
 |-------|---------|------|
 | **pytest plugin** | auto-registered | markers, fixtures, `--mltk-report` |
-| **Assertions** | data, model, inference, llm | 195+ `assert_*` functions |
+| **Assertions** | data, model, inference, llm | 197 `assert_*` functions |
 | **Training** | training, pipeline, monitor | gradient, leakage, drift, cloud |
 | **Domains** | cv, nlp, speech, tabular, multimodal, rl, recommendation, healthcare, code gen | specialized domain assertions |
 | **Compliance** | compliance, contracts, testdefs | EU AI Act, FDA, YAML, data contracts |
@@ -160,7 +160,7 @@ Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, 
 
 ## Project Status
 
-mltk is at **v0.8.0** (beta). Core modules are stable and tested with 195+ assertions and 1,476+ tests. The latest release adds recommendation system testing, long-context LLM evaluation, and healthcare/code generation domain kits. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
+mltk is at **v0.8.0** (beta). Core modules are stable and tested with 197 assertions and 2,177 tests. The latest release adds recommendation system testing, long-context LLM evaluation, and healthcare/code generation domain kits. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
 
 ## License
 

@@ -50,6 +50,14 @@ from typing import Any
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+__all__ = [
+    "assert_code_executes",
+    "assert_code_passes_tests",
+    "assert_no_code_vulnerabilities",
+    "assert_code_complexity",
+]
+
+
 # ------------------------------------------------------------------
 # Default vulnerability rules
 # ------------------------------------------------------------------
@@ -70,16 +78,13 @@ _PASSWORD_RE = re.compile(
     re.IGNORECASE,
 )
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
 
-
 def _python_executable() -> str:
     """Return the path to the current Python interpreter."""
     return sys.executable or "python"
-
 
 def _run_code_in_subprocess(
     code: str,
@@ -123,7 +128,6 @@ def _run_code_in_subprocess(
         except OSError:
             pass
 
-
 def _scan_vulnerabilities(
     code: str,
     rules: list[str],
@@ -154,7 +158,6 @@ def _scan_vulnerabilities(
                 })
 
     return findings
-
 
 def _compute_cyclomatic_complexity(
     tree: ast.Module,
@@ -193,11 +196,9 @@ def _compute_cyclomatic_complexity(
 
     return per_function
 
-
 # ------------------------------------------------------------------
 # Public assertions
 # ------------------------------------------------------------------
-
 
 @timed_assertion
 def assert_code_executes(
@@ -301,7 +302,6 @@ def assert_code_executes(
         language=language,
     )
 
-
 @timed_assertion
 def assert_code_passes_tests(
     code: str,
@@ -387,7 +387,6 @@ def assert_code_passes_tests(
         timeout_seconds=timeout_seconds,
     )
 
-
 @timed_assertion
 def assert_no_code_vulnerabilities(
     code: str,
@@ -471,7 +470,6 @@ def assert_no_code_vulnerabilities(
         n_findings=n_findings,
         rules_checked=active_rules,
     )
-
 
 @timed_assertion
 def assert_code_complexity(

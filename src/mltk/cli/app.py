@@ -709,7 +709,7 @@ quality:
         Reads test results from a JSON file (produced by --mltk-export-json)
         and identifies which compliance requirements lack test coverage.
 
-        Supported frameworks: all, eu-ai-act, owasp, nist-rmf, iso-42001, fda.
+        Supported frameworks: all, eu-ai-act, owasp, nist-rmf, iso-42001, fda, hipaa, sr-11-7.
 
         Args:
             results_json: Path to JSON file with mltk test results.
@@ -727,7 +727,10 @@ quality:
             raw if isinstance(raw, list) else raw.get("results", [])
         )
 
-        valid_frameworks = {"all", "eu-ai-act", "owasp", "nist-rmf", "iso-42001", "fda"}
+        valid_frameworks = {
+            "all", "eu-ai-act", "owasp", "nist-rmf",
+            "iso-42001", "fda", "hipaa", "sr-11-7",
+        }
         fw = framework.lower().strip()
         if fw not in valid_frameworks:
             print(  # noqa: T201

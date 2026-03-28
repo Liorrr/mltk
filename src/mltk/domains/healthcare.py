@@ -36,11 +36,18 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+__all__ = [
+    "assert_sensitivity",
+    "assert_specificity",
+    "assert_ppv",
+    "assert_npv",
+    "assert_clinical_agreement",
+]
+
 
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
-
 
 def _confusion_counts(
     y_true: np.ndarray,
@@ -62,7 +69,6 @@ def _confusion_counts(
     fp = int(np.sum((y_true == 0) & (y_pred == 1)))
     fn = int(np.sum((y_true == 1) & (y_pred == 0)))
     return tp, tn, fp, fn
-
 
 def _validate_binary_inputs(
     y_true: np.ndarray,
@@ -120,11 +126,9 @@ def _validate_binary_inputs(
 
     return None
 
-
 # ------------------------------------------------------------------
 # Public assertions
 # ------------------------------------------------------------------
-
 
 @timed_assertion
 def assert_sensitivity(
@@ -223,7 +227,6 @@ def assert_sensitivity(
         n_positive=n_positive,
     )
 
-
 @timed_assertion
 def assert_specificity(
     y_true: np.ndarray,
@@ -318,7 +321,6 @@ def assert_specificity(
         fp=fp,
         n_negative=n_negative,
     )
-
 
 @timed_assertion
 def assert_ppv(
@@ -416,7 +418,6 @@ def assert_ppv(
         n_predicted_positive=n_predicted_positive,
     )
 
-
 @timed_assertion
 def assert_npv(
     y_true: np.ndarray,
@@ -511,7 +512,6 @@ def assert_npv(
         fn=fn,
         n_predicted_negative=n_predicted_negative,
     )
-
 
 @timed_assertion
 def assert_clinical_agreement(

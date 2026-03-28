@@ -29,6 +29,11 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+__all__ = [
+    "assert_image_text_alignment",
+    "assert_cross_modal_consistency",
+]
+
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     """Compute cosine similarity between two vectors.
@@ -44,7 +49,6 @@ def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return float(np.dot(a, b) / (norm_a * norm_b))
-
 
 @timed_assertion
 def assert_image_text_alignment(
@@ -101,7 +105,7 @@ def assert_image_text_alignment(
     if n_pairs == 0:
         return assert_true(
             False,
-            name="domains.multimodal.image_text_alignment",
+            name="multimodal.image_text_alignment",
             message="Cannot compute alignment on empty embeddings",
             severity=Severity.CRITICAL,
         )
@@ -122,7 +126,7 @@ def assert_image_text_alignment(
 
     return assert_true(
         passed,
-        name="domains.multimodal.image_text_alignment",
+        name="multimodal.image_text_alignment",
         message=message,
         severity=Severity.CRITICAL,
         avg_cosine=avg_cosine,
@@ -131,7 +135,6 @@ def assert_image_text_alignment(
         max_pair_cosine=max_pair_cosine,
         n_pairs=n_pairs,
     )
-
 
 @timed_assertion
 def assert_cross_modal_consistency(
@@ -188,7 +191,7 @@ def assert_cross_modal_consistency(
     if n_total == 0:
         return assert_true(
             False,
-            name="domains.multimodal.cross_modal_consistency",
+            name="multimodal.cross_modal_consistency",
             message="Cannot compute consistency on empty predictions",
             severity=Severity.CRITICAL,
         )
@@ -217,7 +220,7 @@ def assert_cross_modal_consistency(
 
     return assert_true(
         passed,
-        name="domains.multimodal.cross_modal_consistency",
+        name="multimodal.cross_modal_consistency",
         message=message,
         severity=Severity.CRITICAL,
         agreement_rate=agreement_rate,

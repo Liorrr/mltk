@@ -114,7 +114,7 @@ class TestScheduler:
             name: Unique identifier for this schedule (e.g.
                 ``"nightly-drift"``).  Used as the key for all other methods.
             command: Shell command to execute (e.g. ``"mltk run --tag drift"``).
-                Executed via ``subprocess.run(command, shell=True)``.
+                Executed via ``subprocess.run(shlex.split(command), shell=False)``.
             interval_seconds: Minimum seconds between consecutive runs.
                 Defaults to 3600 (one hour).
             webhook_url: Optional URL to POST results to after each run.
@@ -226,7 +226,7 @@ class TestScheduler:
         stdout, stderr, and return code, then optionally POSTs the result
         to the configured webhook URL.
 
-        **Subprocess safety:** Commands run with ``shell=True`` because mltk
+        **Subprocess safety:** Commands run with ``shell=False`` (using shlex.split) because mltk
         commands often include flags and pipes.  The command string comes from
         the schedule creator (an admin), not from end-user input.
 

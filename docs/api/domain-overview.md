@@ -13,15 +13,15 @@ For the complete assertion-by-assertion index (every parameter, every module pat
 | [Data Quality](#data-quality) | 23 | `mltk.data.*` | Schema, nulls, range, drift, PII, lineage, synthetic data |
 | [Model Quality](#model-quality) | 15 | `mltk.model.*` | Metrics, regression, slicing, bias, adversarial, conformal, overfitting |
 | [LLM / GenAI](#llm--genai) | 30+ | `mltk.domains.llm.*` | Safety, RAG, agentic, judge, summarization, retrieval, long-context |
-| [NLP](#nlp) | 8 | `mltk.domains.nlp.*` | BLEU, ROUGE, NER, prompt injection, sentiment, robustness |
+| [NLP](#nlp) | 7 | `mltk.domains.nlp.*` | BLEU, ROUGE, NER, prompt injection, sentiment, robustness |
 | [Computer Vision](#computer-vision) | 9 | `mltk.domains.cv.*` | IoU, mAP, video, tracking, face recognition, top-K |
 | [Speech](#speech) | 4 | `mltk.domains.speech.*` | WER, CER, real-time factor, accent coverage |
 | [Tabular](#tabular) | 3 | `mltk.domains.tabular.*` | Feature drift, importance stability, class balance |
 | [Multimodal](#multimodal) | 2 | `mltk.domains.multimodal` | Image-text alignment, cross-modal consistency |
 | [Reinforcement Learning](#reinforcement-learning) | 2 | `mltk.domains.rl` | Reward bounds, cumulative reward |
-| [Recommendation](#recommendation) | 5 | `mltk.domains.recommendation` | Hit rate, nDCG, coverage, diversity, novelty |
-| [Healthcare](#healthcare) | 5 | `mltk.domains.healthcare` | Sensitivity, specificity, calibration, subgroup, regulatory |
-| [Code Generation](#code-generation) | 4 | `mltk.domains.code_gen` | Syntax validity, test pass rate, security scan, functional correctness |
+| [Recommendation](#recommendation) | 5 | `mltk.domains.recommendation` | Hit rate, diversity, novelty, coverage, serendipity |
+| [Healthcare](#healthcare) | 5 | `mltk.domains.healthcare` | Sensitivity, specificity, PPV, NPV, clinical agreement |
+| [Code Generation](#code-generation) | 4 | `mltk.domains.codegen` | Code execution, test passing, vulnerability scan, complexity check |
 
 **Total: ~195+ assertions** across 12 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
 
@@ -84,7 +84,7 @@ The largest domain kit. Covers safety, hallucination detection, RAG evaluation, 
 | RAG | `assert_faithfulness`, `assert_context_relevancy`, `assert_answer_relevancy`, `assert_context_precision`, `assert_context_recall`, `assert_ragas_score` | Hallucinated answers, irrelevant context, poor retrieval |
 | Retrieval Ranking | `assert_ndcg`, `assert_mrr`, `assert_recall_at_k`, `assert_map_at_k` | Bad document ranking, low recall in search results |
 | LLM-as-Judge | `assert_llm_judge_score`, `assert_llm_judge_pairwise` | Subjective quality below threshold, A/B comparison |
-| Summarization | `assert_summary_faithfulness`, `assert_summary_coverage`, `assert_summary_conciseness` | Unfaithful, incomplete, or verbose summaries |
+| Summarization | `assert_summary_coverage`, `assert_summary_compression`, `assert_summary_faithfulness` | Incomplete, uncompressed, or unfaithful summaries |
 | Coherence | `assert_coherence`, `assert_bertscore` | Incoherent text, low semantic similarity (BERTScore) |
 | Agentic | `assert_task_completion`, `assert_tool_selection`, `assert_tool_call_correctness`, `assert_tool_chain`, `assert_no_forbidden_actions`, `assert_step_efficiency`, `assert_no_redundant_calls`, `assert_no_hallucinated_tools`, `assert_cost_budget`, `assert_error_recovery` | Wrong tools, hallucinated tools, stuck loops, budget overruns |
 | Multi-Agent | `assert_no_agent_loop`, `assert_agent_handoff` | Circular delegation, broken handoff sequences |
@@ -211,31 +211,31 @@ Validate recommendation system quality: ranking accuracy, catalog coverage, resu
 | Assertion | What it tests |
 |-----------|--------------|
 | `assert_hit_rate` | Fraction of users whose relevant items appear in top-K recommendations |
-| `assert_ndcg` | Ranking quality -- relevant items should appear higher in the list |
-| `assert_coverage` | Fraction of the item catalog that appears in recommendations (catalog utilization) |
 | `assert_diversity` | Intra-list diversity -- recommended items should not all be near-duplicates |
 | `assert_novelty` | Degree to which recommendations surface non-obvious, long-tail items |
+| `assert_coverage` | Fraction of the item catalog that appears in recommendations (catalog utilization) |
+| `assert_serendipity` | Unexpected but relevant recommendations -- items users find useful but would not have discovered from a baseline |
 
-**Why these five?** A recommender can score high on accuracy (hit rate, nDCG) while only recommending the same 50 popular items to every user. Coverage, diversity, and novelty catch this pathology -- they ensure the system is useful, not just technically correct.
+**Why these five?** A recommender can score high on accuracy (hit rate) while only recommending the same 50 popular items to every user. Diversity, novelty, coverage, and serendipity catch this pathology -- they ensure the system is useful, not just technically correct.
 
 ```python
 from mltk.domains.recommendation import (
     assert_hit_rate,
-    assert_ndcg,
-    assert_coverage,
     assert_diversity,
     assert_novelty,
+    assert_coverage,
+    assert_serendipity,
 )
 
-# user_recs: dict mapping user_id -> list of recommended item_ids (ranked)
-# user_relevant: dict mapping user_id -> set of actually relevant item_ids
-# all_items: set of every item in the catalog
+# recommended: list of recommendation lists per user
+# relevant: list of relevant item sets per user
+# expected: list of baseline recommendation lists per user
 
-assert_hit_rate(user_recs, user_relevant, k=10, min_rate=0.3)
-assert_ndcg(user_recs, user_relevant, k=10, min_score=0.25)
-assert_coverage(user_recs, all_items, min_coverage=0.15)
-assert_diversity(user_recs, item_embeddings, min_diversity=0.4)
-assert_novelty(user_recs, item_popularity, min_novelty=3.0)
+assert_hit_rate(recommended, relevant, min_rate=0.3)
+assert_diversity(recommended, item_categories, min_diversity=0.4)
+assert_novelty(recommended, item_popularity, min_novelty=3.0)
+assert_coverage(recommended, catalog_size=10000, min_coverage=0.15)
+assert_serendipity(recommended, expected, relevant, min_serendipity=0.1)
 ```
 
 :point_right: [Recommendation Systems](recommendation.md)
@@ -250,26 +250,29 @@ Validate clinical ML models with domain-specific thresholds and regulatory aware
 
 | Assertion | What it tests |
 |-----------|--------------|
-| `assert_clinical_sensitivity` | Minimum true positive rate (recall) for clinical screening -- missing a positive case is the critical failure mode |
-| `assert_clinical_specificity` | Minimum true negative rate -- excessive false positives waste resources and cause patient anxiety |
-| `assert_calibration_clinical` | Predicted probabilities match observed outcomes in clinical ranges (e.g., 0-10%, 10-30%, 30-50%, 50%+) |
-| `assert_subgroup_performance` | Model performance meets threshold across demographic and clinical subgroups (age, sex, comorbidities) |
-| `assert_regulatory_threshold` | Model metrics meet predefined regulatory floor values (e.g., FDA 510(k) substantially equivalent thresholds) |
+| `assert_sensitivity` | Minimum true positive rate (recall) for clinical screening -- missing a positive case is the critical failure mode |
+| `assert_specificity` | Minimum true negative rate -- excessive false positives waste resources and cause patient anxiety |
+| `assert_ppv` | Positive predictive value -- when the model says "positive," how often is it right? Critical for rare diseases where even high specificity yields low PPV |
+| `assert_npv` | Negative predictive value -- when the model says "negative," how often is it right? Critical for rule-out tests in emergency settings |
+| `assert_clinical_agreement` | Cohen's Kappa agreement beyond random chance -- corrects for the base-rate illusion that inflates raw accuracy on imbalanced datasets |
 
 ```python
 from mltk.domains.healthcare import (
-    assert_clinical_sensitivity,
-    assert_clinical_specificity,
-    assert_subgroup_performance,
+    assert_sensitivity,
+    assert_specificity,
+    assert_ppv,
+    assert_npv,
+    assert_clinical_agreement,
 )
 
-assert_clinical_sensitivity(y_true, y_pred, min_sensitivity=0.95)
-assert_clinical_specificity(y_true, y_pred, min_specificity=0.80)
-assert_subgroup_performance(
-    y_true, y_pred, groups=patient_demographics,
-    metric="sensitivity", min_score=0.90,
-)
+assert_sensitivity(y_true, y_pred, min_sensitivity=0.95)
+assert_specificity(y_true, y_pred, min_specificity=0.80)
+assert_ppv(y_true, y_pred, min_ppv=0.7)
+assert_npv(y_true, y_pred, min_npv=0.9)
+assert_clinical_agreement(y_true, y_pred, min_kappa=0.6)
 ```
+
+:point_right: [Healthcare Testing](healthcare.md)
 
 ---
 
@@ -277,36 +280,37 @@ assert_subgroup_performance(
 
 Validate LLM-generated code for syntax correctness, functional accuracy, security, and test coverage. Catches the common failure modes of code-generating models -- syntactically plausible but non-functional code, security vulnerabilities, and code that passes no tests.
 
-**4 assertions** in `mltk.domains.code_gen`.
+**4 assertions** in `mltk.domains.codegen`.
 
 | Assertion | What it tests |
 |-----------|--------------|
-| `assert_syntax_valid` | Generated code parses without syntax errors (language-aware: Python, JavaScript, TypeScript, Rust, Go) |
-| `assert_test_pass_rate` | Fraction of test cases the generated code passes |
-| `assert_no_security_issues` | Generated code contains no known vulnerability patterns (hardcoded secrets, SQL injection, path traversal, command injection) |
-| `assert_functional_correctness` | Generated code produces correct output for a set of input/output examples (pass@k metric) |
+| `assert_code_executes` | Generated code runs without errors -- catches undefined variables, import errors, type mismatches (subprocess isolation with timeout) |
+| `assert_code_passes_tests` | Generated code passes a provided test suite -- combines code with tests and verifies all pass |
+| `assert_no_code_vulnerabilities` | Generated code contains no security anti-patterns (eval, exec, shell=True, hardcoded credentials, __import__) |
+| `assert_code_complexity` | Generated code cyclomatic complexity and line count stay within bounds -- catches verbose, deeply nested LLM output |
 
 ```python
-from mltk.domains.code_gen import (
-    assert_syntax_valid,
-    assert_test_pass_rate,
-    assert_no_security_issues,
-    assert_functional_correctness,
+from mltk.domains.codegen import (
+    assert_code_executes,
+    assert_code_passes_tests,
+    assert_no_code_vulnerabilities,
+    assert_code_complexity,
 )
 
 generated_code = model.generate("Write a function to merge two sorted lists.")
 
-assert_syntax_valid(generated_code, language="python")
-assert_no_security_issues(generated_code, language="python")
-assert_functional_correctness(
+assert_code_executes(generated_code, timeout_seconds=10.0, language="python")
+assert_no_code_vulnerabilities(generated_code)
+assert_code_passes_tests(
     generated_code,
-    test_cases=[
-        {"input": {"a": [1, 3, 5], "b": [2, 4, 6]}, "expected": [1, 2, 3, 4, 5, 6]},
-        {"input": {"a": [], "b": [1, 2]}, "expected": [1, 2]},
-        {"input": {"a": [1], "b": []}, "expected": [1]},
-    ],
-    min_pass_rate=1.0,
+    test_code="""
+assert merge_sorted([1, 3, 5], [2, 4, 6]) == [1, 2, 3, 4, 5, 6]
+assert merge_sorted([], [1, 2]) == [1, 2]
+assert merge_sorted([1], []) == [1]
+""",
+    timeout_seconds=30.0,
 )
+assert_code_complexity(generated_code, max_cyclomatic=10, max_lines=200)
 ```
 
 :point_right: [Code Generation Testing](codegen.md)

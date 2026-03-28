@@ -28,10 +28,18 @@ import math
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+__all__ = [
+    "assert_hit_rate",
+    "assert_diversity",
+    "assert_novelty",
+    "assert_coverage",
+    "assert_serendipity",
+]
+
+
 # ------------------------------------------------------------------
 # Public assertions
 # ------------------------------------------------------------------
-
 
 @timed_assertion
 def assert_hit_rate(
@@ -111,7 +119,6 @@ def assert_hit_rate(
         n_hits=n_hits,
         n_users=n_users,
     )
-
 
 @timed_assertion
 def assert_diversity(
@@ -214,7 +221,6 @@ def assert_diversity(
         per_user_diversity=per_user,
     )
 
-
 @timed_assertion
 def assert_novelty(
     recommended: list[list],
@@ -309,7 +315,6 @@ def assert_novelty(
         per_user_novelty=per_user,
     )
 
-
 @timed_assertion
 def assert_coverage(
     recommended: list[list],
@@ -383,7 +388,6 @@ def assert_coverage(
         unique_items=unique_count,
         catalog_size=catalog_size,
     )
-
 
 @timed_assertion
 def assert_serendipity(
