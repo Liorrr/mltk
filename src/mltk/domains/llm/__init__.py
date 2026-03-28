@@ -29,6 +29,12 @@ from mltk.domains.llm.rag import (
     assert_faithfulness,
 )
 from mltk.domains.llm.ragas import assert_ragas_score, compute_ragas_score
+from mltk.domains.llm.retrieval import (
+    assert_map_at_k,
+    assert_mrr,
+    assert_ndcg,
+    assert_recall_at_k,
+)
 from mltk.domains.llm.safety import (
     assert_no_hallucination,
     assert_no_system_prompt_leakage,
@@ -88,6 +94,11 @@ __all__ = [
     # multi-agent coordination
     "assert_no_agent_loop",
     "assert_agent_handoff",
+    # retrieval ranking metrics
+    "assert_ndcg",
+    "assert_mrr",
+    "assert_recall_at_k",
+    "assert_map_at_k",
     # multi-turn conversation evaluation
     "assert_knowledge_retention",
     "assert_turn_relevancy",

@@ -353,3 +353,159 @@ class TestExportJson:
         assert len(spans) == 3
         names = [s["name"] for s in spans]
         assert names == ["accuracy", "drift_psi", "latency_p99"]
+
+
+# ---------------------------------------------------------------------------
+# Hardening: performance, structure, and edge-case tests (appended)
+# ---------------------------------------------------------------------------
+
+
+class TestExportJsonPerformance:
+    """Export JSON with many results -- performance check."""
+
+    def test_100_results_export(self, tmp_path: Path) -> None:
+        """100 results export produces valid JSON with 100 spans.
+
+        Exercises the serialization path at moderate scale
+        to catch any quadratic behavior in span construction.
+        """
+        from mltk.integrations.otel import MltkTracer
+
+        tracer = MltkTracer()
+        out = str(tmp_path / "perf.json")
+
+        results = [
+            _make_result(
+                name=f"assertion_{i}",
+                passed=(i % 3 != 0),
+                severity="critical" if i % 5 == 0 else "info",
+                message=f"result for assertion {i}",
+                duration_ms=float(i) + 0.5,
+            )
+            for i in range(100)
+        ]
+        tracer.export_json(results, out)
+
+        data = json.loads(
+            Path(out).read_text(encoding="utf-8"),
+        )
+        spans = (
+            data["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        )
+        assert len(spans) == 100
+        # Verify first and last span names
+        assert spans[0]["name"] == "assertion_0"
+        assert spans[99]["name"] == "assertion_99"
+
+
+class TestExportJsonNestedSuiteStructure:
+    """Suite export with parent/child structure verification."""
+
+    def test_suite_spans_have_correct_attributes(
+        self, tmp_path: Path,
+    ) -> None:
+        """Each span in a suite export retains individual attrs.
+
+        When exporting a mixed suite, verify that each span's
+        status.code reflects its individual passed/failed state,
+        not the suite-level aggregate.
+        """
+        from mltk.integrations.otel import MltkTracer
+
+        tracer = MltkTracer()
+        out = str(tmp_path / "suite.json")
+
+        results = [
+            _make_result("parent_test", passed=True),
+            _make_result("child_a", passed=False,
+                         message="failed"),
+            _make_result("child_b", passed=True),
+        ]
+        tracer.export_json(results, out)
+
+        data = json.loads(
+            Path(out).read_text(encoding="utf-8"),
+        )
+        spans = (
+            data["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        )
+        assert len(spans) == 3
+        # Parent passed
+        assert (
+            spans[0]["status"]["code"] == "STATUS_CODE_OK"
+        )
+        # Child A failed
+        assert (
+            spans[1]["status"]["code"] == "STATUS_CODE_ERROR"
+        )
+        assert "failed" in spans[1]["status"]["message"]
+        # Child B passed
+        assert (
+            spans[2]["status"]["code"] == "STATUS_CODE_OK"
+        )
+
+
+class TestExportJsonNonExistentDirectory:
+    """Export to a deeply nested non-existent directory."""
+
+    def test_creates_deep_nested_directory(
+        self, tmp_path: Path,
+    ) -> None:
+        """Export creates intermediate directories 4 levels deep.
+
+        Verifies mkdir -p behavior for paths like
+        a/b/c/d/spans.json where none of a, b, c, d exist.
+        """
+        from mltk.integrations.otel import MltkTracer
+
+        tracer = MltkTracer()
+        out = str(
+            tmp_path / "a" / "b" / "c" / "d" / "spans.json"
+        )
+        tracer.export_json([_make_result()], out)
+
+        assert Path(out).exists()
+        data = json.loads(
+            Path(out).read_text(encoding="utf-8"),
+        )
+        assert "resourceSpans" in data
+
+
+class TestSpanDurationPositive:
+    """Verify span duration nanoseconds are positive."""
+
+    def test_all_durations_positive(
+        self, tmp_path: Path,
+    ) -> None:
+        """Every span has endTime > startTime (positive duration).
+
+        A zero or negative span duration would display
+        incorrectly in Jaeger/Tempo timeline views.
+        """
+        from mltk.integrations.otel import MltkTracer
+
+        tracer = MltkTracer()
+        out = str(tmp_path / "dur.json")
+
+        results = [
+            _make_result(
+                name=f"test_{i}",
+                duration_ms=float(i + 1) * 10.0,
+            )
+            for i in range(5)
+        ]
+        tracer.export_json(results, out)
+
+        data = json.loads(
+            Path(out).read_text(encoding="utf-8"),
+        )
+        spans = (
+            data["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        )
+        for span in spans:
+            start = span["startTimeUnixNano"]
+            end = span["endTimeUnixNano"]
+            assert end > start, (
+                f"Span {span['name']}: end ({end}) must be "
+                f"> start ({start})"
+            )

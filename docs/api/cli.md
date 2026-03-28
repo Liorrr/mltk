@@ -496,6 +496,81 @@ See [Chat Interface](chat.md).
 
 ---
 
+### mltk list
+
+Discover all available mltk assertions, grouped by module. Useful for exploring what tests are available, searching for specific assertion types, or generating a machine-readable inventory.
+
+```bash
+# List all assertions grouped by module
+mltk list
+# mltk assertions (136 total)
+#
+# data.schema (3)
+#   assert_schema          Verify DataFrame columns and dtypes match expected schema
+#   assert_no_nulls        Fail if any null values exist in specified columns
+#   assert_dtypes          Verify column dtypes match expected type mapping
+#
+# data.distribution (3)
+#   assert_range           Verify all values fall within [min, max] bounds
+#   assert_unique          Verify uniqueness of values
+#   assert_no_outliers     Detect outliers using IQR or z-score
+# ...
+
+# Filter by keyword (searches assertion names and descriptions)
+mltk list --filter drift
+# mltk assertions matching 'drift' (6 results)
+#
+# data.drift (1)
+#   assert_no_drift            Detect distribution drift via KS, PSI, KL, Chi2
+#
+# data.embedding_drift (1)
+#   assert_no_embedding_drift  Detect embedding drift via cosine, euclidean, MMD
+#
+# monitor.drift_monitor (2)
+#   assert_no_degradation      Detect sliding-window metric decline
+#   assert_no_output_drift     Detect output distribution shift
+#
+# monitor.streaming_drift (1)
+#   assert_no_streaming_drift  Detect real-time distribution shifts (ADWIN/CUSUM)
+#
+# monitor.concept_drift (1)
+#   assert_no_concept_drift    Detect P(Y|X) drift via error rate comparison
+
+# Filter for RAG/retrieval assertions
+mltk list --filter retrieval
+# mltk assertions matching 'retrieval' (4 results)
+#
+# domains.llm.retrieval (4)
+#   assert_ndcg            Verify nDCG@K ranking quality (graded relevance)
+#   assert_mrr             Verify Mean Reciprocal Rank (first relevant result)
+#   assert_recall_at_k     Verify Recall@K (coverage of relevant documents)
+#   assert_map_at_k        Verify MAP@K (ranking quality with binary relevance)
+
+# JSON output for tooling and CI/CD integration
+mltk list --format json
+# [
+#   {
+#     "name": "assert_schema",
+#     "module": "mltk.data.schema",
+#     "description": "Verify DataFrame columns and dtypes match expected schema",
+#     "since": "v0.1.0"
+#   },
+#   ...
+# ]
+
+# Combine filter and JSON format
+mltk list --filter bias --format json
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--filter` | *(none)* | Keyword to filter by. Searches assertion names and descriptions (case-insensitive). |
+| `--format` | `table` | Output format: `table` (human-readable grouped display) or `json` (machine-readable array). |
+
+---
+
 ## Environment Variables
 
 All CLI commands respect these environment variables:

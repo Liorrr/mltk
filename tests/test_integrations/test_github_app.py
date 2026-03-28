@@ -551,3 +551,115 @@ class TestGitHubAppAuth:
         # Only alphanumeric, '-', and '_' allowed
         import re
         assert re.match(r'^[A-Za-z0-9_-]+$', result), f"Invalid base64url chars in: {result}"
+
+
+# ---------------------------------------------------------------------------
+# Hardening: edge-case and stress tests (appended)
+# ---------------------------------------------------------------------------
+
+
+class TestWebhookHMACEmptyPayload:
+    """HMAC verification edge cases with empty payload."""
+
+    def test_empty_payload_wrong_secret_fails(self):
+        """FAIL: Empty payload with wrong secret.
+
+        Even though the payload is empty, the HMAC depends on
+        the secret. A different secret must produce a mismatch.
+        """
+        payload = b""
+        correct_secret = "real-secret"
+        wrong_secret = "other-secret"
+        signature = _compute_signature(payload, correct_secret)
+        assert verify_webhook_signature(
+            payload, signature, wrong_secret,
+        ) is False
+
+    def test_empty_payload_empty_signature_fails(self):
+        """FAIL: Empty payload with empty signature string.
+
+        An empty signature cannot match the sha256= prefix,
+        so it must be rejected.
+        """
+        assert verify_webhook_signature(
+            b"", "", "secret",
+        ) is False
+
+
+class TestFormatCheckRunOutputStress:
+    """Stress tests for format_check_run_output."""
+
+    def test_sixty_results_all_annotated(self):
+        """Verify >50 results produce correct output.
+
+        format_check_run_output returns ALL annotations.
+        The capping to 50 is done in create_check_run before
+        sending to the API. All 60 annotations should be
+        present in the formatted output.
+        """
+        results = [
+            {
+                "name": f"test_{i}",
+                "passed": False,
+                "duration": 0.1,
+                "message": f"Failed check {i}",
+                "file": f"src/module_{i}.py",
+                "line": i + 1,
+            }
+            for i in range(60)
+        ]
+        output = format_check_run_output(results)
+        assert output["conclusion"] == "failure"
+        assert "0/60" in output["summary"]
+        assert len(output["annotations"]) == 60
+
+
+class TestAnnotationsSpecialCharsInPath:
+    """Special characters in file paths for annotations."""
+
+    def test_special_chars_in_file_path(self):
+        """Annotations with spaces and special chars in path.
+
+        GitHub API accepts any valid path string. The function
+        must pass special characters through without mangling.
+        """
+        results = [
+            {
+                "name": "special_test",
+                "passed": False,
+                "duration": 0.2,
+                "message": "Threshold exceeded",
+                "file": "src/my module/predict (v2).py",
+                "line": 10,
+            },
+        ]
+        output = format_check_run_output(results)
+        assert output["conclusion"] == "failure"
+        assert len(output["annotations"]) == 1
+        ann = output["annotations"][0]
+        assert ann["path"] == "src/my module/predict (v2).py"
+        assert ann["start_line"] == 10
+
+
+class TestVeryLongSummaryTruncation:
+    """Very long summary (>65K chars) truncation."""
+
+    def test_extreme_summary_truncated(self):
+        """Summary with extremely long messages is truncated.
+
+        Each result has a 2000-char message. With 50 results,
+        the raw summary would be ~100K chars, well above the
+        65,535 limit.
+        """
+        results = [
+            {
+                "name": f"test_{i}",
+                "passed": True,
+                "duration": 0.1,
+                "message": "B" * 2000,
+            }
+            for i in range(50)
+        ]
+        output = format_check_run_output(results)
+        assert len(output["summary"]) <= _MAX_SUMMARY_LENGTH
+        assert "truncated" in output["summary"]

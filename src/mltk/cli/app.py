@@ -930,4 +930,68 @@ quality:
         )
         print(f"Grafana dashboard exported: {path}")  # noqa: T201
 
+    @app.command("list")
+    def list_assertions(
+        filter_keyword: str = typer.Argument(
+            "", help="Filter by name, module, or description",
+        ),
+        output_format: str = typer.Option(
+            "table", "--format", help="Output format: table or json",
+        ),
+    ) -> None:
+        """List all available mltk assertions.
+
+        Scans every mltk subpackage for ``assert_*`` functions and
+        prints them grouped by category.  Use ``--format json`` for
+        machine-readable output.
+
+        Examples::
+
+            mltk list
+            mltk list drift
+            mltk list --format json
+        """
+        import json as _json
+
+        from mltk.cli._discovery import discover_assertions
+
+        fmt = output_format.strip().lower()
+        if fmt not in ("table", "json"):
+            print(  # noqa: T201
+                f"Unknown format: {output_format!r}. "
+                "Use 'table' or 'json'."
+            )
+            raise typer.Exit(1)
+
+        entries = discover_assertions(filter_keyword)
+        total = sum(len(v) for v in entries.values())
+
+        if fmt == "json":
+            payload: dict = {"total": total, "modules": {}}
+            for category, items in sorted(entries.items()):
+                payload["modules"][category] = [
+                    {
+                        "name": e["name"],
+                        "module": e["module"],
+                        "doc": e["doc"],
+                    }
+                    for e in items
+                ]
+            print(_json.dumps(payload, indent=2))  # noqa: T201
+            return
+
+        # table format
+        print(f"mltk assertions ({total} total)")  # noqa: T201
+        print()  # noqa: T201
+        for category, items in sorted(entries.items()):
+            print(f"{category} ({len(items)}):")  # noqa: T201
+            for e in items:
+                name = e["name"]
+                mod = e["module"]
+                doc = e["doc"]
+                print(  # noqa: T201
+                    f"  {name:<40s} {mod:<30s} {doc}"
+                )
+            print()  # noqa: T201
+
     app()

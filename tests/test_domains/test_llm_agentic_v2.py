@@ -386,3 +386,192 @@ class TestErrorRecovery:
         trace = _make_trace("search")
         result = assert_error_recovery(trace, max_consecutive_errors=3)
         assert result.duration_ms > 0
+
+
+# -----------------------------------------------------------------------
+# Hardening: parametrized, edge-case tests (appended)
+# -----------------------------------------------------------------------
+
+
+class TestRedundantCallsParametrized:
+    """Parametrize max_repeat threshold for redundant call detection."""
+
+    @pytest.mark.parametrize("max_repeat", [1, 2, 5])
+    def test_exact_threshold_passes(
+        self, max_repeat: int,
+    ) -> None:
+        """PASS: Consecutive run exactly at max_repeat is allowed.
+
+        A run of length == max_repeat should pass because the
+        assertion triggers on strictly-greater-than.
+        """
+        names = ["search"] * max_repeat + ["calc"]
+        trace = _make_trace(*names)
+        result = assert_no_redundant_calls(
+            trace, max_repeat=max_repeat,
+        )
+        assert result.passed is True
+        assert result.details["max_consecutive"] == max_repeat
+
+    @pytest.mark.parametrize("max_repeat", [1, 2, 5])
+    def test_one_over_threshold_fails(
+        self, max_repeat: int,
+    ) -> None:
+        """FAIL: Consecutive run one above max_repeat triggers.
+
+        max_repeat + 1 consecutive identical calls must be
+        flagged as redundant.
+        """
+        names = ["search"] * (max_repeat + 1) + ["calc"]
+        trace = _make_trace(*names)
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_no_redundant_calls(
+                trace, max_repeat=max_repeat,
+            )
+        result = exc_info.value.result
+        assert result.passed is False
+        entry = result.details["redundant_tools"][0]
+        assert entry["tool"] == "search"
+        assert entry["count"] == max_repeat + 1
+
+
+class TestHallucinatedToolsEmptyKnown:
+    """Hallucinated tools with an empty known_tools list."""
+
+    def test_all_tools_hallucinated(self) -> None:
+        """FAIL: Every tool is hallucinated when known_tools is
+        empty.
+
+        An agent given zero tools should not call anything.
+        Any call is a hallucination by definition.
+        """
+        trace = _make_trace("search", "calc", "format")
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_no_hallucinated_tools(
+                trace, known_tools=[],
+            )
+        result = exc_info.value.result
+        assert result.passed is False
+        assert sorted(result.details["hallucinated"]) == [
+            "calc", "format", "search",
+        ]
+        assert result.details["total_calls"] == 3
+
+    def test_empty_trace_empty_known_passes(self) -> None:
+        """PASS: No calls + no known tools = trivially correct."""
+        trace = AgentTrace(tool_calls=[])
+        result = assert_no_hallucinated_tools(
+            trace, known_tools=[],
+        )
+        assert result.passed is True
+
+
+class TestCostBudgetDurationOnly:
+    """Cost budget with only duration (no token budget)."""
+
+    def test_duration_only_under_budget(self) -> None:
+        """PASS: Duration within budget, tokens unchecked.
+
+        When only max_duration_ms is provided, token usage
+        should be ignored entirely.
+        """
+        trace = AgentTrace(
+            tool_calls=[
+                ToolCall(name="search", arguments={}),
+            ],
+            total_tokens=999999,
+            total_duration_ms=500.0,
+        )
+        result = assert_cost_budget(
+            trace, max_duration_ms=1000.0,
+        )
+        assert result.passed is True
+        assert result.details["duration_budget_exceeded"] is False
+        assert result.details["max_total_tokens"] is None
+
+    def test_duration_only_over_budget(self) -> None:
+        """FAIL: Duration exceeds budget, tokens irrelevant."""
+        trace = AgentTrace(
+            tool_calls=[
+                ToolCall(name="search", arguments={}),
+            ],
+            total_tokens=1,
+            total_duration_ms=3000.0,
+        )
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_cost_budget(
+                trace, max_duration_ms=2000.0,
+            )
+        result = exc_info.value.result
+        assert result.details["duration_budget_exceeded"] is True
+
+
+class TestErrorRecoveryAlternating:
+    """Error recovery with alternating success/error pattern."""
+
+    def test_alternating_success_error(self) -> None:
+        """PASS: Alternating error-success pattern, streak = 1.
+
+        E-S-E-S-E-S has many errors but the agent recovers
+        after each one. Max streak is 1.
+        """
+        trace = AgentTrace(tool_calls=[
+            ToolCall(
+                name="api", arguments={}, error="fail",
+            ),
+            ToolCall(
+                name="api", arguments={}, result="ok",
+            ),
+            ToolCall(
+                name="api", arguments={}, error="fail",
+            ),
+            ToolCall(
+                name="api", arguments={}, result="ok",
+            ),
+            ToolCall(
+                name="api", arguments={}, error="fail",
+            ),
+            ToolCall(
+                name="api", arguments={}, result="ok",
+            ),
+        ])
+        result = assert_error_recovery(
+            trace, max_consecutive_errors=1,
+        )
+        assert result.passed is True
+        assert result.details["max_error_streak"] == 1
+        assert result.details["total_errors"] == 3
+        assert result.details["total_calls"] == 6
+
+    def test_double_error_then_success_pattern(self) -> None:
+        """PASS: Two errors then success, repeated. Streak = 2.
+
+        E-E-S-E-E-S pattern has max streak of 2 which passes
+        when max_consecutive_errors=2.
+        """
+        trace = AgentTrace(tool_calls=[
+            ToolCall(
+                name="a", arguments={}, error="err",
+            ),
+            ToolCall(
+                name="a", arguments={}, error="err",
+            ),
+            ToolCall(
+                name="a", arguments={}, result="ok",
+            ),
+            ToolCall(
+                name="b", arguments={}, error="err",
+            ),
+            ToolCall(
+                name="b", arguments={}, error="err",
+            ),
+            ToolCall(
+                name="b", arguments={}, result="ok",
+            ),
+        ])
+        result = assert_error_recovery(
+            trace, max_consecutive_errors=2,
+        )
+        assert result.passed is True
+        assert result.details["max_error_streak"] == 2
+        assert result.details["total_errors"] == 4

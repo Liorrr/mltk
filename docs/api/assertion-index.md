@@ -307,6 +307,15 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 84 | `assert_context_recall` | `mltk.domains.llm.rag` | Verify all relevant documents are retrieved | v0.5.0 |
 | 85 | `assert_ragas_score` | `mltk.domains.llm.ragas` | Verify composite RAGAS score (average of faithfulness, answer relevancy, context precision, recall) | v0.6.0 |
 
+### Retrieval Ranking
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 86 | `assert_ndcg` | `mltk.domains.llm.retrieval` | Verify nDCG@K retrieval ranking quality (graded relevance) | v0.8.0 |
+| 87 | `assert_mrr` | `mltk.domains.llm.retrieval` | Verify Mean Reciprocal Rank (first relevant result position) | v0.8.0 |
+| 88 | `assert_recall_at_k` | `mltk.domains.llm.retrieval` | Verify Recall@K (coverage of relevant documents in top K) | v0.8.0 |
+| 89 | `assert_map_at_k` | `mltk.domains.llm.retrieval` | Verify MAP@K (ranking quality with precision at each relevant position) | v0.8.0 |
+
 ### Coherence & BERTScore
 
 | # | Assertion | Module | Description | Since |

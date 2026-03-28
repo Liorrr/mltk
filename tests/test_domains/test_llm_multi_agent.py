@@ -166,3 +166,140 @@ class TestAgentHandoff:
             expected_flow=["A", "B"],
         )
         assert result.duration_ms > 0
+
+
+# ── Hardening: parametrized, edge-case tests (appended) ─────────────
+
+
+class TestLongAgentChain:
+    """Long agent chains without loops."""
+
+    def test_ten_distinct_agents_no_loop(self) -> None:
+        """PASS: 10 unique agents in sequence, no cycle.
+
+        A long pipeline with no repeated subsequence must
+        pass regardless of chain length.
+        """
+        agents = [
+            "router", "auth", "classifier", "enricher",
+            "validator", "transformer", "scorer",
+            "ranker", "formatter", "responder",
+        ]
+        result = assert_no_agent_loop(agents)
+        assert result.passed is True
+        assert result.details["cycle_detected"] is False
+        assert result.details["total_handoffs"] == 10
+
+    def test_twelve_agents_with_tail_no_loop(self) -> None:
+        """PASS: 12 agents, some names reused but not in a
+        repeating cycle.
+
+        Names may appear more than once but never form a
+        repeating consecutive subsequence of length >= 2.
+        """
+        agents = [
+            "A", "B", "C", "D", "E", "F",
+            "G", "H", "I", "J", "A", "B",
+        ]
+        # A,B appears at start and end but only 1 repetition
+        # of cycle [A,B] which is within default max_cycles=2
+        result = assert_no_agent_loop(agents, max_cycles=2)
+        assert result.passed is True
+
+
+class TestThreeAgentCycleDetection:
+    """3-agent cycle: A->B->C->A->B->C."""
+
+    def test_abc_cycle_detected(self) -> None:
+        """FAIL: A->B->C repeated 3 times, max_cycles=2.
+
+        The detector should find cycle_pattern=["A","B","C"]
+        with cycle_count=3.
+        """
+        agents = [
+            "A", "B", "C", "A", "B", "C",
+            "A", "B", "C",
+        ]
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_no_agent_loop(agents, max_cycles=2)
+        result = exc_info.value.result
+        assert result.details["cycle_detected"] is True
+        assert result.details["cycle_count"] == 3
+        assert result.details["cycle_pattern"] == [
+            "A", "B", "C",
+        ]
+
+    def test_abc_twice_within_threshold(self) -> None:
+        """PASS: A->B->C repeated 2 times, max_cycles=2.
+
+        Exactly at the threshold -- should pass.
+        """
+        agents = ["A", "B", "C", "A", "B", "C"]
+        result = assert_no_agent_loop(agents, max_cycles=2)
+        assert result.passed is True
+        assert result.details["cycle_count"] == 2
+
+
+class TestHandoffDuplicateAgents:
+    """Handoff with duplicate agents in expected flow."""
+
+    def test_duplicate_expected_strict_pass(self) -> None:
+        """PASS: Expected flow has duplicate agent, strict match.
+
+        Expected: [A, B, A] -- agent A appears twice. The
+        actual flow must be exactly [A, B, A].
+        """
+        result = assert_agent_handoff(
+            agent_names=["A", "B", "A"],
+            expected_flow=["A", "B", "A"],
+            strict=True,
+        )
+        assert result.passed is True
+
+    def test_duplicate_expected_nonstrict_pass(self) -> None:
+        """PASS: Subsequence match with duplicate agent.
+
+        Expected [A, B, A] found as subsequence in
+        [A, X, B, Y, A].
+        """
+        result = assert_agent_handoff(
+            agent_names=["A", "X", "B", "Y", "A"],
+            expected_flow=["A", "B", "A"],
+            strict=False,
+        )
+        assert result.passed is True
+        assert result.details["missing_agents"] == []
+
+
+class TestSingleAgentRepeated:
+    """Single agent repeated many times -- not a loop."""
+
+    def test_single_agent_ten_times_high_threshold(
+        self,
+    ) -> None:
+        """PASS: Single agent repeated 10 times with generous
+        threshold.
+
+        The detector sees ["worker","worker"] as a cycle of
+        length 2. With 10 items the cycle repeats 5 times.
+        Setting max_cycles=5 allows this to pass, confirming
+        the pattern is correctly identified but tolerated.
+        """
+        agents = ["worker"] * 10
+        result = assert_no_agent_loop(agents, max_cycles=5)
+        assert result.passed is True
+        assert result.details["cycle_count"] == 5
+
+    def test_single_agent_three_times_within_default(
+        self,
+    ) -> None:
+        """PASS: Single agent repeated 3 times, default threshold.
+
+        ["worker","worker","worker"] has a cycle of length 2
+        that repeats once (positions 0-1, then partial at 2).
+        Actually the repeating cycle count = 1 for 3 items
+        which is within the default max_cycles=2.
+        """
+        agents = ["worker"] * 3
+        result = assert_no_agent_loop(agents)
+        assert result.passed is True

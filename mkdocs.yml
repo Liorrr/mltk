@@ -87,6 +87,7 @@ nav:
       - Agent Trace Testing: api/agentic-trace.md
       - Multi-Agent Testing: api/multi-agent.md
       - Text Noise Robustness: api/nlp-robustness.md
+      - Retrieval Metrics: api/retrieval-metrics.md
       - Training Bugs: api/training-bugs.md
       - Test Impact & Anomaly: api/test-impact.md
   - Compliance & Integrations:

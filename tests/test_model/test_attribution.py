@@ -229,3 +229,131 @@ class TestAssertAttributionCosineStability:
         with pytest.raises(MltkAssertionError) as exc:
             assert_attribution_cosine_stability(a, b, min_cosine=0.0)
         assert exc.value.result.details["cosine_similarity"] == pytest.approx(-1.0)
+
+
+# =========================================================================
+# Hardening: parametrized and edge-case tests (appended)
+# =========================================================================
+
+
+class TestTopKStableParametrized:
+    """Parametrized top-K tests across multiple k values."""
+
+    @pytest.mark.parametrize("k", [1, 3, 5, 10])
+    def test_identical_vectors_various_k(self, k: int) -> None:
+        """PASS: Identical vectors have perfect overlap for any k.
+
+        With the same vector, every possible top-k must agree
+        regardless of how many features we inspect.
+        """
+        rng = np.random.default_rng(99)
+        a = rng.uniform(0, 1, size=15)
+        result = assert_top_k_stable(a, a, k=k, min_overlap=1.0)
+        assert result.passed is True
+        assert result.details["overlap"] == 1.0
+        effective_k = min(k, 15)
+        assert result.details["k"] == effective_k
+
+    @pytest.mark.parametrize("k", [1, 3, 5, 10])
+    def test_shuffled_bottom_various_k(
+        self, k: int,
+    ) -> None:
+        """PASS: Different bottom features, identical top features.
+
+        Only the bottom features are permuted so top-k is
+        unaffected for any k <= 8 (top-8 are identical).
+        """
+        rng = np.random.default_rng(77)
+        base = np.arange(15, dtype=np.float64)
+        a = base.copy()
+        b = base.copy()
+        # shuffle only the 7 smallest values (indices 0-6)
+        perm = rng.permutation(7)
+        b[:7] = b[:7][perm]
+        effective_k = min(k, 15)
+        result = assert_top_k_stable(
+            a, b, k=effective_k, min_overlap=0.8,
+        )
+        assert result.passed is True
+
+
+class TestCosineParametrizedNoise:
+    """Parametrized cosine tests across noise levels."""
+
+    @pytest.mark.parametrize(
+        "noise_std", [0.001, 0.01, 0.1],
+    )
+    def test_noise_levels(self, noise_std: float) -> None:
+        """Cosine degrades predictably with increasing noise.
+
+        At noise_std=0.001, cosine ~1.0; at 0.1, cosine is
+        lower but still positive for this vector magnitude.
+        """
+        rng = np.random.default_rng(42)
+        a = rng.uniform(0.5, 1.5, size=20)
+        noise = rng.normal(0, noise_std, a.shape)
+        b = a + noise
+        result = assert_attribution_cosine_stability(
+            a, b, min_cosine=0.0,
+        )
+        assert result.passed is True
+        cos = result.details["cosine_similarity"]
+        assert cos > 0.0
+        if noise_std <= 0.01:
+            assert cos > 0.99
+
+
+class TestAttribution2DManySamples:
+    """2-D arrays with many samples for cosine stability."""
+
+    def test_100_samples_cosine(self) -> None:
+        """PASS: 100-sample 2-D array, tiny noise, cosine > 0.99.
+
+        Simulates a realistic multi-sample SHAP output where
+        each sample's attribution is nearly identical between
+        two runs (fixed-seed SHAP with enough background data).
+        """
+        rng = np.random.default_rng(123)
+        a = rng.normal(0, 1, (100, 8))
+        noise = rng.normal(0, 0.005, a.shape)
+        b = a + noise
+        result = assert_attribution_cosine_stability(
+            a, b, min_cosine=0.99,
+        )
+        assert result.passed is True
+        assert result.details["n_samples"] == 100
+        assert result.details["n_features"] == 8
+        assert result.details["cosine_similarity"] > 0.99
+
+
+class TestAllZeroAttributions:
+    """Edge case: all-zero attribution vectors."""
+
+    def test_all_zero_top_k_stable(self) -> None:
+        """PASS: Two zero vectors -- top-K indices are the same.
+
+        When both vectors are zero, argsort returns the same
+        indices for both (all values are equal), so overlap is
+        1.0 regardless of k.
+        """
+        a = np.zeros(5)
+        result = assert_top_k_stable(
+            a, a, k=3, min_overlap=1.0,
+        )
+        assert result.passed is True
+        assert result.details["overlap"] == 1.0
+
+    def test_both_zero_cosine_fails(self) -> None:
+        """FAIL: Two zero vectors produce cosine 0.0.
+
+        When BOTH vectors are zero, _cosine returns 0.0 (not
+        NaN). This fails any positive min_cosine threshold.
+        """
+        a = np.zeros(4)
+        b = np.zeros(4)
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_attribution_cosine_stability(
+                a, b, min_cosine=0.5,
+            )
+        cos = exc.value.result.details["cosine_similarity"]
+        assert cos == pytest.approx(0.0)

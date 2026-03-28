@@ -39,8 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TestScheduler` — periodic test run scheduling with webhook notifications
 - Live monitoring portal — self-contained HTML with real-time polling (no CDN deps)
 
-#### Test Hardening (S57)
-- 40 new parametrized + edge-case tests across safety, drift, synthetic, conformal modules
+#### Retrieval Metrics + Developer Experience (S61)
+- `assert_ndcg`, `assert_mrr`, `assert_recall_at_k`, `assert_map_at_k` — retrieval ranking metrics completing the RAG story
+- `mltk list` CLI — assertion discovery with filter and JSON output (27th CLI command)
+- JUnit XML export for Jenkins, GitLab CI, Azure DevOps integration
+
+#### Test Hardening (S57, S61)
+- 73 new parametrized + edge-case tests across safety, drift, synthetic, conformal, attribution, agentic, multi-agent, GitHub App, OTEL
 
 ## [0.7.0] — 2026-03-27
 
