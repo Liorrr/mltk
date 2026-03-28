@@ -484,3 +484,279 @@ class TestNoLostInMiddle:
         )
         assert result.passed is True
         assert result.details["n_questions"] == 1
+
+
+# -------------------------------------------------------------------
+# S63 Hardening -- parametrized & edge-case tests
+# -------------------------------------------------------------------
+
+
+# -- Helper models for S63 tests --
+
+
+def _verbatim_needle_model(prompt: str) -> str:
+    """Return the needle text exactly."""
+    return "The secret code is 7492"
+
+
+def _partial_overlap_model(prompt: str) -> str:
+    """Return a response with partial token overlap."""
+    return "The secret code"
+
+
+def _completely_unrelated_model(prompt: str) -> str:
+    """Return text with zero token overlap."""
+    return "bananas are yellow and potassium rich"
+
+
+def _echo_all_20_facts(prompt: str) -> str:
+    """Echo back 20 distinct fact tokens."""
+    parts = []
+    for i in range(20):
+        parts.append(f"fact_{i} is value_{i}")
+    return " ".join(parts)
+
+
+class TestNeedleParametrizedPositions:
+    """Parametrize needle positions across the context."""
+
+    @pytest.mark.parametrize(
+        "pos",
+        [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0],
+    )
+    def test_needle_at_position(self, pos: float) -> None:
+        """Model that always finds needle passes at any pos."""
+        haystack = "Lorem ipsum dolor sit amet. " * 100
+        result = assert_needle_in_haystack(
+            model_fn=_always_finds_needle,
+            needle="The secret code is 7492",
+            haystack=haystack,
+            positions=[pos],
+            min_recall=1.0,
+        )
+        assert result.passed is True
+        assert result.details["per_position"][str(pos)]
+
+
+class TestNeedleEdgeCases:
+    """S63 edge cases for needle-in-haystack."""
+
+    def test_very_short_haystack(self) -> None:
+        """Haystack shorter than 100 chars."""
+        haystack = "Short text."
+        assert len(haystack) < 100
+        result = assert_needle_in_haystack(
+            model_fn=_always_finds_needle,
+            needle="The secret code is 7492",
+            haystack=haystack,
+            positions=[0.5],
+            min_recall=1.0,
+        )
+        assert result.passed is True
+        assert result.details["haystack_length"] == 11
+
+    def test_needle_with_unicode(self) -> None:
+        """Needle containing unicode characters."""
+        haystack = "Background text. " * 50
+
+        def unicode_model(prompt: str) -> str:
+            return "The code is cafe 42"
+
+        result = assert_needle_in_haystack(
+            model_fn=unicode_model,
+            needle="The code is cafe 42",
+            haystack=haystack,
+            positions=[0.5],
+            min_recall=1.0,
+        )
+        assert result.passed is True
+
+    def test_very_long_haystack_10k(self) -> None:
+        """Haystack of ~10,000 characters."""
+        haystack = "A" * 10000
+        result = assert_needle_in_haystack(
+            model_fn=_always_finds_needle,
+            needle="The secret code is 7492",
+            haystack=haystack,
+            positions=[0.0, 0.5, 1.0],
+            min_recall=1.0,
+        )
+        assert result.passed is True
+        assert result.details["haystack_length"] == 10000
+
+    def test_verbatim_needle_return(self) -> None:
+        """Model returns needle verbatim -- perfect recall."""
+        haystack = "Background. " * 200
+        result = assert_needle_in_haystack(
+            model_fn=_verbatim_needle_model,
+            needle="The secret code is 7492",
+            haystack=haystack,
+            min_recall=1.0,
+        )
+        assert result.passed is True
+        assert result.details["recall"] == 1.0
+
+    def test_partial_overlap_model(self) -> None:
+        """Model returns partial match -- some tokens overlap."""
+        haystack = "Background. " * 200
+        # "The secret code" has 3 of 5 needle tokens = 0.6
+        result = assert_needle_in_haystack(
+            model_fn=_partial_overlap_model,
+            needle="The secret code is 7492",
+            haystack=haystack,
+            positions=[0.5],
+            min_recall=1.0,
+        )
+        assert result.passed is True
+        pos_found = result.details["per_position"]["0.5"]
+        assert isinstance(pos_found, bool)
+
+    def test_completely_unrelated_model(self) -> None:
+        """Model returns unrelated text -- zero recall."""
+        haystack = "Background. " * 200
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_needle_in_haystack(
+                model_fn=_completely_unrelated_model,
+                needle="The secret code is 7492",
+                haystack=haystack,
+                min_recall=0.5,
+            )
+        assert exc.value.result.details["recall"] == 0.0
+
+    def test_needle_exact_start_and_end(self) -> None:
+        """Needle at position=0.0 and position=1.0."""
+        haystack = "Middle filler text. " * 50
+        result = assert_needle_in_haystack(
+            model_fn=_always_finds_needle,
+            needle="The secret code is 7492",
+            haystack=haystack,
+            positions=[0.0, 1.0],
+            min_recall=1.0,
+        )
+        assert result.passed is True
+        assert result.details["per_position"]["0.0"]
+        assert result.details["per_position"]["1.0"]
+        assert result.details["n_positions"] == 2
+
+
+class TestUtilizationHardened:
+    """S63 edge cases for context utilization."""
+
+    def test_single_fact_edge(self) -> None:
+        """Utilization with exactly 1 fact."""
+        def echo(prompt: str) -> str:
+            return "The capital of France is Paris."
+
+        result = assert_context_utilization(
+            model_fn=echo,
+            facts=["The capital of France is Paris."],
+            question="What is the capital?",
+            min_facts_used=1,
+        )
+        assert result.passed is True
+        assert result.details["total_facts"] == 1
+        assert result.details["facts_used"] == 1
+
+    def test_twenty_facts(self) -> None:
+        """Utilization with 20 facts -- many facts edge."""
+        facts = [
+            f"fact_{i} is value_{i}" for i in range(20)
+        ]
+        result = assert_context_utilization(
+            model_fn=_echo_all_20_facts,
+            facts=facts,
+            question="List all facts.",
+            min_facts_used=10,
+        )
+        assert result.passed is True
+        assert result.details["total_facts"] == 20
+        assert result.details["facts_used"] >= 10
+
+    def test_custom_question_format(self) -> None:
+        """Custom question wording in utilization."""
+        def model(prompt: str) -> str:
+            return "Water boils at 100 degrees Celsius."
+
+        facts = [
+            "Water boils at 100 degrees Celsius.",
+            "Ice melts at 0 degrees Celsius.",
+        ]
+        result = assert_context_utilization(
+            model_fn=model,
+            facts=facts,
+            question="Describe the boiling point of water.",
+            min_facts_used=1,
+        )
+        assert result.passed is True
+        pff = result.details["per_fact_found"]
+        assert pff[0] is True
+
+    def test_utilization_details_types(self) -> None:
+        """Verify per_fact_found types and lengths."""
+        def model(prompt: str) -> str:
+            return "Paris is the capital."
+
+        facts = ["The capital is Paris.", "Pi is 3.14."]
+        result = assert_context_utilization(
+            model_fn=model,
+            facts=facts,
+            question="Tell me about Paris.",
+            min_facts_used=0,
+        )
+        pff = result.details["per_fact_found"]
+        assert isinstance(pff, list)
+        assert len(pff) == 2
+        assert all(isinstance(v, bool) for v in pff)
+
+
+class TestLostInMiddleHardened:
+    """S63 edge cases for lost-in-middle."""
+
+    def test_ten_facts_more_positions(self) -> None:
+        """10 facts -- verifies position labeling beyond 3."""
+        facts = [f"Fact {i} is val_{i}." for i in range(10)]
+        questions = [
+            f"What is fact {i}?" for i in range(10)
+        ]
+
+        def echo_all(prompt: str) -> str:
+            parts = []
+            for i in range(10):
+                parts.append(f"Fact {i} is val_{i}")
+            return " ".join(parts)
+
+        result = assert_no_lost_in_middle(
+            model_fn=echo_all,
+            facts=facts,
+            questions=questions,
+            min_accuracy=0.5,
+        )
+        assert result.passed is True
+        assert result.details["n_questions"] == 10
+        ppc = result.details["per_position_correct"]
+        assert "beginning" in ppc
+        assert "end" in ppc
+        assert "middle" in ppc
+
+    def test_per_position_accuracy_values(self) -> None:
+        """Verify per_position_accuracy has float values."""
+        facts = [
+            "The speed of light is 299792458 m/s.",
+            "Water boils at 100 degrees Celsius.",
+            "Earth orbits the Sun in 365.25 days.",
+        ]
+        questions = [
+            "What is the speed of light?",
+            "At what temperature does water boil?",
+            "How long does Earth take to orbit?",
+        ]
+        result = assert_no_lost_in_middle(
+            model_fn=_uniform_accuracy_model,
+            facts=facts,
+            questions=questions,
+            min_accuracy=0.5,
+        )
+        ppa = result.details["per_position_accuracy"]
+        for region in ("beginning", "middle", "end"):
+            assert isinstance(ppa[region], float)
+            assert 0.0 <= ppa[region] <= 1.0

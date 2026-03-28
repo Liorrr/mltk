@@ -643,3 +643,33 @@ assert_no_lost_in_middle(
     Long-context assertions send large prompts to the model under test. A single `assert_context_utilization` call at 100K tokens with 5 facts requires at least 5 LLM calls, each with a ~100K-token prompt. Plan your test budget accordingly -- these are integration tests, not unit tests. Run them on a scheduled basis or as pre-release gates, not on every commit.
 
 ---
+
+## Code Generation Testing
+
+Test LLM-generated code for execution safety, correctness, vulnerabilities, and complexity. Four assertions cover the most common failure modes of code-generating models: syntactically plausible but non-functional output, hardcoded secrets and injection vulnerabilities, low test pass rates, and incorrect behavior on edge cases.
+
+```python
+from mltk.domains.code_gen import (
+    assert_syntax_valid,
+    assert_test_pass_rate,
+    assert_no_security_issues,
+    assert_functional_correctness,
+)
+
+generated_code = model.generate("Write a function to merge two sorted lists.")
+
+assert_syntax_valid(generated_code, language="python")
+assert_no_security_issues(generated_code, language="python")
+assert_functional_correctness(
+    generated_code,
+    test_cases=[
+        {"input": {"a": [1, 3, 5], "b": [2, 4, 6]}, "expected": [1, 2, 3, 4, 5, 6]},
+        {"input": {"a": [], "b": [1, 2]}, "expected": [1, 2]},
+    ],
+    min_pass_rate=1.0,
+)
+```
+
+For the full API reference, see **[Code Generation Testing](codegen.md)**.
+
+---

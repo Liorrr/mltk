@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S63: 191 assertions, 2002 tests, 38 Rust tests)
+## DONE (S0-S64: 195 assertions, 2117 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -87,6 +87,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S61: Retrieval metrics (nDCG, MRR, Recall@K, MAP@K), mltk list CLI, JUnit XML export + test hardening
 - [x] S62: LLM-as-Judge (score + pairwise), summarization metrics (coverage, compression, faithfulness) + test hardening
 - [x] S63: Recommendation systems (5 assertions, first-mover), long-context LLM (needle/utilization/lost-in-middle) + test hardening
+- [x] S64: Composable TestSuite API (MltkSuite), code generation assertions (4), test hardening
 
 ---
 

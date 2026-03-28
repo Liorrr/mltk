@@ -61,8 +61,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `assert_context_utilization` — verify model uses multiple facts from full window
 - `assert_no_lost_in_middle` — detect accuracy degradation in middle of context
 
-#### Test Hardening (S57, S61, S62, S63)
-- 168 new parametrized + edge-case tests across safety, drift, synthetic, conformal, attribution, agentic, multi-agent, GitHub App, OTEL, kubeflow, sagemaker, dvc, hipaa, counterfactual, multimodal, anomaly, audit
+#### Composable TestSuite API (S64)
+- `MltkSuite` — run assertions without pytest (notebooks, scripts, CI)
+- `SuiteResult` — structured results with pass_rate, duration, counts
+- Export to JSON, HTML, JUnit XML via `to_json()`, `to_html()`, `to_junit()`
+- Method chaining: `suite.add(...).add(...).run()`
+
+#### Code Generation Testing (S64)
+- `assert_code_executes` — subprocess isolation with timeout
+- `assert_code_passes_tests` — run generated code against test cases
+- `assert_no_code_vulnerabilities` — AST scan for eval/exec/shell=True/hardcoded creds
+- `assert_code_complexity` — cyclomatic complexity + line count bounds
+
+#### Test Hardening (S57, S61, S62, S63, S64)
+- 208 new parametrized + edge-case tests across safety, drift, synthetic, conformal, attribution, agentic, multi-agent, GitHub App, OTEL, kubeflow, sagemaker, dvc, hipaa, counterfactual, multimodal, anomaly, audit
 
 ## [0.7.0] — 2026-03-27
 

@@ -520,6 +520,15 @@ Assertions for reproducibility and end-to-end pipeline validation.
 | 135 | `assert_no_test_anomaly` | `mltk.monitor.anomaly` | Detect anomalous test metrics (Z-score/IQR/percentile) | v0.8.0 |
 | 136 | `assert_impact_coverage` | `mltk.testing.impact` | Verify all impacted tests were executed after code changes | v0.8.0 |
 
+## Code Generation (S64)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 137 | `assert_code_executes` | `mltk.domains.codegen` | Verify generated code runs without errors (subprocess isolation) | v0.8.0 |
+| 138 | `assert_code_passes_tests` | `mltk.domains.codegen` | Verify generated code passes provided test cases | v0.8.0 |
+| 139 | `assert_no_code_vulnerabilities` | `mltk.domains.codegen` | Scan generated code for eval/exec/shell=True/hardcoded creds | v0.8.0 |
+| 140 | `assert_code_complexity` | `mltk.domains.codegen` | Verify cyclomatic complexity and line count within bounds | v0.8.0 |
+
 ---
 
 ## Core

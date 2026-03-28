@@ -419,3 +419,225 @@ class TestSerendipity:
             min_serendipity=0.1,
         )
         assert result.duration_ms > 0
+
+
+# ------------------------------------------------------------------
+# S63 Hardening -- parametrized & edge-case tests
+# ------------------------------------------------------------------
+
+
+class TestHitRateParametrized:
+    """Parametrized hit rate edge cases."""
+
+    @pytest.mark.parametrize("min_rate", [0.0, 0.3, 0.5, 0.8, 1.0])
+    def test_hit_rate_thresholds(
+        self, min_rate: float,
+    ) -> None:
+        # 2 of 4 users hit => hit_rate = 0.5.
+        recs = [["a"], ["b"], ["c"], ["d"]]
+        rels = [{"a"}, {"x"}, {"c"}, {"y"}]
+        if min_rate <= 0.5:
+            r = assert_hit_rate(recs, rels, min_rate=min_rate)
+            assert r.passed is True
+            assert abs(r.details["hit_rate"] - 0.5) < 1e-9
+        else:
+            with pytest.raises(MltkAssertionError) as exc:
+                assert_hit_rate(
+                    recs, rels, min_rate=min_rate,
+                )
+            hr = exc.value.result.details["hit_rate"]
+            assert abs(hr - 0.5) < 1e-9
+
+    def test_hit_rate_empty_relevant_sets(self) -> None:
+        # Every user has an empty relevant set.
+        recs = [["a", "b"], ["c"]]
+        rels: list[set] = [set(), set()]
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_hit_rate(recs, rels, min_rate=0.1)
+        assert exc.value.result.details["n_hits"] == 0
+
+    def test_hit_rate_single_item_lists(self) -> None:
+        # Each user gets exactly one item.
+        recs = [["x"], ["y"], ["z"]]
+        rels = [{"x"}, {"y"}, {"z"}]
+        r = assert_hit_rate(recs, rels, min_rate=1.0)
+        assert r.passed is True
+        assert r.details["n_hits"] == 3
+
+    def test_hit_rate_details_field_types(self) -> None:
+        # Verify types in details dict.
+        recs = [["a"]]
+        rels = [{"a"}]
+        r = assert_hit_rate(recs, rels, min_rate=0.5)
+        assert isinstance(r.details["hit_rate"], float)
+        assert isinstance(r.details["min_rate"], float)
+        assert isinstance(r.details["n_hits"], int)
+        assert isinstance(r.details["n_users"], int)
+
+
+class TestDiversityHardened:
+    """Diversity edge cases from S63."""
+
+    def test_one_category_all_same(self) -> None:
+        # Only 1 category in catalog => diversity = 1.0.
+        recs = [["a", "b", "c"]]
+        cats = {"a": "cat", "b": "cat", "c": "cat"}
+        r = assert_diversity(recs, cats, min_diversity=0.5)
+        assert r.passed is True
+        assert abs(
+            r.details["per_user_diversity"][0] - 1.0
+        ) < 1e-9
+
+    def test_all_unique_categories(self) -> None:
+        # Each item is a different category.
+        recs = [["a", "b", "c"]]
+        cats = {"a": "x", "b": "y", "c": "z"}
+        r = assert_diversity(recs, cats, min_diversity=0.9)
+        assert r.passed is True
+        assert abs(
+            r.details["avg_diversity"] - 1.0
+        ) < 1e-9
+
+    def test_diversity_details_field_types(self) -> None:
+        # Verify types in details dict.
+        recs = [["a"]]
+        cats = {"a": "x"}
+        r = assert_diversity(recs, cats, min_diversity=0.5)
+        d = r.details
+        assert isinstance(d["avg_diversity"], float)
+        assert isinstance(d["min_diversity"], float)
+        assert isinstance(d["per_user_diversity"], list)
+
+
+class TestNoveltyHardened:
+    """Novelty edge cases from S63."""
+
+    def test_popularity_one_zero_novelty(self) -> None:
+        # popularity = 1.0 => -log2(1.0) = 0.0.
+        recs = [["a", "b"]]
+        pop = {"a": 1.0, "b": 1.0}
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_novelty(recs, pop, min_novelty=0.01)
+        n = exc.value.result.details["avg_novelty"]
+        assert abs(n - 0.0) < 1e-9
+
+    def test_very_low_popularity_high_novelty(self) -> None:
+        # popularity = 0.001 => -log2(0.001) ~ 9.97.
+        recs = [["rare"]]
+        pop = {"rare": 0.001}
+        r = assert_novelty(recs, pop, min_novelty=5.0)
+        assert r.passed is True
+        expected = -math.log2(0.001)
+        assert abs(
+            r.details["avg_novelty"] - expected
+        ) < 1e-6
+
+    def test_novelty_details_field_types(self) -> None:
+        # Verify types in details dict.
+        recs = [["a"]]
+        pop = {"a": 0.5}
+        r = assert_novelty(recs, pop, min_novelty=0.1)
+        d = r.details
+        assert isinstance(d["avg_novelty"], float)
+        assert isinstance(d["min_novelty"], float)
+        assert isinstance(d["per_user_novelty"], list)
+
+
+class TestCoverageHardened:
+    """Coverage edge cases from S63."""
+
+    def test_duplicates_across_users_deduped(self) -> None:
+        # Same 3 items across 5 users => unique = 3.
+        recs = [["a", "b", "c"]] * 5
+        r = assert_coverage(
+            recs, catalog_size=10, min_coverage=0.1,
+        )
+        assert r.details["unique_items"] == 3
+        assert abs(r.details["coverage"] - 0.3) < 1e-9
+
+    def test_coverage_details_field_types(self) -> None:
+        # Verify types in details dict.
+        recs = [["a"]]
+        r = assert_coverage(
+            recs, catalog_size=5, min_coverage=0.1,
+        )
+        d = r.details
+        assert isinstance(d["coverage"], float)
+        assert isinstance(d["min_coverage"], float)
+        assert isinstance(d["unique_items"], int)
+        assert isinstance(d["catalog_size"], int)
+
+
+class TestSerendipityHardened:
+    """Serendipity edge cases from S63."""
+
+    def test_no_expected_items(self) -> None:
+        # Empty expected => every relevant rec is serendipitous.
+        recs = [["a", "b", "c", "d"]]
+        expected: list[list] = [[]]
+        rels = [{"a", "b", "c", "d"}]
+        r = assert_serendipity(
+            recs, expected, rels, min_serendipity=0.5,
+        )
+        assert r.passed is True
+        assert abs(
+            r.details["per_user_serendipity"][0] - 1.0
+        ) < 1e-9
+
+    def test_all_items_expected_zero(self) -> None:
+        # Every rec is expected => serendipity = 0.
+        recs = [["a", "b"]]
+        expected = [["a", "b"]]
+        rels = [{"a", "b"}]
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_serendipity(
+                recs, expected, rels,
+                min_serendipity=0.1,
+            )
+        s = exc.value.result.details["avg_serendipity"]
+        assert abs(s - 0.0) < 1e-9
+
+    def test_serendipity_details_field_types(self) -> None:
+        # Verify types in details dict.
+        recs = [["a", "b"]]
+        expected = [["a"]]
+        rels = [{"b"}]
+        r = assert_serendipity(
+            recs, expected, rels, min_serendipity=0.1,
+        )
+        d = r.details
+        assert isinstance(d["avg_serendipity"], float)
+        assert isinstance(d["min_serendipity"], float)
+        assert isinstance(d["per_user_serendipity"], list)
+
+
+class TestRecommendationLargeScale:
+    """Large-scale / performance tests from S63."""
+
+    def test_large_dataset_1000_users(self) -> None:
+        # 1000 users, 20 items each -- must not crash.
+        import random
+        rng = random.Random(42)
+        catalog = [f"item_{i}" for i in range(500)]
+        recs = [
+            rng.sample(catalog, 20) for _ in range(1000)
+        ]
+        rels = [
+            set(rng.sample(catalog, 5))
+            for _ in range(1000)
+        ]
+        r = assert_hit_rate(recs, rels, min_rate=0.01)
+        assert r.passed is True
+        assert r.details["n_users"] == 1000
+
+        pop = {
+            item: rng.uniform(0.01, 1.0)
+            for item in catalog
+        }
+        rn = assert_novelty(recs, pop, min_novelty=0.01)
+        assert rn.passed is True
+
+        rc = assert_coverage(
+            recs, catalog_size=500, min_coverage=0.01,
+        )
+        assert rc.passed is True

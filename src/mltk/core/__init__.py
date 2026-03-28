@@ -4,6 +4,7 @@ from mltk.core.assertion import MltkAssertionError, assert_true, timed_assertion
 from mltk.core.config import MltkConfig
 from mltk.core.plugin import discover_plugins, get_registered_assertions, register_assertion
 from mltk.core.result import Severity, TestResult, TestSuite
+from mltk.core.suite import MltkSuite, SuiteResult
 
 __all__ = [
     "MltkConfig",
@@ -16,4 +17,7 @@ __all__ = [
     "register_assertion",
     "get_registered_assertions",
     "discover_plugins",
+    # composable suite
+    "MltkSuite",
+    "SuiteResult",
 ]

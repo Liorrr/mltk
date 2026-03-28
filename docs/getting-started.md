@@ -370,6 +370,69 @@ print(result.duration_ms)  # Execution time in milliseconds
 
 ---
 
+## Alternative: MltkSuite (No pytest required)
+
+Not every environment has pytest. Jupyter notebooks, standalone scripts, CI pipelines with custom runners, and educational tutorials all benefit from a self-contained test runner. `MltkSuite` is a composable API that collects assertion results, computes a pass/fail summary, and renders rich output in notebooks -- no test framework needed.
+
+### Basic usage
+
+```python
+from mltk.core import MltkSuite
+from mltk.data import assert_schema, assert_no_nulls, assert_range
+
+import pandas as pd
+
+df = pd.DataFrame({
+    "user_id": [1, 2, 3],
+    "score": [0.8, 0.9, 0.7],
+    "label": [1, 0, 1],
+})
+
+suite = MltkSuite()
+suite.add(assert_schema(df, {"user_id": "int64", "score": "float64", "label": "int64"}))
+suite.add(assert_no_nulls(df, columns=["label"]))
+suite.add(assert_range(df["score"], min_val=0.0, max_val=1.0))
+
+print(f"{suite.passed_count}/{suite.total} passed ({suite.score:.1f}%)")
+assert suite.passed, f"Suite failed: {suite.failed_count} failures"
+```
+
+In Jupyter notebooks, `MltkSuite` renders an interactive HTML table automatically -- just put `suite` as the last expression in a cell.
+
+### Comparison: pytest vs. MltkSuite
+
+| | pytest approach | MltkSuite approach |
+|---|---|---|
+| **Setup** | `pip install mltk[dev]`, write `test_*.py` files | `pip install mltk`, use in any `.py` or `.ipynb` |
+| **Run** | `pytest --mltk-report -v` | `suite.passed` / `suite.score` |
+| **Output** | Terminal + HTML report file | Inline notebook display or print summary |
+| **CI/CD** | Native: exit code, JUnit XML | Use `assert suite.passed` for exit code |
+| **Best for** | Test suites, regression gates, team CI | Notebooks, scripts, demos, quick checks |
+
+Both approaches use the same `assert_*` functions. Every assertion returns a `TestResult` object, so you can pass the result to `suite.add()` or let pytest catch the `MltkAssertionError` -- your choice.
+
+### Notebook example
+
+```python
+# In a Jupyter cell:
+from mltk.core import MltkSuite
+from mltk.model import assert_metric, assert_no_regression
+
+suite = MltkSuite()
+
+y_true = [1, 0, 1, 1, 0, 1, 0, 0, 1, 1]
+y_pred = [1, 0, 1, 1, 0, 1, 1, 0, 1, 1]
+
+suite.add(assert_metric(y_true, y_pred, metric="accuracy", threshold=0.85))
+suite.add(assert_no_regression(y_true, y_pred, baseline=0.89, metric="accuracy", tolerance=0.02))
+
+suite  # renders a rich HTML table in Jupyter
+```
+
+For the full API reference (all properties, methods, HTML display, and report export), see **[MltkSuite API](api/suite-api.md)**.
+
+---
+
 ## Next Steps
 
 Now that you have mltk running, pick the path that matches your role:

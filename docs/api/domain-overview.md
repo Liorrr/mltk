@@ -23,7 +23,7 @@ For the complete assertion-by-assertion index (every parameter, every module pat
 | [Healthcare](#healthcare) | 5 | `mltk.domains.healthcare` | Sensitivity, specificity, calibration, subgroup, regulatory |
 | [Code Generation](#code-generation) | 4 | `mltk.domains.code_gen` | Syntax validity, test pass rate, security scan, functional correctness |
 
-**Total: ~190+ assertions** across 12 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
+**Total: ~195+ assertions** across 12 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
 
 ---
 
@@ -308,6 +308,8 @@ assert_functional_correctness(
     min_pass_rate=1.0,
 )
 ```
+
+:point_right: [Code Generation Testing](codegen.md)
 
 ---
 
