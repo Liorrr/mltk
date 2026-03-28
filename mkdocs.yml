@@ -74,6 +74,7 @@ nav:
       - Inference Contract: api/inference-contract.md
       - Pipeline: api/pipeline.md
   - Domain Kits:
+      - Domain Overview: api/domain-overview.md
       - Computer Vision: api/cv.md
       - NLP: api/nlp.md
       - Speech: api/speech.md
@@ -90,6 +91,8 @@ nav:
       - Retrieval Metrics: api/retrieval-metrics.md
       - LLM-as-Judge: api/llm-judge.md
       - Summarization Metrics: api/summarization-metrics.md
+      - Long-Context LLM Testing: api/long-context.md
+      - Recommendation Systems: api/recommendation.md
       - Training Bugs: api/training-bugs.md
       - Test Impact & Anomaly: api/test-impact.md
   - Compliance & Integrations:
@@ -125,6 +128,9 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - tables
   - toc:
       permalink: true

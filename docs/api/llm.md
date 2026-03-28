@@ -566,3 +566,80 @@ assert_summary_conciseness(
     Summarization metrics evaluate **output quality and fidelity**, not security. They do not map to OWASP Top 10 for LLMs. However, `assert_summary_faithfulness` can serve as a complementary check alongside `assert_no_hallucination` — the former targets summarization pipelines, the latter targets general LLM safety.
 
 ---
+
+## Long-Context LLM Testing
+
+Modern LLMs advertise context windows of 128K, 200K, or even 1M+ tokens -- but advertising a context length and actually *using* all of it are very different things. Research consistently shows that LLMs degrade when relevant information is buried in the middle of a long context ("Lost in the Middle" problem), ignore distant passages in favor of recent ones, and silently drop facts from early portions of the input.
+
+These assertions let you systematically verify whether your LLM can retrieve, reason over, and utilize information placed at arbitrary positions within its full context window.
+
+For the full API reference, see **[Long-Context LLM Testing](long-context.md)**.
+
+### assert_needle_in_haystack
+
+Verify an LLM can retrieve a specific fact ("needle") embedded at a target position within a large body of distractor text ("haystack"). This is the standard evaluation for context window utilization -- the model must find and return the planted fact regardless of where it appears.
+
+Use this to map your model's effective context window: run it at multiple depths (0%, 25%, 50%, 75%, 100%) and context sizes to generate a utilization heatmap.
+
+```python
+from mltk.domains.llm import assert_needle_in_haystack
+
+def my_model(prompt: str) -> str:
+    return llm.generate(prompt)
+
+# Plant "The secret code is ALPHA-7" at 50% depth in a 64K-token haystack
+assert_needle_in_haystack(
+    model_fn=my_model,
+    needle="The secret code is ALPHA-7",
+    retrieval_question="What is the secret code?",
+    context_length_tokens=64_000,
+    depth_percent=0.5,
+    expected_answer="ALPHA-7",
+    min_score=0.8,
+)
+```
+
+### assert_context_utilization
+
+Verify an LLM uses information from the full span of its context window, not just the beginning and end. This assertion plants verifiable facts at multiple positions throughout the context and checks that the model can answer questions about facts from every region.
+
+Unlike needle-in-haystack (which tests a single position), this tests aggregate utilization across the entire context. A model that only reads the first and last 10% of context will fail even if it aces individual needle tests at those positions.
+
+```python
+from mltk.domains.llm import assert_context_utilization
+
+facts = [
+    {"fact": "Project Alpha started in 2019.", "question": "When did Project Alpha start?", "expected": "2019"},
+    {"fact": "The server runs on port 8443.", "question": "What port does the server run on?", "expected": "8443"},
+    {"fact": "The budget was $2.5 million.", "question": "What was the budget?", "expected": "2.5 million"},
+    {"fact": "Dr. Reyes led the research team.", "question": "Who led the research team?", "expected": "Reyes"},
+    {"fact": "The dataset contains 50,000 samples.", "question": "How many samples in the dataset?", "expected": "50,000"},
+]
+
+assert_context_utilization(
+    model_fn=my_model,
+    facts=facts,
+    context_length_tokens=100_000,
+    min_utilization=0.8,  # model must answer >= 80% of planted facts correctly
+)
+```
+
+### assert_no_lost_in_middle
+
+Verify an LLM does not exhibit the "Lost in the Middle" bias -- the well-documented tendency to attend strongly to information at the beginning and end of the context while neglecting the middle. This assertion specifically compares retrieval accuracy across three regions (beginning, middle, end) and fails if the middle region's accuracy drops below a threshold relative to the edges.
+
+```python
+from mltk.domains.llm import assert_no_lost_in_middle
+
+assert_no_lost_in_middle(
+    model_fn=my_model,
+    num_facts=15,
+    context_length_tokens=80_000,
+    max_middle_drop=0.2,  # middle accuracy must be within 20% of edge accuracy
+)
+```
+
+!!! note "Compute Cost"
+    Long-context assertions send large prompts to the model under test. A single `assert_context_utilization` call at 100K tokens with 5 facts requires at least 5 LLM calls, each with a ~100K-token prompt. Plan your test budget accordingly -- these are integration tests, not unit tests. Run them on a scheduled basis or as pre-release gates, not on every commit.
+
+---

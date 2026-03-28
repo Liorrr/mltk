@@ -491,3 +491,117 @@ class TestDefaultCriteria:
         for key, value in DEFAULT_CRITERIA.items():
             assert isinstance(value, str), f"{key} is not a string"
             assert len(value) > 10, f"{key} rubric is too short"
+
+
+# ===================================================================
+# Hardened edge-case and parametrized tests (S62 test hardening)
+# ===================================================================
+
+
+class TestJudgeScoreParametrizedCriteria:
+    """Parametrize across all DEFAULT_CRITERIA."""
+
+    @pytest.mark.parametrize(
+        "criterion",
+        list(DEFAULT_CRITERIA.keys()),
+    )
+    def test_each_default_criterion(
+        self, criterion: str,
+    ) -> None:
+        """PASS: Every default criterion works with score."""
+        result = assert_llm_judge_score(
+            judge_fn=_high_scorer,
+            prompts=["What is ML?"],
+            responses=["ML is machine learning."],
+            criterion=criterion,
+            min_score=3.0,
+        )
+        assert result.passed is True
+        assert result.details["criterion"] == criterion
+
+
+class TestJudgeStringScoreFormats:
+    """Judge that returns float-as-string like '4.5/5'."""
+
+    def test_fraction_string_parsed(self) -> None:
+        """PASS: '4.5/5' parses first float 4.5."""
+        def fraction_scorer(prompt: str) -> str:
+            return "4.5/5"
+
+        result = assert_llm_judge_score(
+            judge_fn=fraction_scorer,
+            prompts=["Q"],
+            responses=["A"],
+            min_score=3.0,
+        )
+        assert result.passed is True
+        assert result.details["avg_score"] == 4.5
+
+
+class TestPairwiseAllTies:
+    """Pairwise with all ties -- 0% win rate."""
+
+    def test_all_ties_fail(self) -> None:
+        """FAIL: All ties means 0% for expected winner."""
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_llm_judge_pairwise(
+                judge_fn=_tie_judge,
+                prompts=["Q1", "Q2", "Q3"],
+                responses_a=["A1", "A2", "A3"],
+                responses_b=["B1", "B2", "B3"],
+                expected_winner="a",
+                min_win_rate=0.1,
+            )
+        result = exc.value.result
+        assert result.details["ties"] == 3
+        assert result.details["wins_a"] == 0
+        assert result.details["wins_b"] == 0
+
+
+class TestScoreSinglePromptEdge:
+    """Score with a single prompt -- smallest valid input."""
+
+    def test_single_prompt_high_score(self) -> None:
+        """PASS: Single prompt with high score passes."""
+        result = assert_llm_judge_score(
+            judge_fn=_high_scorer,
+            prompts=["Only question"],
+            responses=["Only answer"],
+            min_score=4.0,
+        )
+        assert result.passed is True
+        assert result.details["n_items"] == 1
+        assert result.details["avg_score"] == 4.5
+
+
+class TestPairwiseAsymmetricLengths:
+    """Pairwise with very different response lengths."""
+
+    def test_asymmetric_responses(self) -> None:
+        """PASS: Short vs long responses both work."""
+        result = assert_llm_judge_pairwise(
+            judge_fn=_winner_a,
+            prompts=["Explain AI"],
+            responses_a=["x" * 1000],
+            responses_b=["y"],
+            expected_winner="a",
+            min_win_rate=0.5,
+        )
+        assert result.passed is True
+        assert result.details["wins_a"] == 1
+
+
+class TestFormatJudgePromptLong:
+    """format_judge_prompt with very long prompt."""
+
+    def test_long_prompt_1000_chars(self) -> None:
+        """PASS: 1000+ char prompt is fully included."""
+        long_prompt = "Q " * 500  # 1000 chars
+        text = format_judge_prompt(
+            prompt=long_prompt,
+            response="Short answer.",
+            criterion="helpfulness",
+        )
+        assert long_prompt in text
+        assert "helpfulness" in text
+        assert len(text) > 1000

@@ -52,8 +52,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `assert_summary_faithfulness` — no hallucinated content (token precision)
 - `DEFAULT_CRITERIA` — 5 built-in rubrics (helpfulness, correctness, coherence, relevance, harmlessness)
 
-#### Test Hardening (S57, S61, S62)
-- 115 new parametrized + edge-case tests across safety, drift, synthetic, conformal, attribution, agentic, multi-agent, GitHub App, OTEL, kubeflow, sagemaker, dvc, hipaa, counterfactual, multimodal, anomaly, audit
+#### Recommendation Systems (S63) — FIRST-MOVER
+- `assert_hit_rate`, `assert_diversity`, `assert_novelty`, `assert_coverage`, `assert_serendipity`
+- Zero competitors offer recommendation system assertions as pytest assertions
+
+#### Long-Context LLM Testing (S63)
+- `assert_needle_in_haystack` — fact retrieval at configurable context positions
+- `assert_context_utilization` — verify model uses multiple facts from full window
+- `assert_no_lost_in_middle` — detect accuracy degradation in middle of context
+
+#### Test Hardening (S57, S61, S62, S63)
+- 168 new parametrized + edge-case tests across safety, drift, synthetic, conformal, attribution, agentic, multi-agent, GitHub App, OTEL, kubeflow, sagemaker, dvc, hipaa, counterfactual, multimodal, anomaly, audit
 
 ## [0.7.0] — 2026-03-27
 

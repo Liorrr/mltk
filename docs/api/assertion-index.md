@@ -331,6 +331,24 @@ Assertions for validating inference latency, throughput, and API contracts.
 | 93 | `assert_summary_compression` | `mltk.domains.llm.summarization` | Verify summary achieves target compression ratio | v0.8.0 |
 | 94 | `assert_summary_faithfulness` | `mltk.domains.llm.summarization` | Verify summary doesn't hallucinate (token precision) | v0.8.0 |
 
+### Long-Context LLM
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 95 | `assert_needle_in_haystack` | `mltk.domains.llm.long_context` | Verify model retrieves facts at various context positions | v0.8.0 |
+| 96 | `assert_context_utilization` | `mltk.domains.llm.long_context` | Verify model uses multiple facts from full context window | v0.8.0 |
+| 97 | `assert_no_lost_in_middle` | `mltk.domains.llm.long_context` | Verify model accuracy is uniform across context positions | v0.8.0 |
+
+### Recommendation Systems
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 98 | `assert_hit_rate` | `mltk.domains.recommendation` | Verify fraction of users with at least 1 relevant recommendation | v0.8.0 |
+| 99 | `assert_diversity` | `mltk.domains.recommendation` | Verify category diversity within recommendation lists | v0.8.0 |
+| 100 | `assert_novelty` | `mltk.domains.recommendation` | Verify recommendations include non-obvious items (inverse popularity) | v0.8.0 |
+| 101 | `assert_coverage` | `mltk.domains.recommendation` | Verify catalog utilization across all recommendations | v0.8.0 |
+| 102 | `assert_serendipity` | `mltk.domains.recommendation` | Verify unexpected but relevant recommendations | v0.8.0 |
+
 ### Coherence & BERTScore
 
 | # | Assertion | Module | Description | Since |

@@ -331,3 +331,230 @@ class TestMAPAtK:
             [{"d1"}], [["d1"]], k=1, min_map=0.5,
         )
         assert result.duration_ms > 0
+
+
+# ------------------------------------------------------------------
+# Hardened edge-case and parametrized tests (S62 test hardening)
+# ------------------------------------------------------------------
+
+import random
+
+
+class TestNDCGParametrizedK:
+    """Parametrize k values for nDCG to verify truncation."""
+
+    @pytest.mark.parametrize("k", [1, 3, 5, 10, 20])
+    def test_ndcg_at_various_k(self, k: int) -> None:
+        # SCENARIO: Perfect ranking evaluated at different k.
+        # WHY: Truncation logic must handle k from 1 to
+        #   beyond the number of documents.
+        # EXPECTED: nDCG = 1.0 for a perfectly sorted list.
+        y_true = [[5, 4, 3, 2, 1, 0]]
+        y_scores = [[1.0, 0.8, 0.6, 0.4, 0.2, 0.0]]
+        result = assert_ndcg(
+            y_true, y_scores, k=k, min_ndcg=0.99,
+        )
+        assert result.passed is True
+        assert abs(result.details["ndcg"] - 1.0) < 1e-9
+        assert result.details["k"] == k
+
+
+class TestMRRWithTies:
+    """MRR behaviour when multiple docs are relevant."""
+
+    def test_ties_multiple_relevant_at_same_rank(
+        self,
+    ) -> None:
+        # SCENARIO: All results are relevant for a query.
+        # WHY: First relevant is still rank 1 regardless of
+        #   how many others follow. RR = 1/1 = 1.0.
+        # EXPECTED: MRR = 1.0 across two such queries.
+        results = [
+            [True, True, True],
+            [True, True, False],
+        ]
+        result = assert_mrr(results, min_mrr=1.0)
+        assert result.passed is True
+        assert abs(result.details["mrr"] - 1.0) < 1e-9
+
+    def test_ties_relevant_at_rank_2_and_3(self) -> None:
+        # SCENARIO: Relevant docs at ranks 2 and 3 but not 1.
+        # WHY: First relevant at rank 2 => RR = 0.5.
+        # EXPECTED: MRR = 0.5.
+        results = [[False, True, True]]
+        result = assert_mrr(results, min_mrr=0.5)
+        assert result.passed is True
+        assert abs(result.details["mrr"] - 0.5) < 1e-9
+
+
+class TestRecallAtKHardest:
+    """Recall@K=1 -- the hardest recall cutoff."""
+
+    def test_recall_at_k_1_found(self) -> None:
+        # SCENARIO: k=1 and the single top result is relevant.
+        # WHY: Smallest possible k; tests boundary.
+        # EXPECTED: recall = 1/1 = 1.0 for this query's set.
+        relevant = [{"d1"}]
+        retrieved = [["d1", "d2", "d3"]]
+        result = assert_recall_at_k(
+            relevant, retrieved, k=1, min_recall=1.0,
+        )
+        assert result.passed is True
+
+    def test_recall_at_k_1_missed(self) -> None:
+        # SCENARIO: k=1 and the top result is not relevant.
+        # WHY: No room for error at k=1.
+        # EXPECTED: recall = 0.0 => fails.
+        relevant = [{"d1"}]
+        retrieved = [["d2", "d1"]]
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_recall_at_k(
+                relevant, retrieved, k=1, min_recall=0.5,
+            )
+        assert exc.value.result.details["recall"] == 0.0
+
+
+class TestMAPSingleQuery:
+    """MAP with a single query -- no averaging across queries."""
+
+    def test_single_query_perfect_ap(self) -> None:
+        # SCENARIO: One query, relevant docs at positions 1-2.
+        # WHY: AP = (1/1 + 2/2) / 2 = 1.0, MAP = 1.0.
+        # EXPECTED: MAP = 1.0.
+        relevant = [{"d1", "d2"}]
+        retrieved = [["d1", "d2", "d3"]]
+        result = assert_map_at_k(
+            relevant, retrieved, k=3, min_map=1.0,
+        )
+        assert result.passed is True
+        assert abs(
+            result.details["map_score"] - 1.0
+        ) < 1e-9
+
+
+class TestNDCGBinaryRelevance:
+    """nDCG with binary (0/1) relevance -- not graded."""
+
+    def test_binary_relevance_perfect(self) -> None:
+        # SCENARIO: Binary labels, relevant docs ranked first.
+        # WHY: Many benchmarks use binary relevance only.
+        # EXPECTED: nDCG = 1.0 for ideal ordering.
+        y_true = [[1, 1, 0, 0]]
+        y_scores = [[0.9, 0.8, 0.2, 0.1]]
+        result = assert_ndcg(
+            y_true, y_scores, k=4, min_ndcg=0.99,
+        )
+        assert result.passed is True
+        assert abs(result.details["ndcg"] - 1.0) < 1e-9
+
+    def test_binary_relevance_reversed(self) -> None:
+        # SCENARIO: Non-relevant docs ranked before relevant.
+        # WHY: Worst case for binary relevance.
+        # EXPECTED: nDCG < 0.8.
+        y_true = [[1, 1, 0, 0]]
+        y_scores = [[0.1, 0.2, 0.8, 0.9]]
+        with pytest.raises(MltkAssertionError):
+            assert_ndcg(
+                y_true, y_scores, k=4, min_ndcg=0.8,
+            )
+
+
+class TestRetrievalPerformance:
+    """100-query dataset performance -- no time.sleep."""
+
+    def test_100_queries_ndcg(self) -> None:
+        # SCENARIO: 100 queries, each with 10 documents.
+        # WHY: Verifies metric computation scales without
+        #   error on a realistic dataset size.
+        # EXPECTED: Completes without exception; result valid.
+        rng = random.Random(42)
+        y_true = [
+            [rng.randint(0, 3) for _ in range(10)]
+            for _ in range(100)
+        ]
+        y_scores = [
+            [rng.random() for _ in range(10)]
+            for _ in range(100)
+        ]
+        result = assert_ndcg(
+            y_true, y_scores, k=5, min_ndcg=0.0,
+        )
+        assert result.details["num_queries"] == 100
+        assert result.details["ndcg"] >= 0.0
+        assert result.details["ndcg"] <= 1.0
+
+    def test_100_queries_mrr(self) -> None:
+        # SCENARIO: 100 queries for MRR performance.
+        # EXPECTED: Completes without exception.
+        rng = random.Random(99)
+        results = [
+            [rng.random() > 0.5 for _ in range(10)]
+            for _ in range(100)
+        ]
+        result = assert_mrr(results, min_mrr=0.0)
+        assert result.details["num_queries"] == 100
+
+
+class TestPerQueryScoresVerification:
+    """Verify per_query detail arrays are correct."""
+
+    def test_per_query_ndcg_length(self) -> None:
+        # SCENARIO: 3 queries -> per_query_ndcg has 3 entries.
+        # WHY: Details must be debuggable per query.
+        y_true = [[3, 0], [0, 3], [1, 1]]
+        y_scores = [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]]
+        result = assert_ndcg(
+            y_true, y_scores, k=2, min_ndcg=0.0,
+        )
+        per_q = result.details["per_query_ndcg"]
+        assert len(per_q) == 3
+        for score in per_q:
+            assert 0.0 <= score <= 1.0
+
+    def test_per_query_recall_length(self) -> None:
+        # SCENARIO: 2 queries -> per_query_recall has 2 entries.
+        relevant = [{"a", "b"}, {"c"}]
+        retrieved = [["a", "c"], ["c", "b"]]
+        result = assert_recall_at_k(
+            relevant, retrieved, k=2, min_recall=0.0,
+        )
+        per_q = result.details["per_query_recall"]
+        assert len(per_q) == 2
+
+    def test_per_query_ap_length(self) -> None:
+        # SCENARIO: 2 queries -> per_query_ap has 2 entries.
+        relevant = [{"a"}, {"b"}]
+        retrieved = [["a"], ["b"]]
+        result = assert_map_at_k(
+            relevant, retrieved, k=1, min_map=0.0,
+        )
+        per_q = result.details["per_query_ap"]
+        assert len(per_q) == 2
+
+
+class TestMismatchedLengths:
+    """Mismatched y_true and y_scores lengths."""
+
+    def test_ndcg_fewer_scores_than_true(self) -> None:
+        # SCENARIO: y_true has 2 queries, y_scores has 1.
+        # WHY: zip silently truncates; we verify the result
+        #   only processes the matched pairs.
+        y_true = [[3, 2], [1, 0]]
+        y_scores = [[1.0, 0.5]]
+        result = assert_ndcg(
+            y_true, y_scores, k=2, min_ndcg=0.0,
+        )
+        # zip produces only 1 pair
+        assert result.details["num_queries"] == 1
+
+    def test_recall_fewer_relevant_than_retrieved(
+        self,
+    ) -> None:
+        # SCENARIO: 1 relevant set, 2 retrieved lists.
+        # WHY: zip truncates to shorter list.
+        relevant = [{"a"}]
+        retrieved = [["a", "b"], ["c", "d"]]
+        result = assert_recall_at_k(
+            relevant, retrieved, k=2, min_recall=0.0,
+        )
+        assert result.details["num_queries"] == 1

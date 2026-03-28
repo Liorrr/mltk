@@ -21,6 +21,11 @@ from mltk.domains.llm.conversation import (
 )
 from mltk.domains.llm.judge import assert_llm_judge_pairwise, assert_llm_judge_score
 from mltk.domains.llm.latency import assert_itl, assert_ttft
+from mltk.domains.llm.long_context import (
+    assert_context_utilization,
+    assert_needle_in_haystack,
+    assert_no_lost_in_middle,
+)
 from mltk.domains.llm.multi_agent import assert_agent_handoff, assert_no_agent_loop
 from mltk.domains.llm.rag import (
     assert_answer_relevancy,
@@ -107,6 +112,10 @@ __all__ = [
     "assert_summary_coverage",
     "assert_summary_compression",
     "assert_summary_faithfulness",
+    # long-context LLM
+    "assert_needle_in_haystack",
+    "assert_context_utilization",
+    "assert_no_lost_in_middle",
     # retrieval ranking metrics
     "assert_ndcg",
     "assert_mrr",

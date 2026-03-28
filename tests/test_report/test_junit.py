@@ -382,3 +382,174 @@ class TestFormatResultToJunit:
         elem = format_result_to_junit(result)
         assert elem.get("time") == "0.000000"
         assert elem.get("name") == "minimal.test"
+
+
+# ---------------------------------------------------------------
+# Hardened edge-case tests (S62 test hardening)
+# ---------------------------------------------------------------
+
+
+class TestJunitHardened:
+    """Additional edge-case and performance tests."""
+
+    def test_100_results_performance(
+        self, tmp_path: Path,
+    ) -> None:
+        """PERF: 100 results produce valid XML without error.
+
+        WHY: Real CI runs may have hundreds of test results.
+        The exporter must handle them efficiently.
+        Expected: 100 testcases, correct failure count.
+        """
+        results = [
+            {
+                "name": f"test.case.{i}",
+                "passed": i % 5 != 0,
+                "duration_ms": float(i),
+                "message": f"msg {i}",
+            }
+            for i in range(100)
+        ]
+        out = tmp_path / "perf.xml"
+        path = export_junit_xml(
+            results, output_path=str(out),
+        )
+        tree = ET.parse(path)
+        suite = tree.getroot().find("testsuite")
+        assert suite is not None
+        cases = suite.findall("testcase")
+        assert len(cases) == 100
+        assert suite.get("tests") == "100"
+        expected_fails = sum(
+            1 for i in range(100) if i % 5 == 0
+        )
+        assert suite.get("failures") == str(expected_fails)
+
+    def test_nested_classname_derivation(
+        self, tmp_path: Path,
+    ) -> None:
+        """PASS: Deeply nested name a.b.c.d.e derives classname.
+
+        WHY: Some test names have many dot segments; the
+        classname derivation must handle them correctly.
+        Expected: classname = "mltk.a.b.c.d".
+        """
+        results = [
+            {
+                "name": "a.b.c.d.e",
+                "passed": True,
+                "duration_ms": 1.0,
+                "message": "ok",
+            },
+        ]
+        out = tmp_path / "nested.xml"
+        export_junit_xml(results, output_path=str(out))
+        tree = ET.parse(str(out))
+        tc = tree.getroot().find(".//testcase")
+        assert tc is not None
+        assert tc.get("classname") == "mltk.a.b.c.d"
+
+    def test_unicode_in_messages(
+        self, tmp_path: Path,
+    ) -> None:
+        """PASS: Unicode in messages is preserved in XML.
+
+        WHY: Real test messages may contain non-ASCII chars
+        (accented names, mathematical symbols, CJK).
+        Expected: XML is parseable and contains the content.
+        """
+        results = [
+            {
+                "name": "unicode.test",
+                "passed": False,
+                "duration_ms": 10.0,
+                "message": "accuracy \u2265 0.8 \u2014 \u00e9\u00e8\u00ea",
+            },
+        ]
+        out = tmp_path / "unicode.xml"
+        path = export_junit_xml(
+            results, output_path=str(out),
+        )
+        xml_text = Path(path).read_text(encoding="utf-8")
+        root = ET.fromstring(xml_text)
+        fail = root.find(".//failure")
+        assert fail is not None
+        assert "\u2265" in fail.get("message", "")
+
+    def test_zero_duration(self, tmp_path: Path) -> None:
+        """PASS: duration_ms of 0.0 converts to time="0.000000".
+
+        WHY: Instantaneous tests may report 0ms. The exporter
+        must not divide by zero or produce negative time.
+        Expected: time="0.000000".
+        """
+        results = [
+            {
+                "name": "instant.test",
+                "passed": True,
+                "duration_ms": 0.0,
+                "message": "ok",
+            },
+        ]
+        out = tmp_path / "zero.xml"
+        export_junit_xml(results, output_path=str(out))
+        tree = ET.parse(str(out))
+        tc = tree.getroot().find(".//testcase")
+        assert tc is not None
+        assert float(tc.get("time", "-1")) == 0.0
+        suite = tree.getroot().find("testsuite")
+        assert float(suite.get("time", "-1")) == 0.0
+
+    def test_very_long_test_name(
+        self, tmp_path: Path,
+    ) -> None:
+        """PASS: A 200-char test name does not break XML.
+
+        WHY: Some generated test names can be very long.
+        The exporter must not truncate or crash.
+        Expected: Full name preserved in the XML attribute.
+        """
+        long_name = "a" * 200
+        results = [
+            {
+                "name": long_name,
+                "passed": True,
+                "duration_ms": 1.0,
+                "message": "ok",
+            },
+        ]
+        out = tmp_path / "long.xml"
+        path = export_junit_xml(
+            results, output_path=str(out),
+        )
+        tree = ET.parse(path)
+        tc = tree.getroot().find(".//testcase")
+        assert tc is not None
+        assert tc.get("name") == long_name
+        assert len(tc.get("name", "")) == 200
+
+    def test_missing_duration_and_message(
+        self, tmp_path: Path,
+    ) -> None:
+        """PASS: Results with no duration_ms or message work.
+
+        WHY: Minimal result dicts with only name+passed are
+        common when wrapping third-party tools.
+        Expected: Defaults: time=0.0, empty message.
+        """
+        results = [
+            {"name": "bare.pass", "passed": True},
+            {"name": "bare.fail", "passed": False},
+        ]
+        out = tmp_path / "bare.xml"
+        path = export_junit_xml(
+            results, output_path=str(out),
+        )
+        tree = ET.parse(path)
+        cases = tree.getroot().findall(".//testcase")
+        assert len(cases) == 2
+        for tc in cases:
+            assert float(tc.get("time", "-1")) == 0.0
+        fail_elem = tree.getroot().find(".//failure")
+        assert fail_elem is not None
+        assert fail_elem.get("message") == ""

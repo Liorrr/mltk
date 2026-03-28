@@ -212,3 +212,65 @@ class TestDiscoveryUnit:
             for entry in items:
                 assert set(entry.keys()) == {"name", "module", "doc"}
                 assert entry["name"].startswith("assert_")
+
+
+# -------------------------------------------------------------------
+# Hardened edge-case tests (S62 test hardening)
+# -------------------------------------------------------------------
+
+
+class TestListFilterHardened:
+    """Additional filter edge-case tests."""
+
+    def test_partial_match_no_prefix(self) -> None:
+        """Filter 'no_' matches assert_no_drift etc."""
+        result = _run_cli("list", "no_")
+        assert result.returncode == 0, result.stderr
+        assert "assert_no_" in result.stdout
+
+    def test_zero_results_shows_message(self) -> None:
+        """Filter with no matches shows '0 total'."""
+        result = _run_cli("list", "xyzzy_absent_42")
+        assert result.returncode == 0, result.stderr
+        assert "0 total" in result.stdout
+
+    def test_case_insensitive_upper(self) -> None:
+        """DRIFT (all upper) matches assert_no_drift."""
+        result = _run_cli("list", "DRIFT")
+        assert result.returncode == 0, result.stderr
+        assert "assert_no_drift" in result.stdout
+
+    def test_very_long_filter_no_crash(self) -> None:
+        """A 100-char filter string doesn't crash."""
+        long_filter = "a" * 100
+        result = _run_cli("list", long_filter)
+        assert result.returncode == 0, result.stderr
+        assert "0 total" in result.stdout
+
+
+class TestListJsonHardened:
+    """Additional JSON output structure tests."""
+
+    def test_json_entry_keys(self) -> None:
+        """Each JSON entry has name, module, doc keys."""
+        result = _run_cli("list", "--format", "json")
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        for _cat, items in payload["modules"].items():
+            for entry in items:
+                assert "name" in entry
+                assert "module" in entry
+                assert "doc" in entry
+
+
+class TestListTableHardened:
+    """Additional table output checks."""
+
+    def test_table_output_has_separator_lines(
+        self,
+    ) -> None:
+        """Table output contains separator/formatting chars."""
+        result = _run_cli("list")
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert len(lines) > 5, "Table should have many lines"

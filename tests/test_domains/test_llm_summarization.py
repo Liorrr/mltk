@@ -350,3 +350,144 @@ class TestCrossMetric:
             source, summary, min_faithfulness=0.3,
         )
         assert faith.passed is True
+
+
+# -- Hardened edge-case tests (S62 test hardening) ----------------
+
+
+class TestCoverageParametrizedMinCoverage:
+    """Parametrize min_coverage thresholds."""
+
+    @pytest.mark.parametrize(
+        "min_cov", [0.0, 0.3, 0.5, 0.8, 1.0],
+    )
+    def test_identical_text_all_thresholds(
+        self, min_cov: float,
+    ) -> None:
+        # SCENARIO: Identical text means coverage = 1.0.
+        # WHY: Should pass any min_coverage in [0, 1].
+        text = "The quick brown fox jumps over the lazy dog."
+        result = assert_summary_coverage(
+            text, text, min_coverage=min_cov,
+        )
+        assert result.passed is True
+        assert result.details["coverage"] == 1.0
+
+
+class TestCompressionSingleChar:
+    """Compression with source of length 1 char."""
+
+    def test_source_one_char(self) -> None:
+        # SCENARIO: Source is a single character.
+        # WHY: Smallest non-empty source; ratio = 1/1 = 1.0.
+        # EXPECTED: ratio = 1.0 => fails default max_ratio.
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_summary_compression("x", "x")
+        ratio = exc.value.result.details[
+            "compression_ratio"
+        ]
+        assert abs(ratio - 1.0) < 1e-9
+
+    def test_source_one_char_custom_range(self) -> None:
+        # SCENARIO: Source 1 char with max_ratio=1.0.
+        # EXPECTED: passes.
+        result = assert_summary_compression(
+            "x", "x", min_ratio=0.0, max_ratio=1.0,
+        )
+        assert result.passed is True
+
+
+class TestFaithfulnessRepeatedWords:
+    """Faithfulness with repeated words in summary."""
+
+    def test_repeated_words_still_faithful(self) -> None:
+        # SCENARIO: Summary repeats "the" many times.
+        # WHY: Token sets ignore count; only unique tokens
+        #   matter. All summary tokens exist in source.
+        # EXPECTED: faithfulness = 1.0.
+        source = "the cat sat on the mat by the door"
+        summary = "the the the the"
+        result = assert_summary_faithfulness(
+            source, summary, min_faithfulness=0.5,
+        )
+        assert result.passed is True
+        assert result.details["faithfulness"] == 1.0
+
+
+class TestCoverageFaithfulnessCombined:
+    """Coverage + faithfulness on same source/summary."""
+
+    def test_same_pair_different_thresholds(self) -> None:
+        # SCENARIO: Evaluate both metrics on the same data.
+        # WHY: Verifies both can run independently on
+        #   identical input without interference.
+        source = (
+            "Python is a popular high-level language "
+            "used for web development and data science."
+        )
+        summary = "Python is a popular language."
+        cov = assert_summary_coverage(
+            source, summary, min_coverage=0.2,
+        )
+        assert cov.passed is True
+        faith = assert_summary_faithfulness(
+            source, summary, min_faithfulness=0.5,
+        )
+        assert faith.passed is True
+        assert faith.details["faithfulness"] >= 0.5
+        assert cov.details["coverage"] >= 0.2
+
+
+class TestVeryLongSourcePerformance:
+    """Very long source (10,000 chars) performance."""
+
+    def test_10k_char_source_coverage(self) -> None:
+        # SCENARIO: Source is 10,000 chars.
+        # WHY: Must complete in reasonable time without
+        #   quadratic blowup in token set operations.
+        # EXPECTED: Completes; result is valid.
+        source = ("word " * 2000).strip()  # 9999 chars
+        summary = "word"
+        result = assert_summary_coverage(
+            source, summary, min_coverage=0.0,
+        )
+        assert result.passed is True
+        assert result.details["source_tokens"] > 0
+
+    def test_10k_char_source_faithfulness(self) -> None:
+        # SCENARIO: 10K-char source, short summary.
+        # EXPECTED: Completes without exception.
+        source = ("alpha beta gamma " * 600).strip()
+        summary = "alpha beta"
+        result = assert_summary_faithfulness(
+            source, summary, min_faithfulness=0.5,
+        )
+        assert result.passed is True
+
+
+class TestSummaryLongerThanSource:
+    """Summary longer than source -- compression > 1.0."""
+
+    def test_summary_longer_than_source(self) -> None:
+        # SCENARIO: Summary is 3x longer than source.
+        # WHY: LLMs sometimes "expand" instead of summarize.
+        # EXPECTED: ratio = 3.0 > max_ratio => fails.
+        source = "short"
+        summary = "this is a much longer summary text"
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_summary_compression(source, summary)
+        ratio = exc.value.result.details[
+            "compression_ratio"
+        ]
+        assert ratio > 1.0
+
+    def test_summary_longer_custom_range(self) -> None:
+        # SCENARIO: Ratio > 1.0 with max_ratio=5.0.
+        # EXPECTED: passes with permissive range.
+        source = "hi"
+        summary = "hello world foo bar"
+        result = assert_summary_compression(
+            source, summary, min_ratio=0.0, max_ratio=20.0,
+        )
+        assert result.passed is True
+        assert result.details["compression_ratio"] > 1.0
