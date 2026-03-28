@@ -241,7 +241,7 @@ def assert_code_executes(
     if language != "python":
         return assert_true(
             False,
-            name="domains.codegen.executes",
+            name="codegen.executes",
             message=(
                 f"Unsupported language: '{language}'. "
                 "Currently only 'python' is supported"
@@ -257,7 +257,7 @@ def assert_code_executes(
     if not code.strip():
         return assert_true(
             True,
-            name="domains.codegen.executes",
+            name="codegen.executes",
             message="Empty code executes trivially",
             severity=Severity.CRITICAL,
             returncode=0,
@@ -291,7 +291,7 @@ def assert_code_executes(
 
     return assert_true(
         passed,
-        name="domains.codegen.executes",
+        name="codegen.executes",
         message=message,
         severity=Severity.CRITICAL,
         returncode=returncode,
@@ -345,7 +345,7 @@ def assert_code_passes_tests(
     if not code.strip() and not test_code.strip():
         return assert_true(
             True,
-            name="domains.codegen.passes_tests",
+            name="codegen.passes_tests",
             message="Empty code and tests -- trivially passing",
             severity=Severity.CRITICAL,
             returncode=0,
@@ -378,7 +378,7 @@ def assert_code_passes_tests(
 
     return assert_true(
         passed,
-        name="domains.codegen.passes_tests",
+        name="codegen.passes_tests",
         message=message,
         severity=Severity.CRITICAL,
         returncode=returncode,
@@ -464,7 +464,7 @@ def assert_no_code_vulnerabilities(
 
     return assert_true(
         passed,
-        name="domains.codegen.no_vulnerabilities",
+        name="codegen.no_vulnerabilities",
         message=message,
         severity=Severity.CRITICAL,
         vulnerabilities=findings,
@@ -557,7 +557,7 @@ def assert_code_complexity(
 
     return assert_true(
         passed,
-        name="domains.codegen.complexity",
+        name="codegen.complexity",
         message=message,
         severity=Severity.CRITICAL,
         max_function_complexity=max_func_complexity,

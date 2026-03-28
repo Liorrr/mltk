@@ -3,6 +3,7 @@
 from mltk.core.assertion import MltkAssertionError, assert_true, timed_assertion
 from mltk.core.config import MltkConfig
 from mltk.core.plugin import discover_plugins, get_registered_assertions, register_assertion
+from mltk.core.polars_bridge import coerce_dataframe, is_polars, to_pandas
 from mltk.core.result import Severity, TestResult, TestSuite
 from mltk.core.suite import MltkSuite, SuiteResult
 
@@ -20,4 +21,8 @@ __all__ = [
     # composable suite
     "MltkSuite",
     "SuiteResult",
+    # polars bridge
+    "to_pandas",
+    "is_polars",
+    "coerce_dataframe",
 ]

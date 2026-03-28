@@ -21,6 +21,8 @@ from mltk.compliance.owasp_llm import (
     owasp_llm_scan,
 )
 from mltk.compliance.pdf_export import export_compliance_pdf
+from mltk.compliance.sr_11_7 import assert_sr_11_7_coverage
+from mltk.compliance.sr_11_7 import find_gaps as find_sr_11_7_gaps
 
 __all__ = [
     "generate_compliance_report",
@@ -47,4 +49,7 @@ __all__ = [
     # HIPAA
     "assert_hipaa_coverage",
     "find_hipaa_gaps",
+    # SR 11-7
+    "assert_sr_11_7_coverage",
+    "find_sr_11_7_gaps",
 ]

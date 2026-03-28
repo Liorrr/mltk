@@ -55,7 +55,7 @@ class TestCodeExecutes:
         assert result.passed is True
         assert result.details["returncode"] == 0
         assert result.details["language"] == "python"
-        assert result.name == "domains.codegen.executes"
+        assert result.name == "codegen.executes"
 
     @patch("mltk.domains.codegen._run_code_in_subprocess")
     def test_syntax_error_fails(self, mock_run: MagicMock) -> None:
@@ -181,7 +181,7 @@ class TestCodePassesTests:
         tests = "assert add(2, 3) == 5\nassert add(0, 0) == 0"
         result = assert_code_passes_tests(code, tests)
         assert result.passed is True
-        assert result.name == "domains.codegen.passes_tests"
+        assert result.name == "codegen.passes_tests"
 
     @patch("mltk.domains.codegen._run_code_in_subprocess")
     def test_wrong_code_fails(
@@ -263,7 +263,7 @@ class TestNoCodeVulnerabilities:
         result = assert_no_code_vulnerabilities(code)
         assert result.passed is True
         assert result.details["n_findings"] == 0
-        assert result.name == "domains.codegen.no_vulnerabilities"
+        assert result.name == "codegen.no_vulnerabilities"
 
     def test_eval_detected(self) -> None:
         """FAIL: eval() call detected.
@@ -436,7 +436,7 @@ class TestCodeComplexity:
         assert result.passed is True
         assert result.details["max_function_complexity"] == 1
         assert result.details["per_function"]["add"] == 1
-        assert result.name == "domains.codegen.complexity"
+        assert result.name == "codegen.complexity"
 
     def test_deeply_nested_fails(self) -> None:
         """FAIL: A function with many branches exceeds threshold.

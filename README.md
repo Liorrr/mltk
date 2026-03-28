@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-1422%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2100%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 ```bash
@@ -49,7 +49,7 @@ Run with HTML report:
 pytest --mltk-report
 ```
 
-## What's Included (v0.7.0)
+## What's Included (v0.8.0)
 
 **YAML test definitions** — write ML tests in YAML, no Python required. Run with `mltk test tests.yaml`. Supports 11 data assertions with `env:VAR_NAME` data source for CI/CD.
 
@@ -79,7 +79,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (156 assertions)
+## Feature Matrix (200 assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -125,9 +125,20 @@ pytest --mltk-report
 | **CV Face** | `assert_face_far` | False accept rate (NIST FRVT) |
 | **Tabular** | `assert_feature_drift`, `assert_feature_importance_stable`, `assert_class_balance` | Feature validation |
 | **Compliance** | EU AI Act report, OWASP LLM Top 10, FDA audit trail, compliance PDF export | Regulatory evidence |
+| **Retrieval** | `assert_ndcg`, `assert_mrr`, `assert_recall_at_k`, `assert_map_at_k` | Ranking metrics (RAG) |
+| **LLM-as-Judge** | `assert_llm_judge_score`, `assert_llm_judge_pairwise` | Vendor-neutral LLM eval |
+| **Summarization** | `assert_summary_coverage`, `assert_summary_compression`, `assert_summary_faithfulness` | Summary quality |
+| **Recommendation** | `assert_hit_rate`, `assert_diversity`, `assert_novelty`, `assert_coverage`, `assert_serendipity` | RecSys testing |
+| **Long-Context LLM** | `assert_needle_in_haystack`, `assert_context_utilization`, `assert_no_lost_in_middle` | Long-context eval |
+| **Composable Suite** | `MltkSuite`, `SuiteResult`, export to JSON/HTML/JUnit | Run without pytest |
+| **Code Generation** | `assert_code_executes`, `assert_code_passes_tests`, `assert_no_code_vulnerabilities`, `assert_code_complexity` | LLM codegen testing |
+| **Healthcare** | HIPAA compliance mapping, `assert_hipaa_coverage` | Regulated industry |
+| **Finance** | SR 11-7 model risk, `assert_sr117_coverage` | Bank model governance |
+| **Enterprise** | RBAC, audit log, custom compliance frameworks | SOC 2 + governance |
+| **Observability** | `TestScheduler`, anomaly detection, impact analysis, Grafana dashboards | Production monitoring |
 | **Testing Patterns** | `assert_matches_golden`, flaky detection, retry, test selection | Advanced test strategies |
 | **Reports** | Visual diff, test history summarizer, bias report, model card | Analysis + reporting |
-| **Integrations** | `JiraAdapter`, `TicketDecisionEngine`, MLflow, GitHub Issues, Slack, webhooks | Ecosystem connectors |
+| **Integrations** | Jira, MLflow, GitHub App, W&B, DVC, Kubeflow, SageMaker, Slack, webhooks | Ecosystem connectors |
 
 ## Installation
 
@@ -243,10 +254,12 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | ML Test Score | No | No | No | No | No | No | **Yes** |
 | Rust acceleration | No | No | No | No | No | No | **Yes** |
 | YAML test defs | No | No | No | No | No | No | **Yes** |
-| Compliance frameworks | No | No | No | No | No | No | **Yes (5 frameworks)** |
+| Compliance frameworks | No | No | No | No | No | No | **Yes (8 frameworks)** |
 | Training bug detection | No | No | No | No | No | No | **Yes** |
 | Conformal prediction | No | No | No | No | No | No | **Yes** |
-| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (156 assertions)** |
+| Composable TestSuite | No | No | No | No | No | No | **Yes** |
+| Code Generation | No | No | No | No | No | No | **Yes (4 assertions)** |
+| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (200 assertions)** |
 | Agent trace testing | No | No | No | Yes (basic) | No | Yes (tracing) | **Yes (9 assertions)** |
 | Multi-agent testing | No | No | No | No | No | No | **Yes** |
 | Synthetic data validation | No | No | No | No | No | No | **Yes (4 assertions)** |

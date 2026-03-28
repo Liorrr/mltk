@@ -73,7 +73,7 @@ def assert_hit_rate(
     if not recommended:
         return assert_true(
             True,
-            name="domains.recommendation.hit_rate",
+            name="recommendation.hit_rate",
             message="No users provided -- trivially passing "
             "(hit_rate=1.0)",
             severity=Severity.CRITICAL,
@@ -103,7 +103,7 @@ def assert_hit_rate(
 
     return assert_true(
         passed,
-        name="domains.recommendation.hit_rate",
+        name="recommendation.hit_rate",
         message=message,
         severity=Severity.CRITICAL,
         hit_rate=hit_rate,
@@ -159,7 +159,7 @@ def assert_diversity(
     if not recommended:
         return assert_true(
             True,
-            name="domains.recommendation.diversity",
+            name="recommendation.diversity",
             message="No users provided -- trivially passing "
             "(avg_diversity=1.0)",
             severity=Severity.CRITICAL,
@@ -174,7 +174,7 @@ def assert_diversity(
     if n_categories == 0:
         return assert_true(
             True,
-            name="domains.recommendation.diversity",
+            name="recommendation.diversity",
             message="No categories defined -- trivially passing "
             "(avg_diversity=1.0)",
             severity=Severity.CRITICAL,
@@ -206,7 +206,7 @@ def assert_diversity(
 
     return assert_true(
         passed,
-        name="domains.recommendation.diversity",
+        name="recommendation.diversity",
         message=message,
         severity=Severity.CRITICAL,
         avg_diversity=avg_diversity,
@@ -264,7 +264,7 @@ def assert_novelty(
     if not recommended:
         return assert_true(
             True,
-            name="domains.recommendation.novelty",
+            name="recommendation.novelty",
             message="No users provided -- trivially passing "
             "(avg_novelty=1.0)",
             severity=Severity.CRITICAL,
@@ -301,7 +301,7 @@ def assert_novelty(
 
     return assert_true(
         passed,
-        name="domains.recommendation.novelty",
+        name="recommendation.novelty",
         message=message,
         severity=Severity.CRITICAL,
         avg_novelty=avg_novelty,
@@ -347,7 +347,7 @@ def assert_coverage(
     if catalog_size <= 0:
         return assert_true(
             True,
-            name="domains.recommendation.coverage",
+            name="recommendation.coverage",
             message="Empty catalog -- trivially passing "
             "(coverage=1.0)",
             severity=Severity.CRITICAL,
@@ -375,7 +375,7 @@ def assert_coverage(
 
     return assert_true(
         passed,
-        name="domains.recommendation.coverage",
+        name="recommendation.coverage",
         message=message,
         severity=Severity.CRITICAL,
         coverage=coverage,
@@ -437,7 +437,7 @@ def assert_serendipity(
     if not recommended:
         return assert_true(
             True,
-            name="domains.recommendation.serendipity",
+            name="recommendation.serendipity",
             message="No users provided -- trivially passing "
             "(avg_serendipity=1.0)",
             severity=Severity.CRITICAL,
@@ -454,7 +454,7 @@ def assert_serendipity(
         rec_set = set(recs)
         exp_set = set(exp)
         # Serendipitous = relevant AND recommended AND NOT expected
-        serendipitous = rec_set & rels - exp_set
+        serendipitous = rec_set & (rels - exp_set)
         per_user.append(len(serendipitous) / len(recs))
 
     avg_serendipity = sum(per_user) / len(per_user)
@@ -471,7 +471,7 @@ def assert_serendipity(
 
     return assert_true(
         passed,
-        name="domains.recommendation.serendipity",
+        name="recommendation.serendipity",
         message=message,
         severity=Severity.CRITICAL,
         avg_serendipity=avg_serendipity,
