@@ -933,6 +933,168 @@ quality:
         )
         print(f"Grafana dashboard exported: {path}")  # noqa: T201
 
+    @app.command("scan-model")
+    def scan_model(
+        model: str = typer.Option(
+            ..., help="Path to model file",
+        ),
+        data: str = typer.Option(
+            ..., help="Path to CSV/parquet data",
+        ),
+        target: str = typer.Option(
+            ..., help="Target column name",
+        ),
+        sensitive: str = typer.Option(
+            "",
+            help="Comma-separated sensitive columns",
+        ),
+        output: str = typer.Option(
+            "",
+            help="Path for generated test file",
+        ),
+        junit_xml: str = typer.Option(
+            "",
+            help="Path for JUnit XML output",
+        ),
+    ) -> None:
+        """Scan a model for issues and generate tests.
+
+        Loads a serialized model and a dataset, runs every
+        applicable scanner (bias, slicing, calibration,
+        robustness, leakage, data quality, drift, overfit),
+        and prints a summary of findings with severity levels.
+
+        Scanners that cannot run (e.g., CalibrationScanner
+        when the model has no predict_proba) are skipped
+        automatically.
+
+        Optionally generates a self-contained pytest file
+        (--output) and/or JUnit XML report (--junit-xml)
+        from the findings.
+
+        Exit codes::
+
+            0  No findings (model looks clean)
+            1  One or more findings detected
+            2  Scan error (model/data could not be loaded)
+
+        Example::
+
+            mltk scan-model \\
+                --model model.pkl \\
+                --data test.csv \\
+                --target label \\
+                --sensitive age,gender \\
+                --output tests/test_scan.py
+        """
+        import sys as _sys
+
+        import pandas as pd
+
+        from mltk.scan.loader import load_model as _load
+
+        # -- Load model -----------------------------------
+        model_path = Path(model)
+        if not model_path.exists():
+            print(  # noqa: T201
+                f"Model file not found: {model}"
+            )
+            raise typer.Exit(2)
+
+        try:
+            loaded = _load(model_path)
+        except (ValueError, ImportError, TypeError) as exc:
+            print(f"Cannot load model: {exc}")  # noqa: T201
+            raise typer.Exit(2) from exc
+
+        # -- Load data ------------------------------------
+        data_path = Path(data)
+        if not data_path.exists():
+            print(f"Data file not found: {data}")  # noqa: T201
+            raise typer.Exit(2)
+
+        try:
+            if data_path.suffix == ".parquet":
+                df = pd.read_parquet(data_path)
+            else:
+                df = pd.read_csv(data_path)
+        except Exception as exc:  # noqa: BLE001
+            print(f"Cannot read data: {exc}")  # noqa: T201
+            raise typer.Exit(2) from exc
+
+        if target not in df.columns:
+            print(  # noqa: T201
+                f"Target column '{target}' not found. "
+                f"Available: {list(df.columns)}"
+            )
+            raise typer.Exit(2)
+
+        # -- Prepare X, y --------------------------------
+        y = df[target].values
+        X = df.drop(columns=[target])
+
+        # -- Parse sensitive columns ----------------------
+        sensitive_cols: list[str] = []
+        if sensitive:
+            sensitive_cols = [
+                c.strip()
+                for c in sensitive.split(",")
+                if c.strip()
+            ]
+            missing = [
+                c for c in sensitive_cols
+                if c not in X.columns
+            ]
+            if missing:
+                print(  # noqa: T201
+                    f"Sensitive columns not found "
+                    f"in data: {missing}"
+                )
+                raise typer.Exit(2)
+
+        # -- Run scan -------------------------------------
+        try:
+            from mltk.scan import scan as _scan
+
+            report = _scan(
+                loaded.predict_fn,
+                X,
+                y,
+                sensitive_columns=sensitive_cols,
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"Scan failed: {exc}")  # noqa: T201
+            raise typer.Exit(2) from exc
+
+        # -- Print summary --------------------------------
+        print(report.summary())  # noqa: T201
+
+        # -- Optional: write test file --------------------
+        if output:
+            try:
+                report.to_test_file(output)
+                print(  # noqa: T201
+                    f"Test file written: {output}"
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(  # noqa: T201
+                    f"Failed to write test file: {exc}"
+                )
+
+        # -- Optional: write JUnit XML --------------------
+        if junit_xml:
+            try:
+                report.to_junit(junit_xml)
+                print(  # noqa: T201
+                    f"JUnit XML written: {junit_xml}"
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(  # noqa: T201
+                    f"Failed to write JUnit XML: {exc}"
+                )
+
+        _sys.exit(report.exit_code)
+
     @app.command("list")
     def list_assertions(
         filter_keyword: str = typer.Argument(

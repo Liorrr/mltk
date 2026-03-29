@@ -40,6 +40,7 @@ nav:
       - Data Contracts: api/contracts.md
       - Testing Patterns: api/testing-patterns.md
       - Composable TestSuite: api/suite-api.md
+      - Model Scanning: api/scan.md
       - CLI Reference: api/cli.md
       - pytest Plugin: api/pytest-plugin.md
       - HTML Reports: api/report.md
