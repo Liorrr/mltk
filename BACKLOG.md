@@ -95,9 +95,50 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## BACKLOG (not yet scheduled)
 
+### URGENT — Method Fixes (S66 Audit: 3 REJECT items)
+*Audit report: `docs/research/project-audit-s66.md`*
+- [ ] **R-1**: Add NLI/embedding methods to `assert_no_hallucination` — token overlap is unreliable (Huang et al. 2024, Nature)
+- [ ] **R-2**: Add NLI/embedding/LLM methods to RAG assertions (faithfulness, relevancy) — RAGAS itself uses LLM-judge, not keyword matching
+- [ ] **R-3**: Add classifier method to `assert_no_toxicity` — 4 regex patterns are trivially bypassable (Detoxify, MIT license)
+
+### Method Enhancements (S66 Audit: 6 items)
+- [ ] **E-1**: Add MMD for multivariate drift detection (KDD 2024)
+- [ ] **E-2**: Add SmoothECE calibration metric (ICLR 2024, Apple `relplot` package)
+- [ ] **E-3**: Add BERTScore limitation warnings (antonymy blindness, number blindness)
+- [ ] **E-4**: Add intersectional fairness testing + decision tree docs
+- [ ] **E-5**: Add NER-based PII detection method (Microsoft Presidio)
+- [ ] **E-6**: Add semantic similarity method to system prompt leak detection
+
+### Testing Infrastructure (S66 Audit: 5 items)
+- [ ] **A-1**: Add property-based testing with Hypothesis (50x more mutations — OOPSLA 2025)
+- [ ] **A-2**: Add pytest-xdist for parallel execution (60-80% CI time cut)
+- [ ] **A-3**: Add pytest-randomly for order independence verification
+- [ ] **A-4**: Add snapshot testing (syrupy) for HTML/XML report outputs
+- [ ] **A-5**: Add per-module coverage thresholds
+
 ### Integrations
 - [x] GitHub App for auto-running mltk on PRs
 - [ ] Create GitHub Releases (v0.1.0-v0.7.0) when stealth mode ends
+
+### Behavioral Consistency (Research: 40+ sources, March 2026)
+*Research brief: `docs/research/paraphrase-invariance-research.md`*
+- [ ] `assert_paraphrase_invariance` — same intent, different wording → same output (PRIORITY — no competitor has this as pytest assertion)
+- [ ] `assert_output_stability` — same input, multiple runs → same output (non-determinism floor)
+- [ ] `assert_format_invariance` — formatting changes (case, spacing, punctuation) → same output
+- [ ] `assert_retrieval_consistency` — (RAG) paraphrased queries → same documents retrieved
+- [ ] `assert_directional_expectation` — known perturbation → predictable output change (CheckList DIR)
+- [ ] `assert_semantic_equivalence` — bidirectional NLI entailment (new metric, Tier 2)
+- [ ] Add "semantic_equivalence" criterion to LLM-as-Judge `DEFAULT_CRITERIA`
+- [ ] `ParaphraseGenerator` utility — template-based (zero-dep), back-translation, LLM-based
+- [ ] Consider upgrading default embedding model from MiniLM to mpnet (SemScore paper, Jan 2024)
+
+### Competitive Gaps (S66 Audit: 6 critical)
+- [ ] **CG-1**: Synthetic test data generation (RAGAS, DeepEval, Giskard have it) — 2-3 sprints
+- [ ] **CG-2**: Dynamic multi-turn red teaming (Promptfoo: 135 plugins, Giskard: autonomous agents) — 3-4 sprints
+- [ ] **CG-3**: MCP evaluation metrics (DeepEval is first mover) — 1 sprint
+- [ ] **CG-4**: Multimodal LLM evaluation (image input/output) — 2 sprints
+- [ ] **CG-5**: LLM observability/tracing (Arize Phoenix 13K stars) — consider integration vs build
+- [ ] **CG-6**: Automated prompt optimization — 2 sprints
 
 ### Advanced Features
 - [ ] Test impact analysis (dependency graph)
@@ -138,6 +179,15 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Audit log export (SOC 2 compatible)
 - [ ] Custom compliance framework builder
 - [ ] HIPAA compliance report template
+
+### Industry Patterns (S66 Audit: 7 items)
+- [ ] **IP-1**: LLM-as-Judge as default for subjective metrics (toxicity, faithfulness, coherence)
+- [ ] **IP-2**: YAML-first red teaming configuration (extend YAML tests for security scans)
+- [ ] **IP-3**: Solver/Scorer architecture for complex eval workflows (Inspect AI pattern)
+- [ ] **IP-4**: Trace-level evaluation — extend AgentTrace to span-level scoring
+- [ ] **IP-5**: Versioned evaluation datasets via registry
+- [ ] **IP-6**: Document OTLP export, test with Phoenix/Langfuse
+- [ ] **IP-7**: Add `mltk security-scan` CLI command for continuous red teaming
 
 ---
 
