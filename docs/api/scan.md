@@ -157,7 +157,7 @@ designed to maximize value per second -- data-only
 scanners first (fast, no model needed), then model
 scanners by ascending computational cost.
 
-**MVP (v0.8.0):** SliceScanner, BiasScanner, LeakageScanner. **Planned:** DataScanner, DriftScanner, CalibrationScanner, RobustnessScanner, OverfitScanner.
+All eight scanners are built-in and ship with mltk.
 
 | # | Scanner | Requires | Detects |
 |---|---------|----------|---------|
@@ -184,6 +184,7 @@ ways to consume the findings.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
+| `to_json(path?)` | `str` | Machine-readable JSON (optionally written to file) |
 | `summary()` | `str` | Console-formatted text with severity markers |
 | `to_test_file(path)` | `str` | Write self-contained pytest file |
 | `to_suite()` | `MltkSuite` | Runnable suite from findings |
@@ -465,6 +466,7 @@ mltk scan-model [OPTIONS]
 | `--sensitive` | TEXT | No | Comma-separated sensitive column names |
 | `--output` | PATH | No | Write generated pytest file |
 | `--junit-xml` | PATH | No | Write JUnit XML report |
+| `--export-json` | PATH | No | Export scan results as JSON |
 
 ### Supported model formats
 

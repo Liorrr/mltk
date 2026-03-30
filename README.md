@@ -79,7 +79,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (197 assertions)
+## Feature Matrix (201 assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -259,7 +259,7 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | Conformal prediction | No | No | No | No | No | No | **Yes** |
 | Composable TestSuite | No | No | No | No | No | No | **Yes** |
 | Code Generation | No | No | No | No | No | No | **Yes (4 assertions)** |
-| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (197 assertions)** |
+| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (201 assertions)** |
 | Agent trace testing | No | No | No | Yes (basic) | No | Yes (tracing) | **Yes (9 assertions)** |
 | Multi-agent testing | No | No | No | No | No | No | **Yes** |
 | Synthetic data validation | No | No | No | No | No | No | **Yes (4 assertions)** |
