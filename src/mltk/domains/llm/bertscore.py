@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -15,23 +16,37 @@ def assert_bertscore(
     reference_embeddings: Any,
     hypothesis_embeddings: Any,
     min_f1: float = 0.5,
+    suppress_warnings: bool = False,
 ) -> TestResult:
     """Assert BERTScore F1 meets threshold.
 
-    Takes pre-computed token embeddings (not raw text — user handles
-    tokenization/encoding). Uses Rust backend when available for
-    10-100x speedup over the pure-numpy fallback.
+    Takes pre-computed token embeddings (not raw text -- user
+    handles tokenization/encoding). Uses Rust backend when
+    available for 10-100x speedup over the pure-numpy fallback.
+
+    .. warning::
+       BERTScore has known blind spots: (1) antonyms score
+       nearly identical to correct matches, (2) numerical
+       values are essentially random (~48% accuracy),
+       (3) entity swaps receive minimal penalty.  A warning
+       is emitted when F1 >= 0.95 to flag possible false
+       confidence.  Suppress with ``suppress_warnings=True``.
 
     Args:
-        reference_embeddings: (N, D) array of reference token embeddings.
-        hypothesis_embeddings: (M, D) array of hypothesis token embeddings.
-        min_f1: Minimum required F1 score (0–1). Default 0.5.
+        reference_embeddings: (N, D) array of reference token
+            embeddings.
+        hypothesis_embeddings: (M, D) array of hypothesis
+            token embeddings.
+        min_f1: Minimum required F1 score (0--1). Default 0.5.
+        suppress_warnings: If ``True``, suppress the high-F1
+            limitation warning.
 
     Returns:
-        TestResult with precision, recall, f1, and threshold details.
+        TestResult with precision, recall, f1, and threshold
+        details.
 
     Raises:
-        MltkAssertionError: When f1 < min_f1 (CRITICAL severity).
+        MltkAssertionError: When f1 < min_f1 (CRITICAL).
 
     Example:
         >>> import numpy as np
@@ -40,14 +55,21 @@ def assert_bertscore(
         >>> result = assert_bertscore(ref, hyp, min_f1=0.9)
         >>> assert result.passed
     """
-    ref = np.asarray(reference_embeddings, dtype=np.float64)
-    hyp = np.asarray(hypothesis_embeddings, dtype=np.float64)
+    ref = np.asarray(
+        reference_embeddings, dtype=np.float64,
+    )
+    hyp = np.asarray(
+        hypothesis_embeddings, dtype=np.float64,
+    )
 
     if ref.size == 0 or hyp.size == 0:
         return assert_true(
             False,
             name="llm.bertscore",
-            message="Cannot compute BERTScore on empty embeddings",
+            message=(
+                "Cannot compute BERTScore on empty "
+                "embeddings"
+            ),
             severity=Severity.CRITICAL,
         )
 
@@ -58,18 +80,39 @@ def assert_bertscore(
         hyp = hyp.reshape(1, -1)
 
     try:
-        from mltk._rust import bertscore_precision_recall as _bertscore_pr
+        from mltk._rust import (
+            bertscore_precision_recall as _bertscore_pr,
+        )
 
-        precision, recall, f1 = _bertscore_pr(ref.tolist(), hyp.tolist())
+        precision, recall, f1 = _bertscore_pr(
+            ref.tolist(), hyp.tolist(),
+        )
     except (ImportError, Exception):
         precision, recall, f1 = _bertscore_numpy(ref, hyp)
+
+    if f1 >= 0.95 and not suppress_warnings:
+        warnings.warn(
+            "BERTScore F1 >= 0.95 may indicate false "
+            "confidence. Known limitations: "
+            "(1) antonyms score nearly identical to "
+            "correct matches ('best' vs 'worst'), "
+            "(2) numerical values are essentially "
+            "random (48% accuracy), "
+            "(3) entity swaps receive minimal penalty."
+            " Consider using NLI-based evaluation for"
+            " factual content. "
+            "Suppress with suppress_warnings=True.",
+            UserWarning,
+            stacklevel=3,
+        )
 
     passed = f1 >= min_f1
     message = (
         f"BERTScore F1: {f1:.4f} >= {min_f1} "
         f"(P={precision:.4f}, R={recall:.4f})"
         if passed
-        else f"BERTScore F1 too low: {f1:.4f} < {min_f1} "
+        else f"BERTScore F1 too low: "
+        f"{f1:.4f} < {min_f1} "
         f"(P={precision:.4f}, R={recall:.4f})"
     )
 

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
-from mltk.domains.llm._utils import _tokenize
+from mltk.domains.llm._utils import _normalize, _tokenize
+
+_SUPPORTED_METHODS = ("lexical", "embedding", "nli", "llm")
 
 
 def _flatten_context(context: str | list[str]) -> str:
@@ -19,63 +23,125 @@ def assert_faithfulness(
     answer: str,
     context: str | list[str],
     min_score: float = 0.7,
+    method: str = "lexical",
+    embedding_model: str = "all-MiniLM-L6-v2",
+    nli_model: str = "cross-encoder/nli-deberta-v3-base",
+    judge_fn: Callable[[str, str], float] | None = None,
 ) -> TestResult:
     """Assert answer is grounded in the provided context.
 
-    Score = ratio of answer tokens that appear in context tokens.
-    A high score means the answer uses information from the context rather
-    than hallucinating content not present in the retrieved documents.
+    Supports multiple scoring methods:
+
+    - ``"lexical"`` -- token overlap ratio (default, zero-dep).
+    - ``"embedding"`` -- cosine similarity via sentence-transformers.
+    - ``"nli"`` -- entailment probability via cross-encoder NLI model.
+    - ``"llm"`` -- custom LLM judge function returning 0-1 score.
 
     Args:
         answer: The LLM-generated answer to evaluate.
-        context: Retrieved context — either a single string or list of chunks.
-        min_score: Minimum grounding ratio required (default 0.7).
+        context: Retrieved context -- single string or list of chunks.
+        min_score: Minimum grounding score required (default 0.7).
+        method: Scoring method (default ``"lexical"``).
+        embedding_model: Model name for ``method="embedding"``.
+        nli_model: Model name for ``method="nli"``.
+        judge_fn: Callable for ``method="llm"``; receives
+            ``(answer, context_text)`` and returns a 0-1 float.
 
     Returns:
         TestResult with faithfulness score.
 
     Example:
-        >>> ctx = "The Eiffel Tower is in Paris, France. It was built in 1889."
-        >>> assert_faithfulness("The Eiffel Tower was built in 1889.", ctx, min_score=0.7)
+        >>> ctx = "The Eiffel Tower is in Paris, France."
+        >>> assert_faithfulness(
+        ...     "The Eiffel Tower was built in 1889.", ctx,
+        ...     min_score=0.7,
+        ... )
     """
-    answer_tokens = _tokenize(answer)
-    context_tokens = _tokenize(_flatten_context(context))
-
-    if not answer_tokens:
-        return assert_true(
-            True, name="llm.rag.faithfulness",
-            message="Empty answer — trivially faithful (score=1.0)",
-            severity=Severity.CRITICAL,
-            score=1.0, min_score=min_score,
-        )
-
-    if not context_tokens:
+    if method not in _SUPPORTED_METHODS:
         return assert_true(
             False, name="llm.rag.faithfulness",
-            message="Empty context — cannot evaluate faithfulness (score=0.0)",
+            message=(
+                f"Unknown method: '{method}'. "
+                f"Supported: {', '.join(_SUPPORTED_METHODS)}"
+            ),
             severity=Severity.CRITICAL,
-            score=0.0, min_score=min_score,
+            method=method,
         )
 
-    overlap = len(answer_tokens & context_tokens)
-    score = overlap / len(answer_tokens)
-    passed = score >= min_score
+    context_text = _normalize(_flatten_context(context))
+    answer = _normalize(answer)
 
+    # -- edge cases (method-independent) ---------------------------------
+    if not _tokenize(answer):
+        return assert_true(
+            True, name="llm.rag.faithfulness",
+            message="Empty answer -- trivially faithful (score=1.0)",
+            severity=Severity.CRITICAL,
+            score=1.0, min_score=min_score, method=method,
+        )
+
+    if not _tokenize(context_text):
+        return assert_true(
+            False, name="llm.rag.faithfulness",
+            message=(
+                "Empty context -- cannot evaluate faithfulness "
+                "(score=0.0)"
+            ),
+            severity=Severity.CRITICAL,
+            score=0.0, min_score=min_score, method=method,
+        )
+
+    # -- scoring ---------------------------------------------------------
+    details: dict[str, object] = {"method": method}
+
+    if method == "lexical":
+        answer_tokens = _tokenize(answer)
+        context_tokens = _tokenize(context_text)
+        overlap = len(answer_tokens & context_tokens)
+        score = overlap / len(answer_tokens)
+        details.update(
+            answer_tokens=len(answer_tokens),
+            context_tokens=len(context_tokens),
+            grounded_tokens=overlap,
+        )
+    elif method == "embedding":
+        from mltk.domains.llm._backends import embedding_cosine_single
+        score = embedding_cosine_single(
+            answer, context_text, model_name=embedding_model,
+        )
+        details["embedding_model"] = embedding_model
+    elif method == "nli":
+        from mltk.domains.llm._backends import nli_entailment_score
+        nli_result = nli_entailment_score(
+            context_text, answer, model_name=nli_model,
+        )
+        score = nli_result["entailment"]
+        details["nli_model"] = nli_model
+        details["nli_label"] = nli_result["label"]
+    else:  # method == "llm"
+        if judge_fn is None:
+            return assert_true(
+                False, name="llm.rag.faithfulness",
+                message=(
+                    "method='llm' requires a judge_fn callable"
+                ),
+                severity=Severity.CRITICAL,
+                method=method,
+            )
+        score = float(judge_fn(answer, context_text))
+
+    passed = score >= min_score
+    label = "Faithfulness" if passed else "Low faithfulness"
+    cmp = ">=" if passed else "<"
     message = (
-        f"Faithfulness: {score:.4f} >= {min_score} "
-        f"({overlap}/{len(answer_tokens)} answer tokens grounded)"
-        if passed
-        else f"Low faithfulness: {score:.4f} < {min_score} "
-        f"({overlap}/{len(answer_tokens)} answer tokens grounded)"
+        f"{label} ({method}): {score:.4f} {cmp} {min_score}"
     )
 
     return assert_true(
         passed, name="llm.rag.faithfulness", message=message,
         severity=Severity.CRITICAL,
         score=score, min_score=min_score,
-        answer_tokens=len(answer_tokens),
-        context_tokens=len(context_tokens),
-        grounded_tokens=overlap,
+        **details,
     )
 
 
@@ -84,63 +150,126 @@ def assert_context_relevancy(
     question: str,
     context: str | list[str],
     min_score: float = 0.5,
+    method: str = "lexical",
+    embedding_model: str = "all-MiniLM-L6-v2",
+    nli_model: str = "cross-encoder/nli-deberta-v3-base",
+    judge_fn: Callable[[str, str], float] | None = None,
 ) -> TestResult:
     """Assert retrieved context is relevant to the question.
 
-    Score = ratio of question tokens found in context tokens.
-    A low score indicates the retriever returned documents that do not
-    address the question — a retrieval quality problem.
+    Supports multiple scoring methods:
+
+    - ``"lexical"`` -- token overlap ratio (default, zero-dep).
+    - ``"embedding"`` -- cosine similarity via sentence-transformers.
+    - ``"nli"`` -- entailment: does context address the question?
+    - ``"llm"`` -- custom LLM judge function returning 0-1 score.
 
     Args:
         question: The user question that triggered retrieval.
-        context: Retrieved context — either a single string or list of chunks.
+        context: Retrieved context -- single string or list of chunks.
         min_score: Minimum relevancy ratio required (default 0.5).
+        method: Scoring method (default ``"lexical"``).
+        embedding_model: Model name for ``method="embedding"``.
+        nli_model: Model name for ``method="nli"``.
+        judge_fn: Callable for ``method="llm"``; receives
+            ``(question, context_text)`` and returns a 0-1 float.
 
     Returns:
         TestResult with context relevancy score.
 
     Example:
-        >>> ctx = "Paris is the capital of France and a major European city."
-        >>> assert_context_relevancy("What is the capital of France?", ctx, min_score=0.5)
+        >>> ctx = "Paris is the capital of France."
+        >>> assert_context_relevancy(
+        ...     "What is the capital of France?", ctx,
+        ...     min_score=0.5,
+        ... )
     """
-    question_tokens = _tokenize(question)
-    context_tokens = _tokenize(_flatten_context(context))
-
-    if not question_tokens:
-        return assert_true(
-            True, name="llm.rag.context_relevancy",
-            message="Empty question — trivially relevant (score=1.0)",
-            severity=Severity.CRITICAL,
-            score=1.0, min_score=min_score,
-        )
-
-    if not context_tokens:
+    if method not in _SUPPORTED_METHODS:
         return assert_true(
             False, name="llm.rag.context_relevancy",
-            message="Empty context — cannot be relevant (score=0.0)",
+            message=(
+                f"Unknown method: '{method}'. "
+                f"Supported: {', '.join(_SUPPORTED_METHODS)}"
+            ),
             severity=Severity.CRITICAL,
-            score=0.0, min_score=min_score,
+            method=method,
         )
 
-    overlap = len(question_tokens & context_tokens)
-    score = overlap / len(question_tokens)
-    passed = score >= min_score
+    context_text = _normalize(_flatten_context(context))
+    question = _normalize(question)
 
+    # -- edge cases (method-independent) ---------------------------------
+    if not _tokenize(question):
+        return assert_true(
+            True, name="llm.rag.context_relevancy",
+            message=(
+                "Empty question -- trivially relevant (score=1.0)"
+            ),
+            severity=Severity.CRITICAL,
+            score=1.0, min_score=min_score, method=method,
+        )
+
+    if not _tokenize(context_text):
+        return assert_true(
+            False, name="llm.rag.context_relevancy",
+            message=(
+                "Empty context -- cannot be relevant (score=0.0)"
+            ),
+            severity=Severity.CRITICAL,
+            score=0.0, min_score=min_score, method=method,
+        )
+
+    # -- scoring ---------------------------------------------------------
+    details: dict[str, object] = {"method": method}
+
+    if method == "lexical":
+        question_tokens = _tokenize(question)
+        context_tokens = _tokenize(context_text)
+        overlap = len(question_tokens & context_tokens)
+        score = overlap / len(question_tokens)
+        details.update(
+            question_tokens=len(question_tokens),
+            context_tokens=len(context_tokens),
+            matched_tokens=overlap,
+        )
+    elif method == "embedding":
+        from mltk.domains.llm._backends import embedding_cosine_single
+        score = embedding_cosine_single(
+            question, context_text, model_name=embedding_model,
+        )
+        details["embedding_model"] = embedding_model
+    elif method == "nli":
+        from mltk.domains.llm._backends import nli_entailment_score
+        nli_result = nli_entailment_score(
+            context_text, question, model_name=nli_model,
+        )
+        score = nli_result["entailment"]
+        details["nli_model"] = nli_model
+        details["nli_label"] = nli_result["label"]
+    else:  # method == "llm"
+        if judge_fn is None:
+            return assert_true(
+                False, name="llm.rag.context_relevancy",
+                message=(
+                    "method='llm' requires a judge_fn callable"
+                ),
+                severity=Severity.CRITICAL,
+                method=method,
+            )
+        score = float(judge_fn(question, context_text))
+
+    passed = score >= min_score
+    label = "Context relevancy" if passed else "Low context relevancy"
+    cmp = ">=" if passed else "<"
     message = (
-        f"Context relevancy: {score:.4f} >= {min_score} "
-        f"({overlap}/{len(question_tokens)} question tokens found in context)"
-        if passed
-        else f"Low context relevancy: {score:.4f} < {min_score} "
-        f"({overlap}/{len(question_tokens)} question tokens found in context)"
+        f"{label} ({method}): {score:.4f} {cmp} {min_score}"
     )
 
     return assert_true(
         passed, name="llm.rag.context_relevancy", message=message,
         severity=Severity.CRITICAL,
         score=score, min_score=min_score,
-        question_tokens=len(question_tokens),
-        context_tokens=len(context_tokens),
-        matched_tokens=overlap,
+        **details,
     )
 
 
@@ -149,17 +278,29 @@ def assert_answer_relevancy(
     question: str,
     answer: str,
     min_score: float = 0.5,
+    method: str = "lexical",
+    embedding_model: str = "all-MiniLM-L6-v2",
+    nli_model: str = "cross-encoder/nli-deberta-v3-base",
+    judge_fn: Callable[[str, str], float] | None = None,
 ) -> TestResult:
     """Assert answer addresses the question.
 
-    Score = ratio of question keyword tokens found in the answer.
-    A low score means the answer veers off-topic and does not address
-    what was asked.
+    Supports multiple scoring methods:
+
+    - ``"lexical"`` -- token overlap ratio (default, zero-dep).
+    - ``"embedding"`` -- cosine similarity via sentence-transformers.
+    - ``"nli"`` -- entailment: does the answer address the question?
+    - ``"llm"`` -- custom LLM judge function returning 0-1 score.
 
     Args:
         question: The user question.
         answer: The LLM-generated answer.
         min_score: Minimum relevancy ratio required (default 0.5).
+        method: Scoring method (default ``"lexical"``).
+        embedding_model: Model name for ``method="embedding"``.
+        nli_model: Model name for ``method="nli"``.
+        judge_fn: Callable for ``method="llm"``; receives
+            ``(question, answer)`` and returns a 0-1 float.
 
     Returns:
         TestResult with answer relevancy score.
@@ -167,48 +308,96 @@ def assert_answer_relevancy(
     Example:
         >>> assert_answer_relevancy(
         ...     "What is machine learning?",
-        ...     "Machine learning is a subset of artificial intelligence.",
+        ...     "Machine learning is a subset of AI.",
         ...     min_score=0.5,
         ... )
     """
-    question_tokens = _tokenize(question)
-    answer_tokens = _tokenize(answer)
-
-    if not question_tokens:
-        return assert_true(
-            True, name="llm.rag.answer_relevancy",
-            message="Empty question — trivially relevant (score=1.0)",
-            severity=Severity.CRITICAL,
-            score=1.0, min_score=min_score,
-        )
-
-    if not answer_tokens:
+    if method not in _SUPPORTED_METHODS:
         return assert_true(
             False, name="llm.rag.answer_relevancy",
-            message="Empty answer — cannot be relevant (score=0.0)",
+            message=(
+                f"Unknown method: '{method}'. "
+                f"Supported: {', '.join(_SUPPORTED_METHODS)}"
+            ),
             severity=Severity.CRITICAL,
-            score=0.0, min_score=min_score,
+            method=method,
         )
 
-    overlap = len(question_tokens & answer_tokens)
-    score = overlap / len(question_tokens)
-    passed = score >= min_score
+    question = _normalize(question)
+    answer = _normalize(answer)
 
+    # -- edge cases (method-independent) ---------------------------------
+    if not _tokenize(question):
+        return assert_true(
+            True, name="llm.rag.answer_relevancy",
+            message=(
+                "Empty question -- trivially relevant (score=1.0)"
+            ),
+            severity=Severity.CRITICAL,
+            score=1.0, min_score=min_score, method=method,
+        )
+
+    if not _tokenize(answer):
+        return assert_true(
+            False, name="llm.rag.answer_relevancy",
+            message=(
+                "Empty answer -- cannot be relevant (score=0.0)"
+            ),
+            severity=Severity.CRITICAL,
+            score=0.0, min_score=min_score, method=method,
+        )
+
+    # -- scoring ---------------------------------------------------------
+    details: dict[str, object] = {"method": method}
+
+    if method == "lexical":
+        question_tokens = _tokenize(question)
+        answer_tokens = _tokenize(answer)
+        overlap = len(question_tokens & answer_tokens)
+        score = overlap / len(question_tokens)
+        details.update(
+            question_tokens=len(question_tokens),
+            answer_tokens=len(answer_tokens),
+            matched_tokens=overlap,
+        )
+    elif method == "embedding":
+        from mltk.domains.llm._backends import embedding_cosine_single
+        score = embedding_cosine_single(
+            question, answer, model_name=embedding_model,
+        )
+        details["embedding_model"] = embedding_model
+    elif method == "nli":
+        from mltk.domains.llm._backends import nli_entailment_score
+        nli_result = nli_entailment_score(
+            answer, question, model_name=nli_model,
+        )
+        score = nli_result["entailment"]
+        details["nli_model"] = nli_model
+        details["nli_label"] = nli_result["label"]
+    else:  # method == "llm"
+        if judge_fn is None:
+            return assert_true(
+                False, name="llm.rag.answer_relevancy",
+                message=(
+                    "method='llm' requires a judge_fn callable"
+                ),
+                severity=Severity.CRITICAL,
+                method=method,
+            )
+        score = float(judge_fn(question, answer))
+
+    passed = score >= min_score
+    label = "Answer relevancy" if passed else "Low answer relevancy"
+    cmp = ">=" if passed else "<"
     message = (
-        f"Answer relevancy: {score:.4f} >= {min_score} "
-        f"({overlap}/{len(question_tokens)} question tokens found in answer)"
-        if passed
-        else f"Low answer relevancy: {score:.4f} < {min_score} "
-        f"({overlap}/{len(question_tokens)} question tokens found in answer)"
+        f"{label} ({method}): {score:.4f} {cmp} {min_score}"
     )
 
     return assert_true(
         passed, name="llm.rag.answer_relevancy", message=message,
         severity=Severity.CRITICAL,
         score=score, min_score=min_score,
-        question_tokens=len(question_tokens),
-        answer_tokens=len(answer_tokens),
-        matched_tokens=overlap,
+        **details,
     )
 
 

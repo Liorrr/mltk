@@ -34,6 +34,7 @@ nav:
       - CI/CD Integration: guides/cicd-integration.md
       - Security Guide: guides/security-guide.md
       - Canary Testing: guides/canary-testing.md
+      - Method Dispatch: guides/method-dispatch.md
       - VS Code Integration: guides/vscode-integration.md
       - Playwright Integration: guides/playwright-integration.md
       - YAML Test Definitions: api/yaml-tests.md
