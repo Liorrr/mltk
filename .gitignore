@@ -30,6 +30,7 @@ rust/target/
 .coverage
 htmlcov/
 .mypy_cache/
+.hypothesis/
 
 # Reports
 mltk-reports/
