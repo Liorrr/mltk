@@ -1,6 +1,6 @@
 # Assertion Reference
 
-Complete index of all 201 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
+Complete index of all 203 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
 
 ---
 
@@ -583,6 +583,21 @@ Assertions for reproducibility and end-to-end pipeline validation.
 
 ---
 
+## Behavioral Consistency
+
+Assertions for verifying LLM output stability across paraphrased inputs, formatting changes, and repeated runs.
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 198 | `assert_paraphrase_invariance` | `mltk.domains.llm.behavioral` | Verify model outputs are consistent across paraphrased inputs | v0.9.0 |
+| 199 | `assert_format_invariance` | `mltk.domains.llm.behavioral` | Verify formatting changes (case, spacing) don't alter output | v0.9.0 |
+| 200 | `assert_output_stability` | `mltk.domains.llm.behavioral` | Verify repeated runs produce consistent outputs | v0.9.0 |
+| 201 | `assert_semantic_equivalence` | `mltk.domains.llm.behavioral` | Verify two texts are logically equivalent via NLI | v0.9.0 |
+| 202 | `assert_directional_expectation` | `mltk.domains.llm.behavioral` | Verify known perturbation produces predictable output change | v0.9.0 |
+| 203 | `assert_retrieval_consistency` | `mltk.domains.llm.behavioral` | Verify RAG retrieval returns same docs across paraphrases | v0.9.0 |
+
+---
+
 ## Core
 
 | # | Assertion | Module | Description | Since |
@@ -672,6 +687,17 @@ from mltk.domains.llm.agentic import assert_task_completion, assert_tool_selecti
 from mltk.domains.llm.multi_agent import assert_no_agent_loop, assert_agent_handoff
 from mltk.domains.llm.text_quality import assert_text_length, assert_output_format, assert_readability
 from mltk.domains.llm.conversation import assert_knowledge_retention, assert_turn_relevancy, assert_conversation_completeness
+
+# Behavioral Consistency
+from mltk.domains.llm.behavioral import (
+    assert_paraphrase_invariance,
+    assert_format_invariance,
+    assert_output_stability,
+    assert_semantic_equivalence,
+    assert_directional_expectation,
+    assert_retrieval_consistency,
+    ParaphraseGenerator,
+)
 
 # Recommendation
 from mltk.domains.recommendation import assert_hit_rate, assert_diversity, assert_novelty, assert_coverage, assert_serendipity

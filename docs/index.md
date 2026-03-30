@@ -39,7 +39,7 @@ pytest --mltk-report -v
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional software testing does not catch these failures.
 
-mltk provides **201 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems and long-context LLM evaluation -- all runnable with `pytest`.
+mltk provides **203 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems, long-context LLM evaluation, and behavioral consistency testing -- all runnable with `pytest`.
 
 | What you get | Without mltk |
 |---|---|
@@ -78,8 +78,13 @@ Hit rate, nDCG, coverage, diversity, novelty -- validate that your recommender s
 
 :point_right: [Recommendation Systems](api/recommendation.md)
 
+### :brain: Behavioral Consistency
+Paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency -- 7 assertions that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation (token F1, embedding, NLI, LLM-as-Judge). No other tool ships these as pytest assertions.
+
+:point_right: [Behavioral Consistency](api/behavioral-consistency.md) | [Method Dispatch](guides/method-dispatch.md)
+
 ### :shield: Compliance & Audit
-EU AI Act evidence reports, FDA 21 CFR Part 11 audit trails, OWASP LLM Top 10 checks, compliance PDF export.
+EU AI Act evidence reports, FDA 21 CFR Part 11 audit trails, OWASP LLM Top 10 checks, HIPAA, SR 11-7, compliance PDF export.
 
 :point_right: [EU AI Act](api/eu-ai-act.md) | [FDA Audit](api/fda-audit.md) | [Compliance PDF](api/compliance-pdf.md)
 
@@ -114,7 +119,7 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 === "QA Engineer"
 
-    You write test suites for a living. mltk gives you **201 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
+    You write test suites for a living. mltk gives you **203 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
 
     :point_right: Start with [Getting Started](getting-started.md), then explore [YAML Test Definitions](api/yaml-tests.md) for no-code tests.
 
@@ -142,12 +147,13 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 | Metric | Count |
 |--------|-------|
-| Assertions | 201 across 70+ modules |
-| Tests | 2,297 |
+| Assertions | 203 across 70+ modules |
+| Tests | 2,554 |
 | CLI commands | 24 |
+| Behavioral consistency | 7 assertions (paraphrase, format, stability, equivalence, directional, retrieval, + ParaphraseGenerator) |
 | Built-in scanners | 8 (Data, Drift, Leakage, Slice, Bias, Calibration, Robustness, Overfit) |
 | Domain kits | 12 (CV, NLP, Speech, Tabular, LLM, Multimodal, RL, Recommendation, Healthcare, Code Generation, and more) |
-| Compliance frameworks | 6 (EU AI Act, FDA, OWASP LLM, NIST AI RMF, ISO 42001, SR 11-7) |
+| Compliance frameworks | 8 (EU AI Act, FDA, OWASP LLM, NIST AI RMF, ISO 42001, SR 11-7, HIPAA, SOC 2) |
 | Cloud providers | 3 (AWS, Azure, GCP) |
 | Integrations | 13 (GitHub, Slack, Jira, MLflow, Linear, Asana, Prometheus, W&B, DVC, Kubeflow, SageMaker, Grafana, VS Code) |
 
@@ -158,7 +164,9 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 | Layer | Modules | What |
 |-------|---------|------|
 | **pytest plugin** | auto-registered | markers, fixtures, `--mltk-report` |
-| **Assertions** | data, model, inference, llm | 201 `assert_*` functions |
+| **Assertions** | data, model, inference, llm | 203 `assert_*` functions |
+| **Behavioral** | llm.behavioral | 7 consistency assertions, ParaphraseGenerator |
+| **Method Dispatch** | llm `method=` param | lexical, embedding, nli, llm-as-judge per assertion |
 | **Training** | training, pipeline, monitor | gradient, leakage, drift, cloud |
 | **Domains** | cv, nlp, speech, tabular, multimodal, rl, recommendation, healthcare, code gen | specialized domain assertions |
 | **Compliance** | compliance, contracts, testdefs | EU AI Act, FDA, YAML, data contracts |
@@ -172,7 +180,7 @@ Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, 
 
 ## Project Status
 
-mltk is at **v0.8.0** (beta). Core modules are stable and tested with 201 assertions and 2,297 tests. Recent additions include model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), LLM-as-Judge evaluation, healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
+mltk is at **v0.8.0** (beta). Core modules are stable and tested with 203 assertions and 2,580 tests. Recent additions include behavioral consistency testing (7 assertions -- paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency, and ParaphraseGenerator), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
 
 ## License
 

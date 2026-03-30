@@ -33,10 +33,19 @@ pip install "mltk[cv]"      # Computer vision (OpenCV)
 pip install "mltk[nlp]"     # NLP (NLTK, rouge-score)
 pip install "mltk[speech]"  # Speech (jiwer)
 
+# Embedding-based evaluation (sentence-transformers)
+pip install "mltk[embedding]"
+
+# NLI-based evaluation (bidirectional entailment)
+pip install "mltk[nli]"
+
+# Toxicity classifier (transformer-based)
+pip install "mltk[classifier]"
+
 # Server platform (dashboard + REST API)
 pip install "mltk[server]"
 
-# Everything
+# All optional dependencies
 pip install "mltk[all]"
 
 # Development (pytest, ruff, mypy)
