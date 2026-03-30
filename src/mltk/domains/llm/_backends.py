@@ -18,20 +18,39 @@ from functools import lru_cache
 from mltk.domains.llm._utils import _normalize as normalize_unicode  # noqa: F401
 
 # ---------------------------------------------------------------------------
+# Pinned model revisions (supply-chain defense — SEC-2)
+# ---------------------------------------------------------------------------
+
+_MODEL_REVISIONS: dict[str, str] = {
+    "all-MiniLM-L6-v2": "c22d4bce25e7e04e",
+    "cross-encoder/nli-deberta-v3-base": "6c749ce3425cd33b",
+}
+
+
+# ---------------------------------------------------------------------------
 # Embedding similarity
 # ---------------------------------------------------------------------------
 
 @lru_cache(maxsize=4)
 def _load_sentence_model(model_name: str):  # noqa: ANN201
-    """Load and cache a SentenceTransformer model."""
+    """Load and cache a SentenceTransformer model.
+
+    Uses pinned revisions for known models to defend against
+    supply-chain attacks on HuggingFace Hub.
+    """
     try:
         from sentence_transformers import SentenceTransformer
     except ImportError:
         raise ImportError(
-            "sentence-transformers is required for embedding-based methods. "
+            "sentence-transformers is required for "
+            "embedding-based methods. "
             "Install with: pip install mltk[embedding]"
         ) from None
-    return SentenceTransformer(model_name)
+    revision = _MODEL_REVISIONS.get(model_name)
+    kwargs = {}
+    if revision:
+        kwargs["model_kwargs"] = {"revision": revision}
+    return SentenceTransformer(model_name, **kwargs)
 
 
 def embedding_cosine_pairs(
@@ -81,15 +100,23 @@ def embedding_cosine_single(
 
 @lru_cache(maxsize=4)
 def _load_nli_model(model_name: str):  # noqa: ANN201
-    """Load and cache a CrossEncoder NLI model."""
+    """Load and cache a CrossEncoder NLI model.
+
+    Uses pinned revisions for known models (SEC-2).
+    """
     try:
         from sentence_transformers import CrossEncoder
     except ImportError:
         raise ImportError(
-            "sentence-transformers is required for NLI-based methods. "
+            "sentence-transformers is required for "
+            "NLI-based methods. "
             "Install with: pip install mltk[nli]"
         ) from None
-    return CrossEncoder(model_name)
+    revision = _MODEL_REVISIONS.get(model_name)
+    kwargs = {}
+    if revision:
+        kwargs["model_kwargs"] = {"revision": revision}
+    return CrossEncoder(model_name, **kwargs)
 
 
 # Label order for cross-encoder/nli-deberta-v3-base:

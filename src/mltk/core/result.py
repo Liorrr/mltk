@@ -59,6 +59,8 @@ class TestResult:
 
     def _repr_html_(self) -> str:
         """Rich HTML display for Jupyter notebooks."""
+        import html as _html
+
         status_color = "#22c55e" if self.passed else "#ef4444"
         status_label = "PASS" if self.passed else "FAIL"
         badge = (
@@ -71,8 +73,8 @@ class TestResult:
             rows = "".join(
                 f'<tr>'
                 f'<td style="padding:3px 10px 3px 0;color:#a78bfa;font-weight:600;'
-                f'white-space:nowrap;">{k}</td>'
-                f'<td style="padding:3px 0;color:#e2e8f0;">{v}</td>'
+                f'white-space:nowrap;">{_html.escape(str(k))}</td>'
+                f'<td style="padding:3px 0;color:#e2e8f0;">{_html.escape(str(v))}</td>'
                 f'</tr>'
                 for k, v in self.details.items()
             )
@@ -85,8 +87,8 @@ class TestResult:
             f'border-radius:8px;border-left:4px solid #7c3aed;'
             f'font-family:monospace;margin:4px 0;">'
             f'{badge} '
-            f'<strong style="color:#c4b5fd;font-size:1em;">{self.name}</strong>'
-            f'<div style="margin-top:6px;color:#cbd5e1;">{self.message}</div>'
+            f'<strong style="color:#c4b5fd;font-size:1em;">{_html.escape(self.name)}</strong>'
+            f'<div style="margin-top:6px;color:#cbd5e1;">{_html.escape(self.message)}</div>'
             f'<div style="margin-top:4px;font-size:0.8em;color:#94a3b8;">'
             f'<span style="margin-right:16px;">duration: '
             f'<span style="color:#7c3aed;">{self.duration_ms:.2f} ms</span></span>'

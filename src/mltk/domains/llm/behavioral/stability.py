@@ -170,7 +170,10 @@ def assert_output_stability(
     worst_stability = 1.0
     worst_input: str | None = None
 
+    from mltk.domains.llm._backends import normalize_unicode
+
     for inp in inputs:
+        inp = normalize_unicode(inp)
         outputs: list[str] = []
         for _ in range(n_runs):
             try:
