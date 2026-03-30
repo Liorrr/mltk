@@ -33,6 +33,7 @@ Usage::
 from __future__ import annotations
 
 import ast
+import json
 import logging
 import threading
 import time
@@ -254,6 +255,78 @@ class ScanReport:
             output_path=path,
             suite_name="mltk-scan",
         )
+
+    def to_json(
+        self, path: str | None = None,
+    ) -> str:
+        """Serialize report as JSON.
+
+        Produces a machine-readable representation of the
+        scan report including all findings, scanner stats,
+        and metadata.
+
+        Args:
+            path: Optional file path.  When provided the
+                JSON is written to disk in addition to being
+                returned.
+
+        Returns:
+            JSON string of the full report.
+        """
+
+        class _Enc(json.JSONEncoder):
+            """Handle numpy / enum types."""
+
+            def default(self, o: Any) -> Any:
+                if isinstance(o, Severity):
+                    return o.value
+                if isinstance(o, np.integer):
+                    return int(o)
+                if isinstance(o, np.floating):
+                    return float(o)
+                if isinstance(o, np.ndarray):
+                    return o.tolist()
+                return super().default(o)
+
+        findings_list: list[dict[str, Any]] = []
+        for f in self.findings:
+            r = f.result
+            finding: dict[str, Any] = {
+                "name": r.name,
+                "passed": r.passed,
+                "severity": r.severity,
+                "message": r.message,
+                "scanner_name": f.scanner_name,
+                "duration_ms": r.duration_ms,
+                "details": r.details,
+                "suggested_test": f.suggested_test,
+            }
+            findings_list.append(finding)
+
+        payload: dict[str, Any] = {
+            "findings": findings_list,
+            "scanners_run": self.scanners_run,
+            "scanners_skipped": self.scanners_skipped,
+            "scanners_errored": self.scanners_errored,
+            "model_type": self.model_type,
+            "n_samples": self.n_samples,
+            "n_features": self.n_features,
+            "duration_ms": self.duration_ms,
+            "exit_code": self.exit_code,
+        }
+
+        text = json.dumps(
+            payload, cls=_Enc, indent=2,
+        )
+
+        if path is not None:
+            out = Path(path)
+            out.parent.mkdir(
+                parents=True, exist_ok=True,
+            )
+            out.write_text(text, encoding="utf-8")
+
+        return text
 
     def summary(self) -> str:
         """Return a console-friendly text summary.

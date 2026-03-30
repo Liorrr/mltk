@@ -46,25 +46,38 @@ from __future__ import annotations
 
 from mltk.scan.scanners.base import Scanner
 from mltk.scan.scanners.bias import BiasScanner
+from mltk.scan.scanners.calibration import CalibrationScanner
+from mltk.scan.scanners.data import DataScanner
+from mltk.scan.scanners.drift import DriftScanner
 from mltk.scan.scanners.leakage import LeakageScanner
+from mltk.scan.scanners.overfit import OverfitScanner
+from mltk.scan.scanners.robustness import RobustnessScanner
 from mltk.scan.scanners.slice import SliceScanner
 
 __all__ = [
     "Scanner",
     "BUILTIN_SCANNERS",
+    "DataScanner",
+    "DriftScanner",
     "LeakageScanner",
     "SliceScanner",
     "BiasScanner",
+    "CalibrationScanner",
+    "RobustnessScanner",
+    "OverfitScanner",
 ]
 
 # Ordered list of built-in scanner classes.
 # The engine instantiates and runs them in this order.
 # Data-only scanners first (fast, no model), then model
 # scanners by ascending computational cost.
-# MVP: 3 scanners. Planned: DataScanner, DriftScanner,
-# CalibrationScanner, RobustnessScanner, OverfitScanner.
 BUILTIN_SCANNERS: list[type[Scanner]] = [
+    DataScanner,
+    DriftScanner,
     LeakageScanner,
     SliceScanner,
     BiasScanner,
+    CalibrationScanner,
+    RobustnessScanner,
+    OverfitScanner,
 ]

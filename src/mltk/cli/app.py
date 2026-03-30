@@ -956,6 +956,13 @@ quality:
             "",
             help="Path for JUnit XML output",
         ),
+        export_json: str = typer.Option(
+            "",
+            help=(
+                "Export scan results as JSON"
+                " to file path"
+            ),
+        ),
     ) -> None:
         """Scan a model for issues and generate tests.
 
@@ -1091,6 +1098,19 @@ quality:
             except Exception as exc:  # noqa: BLE001
                 print(  # noqa: T201
                     f"Failed to write JUnit XML: {exc}"
+                )
+
+        # -- Optional: write JSON --------------------------
+        if export_json:
+            try:
+                report.to_json(export_json)
+                print(  # noqa: T201
+                    f"JSON written: {export_json}"
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(  # noqa: T201
+                    "Failed to write JSON:"
+                    f" {exc}"
                 )
 
         _sys.exit(report.exit_code)
