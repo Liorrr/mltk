@@ -41,6 +41,7 @@ nav:
       - Data Contracts: api/contracts.md
       - Testing Patterns: api/testing-patterns.md
       - Composable TestSuite: api/suite-api.md
+      - Behavioral Consistency: api/behavioral-consistency.md
       - Model Scanning: api/scan.md
       - CLI Reference: api/cli.md
       - pytest Plugin: api/pytest-plugin.md
