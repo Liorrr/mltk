@@ -225,6 +225,19 @@ class TestScanPiiNer:
         matches = scan_pii_ner("")
         assert matches == []
 
+    def test_scan_ner_whitespace_only(
+        self, mock_presidio
+    ):
+        """Whitespace-only string returns empty without
+        calling the analyzer (early exit).
+        """
+        from mltk.data.pii_ner import scan_pii_ner
+
+        matches = scan_pii_ner("   \t\n  ")
+        assert matches == []
+        # Analyzer should NOT be called for blank text.
+        mock_presidio.analyze.assert_not_called()
+
     def test_scan_ner_no_pii(
         self, mock_presidio_empty
     ):
@@ -252,12 +265,9 @@ class TestScanPiiNer:
         scan_pii_ner(
             "Hi Alice, meet Bob", score_threshold=0.8
         )
-        call_kwargs = (
-            mock_presidio.analyze.call_args
-        )
-        # Verify 0.8 was passed as score_threshold.
-        call_str = str(call_kwargs)
-        assert "0.8" in call_str
+        mock_presidio.analyze.assert_called_once()
+        _, kwargs = mock_presidio.analyze.call_args
+        assert kwargs["score_threshold"] == 0.8
 
     def test_scan_ner_custom_entity_types_forwarded(
         self, mock_presidio
@@ -277,11 +287,9 @@ class TestScanPiiNer:
             "John 555-123-4567",
             entity_types=["PERSON"],
         )
-        call_kwargs = (
-            mock_presidio.analyze.call_args
-        )
-        call_str = str(call_kwargs)
-        assert "PERSON" in call_str
+        mock_presidio.analyze.assert_called_once()
+        _, kwargs = mock_presidio.analyze.call_args
+        assert kwargs["entities"] == ["PERSON"]
 
     def test_scan_ner_entity_type_mapping(
         self, mock_presidio
@@ -339,12 +347,9 @@ class TestScanPiiNer:
         from mltk.data.pii_ner import scan_pii_ner
 
         scan_pii_ner("Bonjour le monde", language="fr")
-        call_kwargs = (
-            mock_presidio.analyze.call_args
-        )
-        # Verify "fr" was passed (kwarg or positional).
-        call_str = str(call_kwargs)
-        assert "fr" in call_str
+        mock_presidio.analyze.assert_called_once()
+        _, kwargs = mock_presidio.analyze.call_args
+        assert kwargs["language"] == "fr"
 
     def test_scan_ner_multiple_persons(
         self, mock_presidio
@@ -438,11 +443,11 @@ class TestScanPiiGliner:
             "weak text John Smith",
             score_threshold=0.8,
         )
-        call_kwargs = (
+        mock_gliner.predict_entities.assert_called_once()
+        _, kwargs = (
             mock_gliner.predict_entities.call_args
         )
-        call_str = str(call_kwargs)
-        assert "0.8" in call_str
+        assert kwargs["threshold"] == 0.8
 
     def test_scan_gliner_empty_text(
         self, mock_gliner_empty
@@ -467,11 +472,11 @@ class TestScanPiiGliner:
         scan_pii_gliner(
             "Some text", entity_types=custom
         )
-        call_args = (
+        mock_gliner.predict_entities.assert_called_once()
+        args, _ = (
             mock_gliner.predict_entities.call_args
         )
-        call_str = str(call_args)
-        assert "person name" in call_str
+        assert args[1] == custom
 
     def test_scan_gliner_model_loading(
         self, monkeypatch
@@ -540,6 +545,42 @@ class TestScanPiiGliner:
             assert isinstance(m.start, int)
             assert isinstance(m.end, int)
             assert isinstance(m.matched_text, str)
+
+    def test_scan_gliner_whitespace_only(
+        self, mock_gliner
+    ):
+        """Whitespace-only string returns empty without
+        calling the model (early exit).
+        """
+        from mltk.data.pii_ner import scan_pii_gliner
+
+        matches = scan_pii_gliner("  \t\n ")
+        assert matches == []
+        mock_gliner.predict_entities.assert_not_called()
+
+    def test_scan_gliner_unknown_label_snake_case(
+        self, mock_gliner
+    ):
+        """Unknown GLiNER labels are converted to
+        snake_case (lowered, spaces to underscores).
+        """
+        mock_gliner.predict_entities.return_value = [
+            {
+                "text": "XR-12345",
+                "label": "legal case number",
+                "start": 6,
+                "end": 14,
+                "score": 0.85,
+            }
+        ]
+
+        from mltk.data.pii_ner import scan_pii_gliner
+
+        matches = scan_pii_gliner(
+            "Case: XR-12345 filed"
+        )
+        assert len(matches) == 1
+        assert matches[0].type == "legal_case_number"
 
 
 # ---------------------------------------------------------------
@@ -939,6 +980,80 @@ class TestMergeMatches:
         ]
         merged = _merge_matches(regex, [])
         assert len(merged) == 2
+
+    def test_identical_ner_matches_with_overlap(self):
+        """C-1 regression: two NER matches with identical
+        field values do not confuse index-based dedup.
+
+        When _merge_matches uses list.remove(), identical
+        PiiMatch values could cause the wrong match to be
+        removed. The index-based tracking (consumed_indices)
+        prevents this.
+        """
+        from mltk.data.pii_ner import _merge_matches
+
+        # Two NER matches with identical fields (email).
+        ner = [
+            PiiMatch("email", 0, 15, "a@b.com"),
+            PiiMatch("email", 0, 15, "a@b.com"),
+        ]
+        # Regex match overlapping both NER matches.
+        # email is NOT NER-preferred, so regex wins.
+        regex = [
+            PiiMatch("email", 0, 15, "a@b.com"),
+        ]
+        merged = _merge_matches(regex, ner)
+        # Should have exactly 1 email (regex replaces
+        # both overlapping NER matches).
+        emails = [
+            m for m in merged if m.type == "email"
+        ]
+        assert len(emails) == 1
+
+    def test_only_ner(self):
+        """When regex finds nothing, NER matches kept."""
+        from mltk.data.pii_ner import _merge_matches
+
+        ner = [
+            PiiMatch("person_name", 0, 10, "John"),
+            PiiMatch("location", 20, 30, "NYC"),
+        ]
+        merged = _merge_matches([], ner)
+        assert len(merged) == 2
+        types = {m.type for m in merged}
+        assert types == {"person_name", "location"}
+
+    def test_mixed_overlap_ner_and_non_ner(self):
+        """NER-preferred overlap keeps NER; non-preferred
+        overlap keeps regex. Non-overlapping items kept."""
+        from mltk.data.pii_ner import _merge_matches
+
+        # NER: person_name at 0-10, email at 20-30.
+        ner = [
+            PiiMatch("person_name", 0, 10, "John"),
+            PiiMatch("email", 20, 30, "a@b.com"),
+        ]
+        # Regex: phone at 0-10 (overlaps person_name),
+        # email at 20-30 (overlaps NER email),
+        # api_key at 40-60 (no overlap).
+        regex = [
+            PiiMatch("phone", 0, 10, "555-1234"),
+            PiiMatch("email", 20, 30, "a@b.com"),
+            PiiMatch("api_key", 40, 60, "sk-proj"),
+        ]
+        merged = _merge_matches(regex, ner)
+        types = {m.type for m in merged}
+        # person_name wins over phone (NER-preferred).
+        assert "person_name" in types
+        assert "phone" not in types
+        # regex email wins over NER email
+        # (email is NOT NER-preferred).
+        email_count = sum(
+            1 for m in merged if m.type == "email"
+        )
+        assert email_count == 1
+        # api_key has no overlap, so it's added.
+        assert "api_key" in types
 
 
 # ---------------------------------------------------------------

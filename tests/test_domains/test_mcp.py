@@ -405,6 +405,21 @@ class TestSchemaConformance:
         )
         assert result.passed is True
 
+    def test_schema_array_wrong_item_type(
+        self, array_schema
+    ) -> None:
+        # SCENARIO: Array items are ints, not strings.
+        # WHY: Item-level type validation must catch
+        # wrong element types within arrays.
+        # EXPECTED: raises MltkAssertionError.
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_mcp_tool_schema_conformance(
+                array_schema,
+                {"tags": [1, 2, 3]},
+            )
+        r = exc.value.result
+        assert len(r.details["errors"]) > 0
+
 
 # ===============================================================
 # Tool Selection (8 tests)
@@ -661,13 +676,14 @@ class TestResourceAccess:
             )
 
     def test_resource_empty_trace(self) -> None:
-        # SCENARIO: No resource accesses at all.
-        # WHY: Empty + no constraints should pass.
-        # EXPECTED: passes.
+        # SCENARIO: No resource accesses, no constraints.
+        # WHY: At least one constraint required.
+        # EXPECTED: raises ValueError.
         trace = McpTrace(resource_accesses=[])
-        result = assert_mcp_resource_access(trace)
-        assert result.passed is True
-        assert result.details["total_reads"] == 0
+        with pytest.raises(
+            ValueError, match="At least one constraint"
+        ):
+            assert_mcp_resource_access(trace)
 
     def test_resource_uri_patterns(self) -> None:
         # SCENARIO: Various URI formats.
@@ -787,6 +803,33 @@ class TestContextWindow:
         assert result.passed is True
         u = result.details["utilization"]
         assert abs(u - 0.05) < 1e-9
+
+    def test_context_zero_limit_raises(self) -> None:
+        # SCENARIO: model_context_limit=0 is invalid.
+        # WHY: Zero limit causes division by zero;
+        # must raise ValueError with clear message.
+        # EXPECTED: raises ValueError.
+        trace = McpTrace(
+            total_tokens=100,
+            model_context_limit=0,
+        )
+        with pytest.raises(
+            ValueError, match="must be > 0"
+        ):
+            assert_mcp_context_window(trace)
+
+    def test_context_no_limit_anywhere_raises(
+        self,
+    ) -> None:
+        # SCENARIO: No limit in param or trace.
+        # WHY: Cannot compute utilization without a
+        # denominator.
+        # EXPECTED: raises ValueError.
+        trace = McpTrace(total_tokens=5000)
+        with pytest.raises(
+            ValueError, match="must be > 0"
+        ):
+            assert_mcp_context_window(trace)
 
 
 # ===============================================================
@@ -939,6 +982,41 @@ class TestErrorRecovery:
                 trace, max_same_tool_retries=1,
             )
 
+    def test_recovery_empty_trace(self) -> None:
+        # SCENARIO: No tool calls at all.
+        # WHY: Empty trace has no errors to detect.
+        # EXPECTED: passes with max_retries_seen=0.
+        trace = McpTrace(tool_calls=[])
+        result = assert_mcp_error_recovery(trace)
+        assert result.passed is True
+        assert result.details["max_retries_seen"] == 0
+        assert result.details["retry_loops"] == []
+
+    def test_recovery_error_then_success_different_tool(
+        self,
+    ) -> None:
+        # SCENARIO: Error on tool A, then success on
+        # tool B (different tool).
+        # WHY: Switching tools after error = good
+        # recovery strategy.
+        # EXPECTED: passes.
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="read_file",
+                    arguments={"path": "/missing"},
+                    error="File not found",
+                ),
+                McpToolCall(
+                    name="search",
+                    arguments={"q": "alternative"},
+                    result="found it",
+                ),
+            ],
+        )
+        result = assert_mcp_error_recovery(trace)
+        assert result.passed is True
+
 
 # ===============================================================
 # Helper / Dataclass (9 tests)
@@ -966,6 +1044,17 @@ class TestHelpers:
         # EXPECTED: ("", "search").
         assert _parse_server_tool("search") == (
             "", "search",
+        )
+
+    def test_parse_server_tool_double_colon(
+        self,
+    ) -> None:
+        # SCENARIO: "a::b::c" splits on first "::".
+        # WHY: Tool names might contain "::" in the
+        # name portion (e.g., nested namespaces).
+        # EXPECTED: ("a", "b::c") -- split("::", 1).
+        assert _parse_server_tool("a::b::c") == (
+            "a", "b::c",
         )
 
     def test_mcp_trace_extends_agent_trace(

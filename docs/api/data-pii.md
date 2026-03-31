@@ -56,7 +56,7 @@ class PiiMatch:
     matched_text: str # the matched string
 ```
 
-### Built-in Patterns (14 patterns in 6 categories)
+### Built-in Patterns (40+ patterns across 6 categories — representative named patterns shown)
 
 | Pattern | Category | Examples |
 |---------|----------|----------|

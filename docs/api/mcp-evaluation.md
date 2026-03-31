@@ -186,19 +186,17 @@ from mltk.domains.llm.trace import ToolCall
 class McpToolCall(ToolCall):
     """Tool call with MCP server context."""
     server: str = ""
-    tool_schema: dict = field(
+    schema: dict = field(
         default_factory=dict,
     )
-    is_error: bool = False
-    context_tokens_before: int = 0
+    context_tokens: int = 0
 ```
 
 | Field | Type | Purpose |
 |-------|------|---------|
 | `server` | `str` | MCP server namespace (e.g., `"filesystem"`) |
-| `tool_schema` | `dict` | The `inputSchema` from `tools/list` |
-| `is_error` | `bool` | Whether the server returned `isError: true` |
-| `context_tokens_before` | `int` | Running token count before this call |
+| `schema` | `dict` | The `inputSchema` from `tools/list` |
+| `context_tokens` | `int` | Running token count at this call |
 
 ### McpResourceAccess
 
@@ -241,17 +239,13 @@ from mltk.domains.llm.trace import AgentTrace
 @dataclass
 class McpTrace(AgentTrace):
     """Agent trace with MCP-specific data."""
-    mcp_tool_calls: list[McpToolCall] = field(
-        default_factory=list,
-    )
     resource_accesses: list[McpResourceAccess] = (
         field(default_factory=list)
     )
-    servers: list[str] = field(
-        default_factory=list,
-    )
     model_context_limit: int = 0
 ```
+
+Tool calls are accessed via the inherited `tool_calls: list[ToolCall]` attribute from `AgentTrace`. Use `McpToolCall` instances in that list to carry MCP-specific fields.
 
 ### Why subclass instead of adding fields?
 
@@ -265,7 +259,7 @@ preserves polymorphism. Every function accepting
 
 ```python
 trace = McpTrace(
-    mcp_tool_calls=[
+    tool_calls=[
         McpToolCall(
             name="read_file",
             server="filesystem",
@@ -391,7 +385,7 @@ result = assert_mcp_tool_schema_conformance(
 - `passed`: whether the arguments conform
 - `errors`: list of schema violation messages
 - `tool_name`: the tool that was validated
-- `schema`: the schema that was checked against
+- `schema_properties`: list of property names declared in the schema
 
 #### How it works
 
@@ -447,12 +441,12 @@ Validate every tool call in an `McpTrace` at once:
 
 ```python
 trace = McpTrace(
-    mcp_tool_calls=[
+    tool_calls=[
         McpToolCall(
             name="search",
             server="docs",
             arguments={"query": "ml", "limit": 10},
-            tool_schema={
+            schema={
                 "type": "object",
                 "properties": {
                     "query": {"type": "string"},
@@ -468,7 +462,7 @@ trace = McpTrace(
             name="read_file",
             server="filesystem",
             arguments={"path": 42},  # Wrong!
-            tool_schema={
+            schema={
                 "type": "object",
                 "properties": {
                     "path": {"type": "string"},
@@ -479,9 +473,9 @@ trace = McpTrace(
     ],
 )
 
-for tc in trace.mcp_tool_calls:
+for tc in trace.tool_calls:
     result = assert_mcp_tool_schema_conformance(
-        tool_schema=tc.tool_schema,
+        tool_schema=tc.schema,
         actual_args=tc.arguments,
         tool_name=f"{tc.server}::{tc.name}",
     )
@@ -556,14 +550,14 @@ result = assert_mcp_tool_selection(
 - `recall`: fraction of expected tools that were
   called
 - `f1`: harmonic mean of precision and recall
-- `missing`: expected tools not called
-- `extra`: called tools not expected
+- `missing_tools`: expected tools not called
+- `extra_tools`: called tools not expected
 
 #### Multi-server example
 
 ```python
 trace = McpTrace(
-    mcp_tool_calls=[
+    tool_calls=[
         McpToolCall(
             name="read_file",
             server="filesystem",
@@ -677,7 +671,9 @@ result = assert_mcp_resource_access(
 - `forbidden_accessed`: forbidden URIs that were
   accessed
 - `total_reads`: total resource reads in the trace
-- `over_limit`: whether `max_reads` was exceeded
+- `max_reads`: the limit that was checked (or `None`)
+- `accessed_uris`: sorted list of all accessed URIs
+- `errors`: list of violation messages
 
 #### Security testing example
 
@@ -734,7 +730,7 @@ result = assert_mcp_resource_access(
     max_reads=5,
 )
 assert not result.passed
-# total_reads: 50, over_limit: True
+# total_reads: 50, max_reads: 5, passed: False
 ```
 
 ---
@@ -795,20 +791,20 @@ result = assert_mcp_context_window(
 - `utilization`: fraction of context window used
 - `total_tokens`: total tokens in the trace
 - `context_limit`: the model's context window
-- `headroom_tokens`: remaining tokens before overflow
+- `max_utilization`: the threshold that was checked
 
 #### Example: approaching the limit
 
 ```python
 trace = McpTrace(
     total_tokens=175_000,
-    mcp_tool_calls=[
+    tool_calls=[
         McpToolCall(
             name="search",
             server="docs",
             arguments={"query": "deployment"},
             result="... (50K tokens of results)",
-            context_tokens_before=120_000,
+            context_tokens=120_000,
         ),
     ],
     resource_accesses=[
@@ -826,7 +822,7 @@ result = assert_mcp_context_window(
 )
 # utilization: 0.875 (175K / 200K)
 # passed: True (under 0.9 threshold)
-# headroom_tokens: 25_000
+# max_utilization: 0.9
 ```
 
 #### Common context limits
@@ -881,7 +877,7 @@ from mltk.domains.llm.mcp import (
 
 result = assert_mcp_error_recovery(
     trace=trace,
-    max_same_tool_retries=2,
+    max_same_tool_retries=3,
 )
 ```
 
@@ -890,16 +886,16 @@ result = assert_mcp_error_recovery(
 | Name | Type | Default | What |
 |------|------|---------|------|
 | `trace` | `McpTrace` | *(required)* | The agent trace |
-| `max_same_tool_retries` | `int` | `2` | Max identical retries before flagging |
+| `max_same_tool_retries` | `int` | `3` | Max identical retries before flagging |
 
 #### Returns
 
 `TestResult` with:
 
 - `passed`: whether no retry loop exceeded the limit
-- `max_retries_found`: longest same-tool retry streak
-- `retry_details`: list of `{tool, server, args, count}`
-  for each retry pattern found
+- `max_retries_seen`: longest same-tool retry streak observed
+- `retry_loops`: list of `{tool, arguments, retries, start_index}`
+  for each retry loop that exceeded the limit
 
 #### Retry loop example
 
@@ -908,40 +904,35 @@ with the same arguments:
 
 ```python
 trace = McpTrace(
-    mcp_tool_calls=[
+    tool_calls=[
         McpToolCall(
             name="fetch_data",
             server="api",
             arguments={"endpoint": "/users"},
-            is_error=True,
             error="429 Too Many Requests",
         ),
         McpToolCall(
             name="fetch_data",
             server="api",
             arguments={"endpoint": "/users"},
-            is_error=True,
             error="429 Too Many Requests",
         ),
         McpToolCall(
             name="fetch_data",
             server="api",
             arguments={"endpoint": "/users"},
-            is_error=True,
             error="429 Too Many Requests",
         ),
         McpToolCall(
             name="fetch_data",
             server="api",
             arguments={"endpoint": "/users"},
-            is_error=True,
             error="429 Too Many Requests",
         ),
         McpToolCall(
             name="fetch_data",
             server="api",
             arguments={"endpoint": "/users"},
-            is_error=True,
             error="429 Too Many Requests",
         ),
     ],
@@ -949,14 +940,13 @@ trace = McpTrace(
 
 result = assert_mcp_error_recovery(
     trace=trace,
-    max_same_tool_retries=2,
+    max_same_tool_retries=3,
 )
 assert not result.passed
-# max_retries_found: 5
-# retry_details: [{tool: "fetch_data",
-#   server: "api",
-#   args: {"endpoint": "/users"},
-#   count: 5}]
+# max_retries_seen: 5
+# retry_loops: [{tool: "fetch_data",
+#   arguments: {"endpoint": "/users"},
+#   retries: 5, start_index: 0}]
 ```
 
 #### Good recovery example
@@ -965,12 +955,11 @@ Agent gets an error, changes strategy:
 
 ```python
 trace = McpTrace(
-    mcp_tool_calls=[
+    tool_calls=[
         McpToolCall(
             name="fetch_data",
             server="api",
             arguments={"endpoint": "/users"},
-            is_error=True,
             error="429 Too Many Requests",
         ),
         # Agent changes strategy: different endpoint
@@ -985,10 +974,10 @@ trace = McpTrace(
 
 result = assert_mcp_error_recovery(
     trace=trace,
-    max_same_tool_retries=2,
+    max_same_tool_retries=3,
 )
 assert result.passed
-# max_retries_found: 1 (only one attempt per args)
+# max_retries_seen: 1 (only one attempt per args)
 ```
 
 ---
@@ -1033,9 +1022,9 @@ def test_mcp_agent_full(mcp_trace):
     """Full MCP agent evaluation."""
 
     # Schema conformance (MCP-specific)
-    for tc in mcp_trace.mcp_tool_calls:
+    for tc in mcp_trace.tool_calls:
         r = assert_mcp_tool_schema_conformance(
-            tool_schema=tc.tool_schema,
+            tool_schema=tc.schema,
             actual_args=tc.arguments,
             tool_name=f"{tc.server}::{tc.name}",
         )
@@ -1268,7 +1257,7 @@ def test_no_retry_storms(mcp_trace):
     )
     assert result.passed, (
         f"Retry loop detected: "
-        f"{result.details['max_retries_found']} "
+        f"{result.details['max_retries_seen']} "
         f"identical retries"
     )
 ```
@@ -1295,7 +1284,7 @@ def trace_from_log():
     with open("tests/fixtures/mcp_session.json") as f:
         data = json.load(f)
     return McpTrace(
-        mcp_tool_calls=[
+        tool_calls=[
             McpToolCall(**tc)
             for tc in data["tool_calls"]
         ],
@@ -1309,10 +1298,10 @@ def trace_from_log():
 
 def test_all_schemas_valid(trace_from_log):
     """Every tool call must match its schema."""
-    for tc in trace_from_log.mcp_tool_calls:
-        if tc.tool_schema:
+    for tc in trace_from_log.tool_calls:
+        if tc.schema:
             r = assert_mcp_tool_schema_conformance(
-                tool_schema=tc.tool_schema,
+                tool_schema=tc.schema,
                 actual_args=tc.arguments,
                 tool_name=(
                     f"{tc.server}::{tc.name}"
@@ -1362,7 +1351,7 @@ framework.
 
 ### Why a subclass instead of optional fields?
 
-Adding nullable MCP fields (`server`, `tool_schema`,
+Adding nullable MCP fields (`server`, `schema`,
 `resource_accesses`) to `AgentTrace` pollutes the base
 class. Every user who never touches MCP would see
 `None` fields everywhere. A subclass (`McpTrace`)

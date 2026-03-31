@@ -44,8 +44,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from functools import lru_cache
+from typing import Any
 
 from mltk.data.pii import PiiMatch
+
+__all__ = [
+    "scan_pii_ner",
+    "scan_pii_gliner",
+    "scan_pii_hybrid",
+    "DEFAULT_PRESIDIO_ENTITIES",
+    "DEFAULT_GLINER_ENTITIES",
+]
 
 # -----------------------------------------------------------------------
 # Entity type mapping: Presidio entity names -> mltk PiiMatch.type values
@@ -97,9 +106,12 @@ _MAX_NER_TEXT_LENGTH: int = 100_000
 # loaded from HuggingFace Hub -- pinning by commit SHA ensures a
 # compromised model push doesn't affect users. Update these hashes
 # when intentionally upgrading to a newer model version.
+# SEC: These MUST be pinned to commit SHAs before production use.
+# Run: `git ls-remote https://huggingface.co/urchade/gliner_medium-v2.1`
+# to get the current HEAD SHA, then replace "main" below.
 _GLINER_REVISIONS: dict[str, str] = {
-    "urchade/gliner_medium-v2.1": "main",  # TODO: pin to SHA
-    "urchade/gliner_large-v2.1": "main",   # TODO: pin to SHA
+    "urchade/gliner_medium-v2.1": "main",  # SECURITY: pin before release
+    "urchade/gliner_large-v2.1": "main",   # SECURITY: pin before release
 }
 
 # Default entity types for each backend.
@@ -140,7 +152,7 @@ DEFAULT_GLINER_ENTITIES: list[str] = [
 
 
 @lru_cache(maxsize=1)
-def _get_presidio_analyzer():  # type: ignore[no-untyped-def]
+def _get_presidio_analyzer() -> Any:
     """Create and cache the Presidio AnalyzerEngine with spaCy backend.
 
     Presidio's AnalyzerEngine is expensive to initialize (~2-5 seconds on
@@ -174,7 +186,7 @@ def _get_presidio_analyzer():  # type: ignore[no-untyped-def]
 
 
 @lru_cache(maxsize=4)
-def _get_gliner_model(model_name: str):  # type: ignore[no-untyped-def]
+def _get_gliner_model(model_name: str) -> Any:
     """Load and cache a GLiNER zero-shot NER model.
 
     GLiNER models are ~500MB and take 5-15 seconds to load from HuggingFace
@@ -503,33 +515,35 @@ def _merge_matches(
     Returns:
         Deduplicated list of PiiMatch objects.
     """
-    merged: list[PiiMatch] = list(ner_matches)
-    # Track which NER matches have been consumed (replaced by regex)
-    # so subsequent regex matches don't re-detect the same NER span.
-    consumed_ner: set[int] = set()
+    # Index-based tracking: use list indices (not id()) to avoid
+    # equality/identity mismatch when PiiMatch objects have identical
+    # field values. consumed_indices tracks NER matches already
+    # replaced by regex so subsequent regex matches skip them.
+    ner_list = list(ner_matches)
+    merged: list[PiiMatch] = list(ner_list)
+    consumed_indices: set[int] = set()
 
     for rm in regex_matches:
-        overlapping_ner = [
-            nm for nm in ner_matches
+        overlapping = [
+            (i, nm) for i, nm in enumerate(ner_list)
             if _spans_overlap(rm, nm)
-            and id(nm) not in consumed_ner
+            and i not in consumed_indices
         ]
 
-        if not overlapping_ner:
-            # No overlap -- regex found something NER missed.
+        if not overlapping:
             merged.append(rm)
         else:
             ner_wins = any(
                 nm.type in _NER_PREFERRED_TYPES
-                for nm in overlapping_ner
+                for _, nm in overlapping
             )
             if not ner_wins:
-                # Regex is more precise -- replace NER matches.
-                for nm in overlapping_ner:
-                    if nm in merged:
+                for idx, nm in overlapping:
+                    try:
                         merged.remove(nm)
-                    consumed_ner.add(id(nm))
+                    except ValueError:
+                        pass
+                    consumed_indices.add(idx)
                 merged.append(rm)
-            # else: NER wins -- regex match discarded.
 
     return merged

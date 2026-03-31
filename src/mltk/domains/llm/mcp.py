@@ -465,6 +465,16 @@ def assert_mcp_resource_access(
         ...     forbidden_uris=["file:///etc/passwd"],
         ... )
     """
+    if (
+        expected_uris is None
+        and forbidden_uris is None
+        and max_reads is None
+    ):
+        raise ValueError(
+            "At least one constraint required: "
+            "expected_uris, forbidden_uris, or max_reads."
+        )
+
     accessed_uris = {ra.uri for ra in trace.resource_accesses}
     total_reads = len(trace.resource_accesses)
     errors: list[str] = []
@@ -569,7 +579,10 @@ def assert_mcp_context_window(
     """
     limit = model_context_limit or trace.model_context_limit
     if limit <= 0:
-        limit = 1  # avoid division by zero
+        raise ValueError(
+            "model_context_limit must be > 0. Provide it as "
+            "a parameter or set trace.model_context_limit."
+        )
 
     utilization = trace.total_tokens / limit
     passed = utilization <= max_utilization

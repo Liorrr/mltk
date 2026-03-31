@@ -320,24 +320,34 @@ values for consistency with regex results.
 
 | Presidio Entity | mltk PiiMatch.type | Example |
 |-----------------|-------------------|---------|
-| `PERSON` | `person` | John Smith |
+| `PERSON` | `person_name` | John Smith |
 | `ORGANIZATION` | `organization` | Acme Corp |
 | `LOCATION` | `location` | Springfield IL |
 | `PHONE_NUMBER` | `phone` | 555-123-4567 |
 | `EMAIL_ADDRESS` | `email` | john@example.com |
 | `CREDIT_CARD` | `credit_card` | 4111-1111-1111-1111 |
+| `CRYPTO` | `crypto_address` | 1A1zP1eP5QGefi2DMPTfTL5SLmv7Divf |
 | `US_SSN` | `ssn` | 123-45-6789 |
 | `IBAN_CODE` | `iban` | GB29NWBK60161331926819 |
 | `MEDICAL_LICENSE` | `medical_license` | MD-12345 |
 | `IP_ADDRESS` | `ipv4` | 192.168.1.1 |
 | `DATE_TIME` | `date_time` | January 5, 1990 |
 | `NRP` | `nationality` | American, Jewish |
-| `US_DRIVER_LICENSE` | `us_driver_license` | D12345678 |
+| `US_BANK_NUMBER` | `bank_account` | 12345678901 |
+| `US_DRIVER_LICENSE` | `driver_license` | D12345678 |
+| `US_ITIN` | `tax_id` | 912-78-1234 |
+| `US_PASSPORT` | `passport` | A12345678 |
+
+Entities not listed in this table are mapped to their
+Presidio name lowercased (e.g., an unmapped entity
+`CUSTOM_TYPE` becomes `custom_type`).
 
 When `method="gliner"`, the entity type is whatever
 string you passed in `entity_types`. For example, if you
 passed `"medical record number"`, matches will have
-`PiiMatch.type = "medical record number"`.
+`PiiMatch.type = "medical_record"` (common labels are
+normalized; unknown labels become lowercased with spaces
+replaced by underscores).
 
 ---
 
@@ -526,7 +536,7 @@ triggers a spaCy model download (`en_core_web_lg`,
 the cached model. Across processes, the model is cached
 on disk in the spaCy data directory.
 
-GLiNER downloads `urchade/gliner_medium-v2.1` (~800 MB)
+GLiNER downloads `urchade/gliner_medium-v2.1` (~500 MB)
 on first use. Cached in `~/.cache/huggingface/`.
 
 ### Memory usage

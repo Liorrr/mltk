@@ -482,6 +482,20 @@ Evaluate faithfulness, relevance, coherence, safety, and agentic tool use.
 
 :point_right: [LLM Evaluation](api/llm.md) | [RAG & Agentic](api/rag-evaluation.md)
 
+### "I need to detect names, orgs, and locations in training data"
+
+Regex cannot catch contextual PII. NER-based detection finds person names,
+organizations, and locations that structured patterns miss entirely.
+
+:point_right: [NER-Based PII Detection](api/pii-ner.md)
+
+### "I need to test MCP agents"
+
+Validate that agent tool calls conform to JSON Schema, resource access stays
+within bounds, and retry loops are caught before they reach production.
+
+:point_right: [MCP Evaluation](api/mcp-evaluation.md)
+
 ### "I want to scan data from the command line"
 
 Quick one-off data quality checks without writing any code.
