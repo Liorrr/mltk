@@ -20,7 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `McpTrace`, `McpToolCall`, `McpResourceAccess` dataclasses (extend AgentTrace)
 - New `mcp` optional dependency group: `pip install mltk[mcp]`
 
-#### Test Hardening (S75)
+#### Synthetic QA Generation (S76)
+- `SyntheticQAGenerator` — generate synthetic QA pairs from documents (closes CG-1)
+- Template mode (zero-dep, CI-safe) + LLM mode (any `Callable[[str], str]`)
+- 5 question types: factual, reasoning, multi-hop, counterfactual, out-of-scope
+- `QAPair` dataclass integrates directly with RAG assertions
+- `QualityFilter` for LLM-generated pair scoring
+- `split_text()` zero-dep word-count text splitter
+
+#### Test Hardening (S75-S76)
 - +25 tests across behavioral stability, retrieval, paraphrase generator
 
 #### Research (S75)

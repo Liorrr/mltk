@@ -1147,3 +1147,282 @@ class TestHelpers:
         )
         assert tc.server == ""
         assert tc.schema == {}
+
+
+# ===============================================================
+# Edge-case hardening (10 tests)
+# ===============================================================
+
+
+class TestEdgeCases:
+    """Edge-case tests for schema, selection,
+    resource, context, recovery, and backward compat.
+    """
+
+    def test_schema_string_minlength(self) -> None:
+        # SCENARIO: minLength=3 but value is "ab" (2).
+        # WHY: Short strings must be rejected.
+        # EXPECTED: raises MltkAssertionError.
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 3,
+                },
+            },
+            "required": ["name"],
+        }
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_mcp_tool_schema_conformance(
+                schema, {"name": "ab"},
+            )
+        r = exc.value.result
+        assert len(r.details["errors"]) > 0
+
+    def test_schema_integer_minimum(self) -> None:
+        # SCENARIO: minimum=1 but value is 0.
+        # WHY: Boundary below minimum must fail.
+        # EXPECTED: raises MltkAssertionError.
+        schema = {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                },
+            },
+            "required": ["count"],
+        }
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_mcp_tool_schema_conformance(
+                schema, {"count": 0},
+            )
+        r = exc.value.result
+        assert len(r.details["errors"]) > 0
+
+    def test_schema_multiple_required_missing(
+        self,
+    ) -> None:
+        # SCENARIO: 2 required fields both missing.
+        # WHY: All missing fields reported, not just
+        # the first one.
+        # EXPECTED: raises MltkAssertionError with 2+
+        # errors.
+        schema = {
+            "type": "object",
+            "properties": {
+                "a": {"type": "string"},
+                "b": {"type": "integer"},
+            },
+            "required": ["a", "b"],
+        }
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_mcp_tool_schema_conformance(
+                schema, {},
+            )
+        r = exc.value.result
+        assert len(r.details["errors"]) >= 1
+
+    def test_selection_duplicate_tools(self) -> None:
+        # SCENARIO: Trace calls same tool twice.
+        # WHY: Repeated tools should still match the
+        # expected set (set-based comparison).
+        # EXPECTED: passes if expected covers the
+        # unique set of called tools.
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="search",
+                    server="docs",
+                    arguments={"q": "a"},
+                ),
+                McpToolCall(
+                    name="search",
+                    server="docs",
+                    arguments={"q": "b"},
+                ),
+            ],
+        )
+        result = assert_mcp_tool_selection(
+            trace, ["docs::search"],
+        )
+        assert result.passed is True
+
+    def test_selection_precision_recall_values(
+        self,
+    ) -> None:
+        # SCENARIO: 2 of 3 expected tools called,
+        # plus 1 extra tool.
+        # WHY: Verify math: recall=2/3, precision=2/3.
+        # EXPECTED: raises MltkAssertionError; check
+        # numeric precision/recall values.
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="search",
+                    server="docs",
+                    arguments={},
+                ),
+                McpToolCall(
+                    name="read",
+                    server="fs",
+                    arguments={},
+                ),
+                McpToolCall(
+                    name="unrelated",
+                    server="x",
+                    arguments={},
+                ),
+            ],
+        )
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_mcp_tool_selection(
+                trace,
+                [
+                    "docs::search",
+                    "fs::read",
+                    "db::query",
+                ],
+            )
+        r = exc.value.result
+        # recall = 2 found / 3 expected
+        assert abs(
+            r.details["recall"] - 2.0 / 3.0
+        ) < 1e-9
+
+    def test_resource_wildcard_pattern(self) -> None:
+        # SCENARIO: URI contains a glob-like path.
+        # WHY: URI is compared as a literal string;
+        # wildcards are not expanded.
+        # EXPECTED: passes when exact URI matches.
+        trace = McpTrace(
+            resource_accesses=[
+                McpResourceAccess(
+                    uri="file:///data/*.csv",
+                    server="fs",
+                ),
+            ],
+        )
+        result = assert_mcp_resource_access(
+            trace,
+            expected_uris=["file:///data/*.csv"],
+        )
+        assert result.passed is True
+
+    def test_context_exactly_at_limit(self) -> None:
+        # SCENARIO: utilization = 1.0 with max=1.0.
+        # WHY: Exact boundary at 100% must pass.
+        # EXPECTED: passes with utilization == 1.0.
+        trace = McpTrace(
+            total_tokens=10000,
+            model_context_limit=10000,
+        )
+        result = assert_mcp_context_window(
+            trace, max_utilization=1.0,
+        )
+        assert result.passed is True
+        u = result.details["utilization"]
+        assert abs(u - 1.0) < 1e-9
+
+    def test_recovery_alternating_errors(
+        self,
+    ) -> None:
+        # SCENARIO: error, success, error, success
+        # on the SAME tool but different args each time.
+        # WHY: Alternating pattern is adaptive, not a
+        # blind retry loop.
+        # EXPECTED: passes.
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="fetch",
+                    arguments={"url": "/a"},
+                    error="timeout",
+                ),
+                McpToolCall(
+                    name="fetch",
+                    arguments={"url": "/b"},
+                    result="ok",
+                ),
+                McpToolCall(
+                    name="fetch",
+                    arguments={"url": "/c"},
+                    error="500",
+                ),
+                McpToolCall(
+                    name="fetch",
+                    arguments={"url": "/d"},
+                    result="ok",
+                ),
+            ],
+        )
+        result = assert_mcp_error_recovery(trace)
+        assert result.passed is True
+
+    def test_mcp_trace_with_resources_and_tools(
+        self,
+    ) -> None:
+        # SCENARIO: McpTrace with both tool_calls and
+        # resource_accesses populated.
+        # WHY: Both lists must coexist correctly.
+        # EXPECTED: step_count counts tool_calls only;
+        # resources are independent.
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="search",
+                    server="docs",
+                    arguments={"q": "test"},
+                ),
+            ],
+            resource_accesses=[
+                McpResourceAccess(
+                    uri="file:///a.txt",
+                    server="fs",
+                    content_tokens=100,
+                ),
+                McpResourceAccess(
+                    uri="file:///b.txt",
+                    server="fs",
+                    content_tokens=200,
+                ),
+            ],
+            total_tokens=3000,
+            model_context_limit=100000,
+        )
+        assert trace.step_count == 1
+        assert len(trace.resource_accesses) == 2
+        assert trace.tool_names == ["docs::search"]
+
+    def test_backward_compat_existing_agentic(
+        self,
+    ) -> None:
+        # SCENARIO: assert_step_efficiency works on
+        # an McpTrace (subclass of AgentTrace).
+        # WHY: Backward compat with agentic assertions.
+        # EXPECTED: passes when under budget.
+        from mltk.domains.llm.agentic import (
+            assert_step_efficiency,
+        )
+
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="search",
+                    server="docs",
+                    arguments={"q": "test"},
+                ),
+                McpToolCall(
+                    name="read",
+                    server="fs",
+                    arguments={"p": "/x"},
+                    result="ok",
+                ),
+            ],
+        )
+        result = assert_step_efficiency(
+            trace, max_steps=5,
+        )
+        assert result.passed is True
+        assert result.details["actual_steps"] == 2

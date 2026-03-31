@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S75: 211 assertions, 2825+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S76: 211 assertions, 2910+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -100,6 +100,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S73: NER PII detection (Presidio/spaCy/GLiNER/hybrid), test hardening (+22), 3 research briefs
 - [x] S74: v0.9.0 release — version bump, presentation-ready docs, test hardening, 2 research briefs
 - [x] S75: MCP evaluation (5 assertions, McpTrace dataclass), test hardening (+25), synthetic data research
+- [x] S76: SyntheticQAGenerator (template + LLM, 5 question types), test hardening (+20), NER PII research
 
 ---
 
@@ -143,7 +144,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Consider upgrading default embedding model from MiniLM to mpnet (SemScore paper, Jan 2024)
 
 ### Competitive Gaps (S66 Audit: 6 critical)
-- [ ] **CG-1**: Synthetic test data generation (RAGAS, DeepEval, Giskard have it) — 2-3 sprints
+- [x] **CG-1**: S76 — SyntheticQAGenerator (template + LLM modes, 5 question types, quality filter)
 - [ ] **CG-2**: Dynamic multi-turn red teaming (Promptfoo: 135 plugins, Giskard: autonomous agents) — 3-4 sprints
 - [x] **CG-3**: S75 — MCP evaluation (5 assertions, JSON Schema validation, resource access, context window)
 - [ ] **CG-4**: Multimodal LLM evaluation (image input/output) — 2 sprints

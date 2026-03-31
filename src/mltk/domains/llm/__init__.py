@@ -64,6 +64,7 @@ from mltk.domains.llm.summarization import (
     assert_summary_coverage,
     assert_summary_faithfulness,
 )
+from mltk.domains.llm.synthetic import QAPair, QuestionType, SyntheticQAGenerator
 from mltk.domains.llm.text_quality import (
     assert_output_format,
     assert_readability,
@@ -144,4 +145,8 @@ __all__ = [
     "assert_mcp_resource_access",
     "assert_mcp_context_window",
     "assert_mcp_error_recovery",
+    # Synthetic QA generation
+    "QAPair",
+    "QuestionType",
+    "SyntheticQAGenerator",
 ]

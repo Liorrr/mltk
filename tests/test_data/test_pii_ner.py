@@ -1174,3 +1174,199 @@ class TestEntityTypeMappings:
                 assert value == value.lower(), (
                     f"{key!r} -> {value!r} not lowercase"
                 )
+
+
+# ---------------------------------------------------------------
+# Edge-case hardening (10 tests)
+# ---------------------------------------------------------------
+
+class TestPiiNerEdgeCases:
+    """Edge-case tests for NER, GLiNER, hybrid,
+    dispatch, merge, and PiiMatch behavior.
+    """
+
+    def test_scan_ner_multiple_entities_same_type(
+        self, mock_presidio
+    ):
+        """Three PERSON entities in one text."""
+        p1 = _make_presidio_result(
+            "PERSON", 0, 5, 0.90
+        )
+        p2 = _make_presidio_result(
+            "PERSON", 10, 15, 0.88
+        )
+        p3 = _make_presidio_result(
+            "PERSON", 20, 25, 0.85
+        )
+        mock_presidio.analyze.return_value = [
+            p1, p2, p3
+        ]
+
+        from mltk.data.pii_ner import scan_pii_ner
+
+        text = "Alice meet Bobby and Carol today"
+        matches = scan_pii_ner(text)
+        persons = [
+            m for m in matches
+            if m.type == "person_name"
+        ]
+        assert len(persons) == 3
+
+    def test_scan_gliner_custom_model_name(
+        self, monkeypatch
+    ):
+        """Non-default model name forwarded to loader."""
+        mock_model = MagicMock()
+        mock_model.predict_entities.return_value = []
+        loaded_names: list[str] = []
+
+        def _loader(model_name):
+            loaded_names.append(model_name)
+            return mock_model
+
+        monkeypatch.setattr(
+            "mltk.data.pii_ner._get_gliner_model",
+            _loader,
+        )
+
+        from mltk.data.pii_ner import scan_pii_gliner
+
+        scan_pii_gliner(
+            "text",
+            model_name="custom/my-ner-v1",
+        )
+        assert loaded_names == ["custom/my-ner-v1"]
+
+    def test_hybrid_all_regex_no_ner(
+        self, mock_presidio_empty
+    ):
+        """Only regex matches, NER finds nothing."""
+        from mltk.data.pii_ner import scan_pii_hybrid
+
+        key = "sk-proj-" + "x" * 30
+        text = f"Use key {key} for access"
+        matches = scan_pii_hybrid(text)
+        assert len(matches) >= 1
+        assert any(
+            m.type == "api_key" for m in matches
+        )
+        # No person_name since NER returned nothing.
+        assert not any(
+            m.type == "person_name"
+            for m in matches
+        )
+
+    def test_hybrid_all_ner_no_regex(
+        self, mock_presidio
+    ):
+        """Only NER matches, regex finds nothing."""
+        person = _make_presidio_result(
+            "PERSON", 0, 10, 0.92
+        )
+        mock_presidio.analyze.return_value = [person]
+
+        from mltk.data.pii_ner import scan_pii_hybrid
+
+        # Text with no regex-detectable patterns.
+        text = "John Smith likes sunny weather"
+        matches = scan_pii_hybrid(text)
+        assert any(
+            m.type == "person_name"
+            for m in matches
+        )
+        # No structured PII like email/api_key.
+        assert not any(
+            m.type in ("email", "api_key", "ssn")
+            for m in matches
+        )
+
+    def test_dispatch_method_case_sensitive(self):
+        """Uppercase 'NER' should raise ValueError."""
+        from mltk.data.pii import scan_pii_dispatch
+
+        with pytest.raises(
+            ValueError, match="Unknown PII"
+        ):
+            scan_pii_dispatch(
+                "test", method="NER"
+            )
+
+    def test_dispatch_with_score_threshold(
+        self, mock_presidio
+    ):
+        """score_threshold forwarded through dispatch."""
+        mock_presidio.analyze.return_value = []
+
+        from mltk.data.pii import scan_pii_dispatch
+
+        scan_pii_dispatch(
+            "Hello world",
+            method="ner",
+            score_threshold=0.9,
+        )
+        mock_presidio.analyze.assert_called_once()
+        _, kwargs = mock_presidio.analyze.call_args
+        assert kwargs["score_threshold"] == 0.9
+
+    def test_merge_empty_regex_list(self):
+        """Empty regex list + NER matches = NER kept."""
+        from mltk.data.pii_ner import _merge_matches
+
+        ner = [
+            PiiMatch("person_name", 0, 10, "Alice"),
+            PiiMatch("location", 15, 25, "Berlin"),
+        ]
+        merged = _merge_matches([], ner)
+        assert len(merged) == 2
+        types = {m.type for m in merged}
+        assert types == {"person_name", "location"}
+
+    def test_merge_empty_ner_list(self):
+        """Regex matches + empty NER = regex kept."""
+        from mltk.data.pii_ner import _merge_matches
+
+        regex = [
+            PiiMatch("email", 0, 15, "a@b.com"),
+            PiiMatch("ssn", 20, 31, "123-45-6789"),
+        ]
+        merged = _merge_matches(regex, [])
+        assert len(merged) == 2
+        types = {m.type for m in merged}
+        assert types == {"email", "ssn"}
+
+    def test_pii_match_equality(self):
+        """Two PiiMatch with identical fields are equal.
+
+        PiiMatch is a dataclass, so __eq__ compares all
+        fields by value. This is critical for dedup and
+        set-based operations in merge logic.
+        """
+        a = PiiMatch("email", 0, 15, "a@b.com")
+        b = PiiMatch("email", 0, 15, "a@b.com")
+        assert a == b
+        # Different field = not equal.
+        c = PiiMatch("email", 0, 16, "a@b.com")
+        assert a != c
+
+    def test_scan_ner_preserves_original_text(
+        self, mock_presidio
+    ):
+        """matched_text is extracted from input text."""
+        person = _make_presidio_result(
+            "PERSON", 8, 18, 0.90
+        )
+        mock_presidio.analyze.return_value = [person]
+
+        from mltk.data.pii_ner import scan_pii_ner
+
+        text = "Contact John Smith for details"
+        matches = scan_pii_ner(text)
+        assert len(matches) >= 1
+        # The matched_text should be the slice of
+        # the original input at [start:end].
+        person_match = [
+            m for m in matches
+            if m.type == "person_name"
+        ][0]
+        expected = text[8:18]
+        assert person_match.matched_text == expected

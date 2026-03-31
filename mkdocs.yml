@@ -101,6 +101,7 @@ nav:
       - Long-Context LLM Testing: api/long-context.md
       - Recommendation Systems: api/recommendation.md
       - Healthcare: api/healthcare.md
+      - Synthetic QA Generator: api/synthetic-qa-generator.md
       - Code Generation: api/codegen.md
       - Training Bugs: api/training-bugs.md
       - Test Impact & Anomaly: api/test-impact.md
