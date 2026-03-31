@@ -377,3 +377,148 @@ class TestOutputStability:
         )
         details = result.details
         assert "avg_stability" in details
+
+    # -- New edge-case and parametrized tests --------------------
+
+    def test_stability_single_run(self) -> None:
+        """N=1 is invalid; must raise or fail gracefully."""
+        with pytest.raises(
+            (MltkAssertionError, ValueError),
+        ):
+            assert_output_stability(
+                model_fn=deterministic_model,
+                inputs=SINGLE_INPUT,
+                n_runs=1,
+                equivalence_method="token_f1",
+                min_stability=0.8,
+            )
+
+    def test_stability_all_identical(self) -> None:
+        """All N runs produce same output => pass."""
+        result = assert_output_stability(
+            model_fn=lambda t: "fixed answer",
+            inputs=["prompt A", "prompt B"],
+            n_runs=5,
+            equivalence_method="label_match",
+            min_stability=1.0,
+        )
+        assert result.passed is True
+        assert result.details["avg_stability"] == 1.0
+
+    def test_stability_all_different(self) -> None:
+        """All N runs produce unique output => fail."""
+        counter = {"v": 0}
+
+        def unique_model(text: str) -> str:
+            counter["v"] += 1
+            return f"variant-{counter['v']}"
+
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_output_stability(
+                model_fn=unique_model,
+                inputs=SINGLE_INPUT,
+                n_runs=5,
+                equivalence_method="label_match",
+                min_stability=0.5,
+            )
+        assert exc.value.result.passed is False
+
+    def test_stability_unicode_responses(self) -> None:
+        """Japanese/emoji responses do not crash."""
+        responses = [
+            "\u3053\u3093\u306b\u3061\u306f",
+            "\U0001f600\U0001f389",
+            "\u4f60\u597d\u4e16\u754c",
+        ]
+        idx = {"i": 0}
+
+        def unicode_model(text: str) -> str:
+            idx["i"] = (idx["i"] + 1) % len(responses)
+            return responses[idx["i"]]
+
+        try:
+            assert_output_stability(
+                model_fn=unicode_model,
+                inputs=["hello"],
+                n_runs=3,
+                equivalence_method="token_f1",
+                min_stability=0.1,
+            )
+        except MltkAssertionError:
+            pass  # may fail on stability, must not crash
+
+    def test_stability_empty_responses(self) -> None:
+        """Model returns empty string every time."""
+        result = assert_output_stability(
+            model_fn=lambda t: "",
+            inputs=SINGLE_INPUT,
+            n_runs=4,
+            equivalence_method="label_match",
+            min_stability=0.5,
+        )
+        # All outputs identical ("") => stability 1.0
+        assert result.passed is True
+
+    def test_stability_threshold_boundary(self) -> None:
+        """Exactly at threshold boundary => passes."""
+        # label_match with 2 of 3 pairs matching
+        # yields stability = 2/3 ~ 0.6667
+        call_counter = {"n": 0}
+
+        def two_thirds_model(text: str) -> str:
+            call_counter["n"] += 1
+            if call_counter["n"] % 3 == 0:
+                return "variant"
+            return "stable"
+
+        # 3 runs => pairs: (1,2) match, (1,3) no,
+        # (2,3) no => 1/3 = 0.3333
+        # Use min_stability just at or below actual
+        result = assert_output_stability(
+            model_fn=two_thirds_model,
+            inputs=SINGLE_INPUT,
+            n_runs=3,
+            equivalence_method="label_match",
+            min_stability=0.33,
+        )
+        assert result.passed is True
+
+    def test_stability_large_n(self) -> None:
+        """N=20 runs with deterministic model passes."""
+        call_count = {"n": 0}
+
+        def counting_model(text: str) -> str:
+            call_count["n"] += 1
+            return "consistent output"
+
+        result = assert_output_stability(
+            model_fn=counting_model,
+            inputs=SINGLE_INPUT,
+            n_runs=20,
+            equivalence_method="label_match",
+            min_stability=1.0,
+        )
+        assert result.passed is True
+        assert call_count["n"] == 20
+
+    def test_stability_custom_metric(self) -> None:
+        """token_f1 metric with custom threshold."""
+        # Two tokens overlap partially
+        cycle = {"i": 0}
+
+        def partial_model(text: str) -> str:
+            cycle["i"] += 1
+            if cycle["i"] % 2 == 0:
+                return "the quick brown fox"
+            return "the quick red fox"
+
+        # token_f1 between those two strings > 0.5
+        result = assert_output_stability(
+            model_fn=partial_model,
+            inputs=SINGLE_INPUT,
+            n_runs=4,
+            equivalence_method="token_f1",
+            min_stability=0.3,
+            similarity_threshold=0.5,
+        )
+        assert result.passed is True

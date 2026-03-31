@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Added
+
+#### MCP Evaluation (S75)
+- `assert_mcp_tool_schema_conformance` — validate tool args against JSON Schema (first-mover, no LLM needed)
+- `assert_mcp_tool_selection` — server-namespace-aware tool selection (precision/recall/F1)
+- `assert_mcp_resource_access` — expected/forbidden URI access patterns (unique to mltk)
+- `assert_mcp_context_window` — model-aware context utilization check
+- `assert_mcp_error_recovery` — detect same-tool retry loops
+- `McpTrace`, `McpToolCall`, `McpResourceAccess` dataclasses (extend AgentTrace)
+- New `mcp` optional dependency group: `pip install mltk[mcp]`
+
+#### Test Hardening (S75)
+- +25 tests across behavioral stability, retrieval, paraphrase generator
+
+#### Research (S75)
+- Synthetic data generation research (RAGAS, DeepEval, Giskard comparison)
+
 ## [0.9.0] — 2026-03-31
 
 ### Added

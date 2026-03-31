@@ -1,6 +1,6 @@
 # Assertion Reference
 
-Complete index of all 206 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
+Complete index of all 211 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
 
 ---
 
@@ -603,6 +603,16 @@ Assertions for verifying LLM output stability across paraphrased inputs, formatt
 | 204 | `assert_no_multivariate_drift` | `mltk.data.drift` | MMD-based multivariate distribution comparison (Gretton et al., JMLR 2012) | v0.9.0 |
 | 205 | `assert_calibration(method="smooth_ece")` | `mltk.model.slicing` | SmoothECE calibration via reflected Gaussian kernel (Blasiok et al., ICLR 2024) | v0.9.0 |
 | 206 | `assert_intersectional_fairness` | `mltk.model.bias` | Crenshaw intersectionality — test all subgroup combinations (Fairlearn pattern) | v0.9.0 |
+
+### MCP Evaluation
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 207 | `assert_mcp_tool_schema_conformance` | `mltk.domains.llm.mcp` | Validate tool arguments against JSON Schema (contract-based, no LLM needed) | v0.9.0 |
+| 208 | `assert_mcp_tool_selection` | `mltk.domains.llm.mcp` | Server-namespace-aware tool selection verification (precision/recall/F1) | v0.9.0 |
+| 209 | `assert_mcp_resource_access` | `mltk.domains.llm.mcp` | Verify expected/forbidden URI access patterns in MCP sessions | v0.9.0 |
+| 210 | `assert_mcp_context_window` | `mltk.domains.llm.mcp` | Model-aware context window utilization check | v0.9.0 |
+| 211 | `assert_mcp_error_recovery` | `mltk.domains.llm.mcp` | Detect same-tool retry loops after MCP tool errors | v0.9.0 |
 
 ---
 

@@ -171,3 +171,149 @@ class TestParaphraseGenerator:
         )
         assert isinstance(results, list)
         assert len(results) == 3
+
+    # -- New edge-case and parametrized tests --------------------
+
+    def test_template_generates_correct_count(
+        self,
+    ) -> None:
+        """Verify exact number of paraphrases returned."""
+        gen = ParaphraseGenerator()
+        for n in (1, 2, 3, 4):
+            results = gen.generate(
+                "What is gravity?",
+                n=n,
+                method="template",
+            )
+            assert len(results) == n
+
+    def test_template_short_input(self) -> None:
+        """2-word input still generates variants."""
+        gen = ParaphraseGenerator()
+        results = gen.generate(
+            "Hi there", n=3, method="template",
+        )
+        assert isinstance(results, list)
+        # May produce fewer than 3 for short input
+        assert len(results) >= 1
+        for r in results:
+            assert isinstance(r, str)
+            assert len(r) > 0
+
+    def test_template_long_input(self) -> None:
+        """500-word input handles gracefully."""
+        gen = ParaphraseGenerator()
+        long_text = " ".join(
+            [f"word{i}" for i in range(500)]
+        )
+        results = gen.generate(
+            long_text, n=3, method="template",
+        )
+        assert isinstance(results, list)
+        # Should not crash; may produce fewer variants
+        for r in results:
+            assert isinstance(r, str)
+
+    def test_template_special_characters(self) -> None:
+        """Input with quotes, brackets, etc."""
+        gen = ParaphraseGenerator()
+        special = (
+            'What is "quantum [entanglement]" '
+            "(really)?"
+        )
+        results = gen.generate(
+            special, n=3, method="template",
+        )
+        assert isinstance(results, list)
+        for r in results:
+            assert isinstance(r, str)
+
+    def test_template_unicode_input(self) -> None:
+        """Non-ASCII input does not crash."""
+        gen = ParaphraseGenerator()
+        inputs = [
+            "\u00bfQu\u00e9 es la gravedad?",
+            "\u91cd\u529b\u3068\u306f\u4f55\u3067\u3059\u304b",
+            "\u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 \u0433\u0440\u0430\u0432\u0438\u0442\u0430\u0446\u0438\u044f?",
+        ]
+        for text in inputs:
+            results = gen.generate(
+                text, n=2, method="template",
+            )
+            assert isinstance(results, list)
+            for r in results:
+                assert isinstance(r, str)
+
+    def test_llm_generator_callable(self) -> None:
+        """Verify LLM fn is called with correct prompt."""
+        captured: list[str] = []
+
+        def mock_llm(prompt: str) -> str:
+            captured.append(prompt)
+            return "Line 1\nLine 2\nLine 3"
+
+        gen = ParaphraseGenerator()
+        gen.generate(
+            "What is gravity?",
+            n=3,
+            method="llm",
+            llm_fn=mock_llm,
+        )
+        assert len(captured) == 1
+        assert "gravity" in captured[0]
+        assert "3" in captured[0]
+
+    def test_llm_generator_returns_list(self) -> None:
+        """Verify output is list of strings."""
+        def mock_llm(prompt: str) -> str:
+            return (
+                "1. First rephrase\n"
+                "2. Second rephrase\n"
+                "3. Third rephrase"
+            )
+
+        gen = ParaphraseGenerator()
+        results = gen.generate(
+            "What is gravity?",
+            n=3,
+            method="llm",
+            llm_fn=mock_llm,
+        )
+        assert isinstance(results, list)
+        assert len(results) == 3
+        for r in results:
+            assert isinstance(r, str)
+            assert len(r) > 0
+            # Numbering should be stripped
+            assert not r[0].isdigit()
+
+    def test_template_idempotent(self) -> None:
+        """Same input => same paraphrases (deterministic)."""
+        gen = ParaphraseGenerator()
+        text = "What is the speed of light?"
+        run1 = gen.generate(
+            text, n=4, method="template",
+        )
+        run2 = gen.generate(
+            text, n=4, method="template",
+        )
+        assert run1 == run2
+
+    def test_template_all_techniques(self) -> None:
+        """All 4 techniques produce different outputs."""
+        gen = ParaphraseGenerator()
+        # Use input that triggers all techniques:
+        # question reformulation, fillers, clause
+        # reorder, contraction toggle
+        text = (
+            "What is gravity because it is important?"
+        )
+        results = gen.generate(
+            text, n=8, method="template",
+        )
+        assert len(results) >= 2
+        # All results are unique
+        assert len(set(results)) == len(results)
+        # None equal the original
+        for r in results:
+            assert r != text

@@ -316,3 +316,161 @@ class TestRetrievalConsistency:
                 assert val == 3
             elif isinstance(val, list):
                 assert len(val) == 3
+
+    # -- New edge-case and parametrized tests --------------------
+
+    def test_retrieval_identical_doc_sets(self) -> None:
+        """Same docs from all queries => Jaccard 1.0."""
+        docs = ["a1", "a2", "a3"]
+        retriever = lambda q: list(docs)
+        result = assert_retrieval_consistency(
+            retriever_fn=retriever,
+            paraphrases=[
+                "What is ML?",
+                "Explain ML.",
+            ],
+            min_overlap=1.0,
+        )
+        assert result.passed is True
+        assert result.details["avg_overlap"] == 1.0
+
+    def test_retrieval_disjoint_doc_sets(self) -> None:
+        """No overlap between doc sets => Jaccard 0.0."""
+        counter = {"i": 0}
+
+        def disjoint(q: str) -> list[str]:
+            counter["i"] += 1
+            return [
+                f"x{counter['i']}-{k}"
+                for k in range(3)
+            ]
+
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_retrieval_consistency(
+                retriever_fn=disjoint,
+                paraphrases=[
+                    "What is ML?",
+                    "Explain ML.",
+                ],
+                min_overlap=0.1,
+            )
+        r = exc.value.result
+        assert r.passed is False
+
+    def test_retrieval_single_doc(self) -> None:
+        """1 doc each, same doc => Jaccard 1.0, pass."""
+        retriever = lambda q: ["only-doc"]
+        result = assert_retrieval_consistency(
+            retriever_fn=retriever,
+            paraphrases=[
+                "What is ML?",
+                "Explain ML.",
+            ],
+            min_overlap=1.0,
+        )
+        assert result.passed is True
+
+    def test_retrieval_empty_doc_set(self) -> None:
+        """Empty doc list => Jaccard 0.0, fails or errs."""
+        retriever = lambda q: []
+        with pytest.raises(
+            (MltkAssertionError, ValueError),
+        ):
+            assert_retrieval_consistency(
+                retriever_fn=retriever,
+                paraphrases=[
+                    "What is ML?",
+                    "Explain ML.",
+                ],
+                min_overlap=0.5,
+            )
+
+    def test_retrieval_high_threshold(self) -> None:
+        """threshold=0.99 with slight difference => fail."""
+        counter = {"i": 0}
+
+        def almost_same(q: str) -> list[str]:
+            counter["i"] += 1
+            base = ["d1", "d2", "d3", "d4", "d5"]
+            if counter["i"] == 1:
+                return base
+            # Replace one doc => Jaccard 4/6 ~ 0.667
+            return ["d1", "d2", "d3", "d4", "d6"]
+
+        with pytest.raises(MltkAssertionError):
+            assert_retrieval_consistency(
+                retriever_fn=almost_same,
+                paraphrases=[
+                    "What is ML?",
+                    "Explain ML.",
+                ],
+                min_overlap=0.99,
+            )
+
+    def test_retrieval_low_threshold(self) -> None:
+        """threshold=0.01, any overlap => pass."""
+        counter = {"i": 0}
+
+        def tiny_overlap(q: str) -> list[str]:
+            counter["i"] += 1
+            if counter["i"] == 1:
+                return ["shared", "a1", "a2"]
+            return ["shared", "b1", "b2"]
+
+        result = assert_retrieval_consistency(
+            retriever_fn=tiny_overlap,
+            paraphrases=[
+                "What is ML?",
+                "Explain ML.",
+            ],
+            min_overlap=0.01,
+        )
+        assert result.passed is True
+
+    def test_retrieval_many_docs(self) -> None:
+        """100 docs each, 80% overlap."""
+        shared = [f"doc-{i}" for i in range(80)]
+        counter = {"i": 0}
+
+        def many_docs(q: str) -> list[str]:
+            counter["i"] += 1
+            unique = [
+                f"u{counter['i']}-{j}"
+                for j in range(20)
+            ]
+            return shared + unique
+
+        # Jaccard = 80 / 120 ~ 0.667
+        result = assert_retrieval_consistency(
+            retriever_fn=many_docs,
+            paraphrases=[
+                "What is ML?",
+                "Explain ML.",
+            ],
+            min_overlap=0.5,
+        )
+        assert result.passed is True
+
+    def test_retrieval_doc_order_irrelevant(
+        self,
+    ) -> None:
+        """Same docs in different order => same Jaccard."""
+        counter = {"i": 0}
+
+        def shuffled(q: str) -> list[str]:
+            counter["i"] += 1
+            docs = ["alpha", "beta", "gamma"]
+            if counter["i"] % 2 == 0:
+                return list(reversed(docs))
+            return docs
+
+        result = assert_retrieval_consistency(
+            retriever_fn=shuffled,
+            paraphrases=[
+                "What is ML?",
+                "Explain ML.",
+            ],
+            min_overlap=1.0,
+        )
+        assert result.passed is True
+        assert result.details["avg_overlap"] == 1.0

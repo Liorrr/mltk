@@ -1,6 +1,6 @@
 # Presentation Demo Script
 
-**Event:** April 16 presentation
+**Event:** April 19 presentation
 **Duration:** ~14 minutes (5 beats)
 **Setup:** Python 3.10+, `pip install mltk[cli,report]`,
 terminal + editor visible to audience.

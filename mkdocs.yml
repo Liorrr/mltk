@@ -92,6 +92,7 @@ nav:
       - LLM Evaluation: api/llm.md
       - RAG, Agentic & Text Quality: api/rag-evaluation.md
       - Agent Trace Testing: api/agentic-trace.md
+      - MCP Evaluation: api/mcp-evaluation.md
       - Multi-Agent Testing: api/multi-agent.md
       - Text Noise Robustness: api/nlp-robustness.md
       - Retrieval Metrics: api/retrieval-metrics.md

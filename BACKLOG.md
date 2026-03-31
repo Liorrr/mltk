@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S74: 206 assertions, 2700+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S75: 211 assertions, 2825+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -99,6 +99,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S72: MMD multivariate drift, SmoothECE calibration, intersectional fairness — 3 new assertions
 - [x] S73: NER PII detection (Presidio/spaCy/GLiNER/hybrid), test hardening (+22), 3 research briefs
 - [x] S74: v0.9.0 release — version bump, presentation-ready docs, test hardening, 2 research briefs
+- [x] S75: MCP evaluation (5 assertions, McpTrace dataclass), test hardening (+25), synthetic data research
 
 ---
 
@@ -144,7 +145,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Competitive Gaps (S66 Audit: 6 critical)
 - [ ] **CG-1**: Synthetic test data generation (RAGAS, DeepEval, Giskard have it) — 2-3 sprints
 - [ ] **CG-2**: Dynamic multi-turn red teaming (Promptfoo: 135 plugins, Giskard: autonomous agents) — 3-4 sprints
-- [ ] **CG-3**: MCP evaluation metrics (DeepEval is first mover) — 1 sprint
+- [x] **CG-3**: S75 — MCP evaluation (5 assertions, JSON Schema validation, resource access, context window)
 - [ ] **CG-4**: Multimodal LLM evaluation (image input/output) — 2 sprints
 - [ ] **CG-5**: LLM observability/tracing (Arize Phoenix 13K stars) — consider integration vs build
 - [ ] **CG-6**: Automated prompt optimization — 2 sprints

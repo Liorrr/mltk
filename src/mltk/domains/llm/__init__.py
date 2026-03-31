@@ -26,6 +26,16 @@ from mltk.domains.llm.long_context import (
     assert_needle_in_haystack,
     assert_no_lost_in_middle,
 )
+from mltk.domains.llm.mcp import (
+    McpResourceAccess,
+    McpToolCall,
+    McpTrace,
+    assert_mcp_context_window,
+    assert_mcp_error_recovery,
+    assert_mcp_resource_access,
+    assert_mcp_tool_schema_conformance,
+    assert_mcp_tool_selection,
+)
 from mltk.domains.llm.multi_agent import assert_agent_handoff, assert_no_agent_loop
 from mltk.domains.llm.rag import (
     assert_answer_relevancy,
@@ -125,4 +135,13 @@ __all__ = [
     "assert_knowledge_retention",
     "assert_turn_relevancy",
     "assert_conversation_completeness",
+    # MCP evaluation
+    "McpToolCall",
+    "McpResourceAccess",
+    "McpTrace",
+    "assert_mcp_tool_schema_conformance",
+    "assert_mcp_tool_selection",
+    "assert_mcp_resource_access",
+    "assert_mcp_context_window",
+    "assert_mcp_error_recovery",
 ]
