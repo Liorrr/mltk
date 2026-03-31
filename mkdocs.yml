@@ -102,6 +102,8 @@ nav:
       - Recommendation Systems: api/recommendation.md
       - Healthcare: api/healthcare.md
       - Synthetic QA Generator: api/synthetic-qa-generator.md
+      - Red Team Testing: api/red-team.md
+      - Security Scan CLI: api/security-scan.md
       - Code Generation: api/codegen.md
       - Training Bugs: api/training-bugs.md
       - Test Impact & Anomaly: api/test-impact.md

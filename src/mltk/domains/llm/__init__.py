@@ -45,6 +45,14 @@ from mltk.domains.llm.rag import (
     assert_faithfulness,
 )
 from mltk.domains.llm.ragas import assert_ragas_score, compute_ragas_score
+from mltk.domains.llm.red_team import (
+    AttackCategory,
+    AttackPayload,
+    assert_encoding_mutation_resilience,
+    assert_no_session_jailbreak,
+    assert_owasp_llm_coverage,
+    assert_red_team_resilient,
+)
 from mltk.domains.llm.retrieval import (
     assert_map_at_k,
     assert_mrr,
@@ -149,4 +157,11 @@ __all__ = [
     "QAPair",
     "QuestionType",
     "SyntheticQAGenerator",
+    # Red team evaluation
+    "AttackCategory",
+    "AttackPayload",
+    "assert_red_team_resilient",
+    "assert_no_session_jailbreak",
+    "assert_owasp_llm_coverage",
+    "assert_encoding_mutation_resilience",
 ]

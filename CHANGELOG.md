@@ -20,6 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `McpTrace`, `McpToolCall`, `McpResourceAccess` dataclasses (extend AgentTrace)
 - New `mcp` optional dependency group: `pip install mltk[mcp]`
 
+#### Red Team Framework (S77)
+- `assert_red_team_resilient` — run 55+ attack payloads across 7 OWASP categories (closes CG-2)
+- `assert_no_session_jailbreak` — multi-turn conversation attack detection
+- `assert_owasp_llm_coverage` — meta-assertion for OWASP category coverage
+- `assert_encoding_mutation_resilience` — 8 encoding bypass techniques (Base64, ROT13, leetspeak, etc.)
+- `mltk security-scan` CLI command — run red team catalog against any model function
+- 55 built-in educational attack payloads across 7 categories
+
+#### Synthetic QA v2 Enhancements (S77)
+- `generate_multi_hop()` — questions requiring cross-chunk reasoning
+- `generate_conversational()` — multi-turn dialogue generation
+- `generate_distracting()` — questions with misleading elements from different contexts
+- New QuestionType values: CONVERSATIONAL, DISTRACTING
+
 #### Synthetic QA Generation (S76)
 - `SyntheticQAGenerator` — generate synthetic QA pairs from documents (closes CG-1)
 - Template mode (zero-dep, CI-safe) + LLM mode (any `Callable[[str], str]`)

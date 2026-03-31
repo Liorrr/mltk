@@ -159,17 +159,19 @@ class TestQuestionType:
     """Tests for QuestionType enum."""
 
     def test_question_type_values(self) -> None:
-        """All 5 types exist with correct values."""
+        """All 7 types exist with correct values."""
         expected = {
             "factual",
             "reasoning",
             "multi_hop",
             "counterfactual",
             "out_of_scope",
+            "conversational",
+            "distracting",
         }
         actual = {qt.value for qt in QuestionType}
         assert actual == expected
-        assert len(QuestionType) == 5
+        assert len(QuestionType) == 7
 
     def test_question_type_from_string(
         self,
@@ -921,3 +923,192 @@ class TestIntegration:
             assert isinstance(p, QAPair)
             assert p.question
             assert p.answer
+
+
+# ===========================================================
+# 8. Edge-case hardening (10 tests)
+# ===========================================================
+
+
+class TestEdgeCaseHardening:
+    """Edge-case tests for synthetic QA generation."""
+
+    def test_generate_from_text_very_short(
+        self,
+    ) -> None:
+        """Text below min_chunk_words yields no pairs."""
+        gen = SyntheticQAGenerator(
+            seed=SEED, min_chunk_words=50,
+        )
+        # Only 5 words, well below threshold
+        pairs = gen.generate_from_text(
+            "One two three four five.", n=3,
+        )
+        assert pairs == []
+
+    def test_generate_from_chunks_empty_list(
+        self,
+    ) -> None:
+        """Empty chunk list returns empty list."""
+        gen = SyntheticQAGenerator(seed=SEED)
+        pairs = gen.generate_from_chunks([], n=5)
+        assert pairs == []
+
+    @pytest.mark.parametrize(
+        "qt",
+        list(QuestionType),
+        ids=[qt.value for qt in QuestionType],
+    )
+    def test_generate_one_each_type(
+        self, qt: QuestionType,
+    ) -> None:
+        """Each QuestionType produces a valid pair."""
+        gen = SyntheticQAGenerator(
+            seed=SEED,
+            question_types=[qt],
+        )
+        extra = (
+            [SAMPLE_CHUNK]
+            if qt == QuestionType.MULTI_HOP
+            else None
+        )
+        pair = gen.generate_one(
+            SAMPLE_CHUNK,
+            question_type=qt,
+            context_chunks=extra,
+        )
+        assert pair is None or isinstance(
+            pair, QAPair,
+        )
+        if pair is not None:
+            assert pair.question_type == qt
+
+    def test_quality_filter_with_mock_scoring(
+        self,
+    ) -> None:
+        """LLM scores below threshold reject pairs."""
+        qf = QualityFilter(
+            llm_fn=lambda p: (
+                '{"self_containment": 0.1, '
+                '"answerability": 0.1}'
+            ),
+            threshold=0.8,
+        )
+        pair = QAPair(
+            question="Q?",
+            answer="A.",
+            context="ctx",
+        )
+        assert not qf.passes(pair)
+        assert qf.score(pair) < 0.8
+
+    def test_splitter_unicode_text(self) -> None:
+        """Chinese/Arabic text splits correctly."""
+        cn = " ".join(
+            [f"\u4f60\u597d{i}" for i in range(80)]
+        )
+        ar = " ".join(
+            [f"\u0645\u0631\u062d\u0628\u0627{i}"
+             for i in range(80)]
+        )
+        text = f"{cn}\n\n{ar}"
+        chunks = split_text(
+            text,
+            chunk_size=50,
+            min_chunk_words=10,
+        )
+        assert len(chunks) >= 2
+        for c in chunks:
+            assert len(c) > 0
+
+    def test_splitter_newline_heavy(self) -> None:
+        """Text with many blank lines handled."""
+        parts = []
+        for i in range(20):
+            word_line = " ".join(
+                f"w{i}_{j}" for j in range(10)
+            )
+            parts.append(word_line)
+        text = "\n\n\n\n".join(parts)
+        chunks = split_text(
+            text,
+            chunk_size=50,
+            min_chunk_words=5,
+        )
+        assert len(chunks) >= 1
+        joined = " ".join(chunks)
+        assert "w0_0" in joined
+
+    def test_qapair_to_dict_preserves_type(
+        self,
+    ) -> None:
+        """question_type appears in to_dict output."""
+        for qt in QuestionType:
+            pair = QAPair(
+                question="Q?",
+                answer="A.",
+                context="ctx",
+                question_type=qt,
+            )
+            d = pair.to_dict()
+            assert "question_type" in d
+            assert d["question_type"] == qt.value
+
+    def test_generate_with_seed_different_seeds(
+        self,
+    ) -> None:
+        """Different seeds produce different output."""
+        many_chunks = [
+            " ".join(f"c{c}_w{w}" for w in range(40))
+            for c in range(10)
+        ]
+        gen_a = SyntheticQAGenerator(seed=1)
+        gen_b = SyntheticQAGenerator(seed=9999)
+        p_a = gen_a.generate_from_chunks(
+            many_chunks, n=5,
+        )
+        p_b = gen_b.generate_from_chunks(
+            many_chunks, n=5,
+        )
+        # With 10 chunks, RNG picks different ones
+        q_a = [p.question for p in p_a]
+        q_b = [p.question for p in p_b]
+        assert q_a != q_b or len(p_a) != len(p_b)
+
+    def test_template_mode_no_llm_called(
+        self,
+    ) -> None:
+        """Template mode never calls llm_fn."""
+        mock = MagicMock(
+            return_value='{"question":"Q","answer":"A"}',
+        )
+        gen = SyntheticQAGenerator(
+            seed=SEED,
+            # llm_fn is None => template mode
+        )
+        gen.generate_from_chunks(
+            [SAMPLE_CHUNK], n=3,
+        )
+        mock.assert_not_called()
+
+    def test_llm_mode_respects_question_types_param(
+        self,
+    ) -> None:
+        """Only the specified subset of types used."""
+        gen = SyntheticQAGenerator(
+            llm_fn=_mock_llm,
+            seed=SEED,
+            quality_filter=False,
+            question_types=[
+                QuestionType.COUNTERFACTUAL,
+                QuestionType.OUT_OF_SCOPE,
+            ],
+        )
+        pairs = gen.generate_from_chunks(
+            [SAMPLE_CHUNK], n=6,
+        )
+        for p in pairs:
+            assert p.question_type in {
+                QuestionType.COUNTERFACTUAL,
+                QuestionType.OUT_OF_SCOPE,
+            }

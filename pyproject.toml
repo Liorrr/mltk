@@ -113,6 +113,8 @@ select = ["E", "F", "W", "I", "UP", "B", "A", "C4", "PT"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/mltk/server/portal.py" = ["E501"]  # embedded HTML/JS template
+"src/mltk/cli/security_scan.py" = ["B008"]  # typer.Option in defaults is idiomatic Typer
+"tests/test_cli/test_security_scan.py" = ["PT019"]  # fixtures used for side effects
 
 [tool.mypy]
 python_version = "3.10"

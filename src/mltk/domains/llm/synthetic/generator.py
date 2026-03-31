@@ -39,6 +39,7 @@ from mltk.domains.llm.synthetic._templates import (
     build_prompt,
     declarative_to_interrogative,
     extract_key_sentences,
+    parse_conversational_response,
     parse_response,
 )
 
@@ -64,6 +65,10 @@ class QuestionType(str, Enum):
     - **OUT_OF_SCOPE**: Question is related to the topic but
       unanswerable from the context.  Tests refusal and
       "I don't know" behavior.
+    - **CONVERSATIONAL**: Multi-turn dialogue where follow-up
+      questions build on previous answers.
+    - **DISTRACTING**: Questions with misleading elements
+      injected from a different context chunk.
 
     Example::
 
@@ -80,6 +85,8 @@ class QuestionType(str, Enum):
     MULTI_HOP = "multi_hop"
     COUNTERFACTUAL = "counterfactual"
     OUT_OF_SCOPE = "out_of_scope"
+    CONVERSATIONAL = "conversational"
+    DISTRACTING = "distracting"
 
 
 # ---------------------------------------------------------------
@@ -461,6 +468,458 @@ class SyntheticQAGenerator:
                     pair.to_dict(), ensure_ascii=False,
                 )
                 f.write(line + "\n")
+
+    # ---------------------------------------------------------
+    # v2: Multi-hop, Conversational, Distracting
+    # ---------------------------------------------------------
+
+    def generate_multi_hop(
+        self,
+        chunks: list[str],
+        n: int = 5,
+    ) -> list[QAPair]:
+        """Generate multi-hop questions from chunk pairs.
+
+        Selects pairs (or triples) of chunks and generates
+        questions that require cross-chunk reasoning.
+
+        Args:
+            chunks: List of text chunks.  Must contain at
+                least 2 chunks.
+            n: Target number of QA pairs to generate.
+
+        Returns:
+            List of ``QAPair`` with
+            ``question_type=MULTI_HOP`` and context set
+            to the list of source chunks.
+        """
+        if len(chunks) < 2:
+            return []
+
+        pairs: list[QAPair] = []
+        indices = list(range(len(chunks)))
+
+        for i in range(n):
+            if len(pairs) >= n:
+                break
+
+            idx_a = indices[i % len(indices)]
+            idx_b = indices[
+                (i + 1) % len(indices)
+            ]
+            if idx_a == idx_b:
+                idx_b = indices[
+                    (i + 2) % len(indices)
+                ]
+
+            selected = [chunks[idx_a], chunks[idx_b]]
+
+            pair = self._generate_multi_hop_pair(
+                selected,
+            )
+            if pair is not None:
+                pair.metadata["chunk_indices"] = [
+                    idx_a, idx_b,
+                ]
+                pairs.append(pair)
+
+        return pairs
+
+    def _generate_multi_hop_pair(
+        self,
+        selected_chunks: list[str],
+    ) -> QAPair | None:
+        """Generate one multi-hop pair from chunks."""
+        if self._llm_fn is not None:
+            return self._llm_multi_hop_enhanced(
+                selected_chunks,
+            )
+        return self._template_multi_hop_enhanced(
+            selected_chunks,
+        )
+
+    def _template_multi_hop_enhanced(
+        self,
+        selected_chunks: list[str],
+    ) -> QAPair | None:
+        """Template multi-hop from N chunks."""
+        sentences: list[str] = []
+        for chunk in selected_chunks:
+            sents = extract_key_sentences(chunk, 1)
+            if sents:
+                sentences.append(sents[0])
+
+        if len(sentences) < 2:
+            return None
+
+        question = (
+            "Considering that "
+            f"{sentences[0].strip().rstrip('.')} "
+            f"and {sentences[1].strip().rstrip('.')}"
+            ", what can be concluded?"
+        )
+        answer = " ".join(
+            s.strip() for s in sentences
+        )
+
+        return QAPair(
+            question=question,
+            answer=answer,
+            context=list(selected_chunks),
+            question_type=QuestionType.MULTI_HOP,
+            metadata={"mode": "template"},
+        )
+
+    def _llm_multi_hop_enhanced(
+        self,
+        selected_chunks: list[str],
+    ) -> QAPair | None:
+        """LLM multi-hop from N chunks."""
+        assert self._llm_fn is not None
+
+        prompt = build_prompt(
+            "multi_hop_enhanced",
+            context=selected_chunks[0],
+            contexts=selected_chunks,
+        )
+
+        for attempt in range(1 + self._max_retries):
+            try:
+                raw = self._llm_fn(prompt)
+                parsed = parse_response(raw)
+                if parsed is None:
+                    continue
+
+                pair = QAPair(
+                    question=parsed["question"],
+                    answer=parsed["answer"],
+                    context=list(selected_chunks),
+                    question_type=(
+                        QuestionType.MULTI_HOP
+                    ),
+                    metadata={
+                        "mode": "llm",
+                        "attempt": attempt + 1,
+                    },
+                )
+
+                if self._quality_filter_enabled:
+                    score = self._quality.score(pair)
+                    pair.metadata[
+                        "quality_score"
+                    ] = score
+                    if score < self._quality_threshold:
+                        continue
+
+                return pair
+
+            except Exception:  # noqa: BLE001
+                continue
+
+        return None
+
+    def generate_conversational(
+        self,
+        chunks: list[str],
+        n: int = 5,
+        turns: int = 2,
+    ) -> list[list[QAPair]]:
+        """Generate multi-turn conversations from chunks.
+
+        Each item in the returned list is a conversation
+        (a list of ``QAPair`` objects forming a dialogue).
+        Follow-up questions build on previous answers.
+
+        Args:
+            chunks: List of text chunks to generate from.
+            n: Number of conversations to generate.
+            turns: Number of question-answer turns per
+                conversation.  Default 2.
+
+        Returns:
+            List of conversations.  Each conversation is
+            a list of ``QAPair`` with
+            ``question_type=CONVERSATIONAL``.
+        """
+        if not chunks:
+            return []
+
+        conversations: list[list[QAPair]] = []
+        indices = list(range(len(chunks)))
+
+        for i in range(n):
+            if len(conversations) >= n:
+                break
+
+            idx = indices[i % len(indices)]
+            conv = self._generate_conversation(
+                chunks[idx], turns=turns,
+            )
+            if conv:
+                for pair in conv:
+                    pair.metadata["chunk_index"] = idx
+                conversations.append(conv)
+
+        return conversations
+
+    def _generate_conversation(
+        self,
+        chunk: str,
+        turns: int = 2,
+    ) -> list[QAPair] | None:
+        """Generate one multi-turn conversation."""
+        if self._llm_fn is not None:
+            return self._llm_conversation(
+                chunk, turns,
+            )
+        return self._template_conversation(
+            chunk, turns,
+        )
+
+    def _template_conversation(
+        self,
+        chunk: str,
+        turns: int = 2,
+    ) -> list[QAPair] | None:
+        """Template conversation from a chunk."""
+        sentences = extract_key_sentences(
+            chunk, turns * 2,
+        )
+        if len(sentences) < turns:
+            return None
+
+        conv: list[QAPair] = []
+        for i in range(turns):
+            sent = sentences[i]
+            if i == 0:
+                question = declarative_to_interrogative(
+                    sent,
+                )
+                if question is None:
+                    question = (
+                        "What is described here: "
+                        f"{sent}?"
+                    )
+            else:
+                prev_answer = conv[i - 1].answer
+                question = (
+                    f"Following up on "
+                    f'"{prev_answer}", '
+                    f"what else can be said?"
+                )
+
+            conv.append(QAPair(
+                question=question,
+                answer=sent.strip().rstrip("."),
+                context=chunk,
+                question_type=(
+                    QuestionType.CONVERSATIONAL
+                ),
+                metadata={
+                    "mode": "template",
+                    "turn": i + 1,
+                },
+            ))
+
+        return conv
+
+    def _llm_conversation(
+        self,
+        chunk: str,
+        turns: int = 2,
+    ) -> list[QAPair] | None:
+        """LLM conversation from a chunk."""
+        assert self._llm_fn is not None
+
+        prompt = build_prompt(
+            "conversational",
+            context=chunk,
+            turns=turns,
+        )
+
+        for attempt in range(1 + self._max_retries):
+            try:
+                raw = self._llm_fn(prompt)
+                parsed = parse_conversational_response(
+                    raw,
+                )
+                if parsed is None:
+                    continue
+                if len(parsed) < turns:
+                    continue
+
+                conv: list[QAPair] = []
+                for i, turn_data in enumerate(
+                    parsed[:turns],
+                ):
+                    conv.append(QAPair(
+                        question=turn_data["question"],
+                        answer=turn_data["answer"],
+                        context=chunk,
+                        question_type=(
+                            QuestionType.CONVERSATIONAL
+                        ),
+                        metadata={
+                            "mode": "llm",
+                            "turn": i + 1,
+                            "attempt": attempt + 1,
+                        },
+                    ))
+                return conv
+
+            except Exception:  # noqa: BLE001
+                continue
+
+        return None
+
+    def generate_distracting(
+        self,
+        chunks: list[str],
+        n: int = 5,
+    ) -> list[QAPair]:
+        """Generate questions with misleading elements.
+
+        Pairs each target chunk with a random distractor
+        from a different chunk.  The generated question
+        includes a misleading detail from the distractor.
+
+        Args:
+            chunks: List of text chunks.  Must contain at
+                least 2 chunks.
+            n: Target number of QA pairs to generate.
+
+        Returns:
+            List of ``QAPair`` with
+            ``question_type=DISTRACTING``.  Each pair's
+            metadata includes ``distractor_chunk``.
+        """
+        if len(chunks) < 2:
+            return []
+
+        pairs: list[QAPair] = []
+        indices = list(range(len(chunks)))
+
+        for i in range(n):
+            if len(pairs) >= n:
+                break
+
+            target_idx = indices[i % len(indices)]
+            distractor_idx = indices[
+                (i + 1) % len(indices)
+            ]
+            if target_idx == distractor_idx:
+                distractor_idx = indices[
+                    (i + 2) % len(indices)
+                ]
+
+            pair = self._generate_distracting_pair(
+                chunks[target_idx],
+                chunks[distractor_idx],
+            )
+            if pair is not None:
+                pair.metadata[
+                    "chunk_index"
+                ] = target_idx
+                pair.metadata[
+                    "distractor_chunk"
+                ] = chunks[distractor_idx]
+                pairs.append(pair)
+
+        return pairs
+
+    def _generate_distracting_pair(
+        self,
+        target: str,
+        distractor: str,
+    ) -> QAPair | None:
+        """Generate one distracting pair."""
+        if self._llm_fn is not None:
+            return self._llm_distracting(
+                target, distractor,
+            )
+        return self._template_distracting(
+            target, distractor,
+        )
+
+    def _template_distracting(
+        self,
+        target: str,
+        distractor: str,
+    ) -> QAPair | None:
+        """Template distracting question."""
+        target_sents = extract_key_sentences(
+            target, 1,
+        )
+        distractor_sents = extract_key_sentences(
+            distractor, 1,
+        )
+        if not target_sents or not distractor_sents:
+            return None
+
+        t_sent = target_sents[0].strip().rstrip(".")
+        d_sent = distractor_sents[0].strip().rstrip(".")
+
+        question = (
+            f"While {d_sent.lower()}, {t_sent.lower()}?"
+        )
+        answer = t_sent
+
+        return QAPair(
+            question=question,
+            answer=answer,
+            context=target,
+            question_type=QuestionType.DISTRACTING,
+            metadata={"mode": "template"},
+        )
+
+    def _llm_distracting(
+        self,
+        target: str,
+        distractor: str,
+    ) -> QAPair | None:
+        """LLM distracting question."""
+        assert self._llm_fn is not None
+
+        prompt = build_prompt(
+            "distracting",
+            context=target,
+            distractor=distractor,
+        )
+
+        for attempt in range(1 + self._max_retries):
+            try:
+                raw = self._llm_fn(prompt)
+                parsed = parse_response(raw)
+                if parsed is None:
+                    continue
+
+                pair = QAPair(
+                    question=parsed["question"],
+                    answer=parsed["answer"],
+                    context=target,
+                    question_type=(
+                        QuestionType.DISTRACTING
+                    ),
+                    metadata={
+                        "mode": "llm",
+                        "attempt": attempt + 1,
+                    },
+                )
+
+                if self._quality_filter_enabled:
+                    score = self._quality.score(pair)
+                    pair.metadata[
+                        "quality_score"
+                    ] = score
+                    if score < self._quality_threshold:
+                        continue
+
+                return pair
+
+            except Exception:  # noqa: BLE001
+                continue
+
+        return None
 
     # ---------------------------------------------------------
     # Template mode (deterministic, zero-dep)

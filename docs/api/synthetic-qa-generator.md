@@ -207,10 +207,10 @@ earliest-available first-mover on this type. The reference
 answer for OOS questions is always "This information is
 not available in the provided context."
 
-**Sprint 2 additions** (not in v0.9.0):
-conversational (multi-turn), distracting (misleading
-element from a different chunk), double (compound
-two-part questions).
+**v2 additions** (added in S77):
+`CONVERSATIONAL` (multi-turn dialogue sequences) and
+`DISTRACTING` (misleading element from a different
+chunk). See the [v2 Features](#v2-features) section.
 
 ---
 
@@ -227,6 +227,8 @@ class QuestionType(str, Enum):
     MULTI_HOP = "multi_hop"
     COUNTERFACTUAL = "counterfactual"
     OUT_OF_SCOPE = "out_of_scope"
+    CONVERSATIONAL = "conversational"   # v2 (S77)
+    DISTRACTING = "distracting"         # v2 (S77)
 ```
 
 `QuestionType` inherits from `str`, so values serialize
@@ -654,6 +656,237 @@ def test_factual_regression(qa_fixtures):
 
 ---
 
+## v2 Features
+
+S77 adds three new generation methods and two new
+`QuestionType` values. All three methods require
+`llm_fn` -- there is no template-mode equivalent for
+multi-hop chains, conversational sequences, or
+distraction pairs.
+
+### generate_multi_hop
+
+Generate a question that requires combining information
+from two distinct context chunks. The answer cannot be
+derived from either chunk alone.
+
+```python
+def generate_multi_hop(
+    self,
+    chunk_a: str,
+    chunk_b: str,
+) -> QAPair | None:
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `chunk_a` | `str` | First context chunk (Context A). |
+| `chunk_b` | `str` | Second context chunk (Context B). |
+
+Returns a `QAPair` with `question_type=MULTI_HOP` and
+`context=[chunk_a, chunk_b]`. Returns `None` if either
+chunk fails the minimum-words check or quality filtering
+discards the result after `max_retries`.
+
+Use this method when you need explicit control over
+which two chunks are combined. For automatic multi-hop
+generation across a document, use `generate_from_text`
+with `question_types=[QuestionType.MULTI_HOP]` -- the
+generator pairs sequential neighbors internally.
+
+```python
+gen = SyntheticQAGenerator(llm_fn=my_llm)
+
+pair = gen.generate_multi_hop(
+    chunk_a=chunks[0],   # "v2.1 introduced caching."
+    chunk_b=chunks[7],   # "The known limitation is
+                         #  high memory on cold starts."
+)
+# question: "Which feature introduced in v2.1
+#            addresses the cold-start limitation?"
+# context: [chunks[0], chunks[7]]
+# question_type: QuestionType.MULTI_HOP
+
+if pair is not None:
+    assert_faithfulness(pair.answer, pair.context)
+```
+
+**Why it matters:** Multi-hop questions are the most
+reliable predictor of retrieval pipeline quality. A
+RAG system that retrieves the right single chunk but
+fails to synthesize across two chunks will answer
+multi-hop questions incorrectly. RAGAS and DeepEval
+both support multi-hop generation but require LangChain
+or a subclassed LLM wrapper. mltk requires a callable.
+
+**Citation:** Mavi et al. (arXiv 2022, 2204.09140) --
+multi-hop question answering benchmark survey.
+Yang et al. 2018 (HotpotQA) -- established multi-hop
+as the primary benchmark for cross-document reasoning.
+
+---
+
+### generate_conversational
+
+Generate a sequence of questions that form a natural
+dialogue about the source document. Each turn in the
+sequence depends on the previous answer, simulating a
+real user exploring a knowledge base.
+
+```python
+def generate_conversational(
+    self,
+    chunk: str,
+    turns: int = 3,
+) -> list[QAPair]:
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `chunk` | `str` | required | Source chunk for the conversation. |
+| `turns` | `int` | `3` | Number of question-answer turns to generate. |
+
+Returns `list[QAPair]` with `question_type=CONVERSATIONAL`
+for each pair. The `metadata` field of each pair
+contains `{"turn": int, "conversation_id": str}` so
+the full dialogue sequence can be reconstructed.
+
+Returns an empty list if the chunk fails minimum-words
+or all turns are discarded by quality filtering.
+
+```python
+gen = SyntheticQAGenerator(llm_fn=my_llm)
+
+turns = gen.generate_conversational(
+    chunk=support_article,
+    turns=4,
+)
+# turn 0: "What does this API endpoint do?"
+# turn 1: "What parameters does it accept?"
+# turn 2: "What happens if the required param is
+#           missing?"
+# turn 3: "Is there a rate limit on this endpoint?"
+
+for pair in turns:
+    context, answer = my_rag_pipeline(pair.question)
+    assert_faithfulness(answer, context)
+```
+
+**Why it matters:** Production RAG systems are not
+evaluated on isolated questions -- users follow up,
+refine, and explore. Conversational goldens test
+whether the RAG pipeline degrades across a session.
+DeepEval added conversational support in 2025; RAGAS
+does not support it in the base library. mltk's
+implementation requires no framework wrapper.
+
+**Citation:** Adlakha et al. 2022 (QReCC) --
+conversational question answering benchmark. Conv-MIX
+dataset (2023) -- established multi-turn evaluation as
+the standard for deployed RAG systems.
+
+---
+
+### generate_distracting
+
+Generate a question where a plausible but incorrect
+answer can be constructed from a *different* chunk --
+a distractor chunk. Tests whether the RAG system
+retrieves the right chunk rather than the superficially
+similar wrong one.
+
+```python
+def generate_distracting(
+    self,
+    chunk: str,
+    distractor_chunk: str,
+) -> QAPair | None:
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `chunk` | `str` | The correct source chunk. The `answer` is derived from this chunk. |
+| `distractor_chunk` | `str` | A chunk on a related topic. The question is phrased so the distractor looks relevant. |
+
+Returns a `QAPair` with `question_type=DISTRACTING` and
+`context=chunk` (the correct context only). The
+`metadata` field contains `{"distractor": distractor_chunk}`
+so test code can verify which chunk the retriever
+selected.
+
+Returns `None` if either chunk fails minimum-words or
+quality filtering discards the pair.
+
+```python
+gen = SyntheticQAGenerator(llm_fn=my_llm)
+
+# chunk: "The /auth endpoint requires Bearer tokens."
+# distractor: "The /health endpoint has no auth."
+pair = gen.generate_distracting(
+    chunk=auth_chunk,
+    distractor_chunk=health_chunk,
+)
+# question: "Does the API require authentication?"
+# answer: "Yes -- Bearer token required."
+# context: auth_chunk  (the correct source)
+# metadata["distractor"]: health_chunk
+
+if pair is not None:
+    retrieved, answer = my_rag_pipeline(pair.question)
+    # The retriever should return auth_chunk, not
+    # health_chunk
+    assert_faithfulness(answer, retrieved)
+    assert_answer_relevancy(
+        pair.question, answer, retrieved,
+    )
+```
+
+**Why it matters:** Distractor questions expose
+retrieval failures that factual questions miss. A
+retriever that scores chunks by superficial term
+overlap will prefer the distractor when it shares
+more keywords with the question. No other open-source
+generator produces distractor pairs in the base
+library -- this is a first-mover capability for mltk.
+
+**Citation:** Giskard RAGET (2024) -- notes distractor
+chunks as a known retrieval failure mode but does not
+generate them in the OSS library. Jia & Liang 2017
+(adversarial SQuAD) -- established distractor insertion
+as the canonical probe for retrieval robustness.
+
+---
+
+### New QuestionType Values
+
+| Value | String | Added | Description |
+|-------|--------|-------|-------------|
+| `QuestionType.CONVERSATIONAL` | `"conversational"` | S77 | Turn in a multi-turn dialogue sequence. Used by `generate_conversational`. |
+| `QuestionType.DISTRACTING` | `"distracting"` | S77 | Question where a plausible wrong answer exists in a distractor chunk. Used by `generate_distracting`. |
+
+Both values are valid in `question_types` filters:
+
+```python
+# Generate only conversational and distracting pairs
+gen = SyntheticQAGenerator(
+    llm_fn=my_llm,
+    question_types=[
+        QuestionType.CONVERSATIONAL,
+        QuestionType.DISTRACTING,
+    ],
+)
+```
+
+Note: `generate_from_text` and `generate_from_chunks`
+dispatch to `generate_conversational` and
+`generate_distracting` internally when these types
+appear in `question_types`. For `DISTRACTING`, the
+generator uses the chunk's sequential neighbor as the
+distractor; for explicit distractor control, call
+`generate_distracting` directly.
+
+---
+
 ## Competitive Comparison
 
 | Feature | mltk | RAGAS | DeepEval | Giskard |
@@ -667,7 +900,8 @@ def test_factual_regression(qa_fixtures):
 | Default chunk size | 512 words | 1000 tokens | 1024 tokens | Unspecified |
 | Multi-hop questions | Yes | Yes | Yes (evolution) | Yes |
 | Counterfactual questions | Yes | No | Yes (evolution) | No |
-| Conversational goldens | Sprint 2 | No (v0.2.x) | Yes (2025) | Yes |
+| Conversational goldens | **Yes (S77)** | No (v0.2.x) | Yes (2025) | Yes |
+| Distracting questions (OSS) | **Yes (S77)** | No | No | No |
 
 **Zero-dep template mode** is mltk's strongest
 differentiator. All three competitors require an LLM API

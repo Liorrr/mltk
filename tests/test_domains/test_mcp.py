@@ -1426,3 +1426,241 @@ class TestEdgeCases:
         )
         assert result.passed is True
         assert result.details["actual_steps"] == 2
+
+
+# ===============================================================
+# Edge-case hardening — round 2 (10 tests)
+# ===============================================================
+
+
+class TestEdgeCaseHardeningR2:
+    """Additional edge-case tests for MCP assertions."""
+
+    def test_schema_deeply_nested(self) -> None:
+        """3+ levels of nesting validated correctly."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "l1": {
+                    "type": "object",
+                    "properties": {
+                        "l2": {
+                            "type": "object",
+                            "properties": {
+                                "l3": {
+                                    "type": "string",
+                                },
+                            },
+                            "required": ["l3"],
+                        },
+                    },
+                    "required": ["l2"],
+                },
+            },
+            "required": ["l1"],
+        }
+        # Valid 3-level nesting
+        result = assert_mcp_tool_schema_conformance(
+            schema,
+            {"l1": {"l2": {"l3": "deep"}}},
+            tool_name="nested_tool",
+        )
+        assert result.passed is True
+
+        # Invalid: l3 is int instead of string
+        with pytest.raises(MltkAssertionError):
+            assert_mcp_tool_schema_conformance(
+                schema,
+                {"l1": {"l2": {"l3": 42}}},
+            )
+
+    def test_selection_all_tools_match(self) -> None:
+        """100% precision and recall when exact match."""
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="search",
+                    server="docs",
+                    arguments={"q": "a"},
+                ),
+                McpToolCall(
+                    name="read",
+                    server="fs",
+                    arguments={"p": "/x"},
+                ),
+                McpToolCall(
+                    name="write",
+                    server="fs",
+                    arguments={"p": "/y"},
+                ),
+            ],
+        )
+        expected = [
+            "docs::search",
+            "fs::read",
+            "fs::write",
+        ]
+        result = assert_mcp_tool_selection(
+            trace, expected,
+        )
+        assert result.passed is True
+        assert result.details["precision"] == 1.0
+        assert result.details["recall"] == 1.0
+
+    def test_resource_mixed_constraints(
+        self,
+    ) -> None:
+        """expected + forbidden + max_reads all set."""
+        trace = McpTrace(
+            resource_accesses=[
+                McpResourceAccess(
+                    uri="file:///a.txt",
+                ),
+                McpResourceAccess(
+                    uri="file:///b.txt",
+                ),
+                McpResourceAccess(
+                    uri="file:///c.txt",
+                ),
+            ],
+        )
+        result = assert_mcp_resource_access(
+            trace,
+            expected_uris=["file:///a.txt"],
+            forbidden_uris=["file:///secret.key"],
+            max_reads=5,
+        )
+        assert result.passed is True
+
+    def test_context_high_utilization_pass(
+        self,
+    ) -> None:
+        """89% utilization with max 0.9 passes."""
+        trace = McpTrace(
+            total_tokens=8900,
+            model_context_limit=10000,
+        )
+        result = assert_mcp_context_window(
+            trace, max_utilization=0.9,
+        )
+        assert result.passed is True
+        u = result.details["utilization"]
+        assert abs(u - 0.89) < 1e-9
+
+    def test_recovery_long_retry_chain(
+        self,
+    ) -> None:
+        """10 retries of same tool exceeds default."""
+        calls = [
+            McpToolCall(
+                name="fetch",
+                arguments={"url": "http://x"},
+                error="timeout",
+            )
+            for _ in range(10)
+        ]
+        trace = McpTrace(tool_calls=calls)
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_mcp_error_recovery(trace)
+        r = exc.value.result
+        assert r.details["max_retries_seen"] >= 10
+
+    def test_mcp_trace_empty_defaults(self) -> None:
+        """Default McpTrace has sensible empty values."""
+        trace = McpTrace()
+        assert trace.tool_calls == []
+        assert trace.resource_accesses == []
+        assert trace.total_tokens == 0
+        assert trace.model_context_limit == 0
+        assert trace.step_count == 0
+        assert trace.tool_names == []
+        assert trace.failed_calls == []
+
+    def test_tool_call_inherits_tool_call(
+        self,
+    ) -> None:
+        """McpToolCall has all ToolCall fields."""
+        tc = McpToolCall(
+            name="read",
+            server="fs",
+            arguments={"path": "/x"},
+            result="file contents",
+            error=None,
+            duration_ms=12.5,
+        )
+        assert isinstance(tc, ToolCall)
+        assert tc.name == "read"
+        assert tc.arguments == {"path": "/x"}
+        assert tc.result == "file contents"
+        assert tc.error is None
+        assert tc.duration_ms == 12.5
+        assert tc.server == "fs"
+
+    def test_resource_access_large_uri_set(
+        self,
+    ) -> None:
+        """50 URIs, 5 forbidden, none overlap."""
+        accesses = [
+            McpResourceAccess(
+                uri=f"file:///data/{i}.csv",
+            )
+            for i in range(50)
+        ]
+        forbidden = [
+            f"file:///secret/{i}.key"
+            for i in range(5)
+        ]
+        trace = McpTrace(
+            resource_accesses=accesses,
+        )
+        result = assert_mcp_resource_access(
+            trace,
+            expected_uris=[
+                "file:///data/0.csv",
+                "file:///data/49.csv",
+            ],
+            forbidden_uris=forbidden,
+            max_reads=100,
+        )
+        assert result.passed is True
+
+    def test_parse_empty_string(self) -> None:
+        """_parse_server_tool('') returns ('', '')."""
+        server, tool = _parse_server_tool("")
+        assert server == ""
+        assert tool == ""
+
+    def test_schema_enum_validation(self) -> None:
+        """Enum constraint in schema checked via mock.
+
+        The mock validator does not enforce enum, so
+        the test verifies the assertion still passes
+        when args match the schema type constraint.
+        """
+        schema = {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                },
+                "priority": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5,
+                },
+            },
+            "required": ["status", "priority"],
+        }
+        result = assert_mcp_tool_schema_conformance(
+            schema,
+            {"status": "active", "priority": 3},
+            tool_name="update_task",
+        )
+        assert result.passed is True
+
+        # Out-of-range priority fails
+        with pytest.raises(MltkAssertionError):
+            assert_mcp_tool_schema_conformance(
+                schema,
+                {"status": "active", "priority": 9},
+            )
