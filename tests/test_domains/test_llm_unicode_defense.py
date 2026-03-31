@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from mltk.domains.llm._utils import _normalize, _tokenize
 
-
 # ===================================================================
 # _normalize defense tests
 # ===================================================================
@@ -191,3 +190,95 @@ class TestUnicodeDefense:
         assert "machine" in source_tokens
         overlap = len(attack_tokens & source_tokens)
         assert overlap >= 2  # "machine" + "learning"
+
+
+# ===================================================================
+# Hardening: parametrized + edge-case tests (appended)
+# ===================================================================
+
+
+class TestNormalizeHardening:
+    """Extra edge-case tests for _normalize."""
+
+    def test_normalize_empty_string(self) -> None:
+        """Empty string stays empty."""
+        assert _normalize("") == ""
+
+    def test_normalize_only_whitespace(self) -> None:
+        """Whitespace-only string preserved as-is."""
+        assert _normalize("   ") == "   "
+
+    def test_normalize_mixed_scripts(self) -> None:
+        """Latin + Cyrillic + Arabic coexist."""
+        text = "Hello \u041f\u0440\u0438\u0432\u0435\u0442"
+        text += " \u0645\u0631\u062d\u0628\u0627"
+        result = _normalize(text)
+        assert "Hello" in result
+        # Cyrillic preserved
+        assert "\u041f" in result or "\u043f" in result
+        # Arabic preserved
+        assert "\u0645" in result
+
+    def test_normalize_combining_diacritics(self) -> None:
+        """e + combining accent -> composed char."""
+        import unicodedata
+        raw = "caf\u0065\u0301"
+        result = _normalize(raw)
+        expected = unicodedata.normalize("NFKC", raw)
+        assert result == expected
+        assert "\u00e9" in result
+
+    def test_normalize_fullwidth_ascii(self) -> None:
+        """Fullwidth digits and letters normalize."""
+        fw = "\uff11\uff12\uff13\uff21\uff22"
+        result = _normalize(fw)
+        assert result == "123AB"
+
+    def test_normalize_hangul_jamo(self) -> None:
+        """Korean compatibility jamo normalized."""
+        import unicodedata
+        compat = "\u3131\u3132\u3133"
+        result = _normalize(compat)
+        expected = unicodedata.normalize("NFKC", compat)
+        assert result == expected
+
+    def test_normalize_idempotent(self) -> None:
+        """normalize(normalize(x)) == normalize(x)."""
+        texts = [
+            "Hello\u200bWorld",
+            "\uff21\uff22\uff23",
+            "caf\u0065\u0301",
+            "\u202eReverse\u202c",
+            "",
+        ]
+        for t in texts:
+            once = _normalize(t)
+            twice = _normalize(once)
+            assert once == twice
+
+
+class TestTokenizeHardening:
+    """Extra edge-case tests for _tokenize."""
+
+    def test_tokenize_zero_width_chars(self) -> None:
+        """ZWJ, ZWNJ, ZWSP stripped before tokenizing."""
+        text = "hel\u200dlo\u200cwor\u200bld"
+        tokens = _tokenize(text)
+        assert "helloworld" in tokens or (
+            "hello" in tokens and "world" in tokens
+        )
+
+    def test_tokenize_preserves_numbers(self) -> None:
+        """Alphanumeric tokens preserved."""
+        tokens = _tokenize("test123 hello456")
+        assert "test123" in tokens
+        assert "hello456" in tokens
+
+    def test_tokenize_empty_after_strip(self) -> None:
+        """All zero-width chars -> empty token set."""
+        text = (
+            "\u200b\u200c\u200d\ufeff"
+            "\u200b\u200c\u200d"
+        )
+        tokens = _tokenize(text)
+        assert tokens == set()

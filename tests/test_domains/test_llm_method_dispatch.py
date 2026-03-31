@@ -14,14 +14,14 @@ import pytest
 
 from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import TestResult
-from mltk.domains.llm.safety import (
-    _HALLUCINATION_METHODS,
-    assert_no_hallucination,
-)
 from mltk.domains.llm.rag import (
     assert_answer_relevancy,
     assert_context_relevancy,
     assert_faithfulness,
+)
+from mltk.domains.llm.safety import (
+    _HALLUCINATION_METHODS,
+    assert_no_hallucination,
 )
 
 # -- Shared fixtures ------------------------------------------------
@@ -519,3 +519,194 @@ class TestEdgeCases:
             min_coverage=0.3,
         )
         assert "method=lexical" in result.message
+
+
+# ===================================================================
+# Hardening: parametrized + edge-case tests (appended)
+# ===================================================================
+
+
+class TestHardeningMethodDispatch:
+    """Extra edge-case and parametrized tests."""
+
+    def test_hallucination_lexical_exact_match(
+        self,
+    ) -> None:
+        """Claim equals source exactly -> passes."""
+        text = "Paris is the capital of France"
+        result = assert_no_hallucination(
+            [text], [text], method="lexical",
+            min_coverage=0.3,
+        )
+        assert result.passed is True
+        assert result.details["avg_coverage"] >= 0.99
+
+    def test_hallucination_lexical_no_overlap(
+        self,
+    ) -> None:
+        """Zero token overlap -> fails."""
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_hallucination(
+                ["alpha bravo charlie"],
+                ["delta echo foxtrot"],
+                method="lexical",
+                min_coverage=0.3,
+            )
+        r = exc.value.result
+        assert r.details["unsupported_count"] >= 1
+        assert r.details["avg_coverage"] < 0.3
+
+    @pytest.mark.parametrize(
+        "method",
+        ["lexical", "embedding", "nli", "llm"],
+    )
+    def test_faithfulness_all_methods_parametrized(
+        self, method: str,
+    ) -> None:
+        """Each faithfulness method accepts valid input."""
+        if method == "embedding":
+            with patch(
+                "mltk.domains.llm._backends"
+                ".embedding_cosine_single",
+                return_value=0.9,
+            ):
+                result = assert_faithfulness(
+                    ANSWER, CTX, min_score=0.3,
+                    method=method,
+                )
+        elif method == "nli":
+            mock_ret = {
+                "contradiction": 0.02,
+                "entailment": 0.93,
+                "neutral": 0.05,
+                "label": "entailment",
+            }
+            with patch(
+                "mltk.domains.llm._backends"
+                ".nli_entailment_score",
+                return_value=mock_ret,
+            ):
+                result = assert_faithfulness(
+                    ANSWER, CTX, min_score=0.3,
+                    method=method,
+                )
+        elif method == "llm":
+            judge = MagicMock(return_value=0.9)
+            result = assert_faithfulness(
+                ANSWER, CTX, min_score=0.3,
+                method=method, judge_fn=judge,
+            )
+        else:
+            result = assert_faithfulness(
+                ANSWER, CTX, min_score=0.3,
+                method=method,
+            )
+        assert result.passed is True
+        _result_shape_ok(result)
+
+    def test_context_relevancy_empty_context(
+        self,
+    ) -> None:
+        """Empty context string -> fails gracefully."""
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_context_relevancy(
+                QUESTION, "", min_score=0.0,
+            )
+        r = exc.value.result
+        _result_shape_ok(r)
+        assert "empty" in r.message.lower()
+
+    def test_answer_relevancy_long_text(self) -> None:
+        """1000+ word response still works."""
+        rng = __import__("random").Random(42)
+        words = [
+            "the", "model", "explains", "quantum",
+            "physics", "thoroughly", "in", "detail",
+            "with", "examples",
+        ]
+        long_answer = " ".join(
+            rng.choice(words) for _ in range(1100)
+        )
+        result = assert_answer_relevancy(
+            QUESTION, long_answer, min_score=0.0,
+        )
+        _result_shape_ok(result)
+
+    def test_hallucination_unicode_input(self) -> None:
+        """Japanese/Arabic text does not crash."""
+        claims_uni = [
+            "\u6771\u4eac\u306f\u65e5\u672c\u306e"
+            "\u9996\u90fd\u3067\u3059",
+        ]
+        sources_uni = [
+            "\u0627\u0644\u0642\u0627\u0647\u0631\u0629 "
+            "\u0647\u064a \u0639\u0627\u0635\u0645\u0629 "
+            "\u0645\u0635\u0631",
+        ]
+        with pytest.raises(MltkAssertionError):
+            assert_no_hallucination(
+                claims_uni, sources_uni,
+                method="lexical", min_coverage=0.5,
+            )
+
+    def test_method_invalid_raises(self) -> None:
+        """method='invalid' raises MltkAssertionError."""
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_hallucination(
+                CLAIMS, SOURCES, method="invalid",
+            )
+        msg = exc.value.result.message
+        assert "invalid" in msg
+
+    def test_faithfulness_multiple_contexts(
+        self,
+    ) -> None:
+        """List of context strings joined properly."""
+        contexts = [
+            "The Eiffel Tower is in Paris.",
+            "It was built in 1889.",
+        ]
+        result = assert_faithfulness(
+            "The Eiffel Tower is in Paris.",
+            contexts, min_score=0.3,
+        )
+        assert result.passed is True
+
+    @patch(
+        "mltk.domains.llm._backends"
+        ".embedding_cosine_single",
+    )
+    def test_hallucination_embedding_mock(
+        self, mock_embed: MagicMock,
+    ) -> None:
+        """Embedding mock returns controlled score."""
+        mock_embed.return_value = 0.72
+        result = assert_no_hallucination(
+            CLAIMS, SOURCES, method="embedding",
+            min_coverage=0.5,
+        )
+        assert result.passed is True
+        assert result.details["avg_coverage"] == (
+            pytest.approx(0.72, abs=0.01)
+        )
+
+    @patch(
+        "mltk.domains.llm._backends"
+        ".nli_entailment_score",
+    )
+    def test_answer_relevancy_nli_mock(
+        self, mock_nli: MagicMock,
+    ) -> None:
+        """NLI mock for answer relevancy dispatch."""
+        mock_nli.return_value = {
+            "contradiction": 0.02,
+            "entailment": 0.92,
+            "neutral": 0.06,
+            "label": "entailment",
+        }
+        result = assert_answer_relevancy(
+            QUESTION, ANSWER, min_score=0.3,
+            method="nli",
+        )
+        assert result.passed is True
+        assert result.details["method"] == "nli"

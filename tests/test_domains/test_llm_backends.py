@@ -17,7 +17,6 @@ from mltk.domains.llm._backends import (
     normalize_unicode,
 )
 
-
 # ===================================================================
 # normalize_unicode
 # ===================================================================
@@ -82,14 +81,12 @@ class TestSoftmax:
 
     def test_softmax_sums_to_one(self) -> None:
         """Softmax output sums to approximately 1.0."""
-        import numpy as np
         logits = [2.0, 1.0, 0.1]
         probs = _softmax(logits)
         assert sum(probs) == pytest.approx(1.0, abs=1e-6)
 
     def test_softmax_highest_input_wins(self) -> None:
         """Largest logit maps to largest probability."""
-        import numpy as np
         logits = [10.0, 1.0, 0.1]
         probs = _softmax(logits)
         assert probs[0] > probs[1] > probs[2]
@@ -183,7 +180,6 @@ class TestEmbeddingBackend:
     ) -> None:
         """Orthogonal vectors produce score ~0.0."""
         import numpy as np
-        rng = np.random.default_rng(42)
         vec_a = np.zeros(384, dtype=np.float32)
         vec_a[0] = 1.0
         vec_b = np.zeros(384, dtype=np.float32)
@@ -325,3 +321,227 @@ class TestNLIBackend:
         )
         assert result["equivalent"] is True
         assert result["contradiction"] is False
+
+
+# ===================================================================
+# Hardening: parametrized + edge-case tests (appended)
+# ===================================================================
+
+
+class TestEmbeddingHardening:
+    """Extra edge-case tests for embedding backends."""
+
+    @patch(
+        "mltk.domains.llm._backends._load_sentence_model"
+    )
+    def test_embedding_cosine_identical(
+        self, mock_load: MagicMock,
+    ) -> None:
+        """Same text -> cosine = 1.0."""
+        import numpy as np
+        rng = np.random.default_rng(42)
+        vec = rng.standard_normal(384).astype(
+            np.float32,
+        )
+        mock_model = MagicMock()
+        mock_model.encode.return_value = np.array(
+            [vec],
+        )
+        mock_load.return_value = mock_model
+        from mltk.domains.llm._backends import (
+            embedding_cosine_single,
+        )
+        score = embedding_cosine_single(
+            "hello", "hello",
+        )
+        assert score == pytest.approx(1.0, abs=0.01)
+
+    @patch(
+        "mltk.domains.llm._backends._load_sentence_model"
+    )
+    def test_embedding_cosine_orthogonal(
+        self, mock_load: MagicMock,
+    ) -> None:
+        """Orthogonal vectors -> cosine = 0.0."""
+        import numpy as np
+        va = np.zeros(384, dtype=np.float32)
+        va[0] = 1.0
+        vb = np.zeros(384, dtype=np.float32)
+        vb[1] = 1.0
+        mock_model = MagicMock()
+        mock_model.encode.side_effect = [
+            np.array([va]), np.array([vb]),
+        ]
+        mock_load.return_value = mock_model
+        from mltk.domains.llm._backends import (
+            embedding_cosine_pairs,
+        )
+        scores = embedding_cosine_pairs(
+            ["a"], ["b"],
+        )
+        assert scores[0] == pytest.approx(0.0, abs=0.01)
+
+    @patch(
+        "mltk.domains.llm._backends._load_sentence_model"
+    )
+    def test_embedding_cosine_pairs_length(
+        self, mock_load: MagicMock,
+    ) -> None:
+        """N pairs produce N scores."""
+        import numpy as np
+        rng = np.random.default_rng(42)
+        vecs_a = rng.standard_normal(
+            (3, 384),
+        ).astype(np.float32)
+        vecs_b = rng.standard_normal(
+            (3, 384),
+        ).astype(np.float32)
+        mock_model = MagicMock()
+        mock_model.encode.side_effect = [
+            vecs_a, vecs_b,
+        ]
+        mock_load.return_value = mock_model
+        from mltk.domains.llm._backends import (
+            embedding_cosine_pairs,
+        )
+        scores = embedding_cosine_pairs(
+            ["a", "b", "c"], ["d", "e", "f"],
+        )
+        assert len(scores) == 3
+
+    @patch(
+        "mltk.domains.llm._backends._load_sentence_model"
+    )
+    def test_embedding_different_texts(
+        self, mock_load: MagicMock,
+    ) -> None:
+        """Different texts -> cosine < 1.0."""
+        import numpy as np
+        rng = np.random.default_rng(42)
+        va = rng.standard_normal(384).astype(
+            np.float32,
+        )
+        vb = rng.standard_normal(384).astype(
+            np.float32,
+        )
+        mock_model = MagicMock()
+        mock_model.encode.side_effect = [
+            np.array([va]), np.array([vb]),
+        ]
+        mock_load.return_value = mock_model
+        from mltk.domains.llm._backends import (
+            embedding_cosine_pairs,
+        )
+        scores = embedding_cosine_pairs(
+            ["hello"], ["goodbye"],
+        )
+        assert scores[0] < 1.0
+
+
+class TestNLIHardening:
+    """Extra edge-case tests for NLI backends."""
+
+    @patch(
+        "mltk.domains.llm._backends._load_nli_model"
+    )
+    def test_nli_entailment_high_score(
+        self, mock_load: MagicMock,
+    ) -> None:
+        """Clearly entailed pair -> high score."""
+        import numpy as np
+        mock_model = MagicMock()
+        mock_model.predict.return_value = np.array(
+            [[-3.0, 6.0, -2.0]],
+        )
+        mock_load.return_value = mock_model
+        from mltk.domains.llm._backends import (
+            nli_entailment_score,
+        )
+        result = nli_entailment_score(
+            "Dogs are mammals.",
+            "Dogs are a type of mammal.",
+        )
+        assert result["entailment"] > 0.95
+        assert result["label"] == "entailment"
+
+    @patch(
+        "mltk.domains.llm._backends._load_nli_model"
+    )
+    def test_nli_contradiction_low_score(
+        self, mock_load: MagicMock,
+    ) -> None:
+        """Contradictory pair -> low entailment."""
+        import numpy as np
+        mock_model = MagicMock()
+        mock_model.predict.return_value = np.array(
+            [[6.0, -3.0, -2.0]],
+        )
+        mock_load.return_value = mock_model
+        from mltk.domains.llm._backends import (
+            nli_entailment_score,
+        )
+        result = nli_entailment_score(
+            "It is day.", "It is night.",
+        )
+        assert result["entailment"] < 0.05
+        assert result["label"] == "contradiction"
+
+    @patch(
+        "mltk.domains.llm._backends._load_nli_model"
+    )
+    def test_nli_bidirectional_symmetric(
+        self, mock_load: MagicMock,
+    ) -> None:
+        """Symmetric input -> both directions agree."""
+        import numpy as np
+        mock_model = MagicMock()
+        mock_model.predict.return_value = np.array(
+            [[-2.0, 5.0, -1.0]],
+        )
+        mock_load.return_value = mock_model
+        from mltk.domains.llm._backends import (
+            nli_bidirectional,
+        )
+        r = nli_bidirectional("cats", "cats")
+        assert r["equivalent"] is True
+
+
+class TestSoftmaxHardening:
+    """Extra edge-case tests for _softmax."""
+
+    def test_softmax_basic_known_values(self) -> None:
+        """Known input produces expected output."""
+        probs = _softmax([0.0, 0.0, 0.0])
+        for p in probs:
+            assert p == pytest.approx(
+                1.0 / 3, abs=1e-6,
+            )
+
+    def test_softmax_large_values(self) -> None:
+        """Large inputs don't overflow."""
+        probs = _softmax([1000.0, 1000.0, 1000.0])
+        assert sum(probs) == pytest.approx(
+            1.0, abs=1e-6,
+        )
+        for p in probs:
+            assert p == pytest.approx(
+                1.0 / 3, abs=1e-6,
+            )
+
+
+class TestModelRevisionHardening:
+    """Verify pinned model revisions."""
+
+    def test_model_revision_dict_complete(self) -> None:
+        """All expected models have pinned revisions."""
+        from mltk.domains.llm._backends import (
+            _MODEL_REVISIONS,
+        )
+        assert "all-MiniLM-L6-v2" in _MODEL_REVISIONS
+        assert (
+            "cross-encoder/nli-deberta-v3-base"
+            in _MODEL_REVISIONS
+        )
+        for _k, v in _MODEL_REVISIONS.items():
+            assert isinstance(v, str)
+            assert len(v) > 0

@@ -39,7 +39,7 @@ pytest --mltk-report -v
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional software testing does not catch these failures.
 
-mltk provides **203 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems, long-context LLM evaluation, and behavioral consistency testing -- all runnable with `pytest`.
+mltk provides **206 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems, long-context LLM evaluation, behavioral consistency testing, and NER-based PII detection -- all runnable with `pytest`.
 
 | What you get | Without mltk |
 |---|---|
@@ -54,9 +54,9 @@ mltk provides **203 purpose-built assertions** spanning the full ML lifecycle --
 ## Feature Highlights
 
 ### :mag: Data Testing
-Schema validation, null detection, range checks, distribution analysis, PII scanning, drift detection, label quality, data lineage, embedding drift.
+Schema validation, null detection, range checks, distribution analysis, PII scanning (regex + NER), drift detection (including MMD multivariate), label quality, data lineage, embedding drift.
 
-:point_right: [Data Schema](api/data-schema.md) | [Distribution](api/data-distribution.md) | [Drift](api/data-drift.md) | [PII](api/data-pii.md) | [Labels](api/data-labels.md)
+:point_right: [Data Schema](api/data-schema.md) | [Distribution](api/data-distribution.md) | [Drift](api/data-drift.md) | [PII](api/data-pii.md) | [NER PII Detection](api/pii-ner.md) | [Labels](api/data-labels.md)
 
 ### :dart: Model Testing
 Metric thresholds, regression detection, slice analysis, bias auditing, adversarial robustness, overfitting detection.
@@ -119,7 +119,7 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 === "QA Engineer"
 
-    You write test suites for a living. mltk gives you **203 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
+    You write test suites for a living. mltk gives you **206 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
 
     :point_right: Start with [Getting Started](getting-started.md), then explore [YAML Test Definitions](api/yaml-tests.md) for no-code tests.
 
@@ -147,10 +147,11 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 | Metric | Count |
 |--------|-------|
-| Assertions | 203 across 70+ modules |
-| Tests | 2,554 |
+| Assertions | 206 across 70+ modules |
+| Tests | 2,700+ |
 | CLI commands | 24 |
 | Behavioral consistency | 7 assertions (paraphrase, format, stability, equivalence, directional, retrieval, + ParaphraseGenerator) |
+| PII detection methods | 4 (regex, Presidio NER, GLiNER zero-shot, hybrid) |
 | Built-in scanners | 8 (Data, Drift, Leakage, Slice, Bias, Calibration, Robustness, Overfit) |
 | Domain kits | 12 (CV, NLP, Speech, Tabular, LLM, Multimodal, RL, Recommendation, Healthcare, Code Generation, and more) |
 | Compliance frameworks | 8 (EU AI Act, FDA, OWASP LLM, NIST AI RMF, ISO 42001, SR 11-7, HIPAA, SOC 2) |
@@ -164,7 +165,7 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 | Layer | Modules | What |
 |-------|---------|------|
 | **pytest plugin** | auto-registered | markers, fixtures, `--mltk-report` |
-| **Assertions** | data, model, inference, llm | 203 `assert_*` functions |
+| **Assertions** | data, model, inference, llm | 206 `assert_*` functions |
 | **Behavioral** | llm.behavioral | 7 consistency assertions, ParaphraseGenerator |
 | **Method Dispatch** | llm `method=` param | lexical, embedding, nli, llm-as-judge per assertion |
 | **Training** | training, pipeline, monitor | gradient, leakage, drift, cloud |
@@ -180,7 +181,7 @@ Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, 
 
 ## Project Status
 
-mltk is at **v0.8.0** (beta). Core modules are stable and tested with 203 assertions and 2,580 tests. Recent additions include behavioral consistency testing (7 assertions -- paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency, and ParaphraseGenerator), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
+mltk is approaching **v0.9.0**. Core modules are stable and tested with 206 assertions and 2,700+ tests. Recent additions include NER-based PII detection (Presidio, GLiNER zero-shot, and hybrid method dispatch), MMD multivariate drift detection, SmoothECE calibration, intersectional fairness testing, behavioral consistency testing (7 assertions -- the only ML testing tool that ships these as pytest assertions), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
 
 ## License
 

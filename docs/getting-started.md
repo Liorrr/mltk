@@ -494,6 +494,6 @@ Quick one-off data quality checks without writing any code.
 
 - [Configuration](configuration.md) -- customize mltk via `mltk.yaml`, `pyproject.toml`, or environment variables
 - [pytest Plugin](api/pytest-plugin.md) -- markers, fixtures, and `--mltk-report` flag
-- [CLI Reference](api/cli.md) -- all 14 commands
+- [CLI Reference](api/cli.md) -- all 24 commands
 - [Testing Patterns](api/testing-patterns.md) -- flaky detection, golden baselines, smart test selection
 - [All API modules](api/core.md) -- complete API reference

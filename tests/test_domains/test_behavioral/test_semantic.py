@@ -20,7 +20,6 @@ from mltk.domains.llm.behavioral import (
     assert_semantic_equivalence,
 )
 
-
 # -- Shared helpers -----------------------------------------------
 
 SEED = 42
@@ -508,3 +507,197 @@ class TestDirectionalExpectation:
         assert len(received) == 2
         assert received[0] == "Explain gravity"
         assert received[1] == "Explain gravity. Be brief."
+
+
+# =================================================================
+# Hardening: parametrized + edge-case tests (appended)
+# =================================================================
+
+
+class TestSemanticEquivalenceHardening:
+    """Extra edge-case tests for semantic equivalence."""
+
+    def test_semantic_equivalence_identical(
+        self,
+    ) -> None:
+        """Identical text -> always passes."""
+        result = assert_semantic_equivalence(
+            text_a="exact same text here",
+            text_b="exact same text here",
+            method="token_f1",
+        )
+        assert result.passed is True
+
+    @patch(
+        "mltk.domains.llm._backends"
+        ".nli_bidirectional",
+    )
+    def test_semantic_equivalence_contradiction(
+        self, mock_nli: MagicMock,
+    ) -> None:
+        """Opposite meanings -> fails."""
+        mock_nli.return_value = {
+            "forward": {
+                "entailment": 0.03,
+                "contradiction": 0.92,
+                "neutral": 0.05,
+                "label": "contradiction",
+            },
+            "backward": {
+                "entailment": 0.04,
+                "contradiction": 0.90,
+                "neutral": 0.06,
+                "label": "contradiction",
+            },
+            "equivalent": False,
+            "contradiction": True,
+        }
+        with pytest.raises(MltkAssertionError):
+            assert_semantic_equivalence(
+                text_a="The door is open.",
+                text_b="The door is closed.",
+                method="nli",
+            )
+
+    @patch(
+        "mltk.domains.llm._backends"
+        ".embedding_cosine_single",
+    )
+    def test_semantic_equivalence_threshold(
+        self, mock_emb: MagicMock,
+    ) -> None:
+        """Score at boundary threshold = 0.5."""
+        mock_emb.return_value = 0.5
+        result = assert_semantic_equivalence(
+            text_a="apples",
+            text_b="oranges",
+            method="embedding",
+            min_score=0.5,
+        )
+        assert result.passed is True
+
+    def test_semantic_equivalence_single_pair(
+        self,
+    ) -> None:
+        """Single pair of short texts."""
+        result = assert_semantic_equivalence(
+            text_a="hi",
+            text_b="hi",
+            method="token_f1",
+        )
+        assert result.passed is True
+
+    def test_semantic_equivalence_unicode(
+        self,
+    ) -> None:
+        """Unicode inputs do not crash."""
+        result = assert_semantic_equivalence(
+            text_a="\u6771\u4eac\u306f\u65e5\u672c",
+            text_b="\u6771\u4eac\u306f\u65e5\u672c",
+            method="token_f1",
+        )
+        _result_shape_ok(result)
+
+
+class TestDirectionalExpectationHardening:
+    """Extra edge-case tests for directional expectation."""
+
+    def test_directional_all_positive(self) -> None:
+        """All perturbations go in expected direction."""
+        call_count = 0
+
+        def model(text: str) -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "original long response here"
+            return "short"
+
+        result = assert_directional_expectation(
+            model_fn=model,
+            input_text="Explain gravity",
+            perturbation=lambda t: t + ". Be brief.",
+            direction_fn=lambda o, p: len(p) < len(o),
+        )
+        assert result.passed is True
+
+    def test_directional_mixed_fails(self) -> None:
+        """Wrong direction -> fails."""
+        def model(text: str) -> str:
+            return "same length output always"
+
+        with pytest.raises(MltkAssertionError):
+            assert_directional_expectation(
+                model_fn=model,
+                input_text="Explain gravity",
+                perturbation=lambda t: t + " briefly",
+                direction_fn=(
+                    lambda o, p: len(p) < len(o)
+                ),
+            )
+
+    def test_directional_empty_perturbation_fn(
+        self,
+    ) -> None:
+        """Perturbation that returns empty string."""
+        def model(text: str) -> str:
+            if text:
+                return "some output"
+            return ""
+
+        result = assert_directional_expectation(
+            model_fn=model,
+            input_text="test",
+            perturbation=lambda t: "",
+            direction_fn=(
+                lambda o, p: len(p) <= len(o)
+            ),
+        )
+        _result_shape_ok(result)
+
+    def test_directional_magnitude_large(self) -> None:
+        """Large expected change direction."""
+        counter = [0]
+
+        def model(text: str) -> str:
+            counter[0] += 1
+            if counter[0] == 1:
+                return "x" * 10
+            return "x" * 10000
+
+        result = assert_directional_expectation(
+            model_fn=model,
+            input_text="Write a lot",
+            perturbation=lambda t: t + " (verbose)",
+            direction_fn=lambda o, p: len(p) > len(o),
+        )
+        assert result.passed is True
+
+    def test_directional_custom_metric(self) -> None:
+        """User-provided metric_fn via direction_fn."""
+        counter = [0]
+
+        def model(text: str) -> str:
+            counter[0] += 1
+            if counter[0] == 1:
+                return "no numbers here"
+            return "has 42 numbers and 7 digits"
+
+        def has_more_digits(
+            orig: str, perturbed: str,
+        ) -> bool:
+            o_count = sum(
+                1 for c in orig if c.isdigit()
+            )
+            p_count = sum(
+                1 for c in perturbed if c.isdigit()
+            )
+            return p_count > o_count
+
+        result = assert_directional_expectation(
+            model_fn=model,
+            input_text="Give facts",
+            perturbation=lambda t: t + " with numbers",
+            direction_fn=has_more_digits,
+        )
+        assert result.passed is True

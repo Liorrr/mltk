@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S72: 206 assertions, 2619 tests, 38 Rust tests)
+## DONE (S0-S74: 206 assertions, 2700+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -98,6 +98,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S71b: Presentation demo script, assertion index, snapshot tests (syrupy)
 - [x] S72: MMD multivariate drift, SmoothECE calibration, intersectional fairness — 3 new assertions
 - [x] S73: NER PII detection (Presidio/spaCy/GLiNER/hybrid), test hardening (+22), 3 research briefs
+- [x] S74: v0.9.0 release — version bump, presentation-ready docs, test hardening, 2 research briefs
 
 ---
 

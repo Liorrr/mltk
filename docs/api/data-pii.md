@@ -6,6 +6,16 @@ PII (Personally Identifiable Information) in training data is a compliance and s
 
 **ML Lifecycle Stage:** Data Collection / Data Preprocessing
 
+!!! note "NER-based PII detection available"
+    This page covers regex-based PII detection (40+ patterns for
+    structured PII like SSNs, credit cards, API keys). For
+    **names, organizations, locations**, and domain-specific
+    entities that regex cannot catch, see
+    **[NER-Based PII Detection](pii-ner.md)** -- supports
+    Presidio NER, GLiNER zero-shot, and hybrid (regex + NER)
+    methods via the same `assert_no_pii` function with a
+    `method` parameter. Install with `pip install mltk[ner]`.
+
 **When to use:**
 - Before training: scan datasets for PII that shouldn't be there
 - Data labeling QA: verify annotators didn't include personal data in labels
@@ -142,5 +152,35 @@ def test_labels_no_api_keys():
 | `test_clean_text_passes` | Text without PII passes |
 | `test_subset_columns` | Only scans specified columns |
 | `test_custom_patterns` | Only checks specified pattern types |
+
+---
+
+## Beyond Regex: NER-Based Detection
+
+Regex reliably catches structured PII with rigid formats
+(SSNs, credit cards, API keys, IBANs). But most personal
+data -- names, organizations, locations -- has no fixed
+format. GDPR Article 4(1) defines personal data as "any
+information relating to an identified or identifiable
+natural person." A regex-only scanner misses these.
+
+mltk v0.9.0 adds multi-method PII dispatch through the
+same `assert_no_pii` function:
+
+| Method | Engine | Best for |
+|--------|--------|----------|
+| `regex` | Built-in (40+ patterns) | Structured PII (default) |
+| `ner` | Presidio + spaCy | Names, orgs, locations |
+| `gliner` | GLiNER zero-shot | Domain-specific entities |
+| `hybrid` | Regex + NER union | Maximum coverage |
+
+```python
+# Deep scan: catch names and locations too
+result = assert_no_pii(
+    df, columns=["text"], method="hybrid",
+)
+```
+
+:point_right: Full documentation: **[NER-Based PII Detection](pii-ner.md)**
 
 ---

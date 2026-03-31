@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-2100%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2700%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 ```bash
@@ -13,34 +13,50 @@ pip install mltk
 
 ## Why mltk?
 
-ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional testing doesn't catch these failures.
+ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional testing does not catch these failures.
 
-**mltk** is one toolkit that covers the entire ML lifecycle: data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, and production monitoring. No more gluing together 5 different tools.
+**mltk** gives you **206 assertions** covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
 
 ## Quick Start
 
 ```python
+import pandas as pd
 import pytest
-from mltk.data import assert_schema, assert_no_drift, assert_no_nulls, assert_no_pii
-from mltk.model import assert_metric, assert_no_regression, assert_no_bias
+from mltk.data import (
+    assert_schema, assert_no_nulls, assert_no_pii,
+)
+from mltk.model import (
+    assert_metric, assert_no_regression, assert_no_bias,
+)
+from mltk.inference import assert_latency, assert_throughput
 
 @pytest.mark.ml_data
 def test_training_data():
     df = pd.read_csv("data/training.csv")
-    assert_schema(df, {"id": "int64", "text": "object", "label": "int64"})
+    assert_schema(
+        df,
+        {"id": "int64", "text": "object", "label": "int64"},
+    )
     assert_no_nulls(df, columns=["label"])
     assert_no_pii(df, columns=["text"])
 
 @pytest.mark.ml_model
 def test_model_quality(y_true, y_pred):
-    assert_metric(y_true, y_pred, metric="f1", threshold=0.85)
-    assert_no_regression(y_true, y_pred, baseline=0.90, tolerance=0.02)
-    assert_no_bias(y_true, y_pred, sensitive_feature=gender,
-                   method="demographic_parity")
+    assert_metric(
+        y_true, y_pred, metric="f1", threshold=0.85,
+    )
+    assert_no_regression(
+        y_true, y_pred, baseline=0.90, tolerance=0.02,
+    )
+    assert_no_bias(
+        y_true, y_pred,
+        sensitive_feature=gender,
+        method="demographic_parity",
+    )
 
 @pytest.mark.ml_inference
 def test_inference_performance():
-    assert_latency(model.predict, X_test, p95=50.0, warmup=5)
+    assert_latency(model.predict, X_test, p95=50.0)
     assert_throughput(model.predict, X_single, min_rps=100)
 ```
 
@@ -49,7 +65,11 @@ Run with HTML report:
 pytest --mltk-report
 ```
 
-## What's Included (v0.8.0)
+## What's Included (v0.9.0)
+
+**Behavioral consistency testing** — 7 assertions (paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency, ParaphraseGenerator) that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation: lexical (token F1), embedding, NLI, LLM-as-Judge. No other ML testing tool ships these as pytest assertions.
+
+**NER PII detection** — `assert_no_pii(method="ner"|"gliner"|"hybrid")` adds Named Entity Recognition to PII scanning. Presidio + spaCy catches names, organizations, and locations that regex cannot find. GLiNER provides zero-shot detection for domain-specific entities (healthcare MRN, legal case numbers). Hybrid mode runs regex + NER with intelligent deduplication. Install with `pip install mltk[ner]`.
 
 **YAML test definitions** — write ML tests in YAML, no Python required. Run with `mltk test tests.yaml`. Supports 11 data assertions with `env:VAR_NAME` data source for CI/CD.
 
@@ -79,7 +99,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (203 assertions)
+## Feature Matrix (206 assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -89,7 +109,7 @@ pytest --mltk-report
 | **Data Validation** | `assert_datetime_format`, `assert_values_in_set`, `assert_no_conflicting_labels`, `assert_feature_label_correlation_stable` | Value-level data checks |
 | **Data Drift** | `assert_no_drift` (KS, PSI, KL, Chi2) | Detect distribution shifts |
 | **Data Drift (Advanced)** | `assert_no_embedding_drift` + 7 methods (KS, PSI, KL, Chi2, JS, Wasserstein, auto) | Embedding + tabular drift |
-| **Data PII** | `assert_no_pii`, `scan_pii` (24 patterns + Luhn + intl phones, MAC, crypto) | Find leaked personal data |
+| **Data PII** | `assert_no_pii`, `scan_pii` (40+ regex patterns + Presidio NER + GLiNER zero-shot + hybrid) | Find leaked personal data |
 | **Data Freshness** | `assert_freshness`, `assert_row_count` | Verify data recency and size |
 | **Data Labels** | `assert_label_balance`, `assert_label_coverage` | Validate label quality |
 | **Data Contracts** | `validate_data`, `generate_tests_from_contract` | YAML → auto-test generation |
@@ -154,6 +174,9 @@ pip install mltk[report]
 
 # With server platform
 pip install mltk[server]
+
+# NER PII detection
+pip install mltk[ner]         # Presidio + spaCy NER
 
 # Domain kits
 pip install mltk[cv]          # Computer Vision
@@ -259,7 +282,9 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | Conformal prediction | No | No | No | No | No | No | **Yes** |
 | Composable TestSuite | No | No | No | No | No | No | **Yes** |
 | Code Generation | No | No | No | No | No | No | **Yes (4 assertions)** |
-| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (203 assertions)** |
+| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (206 assertions)** |
+| Behavioral consistency | No | No | No | No | No | No | **Yes (7 assertions)** |
+| NER PII detection | No | No | No | No | No | No | **Yes (4 methods)** |
 | Agent trace testing | No | No | No | Yes (basic) | No | Yes (tracing) | **Yes (9 assertions)** |
 | Multi-agent testing | No | No | No | No | No | No | **Yes** |
 | Synthetic data validation | No | No | No | No | No | No | **Yes (4 assertions)** |
