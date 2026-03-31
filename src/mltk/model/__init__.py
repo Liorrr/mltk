@@ -3,7 +3,7 @@
 from mltk.model.ab_test import assert_ab_significance
 from mltk.model.adversarial import assert_robust
 from mltk.model.attribution import assert_attribution_cosine_stability, assert_top_k_stable
-from mltk.model.bias import assert_no_bias
+from mltk.model.bias import assert_intersectional_fairness, assert_no_bias
 from mltk.model.causal import assert_ate_significant, assert_no_confounding
 from mltk.model.conformal import (
     assert_conditional_coverage,
@@ -24,6 +24,7 @@ __all__ = [
     "assert_slice_performance",
     "assert_calibration",
     "assert_no_bias",
+    "assert_intersectional_fairness",
     "assert_robust",
     "assert_no_overfitting",
     "assert_label_drift",

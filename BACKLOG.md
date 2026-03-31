@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S66: 201 assertions, 2297 tests, 38 Rust tests)
+## DONE (S0-S72: 206 assertions, 2619 tests, 38 Rust tests)
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -90,6 +90,13 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S64: Composable TestSuite API (MltkSuite), code generation assertions (4), test hardening
 - [x] S65: Healthcare (5 assertions), SR 11-7 compliance, Polars bridge, v0.8.0 release
 - [x] S66: mltk scan JSON export, all 8 scanners wired, VS Code Test Inspector, docs rewrite
+- [x] S67: Multi-method dispatch for hallucination + RAG (lexical/embedding/nli/llm), unicode defense
+- [x] S68: Toxicity classifier, semantic leak detection, BERTScore warnings
+- [x] S69: Behavioral invariance (paraphrase, format) + output stability — 3 first-mover assertions
+- [x] S70: Behavioral family complete (semantic equiv, directional, retrieval) + ParaphraseGenerator
+- [x] S71a: Property-based testing (Hypothesis), E2E pipeline, backend hardening
+- [x] S71b: Presentation demo script, assertion index, snapshot tests (syrupy)
+- [x] S72: MMD multivariate drift, SmoothECE calibration, intersectional fairness — 3 new assertions
 
 ---
 
@@ -102,10 +109,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **R-3**: Add classifier method to `assert_no_toxicity` — 4 regex patterns are trivially bypassable (Detoxify, MIT license)
 
 ### Method Enhancements (S66 Audit: 6 items)
-- [ ] **E-1**: Add MMD for multivariate drift detection (KDD 2024)
-- [ ] **E-2**: Add SmoothECE calibration metric (ICLR 2024, Apple `relplot` package)
-- [ ] **E-3**: Add BERTScore limitation warnings (antonymy blindness, number blindness)
-- [ ] **E-4**: Add intersectional fairness testing + decision tree docs
+- [x] **E-1**: S72 — MMD multivariate drift (RBF multi-bandwidth, permutation test, pure numpy)
+- [x] **E-2**: S72 — SmoothECE calibration (reflected Gaussian kernel, auto-bandwidth, ICLR 2024)
+- [x] **E-3**: S68 — BERTScore limitation warnings (antonymy blindness, number blindness)
+- [x] **E-4**: S72 — Intersectional fairness (Crenshaw, Cartesian product, min_subgroup_size=30)
 - [ ] **E-5**: Add NER-based PII detection method (Microsoft Presidio)
 - [ ] **E-6**: Add semantic similarity method to system prompt leak detection
 

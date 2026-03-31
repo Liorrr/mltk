@@ -1,6 +1,6 @@
 # Assertion Reference
 
-Complete index of all 203 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
+Complete index of all 206 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
 
 ---
 
@@ -596,6 +596,14 @@ Assertions for verifying LLM output stability across paraphrased inputs, formatt
 | 202 | `assert_directional_expectation` | `mltk.domains.llm.behavioral` | Verify known perturbation produces predictable output change | v0.9.0 |
 | 203 | `assert_retrieval_consistency` | `mltk.domains.llm.behavioral` | Verify RAG retrieval returns same docs across paraphrases | v0.9.0 |
 
+## Method Enhancements (S72)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 204 | `assert_no_multivariate_drift` | `mltk.data.drift` | MMD-based multivariate distribution comparison (Gretton et al., JMLR 2012) | v0.9.0 |
+| 205 | `assert_calibration(method="smooth_ece")` | `mltk.model.slicing` | SmoothECE calibration via reflected Gaussian kernel (Blasiok et al., ICLR 2024) | v0.9.0 |
+| 206 | `assert_intersectional_fairness` | `mltk.model.bias` | Crenshaw intersectionality — test all subgroup combinations (Fairlearn pattern) | v0.9.0 |
+
 ---
 
 ## Core
@@ -615,7 +623,7 @@ All public assertions are importable from their module path:
 from mltk.data.schema import assert_schema, assert_no_nulls, assert_dtypes
 from mltk.data.distribution import assert_range, assert_unique, assert_no_outliers
 from mltk.data.freshness import assert_freshness, assert_row_count
-from mltk.data.drift import assert_no_drift
+from mltk.data.drift import assert_no_drift, assert_no_multivariate_drift
 from mltk.data.embedding_drift import assert_no_embedding_drift
 from mltk.data.synthetic import assert_marginal_fidelity, assert_correlation_preserved, assert_synthetic_novelty, assert_dcr_safe
 from mltk.data.pii import assert_no_pii
@@ -629,7 +637,7 @@ from mltk.data.preset import assert_data_quality
 from mltk.model.metrics import assert_metric
 from mltk.model.regression import assert_no_regression
 from mltk.model.slicing import assert_slice_performance, assert_calibration
-from mltk.model.bias import assert_no_bias
+from mltk.model.bias import assert_no_bias, assert_intersectional_fairness
 from mltk.model.adversarial import assert_robust
 from mltk.model.conformal import assert_interval_coverage, assert_prediction_set_size, assert_conformal_calibration, assert_conditional_coverage
 from mltk.model.overfitting import assert_no_overfitting, assert_label_drift

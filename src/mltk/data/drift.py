@@ -360,3 +360,291 @@ def _drift_wasserstein(
         method="wasserstein", statistic=w_value, threshold=threshold,
         drift_detected=not passed,
     )
+
+
+# -----------------------------------------------------------
+# Multivariate drift (MMD) — helpers + public assertion
+# -----------------------------------------------------------
+
+def _to_array_2d(
+    data: np.ndarray | pd.DataFrame,
+) -> np.ndarray:
+    """Convert input to a 2-D float64 array, dropping NaN rows.
+
+    Args:
+        data: Input array or DataFrame.
+
+    Returns:
+        Cleaned 2-D numpy array with dtype float64.
+    """
+    if isinstance(data, pd.DataFrame):
+        arr = data.to_numpy(dtype=np.float64)
+    else:
+        arr = np.asarray(data, dtype=np.float64)
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    # Drop rows containing any NaN
+    mask = ~np.isnan(arr).any(axis=1)
+    return arr[mask]
+
+
+def _subsample(
+    data: np.ndarray,
+    max_n: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Random subsample without replacement.
+
+    Args:
+        data: 2-D array to subsample from.
+        max_n: Maximum number of rows to keep.
+        rng: Numpy random generator instance.
+
+    Returns:
+        Subsampled array (unchanged if already small enough).
+    """
+    if len(data) <= max_n:
+        return data
+    idx = rng.choice(len(data), size=max_n, replace=False)
+    return data[idx]
+
+
+def _median_heuristic(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    rng: np.random.Generator,
+    subsample: int = 500,
+) -> float:
+    """Median heuristic for RBF bandwidth selection.
+
+    Computes the median of pairwise Euclidean distances on a
+    random subsample of the pooled data.
+
+    Args:
+        ref: Reference array (2-D).
+        cur: Current array (2-D).
+        rng: Numpy random generator instance.
+        subsample: Max samples for distance computation.
+
+    Returns:
+        Bandwidth sigma (median distance), minimum 1e-8.
+    """
+    pooled = np.vstack([ref, cur])
+    pooled = _subsample(pooled, subsample, rng)
+    # Pairwise squared distances via expansion trick
+    sq_norms = np.sum(pooled ** 2, axis=1)
+    # D2[i,j] = ||x_i||^2 + ||x_j||^2 - 2 * x_i . x_j
+    d2 = (
+        sq_norms[:, None]
+        + sq_norms[None, :]
+        - 2.0 * pooled @ pooled.T
+    )
+    np.maximum(d2, 0.0, out=d2)
+    # Extract upper triangle (no diagonal)
+    triu_idx = np.triu_indices(len(pooled), k=1)
+    dists = np.sqrt(d2[triu_idx])
+    sigma = float(np.median(dists))
+    return max(sigma, 1e-8)
+
+
+def _rbf_kernel_matrix(
+    X: np.ndarray,
+    Y: np.ndarray,
+    sigma: float,
+) -> np.ndarray:
+    """RBF (Gaussian) kernel matrix between X and Y.
+
+    K[i,j] = exp(-||x_i - y_j||^2 / (2 * sigma^2))
+
+    Args:
+        X: First array, shape (m, d).
+        Y: Second array, shape (n, d).
+        sigma: Bandwidth parameter.
+
+    Returns:
+        Kernel matrix of shape (m, n).
+    """
+    gamma = 1.0 / (2.0 * sigma * sigma)
+    sq_x = np.sum(X ** 2, axis=1)
+    sq_y = np.sum(Y ** 2, axis=1)
+    d2 = sq_x[:, None] + sq_y[None, :] - 2.0 * X @ Y.T
+    np.maximum(d2, 0.0, out=d2)
+    return np.exp(-gamma * d2)
+
+
+def _multi_bandwidth_mmd2(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    sigmas: list[float],
+) -> float:
+    """Unbiased MMD^2 averaged over multiple bandwidths.
+
+    Uses the diagonal-excluded unbiased estimator:
+    MMD^2 = K_xx/(m(m-1)) + K_yy/(n(n-1)) - 2*K_xy/(m*n)
+
+    Args:
+        ref: Reference array, shape (m, d).
+        cur: Current array, shape (n, d).
+        sigmas: List of bandwidth values to average over.
+
+    Returns:
+        Average unbiased MMD^2 across all bandwidths.
+    """
+    m = len(ref)
+    n = len(cur)
+    total = 0.0
+    for sigma in sigmas:
+        k_xx = _rbf_kernel_matrix(ref, ref, sigma)
+        k_yy = _rbf_kernel_matrix(cur, cur, sigma)
+        k_xy = _rbf_kernel_matrix(ref, cur, sigma)
+        # Zero diagonal for unbiased estimator
+        np.fill_diagonal(k_xx, 0.0)
+        np.fill_diagonal(k_yy, 0.0)
+        mmd2 = (
+            k_xx.sum() / (m * (m - 1))
+            + k_yy.sum() / (n * (n - 1))
+            - 2.0 * k_xy.sum() / (m * n)
+        )
+        total += mmd2
+    return total / len(sigmas)
+
+
+@timed_assertion
+def assert_no_multivariate_drift(
+    reference: np.ndarray | pd.DataFrame,
+    current: np.ndarray | pd.DataFrame,
+    threshold: float = 0.05,
+    n_permutations: int = 200,
+    max_samples: int = 500,
+    kernel: str = "rbf",
+    sigma: float | None = None,
+    severity: Severity = Severity.CRITICAL,
+) -> TestResult:
+    """Assert no multivariate distribution drift (MMD test).
+
+    Unlike per-feature drift tests (KS, PSI), MMD detects joint
+    distributional shifts -- including changes in feature
+    correlations and covariance structure that per-feature tests
+    miss entirely. Based on Gretton et al. (JMLR 2012).
+
+    Uses an RBF kernel with multi-bandwidth averaging
+    (0.5*sigma, 1*sigma, 2*sigma) and a permutation test for
+    the p-value.
+
+    Args:
+        reference: Baseline data, shape (m, d).
+        current: Current data to compare, shape (n, d).
+        threshold: P-value threshold; pass if p > threshold.
+        n_permutations: Permutation count for the p-value.
+        max_samples: Max rows per dataset (random subsample).
+        kernel: Kernel type. Only "rbf" is supported.
+        sigma: Bandwidth override. None = median heuristic.
+        severity: Severity level (default CRITICAL).
+
+    Returns:
+        TestResult with MMD^2 statistic, p-value, and details.
+
+    Example:
+        >>> ref = np.random.randn(200, 3)
+        >>> cur = np.random.randn(200, 3)
+        >>> assert_no_multivariate_drift(ref, cur)
+    """
+    name = "data.multivariate_drift.mmd"
+
+    # --- Validate kernel ---------------------------------
+    if kernel != "rbf":
+        return assert_true(
+            False,
+            name=name,
+            message=(
+                f"Unsupported kernel: '{kernel}'. "
+                "Supported: ['rbf']"
+            ),
+            severity=severity,
+        )
+
+    # --- Convert and clean -------------------------------
+    ref = _to_array_2d(reference)
+    cur = _to_array_2d(current)
+
+    # --- Edge case: too few samples ----------------------
+    if len(ref) < 2 or len(cur) < 2:
+        return assert_true(
+            False,
+            name=name,
+            message=(
+                "Need >= 2 samples per dataset. "
+                f"Got ref={len(ref)}, cur={len(cur)}."
+            ),
+            severity=severity,
+        )
+
+    # --- Edge case: dimension mismatch -------------------
+    if ref.shape[1] != cur.shape[1]:
+        return assert_true(
+            False,
+            name=name,
+            message=(
+                "Dimension mismatch: "
+                f"ref has {ref.shape[1]} features, "
+                f"cur has {cur.shape[1]}."
+            ),
+            severity=severity,
+        )
+
+    # --- Subsample for performance -----------------------
+    rng = np.random.default_rng(42)
+    ref = _subsample(ref, max_samples, rng)
+    cur = _subsample(cur, max_samples, rng)
+
+    # --- Bandwidth selection -----------------------------
+    if sigma is not None:
+        base_sigma = float(sigma)
+    else:
+        base_sigma = _median_heuristic(ref, cur, rng)
+    sigmas = [0.5 * base_sigma, base_sigma, 2.0 * base_sigma]
+
+    # --- Observed MMD^2 ----------------------------------
+    m = len(ref)
+    n = len(cur)
+    observed_mmd2 = _multi_bandwidth_mmd2(ref, cur, sigmas)
+
+    # --- Permutation test for p-value --------------------
+    pooled = np.vstack([ref, cur])
+    count_ge = 0
+    for _ in range(n_permutations):
+        perm = rng.permutation(m + n)
+        perm_ref = pooled[perm[:m]]
+        perm_cur = pooled[perm[m:]]
+        perm_mmd2 = _multi_bandwidth_mmd2(
+            perm_ref, perm_cur, sigmas
+        )
+        if perm_mmd2 >= observed_mmd2:
+            count_ge += 1
+    p_value = (count_ge + 1) / (n_permutations + 1)
+
+    passed = p_value > threshold
+    return assert_true(
+        passed,
+        name=name,
+        message=(
+            f"MMD test: p={p_value:.4f} "
+            f"(threshold: {threshold})"
+            if passed
+            else f"Multivariate drift detected: "
+            f"MMD p={p_value:.4f} < {threshold}"
+        ),
+        severity=severity,
+        method="mmd",
+        kernel=kernel,
+        statistic=float(observed_mmd2),
+        p_value=float(p_value),
+        threshold=threshold,
+        sigma=base_sigma,
+        bandwidths=sigmas,
+        n_permutations=n_permutations,
+        ref_samples=m,
+        cur_samples=n,
+        n_features=ref.shape[1],
+        drift_detected=not passed,
+    )

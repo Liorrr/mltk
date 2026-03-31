@@ -17,6 +17,7 @@ from mltk.data import (
 from mltk.model import (
     assert_calibration,
     assert_metric,
+    assert_intersectional_fairness,
     assert_no_bias,
     assert_no_regression,
     assert_slice_performance,
@@ -39,5 +40,6 @@ __all__ = [
     "assert_no_regression",
     "assert_slice_performance",
     "assert_calibration",
+    "assert_intersectional_fairness",
     "assert_no_bias",
 ]

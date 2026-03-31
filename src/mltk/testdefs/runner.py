@@ -768,11 +768,13 @@ def _dispatch(df: pd.DataFrame, test_def: TestSuiteYaml, name: str,
                 )
         max_error = float(params.get("max_error", 0.05))
         n_bins = int(params.get("n_bins", 10))
+        method = str(params.get("method", "ece"))
         return assert_calibration(
             df[y_true_col].to_numpy(),
             df[y_prob_col].to_numpy(),
             max_error=max_error,
             n_bins=n_bins,
+            method=method,
         )
 
     # ------------------------------------------------------------------

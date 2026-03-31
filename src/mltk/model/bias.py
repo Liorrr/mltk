@@ -11,6 +11,7 @@ when group base rates differ. Choose the metric that matches your use case.
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 
 import numpy as np
@@ -326,11 +327,296 @@ def _check_equal_opportunity(
         message=(
             f"Equal opportunity diff={diff:.4f} <= {threshold}"
             if passed
-            else f"Bias detected: equal opportunity diff={diff:.4f} > {threshold}"
+            else (
+                f"Bias detected: equal opportunity "
+                f"diff={diff:.4f} > {threshold}"
+            )
         ),
         severity=severity,
         method=method,
         statistic=diff,
         threshold=threshold,
         group_rates=rates,
+    )
+
+
+_INTERSECTIONAL_DEFAULTS: dict[str, float] = {
+    "demographic_parity": 0.10,
+    "equalized_odds": 0.10,
+    "disparate_impact": 0.80,
+}
+
+
+def _subgroup_label(
+    attrs: dict[str, str],
+) -> str:
+    """Build a readable label like 'gender=F & race=Black'.
+
+    Args:
+        attrs: Dict mapping attribute name to value.
+
+    Returns:
+        Human-readable subgroup identifier string.
+    """
+    parts = [f"{k}={v}" for k, v in sorted(attrs.items())]
+    return " & ".join(parts)
+
+
+def _subgroup_metric(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    method: str,
+) -> dict[str, float]:
+    """Compute metric for a single subgroup.
+
+    Args:
+        y_true: Binary ground truth for the subgroup.
+        y_pred: Binary predictions for the subgroup.
+        method: Fairness method name.
+
+    Returns:
+        Dict with the relevant metric values.
+    """
+    n = len(y_true)
+    tp = int(((y_true == 1) & (y_pred == 1)).sum())
+    fp = int(((y_true == 0) & (y_pred == 1)).sum())
+    tn = int(((y_true == 0) & (y_pred == 0)).sum())
+    fn = int(((y_true == 1) & (y_pred == 0)).sum())
+
+    sel_rate = (tp + fp) / n if n > 0 else 0.0
+    tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+
+    return {
+        "selection_rate": sel_rate,
+        "tpr": tpr,
+        "fpr": fpr,
+        "count": n,
+    }
+
+
+@timed_assertion
+def assert_intersectional_fairness(
+    y_true: Any,
+    y_pred: Any,
+    sensitive_features: dict[str, Any],
+    method: str = "demographic_parity",
+    threshold: float | None = None,
+    min_subgroup_size: int = 30,
+    severity: Severity = Severity.CRITICAL,
+) -> TestResult:
+    """Assert fairness across ALL intersectional subgroups.
+
+    Implements Crenshaw intersectionality: tests every
+    combination of protected attributes. A model fair for
+    women AND fair for Black people is NOT guaranteed fair
+    for Black women.
+
+    Args:
+        y_true: Binary ground truth (0/1).
+        y_pred: Binary predictions (0/1).
+        sensitive_features: Dict mapping attribute name to
+            array of values (e.g. ``{"gender": [...],
+            "race": [...]}``)
+        method: ``"demographic_parity"``,
+            ``"equalized_odds"``, or
+            ``"disparate_impact"``.
+        threshold: Custom threshold. None uses defaults
+            (0.10/0.10/0.80).
+        min_subgroup_size: Minimum samples per combo.
+            Smaller subgroups are skipped.
+        severity: Severity level for the assertion.
+
+    Returns:
+        TestResult with worst-case disparity, evaluated
+        and skipped subgroups, and per-subgroup metrics.
+
+    Example:
+        >>> import numpy as np
+        >>> y_true = np.array([1,0,1,0,1,0]*10)
+        >>> y_pred = np.array([1,0,1,0,0,0]*10)
+        >>> features = {
+        ...     "gender": np.array(["M","M","F","F"]*15),
+        ...     "age": np.array(["young","old"]*30),
+        ... }
+        >>> assert_intersectional_fairness(
+        ...     y_true, y_pred, features,
+        ...     min_subgroup_size=5,
+        ... )
+    """
+    if method not in _INTERSECTIONAL_DEFAULTS:
+        supported = list(_INTERSECTIONAL_DEFAULTS.keys())
+        return assert_true(
+            False,
+            name="model.intersectional_fairness",
+            message=(
+                f"Unknown method: '{method}'. "
+                f"Supported: {supported}"
+            ),
+            severity=severity,
+        )
+
+    thresh = (
+        threshold
+        if threshold is not None
+        else _INTERSECTIONAL_DEFAULTS[method]
+    )
+
+    y_t = np.asarray(y_true, dtype=int)
+    y_p = np.asarray(y_pred, dtype=int)
+
+    if len(y_t) == 0:
+        return assert_true(
+            False,
+            name="model.intersectional_fairness",
+            message="Cannot compute fairness on empty arrays",
+            severity=severity,
+        )
+
+    # Convert feature arrays to numpy
+    attr_names = sorted(sensitive_features.keys())
+    attr_arrays = {
+        k: np.asarray(sensitive_features[k])
+        for k in attr_names
+    }
+    attr_uniques = {
+        k: list(np.unique(v)) for k, v in attr_arrays.items()
+    }
+
+    # Enumerate all combinations
+    combo_values = [attr_uniques[k] for k in attr_names]
+    all_combos = list(itertools.product(*combo_values))
+
+    evaluated: dict[str, dict[str, float]] = {}
+    skipped: dict[str, int] = {}
+
+    for combo in all_combos:
+        attrs = dict(zip(attr_names, combo, strict=True))
+        label = _subgroup_label(attrs)
+
+        mask = np.ones(len(y_t), dtype=bool)
+        for k, v in attrs.items():
+            mask &= attr_arrays[k] == v
+
+        n = int(mask.sum())
+        if n < min_subgroup_size:
+            skipped[label] = n
+            continue
+
+        metrics = _subgroup_metric(
+            y_t[mask], y_p[mask], method,
+        )
+        evaluated[label] = metrics
+
+    n_total = len(all_combos)
+    n_evaluated = len(evaluated)
+    n_skipped = len(skipped)
+
+    if n_evaluated < 2:
+        return assert_true(
+            True,
+            name="model.intersectional_fairness",
+            message=(
+                f"Only {n_evaluated} subgroup(s) with "
+                f">={min_subgroup_size} samples "
+                f"-- check not applicable"
+            ),
+            severity=Severity.INFO,
+            method=method,
+            evaluated_subgroups=evaluated,
+            skipped_subgroups=skipped,
+            n_total_combos=n_total,
+            n_evaluated=n_evaluated,
+            n_skipped=n_skipped,
+        )
+
+    # Compute worst-case disparity
+    worst_stat: float
+    worst_label: str
+
+    if method == "demographic_parity":
+        rates = [
+            (lbl, m["selection_rate"])
+            for lbl, m in evaluated.items()
+        ]
+        vals = [r[1] for r in rates]
+        diff = max(vals) - min(vals)
+        worst_stat = diff
+        max_lbl = rates[vals.index(max(vals))][0]
+        min_lbl = rates[vals.index(min(vals))][0]
+        worst_label = f"{max_lbl} vs {min_lbl}"
+
+    elif method == "equalized_odds":
+        tprs = [
+            (lbl, m["tpr"])
+            for lbl, m in evaluated.items()
+        ]
+        fprs = [
+            (lbl, m["fpr"])
+            for lbl, m in evaluated.items()
+        ]
+        tpr_vals = [r[1] for r in tprs]
+        fpr_vals = [r[1] for r in fprs]
+        tpr_diff = max(tpr_vals) - min(tpr_vals)
+        fpr_diff = max(fpr_vals) - min(fpr_vals)
+        if tpr_diff >= fpr_diff:
+            worst_stat = tpr_diff
+            mx = tprs[tpr_vals.index(max(tpr_vals))][0]
+            mn = tprs[tpr_vals.index(min(tpr_vals))][0]
+        else:
+            worst_stat = fpr_diff
+            mx = fprs[fpr_vals.index(max(fpr_vals))][0]
+            mn = fprs[fpr_vals.index(min(fpr_vals))][0]
+        worst_label = f"{mx} vs {mn}"
+
+    else:  # disparate_impact
+        rates = [
+            (lbl, m["selection_rate"])
+            for lbl, m in evaluated.items()
+        ]
+        vals = [r[1] for r in rates]
+        max_r = max(vals)
+        min_r = min(vals)
+        ratio = min_r / max_r if max_r > 0 else 0.0
+        worst_stat = ratio
+        max_lbl = rates[vals.index(max_r)][0]
+        min_lbl = rates[vals.index(min_r)][0]
+        worst_label = f"{min_lbl} vs {max_lbl}"
+
+    # Check pass/fail
+    if method == "disparate_impact":
+        passed = worst_stat >= thresh
+    else:
+        passed = worst_stat <= thresh
+
+    stat_fmt = f"{worst_stat:.4f}"
+    op = ">=" if method == "disparate_impact" else "<="
+
+    if passed:
+        message = (
+            f"Intersectional {method} "
+            f"{stat_fmt} {op} {thresh} "
+            f"across {n_evaluated} subgroups"
+        )
+    else:
+        message = (
+            f"Intersectional bias: {method} "
+            f"{stat_fmt} {'<' if method == 'disparate_impact' else '>'} "
+            f"{thresh} ({worst_label})"
+        )
+
+    return assert_true(
+        passed,
+        name="model.intersectional_fairness",
+        message=message,
+        severity=severity,
+        method=method,
+        worst_case_subgroup=worst_label,
+        worst_case_statistic=worst_stat,
+        threshold=thresh,
+        evaluated_subgroups=evaluated,
+        skipped_subgroups=skipped,
+        n_total_combos=n_total,
+        n_evaluated=n_evaluated,
+        n_skipped=n_skipped,
     )
