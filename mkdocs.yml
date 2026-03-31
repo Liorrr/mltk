@@ -62,6 +62,7 @@ nav:
       - Data Freshness: api/data-freshness.md
       - Data Drift: api/data-drift.md
       - Data PII: api/data-pii.md
+      - Data PII (NER): api/pii-ner.md
       - Data Labels: api/data-labels.md
       - Data Statistics: api/data-statistics.md
       - Synthetic Data: api/synthetic-data.md

@@ -204,3 +204,105 @@ class TestSmoothECE:
                 max_error=0.05,
                 method="smooth_ece",
             )
+
+
+class TestSmoothECEEdgeCases:
+    """Edge-case and convergence tests for SmoothECE."""
+
+    def test_smooth_ece_perfectly_calibrated(
+        self,
+    ) -> None:
+        """PASS: probs == true frequency -> ECE near 0.
+
+        Scenario: Generate labels whose frequency
+        exactly matches the predicted probability.
+        """
+        rng = np.random.default_rng(42)
+        n = 2000
+        y_prob = rng.uniform(0.1, 0.9, n)
+        y_true = (rng.random(n) < y_prob).astype(int)
+        result = assert_calibration(
+            y_true, y_prob,
+            max_error=0.1,
+            method="smooth_ece",
+        )
+        assert result.passed is True
+
+    def test_smooth_ece_completely_miscalibrated(
+        self,
+    ) -> None:
+        """FAIL: probs=0.9 but labels all 0 -> high ECE.
+
+        Scenario: Model is absurdly overconfident;
+        smooth ECE must exceed a tight threshold.
+        """
+        n = 500
+        y_prob = np.full(n, 0.9)
+        y_true = np.zeros(n, dtype=int)
+        with pytest.raises(MltkAssertionError):
+            assert_calibration(
+                y_true, y_prob,
+                max_error=0.05,
+                method="smooth_ece",
+            )
+
+    def test_smooth_ece_binary_edge_case(
+        self,
+    ) -> None:
+        """Predicted probs are only 0s and 1s.
+
+        Scenario: Hard predictions — smooth kernel
+        must handle point masses at boundaries.
+        """
+        rng = np.random.default_rng(42)
+        n = 300
+        y_prob = rng.choice(
+            [0.0, 1.0], size=n
+        ).astype(float)
+        y_true = y_prob.astype(int)
+        result = assert_calibration(
+            y_true, y_prob,
+            max_error=0.1,
+            method="smooth_ece",
+        )
+        assert isinstance(result.passed, bool)
+
+    def test_smooth_ece_large_sample(self) -> None:
+        """PASS: n=2000 well-calibrated converges.
+
+        Scenario: Large sample reduces noise; smooth
+        ECE should converge to near-zero error.
+        """
+        rng = np.random.default_rng(42)
+        n = 2000
+        y_prob = rng.uniform(0, 1, n)
+        y_true = (rng.random(n) < y_prob).astype(int)
+        result = assert_calibration(
+            y_true, y_prob,
+            max_error=0.1,
+            method="smooth_ece",
+        )
+        assert result.passed is True
+
+    def test_smooth_ece_vs_binned_ece(self) -> None:
+        """Both methods agree: good model is calibrated.
+
+        Scenario: Well-calibrated data should pass
+        under both 'ece' and 'smooth_ece'.
+        """
+        rng = np.random.default_rng(42)
+        n = 1000
+        y_prob = rng.uniform(0, 1, n)
+        y_true = (rng.random(n) < y_prob).astype(int)
+        binned = assert_calibration(
+            y_true, y_prob,
+            max_error=0.15,
+            method="ece",
+        )
+        smooth = assert_calibration(
+            y_true, y_prob,
+            max_error=0.15,
+            method="smooth_ece",
+        )
+        assert binned.passed is True
+        assert smooth.passed is True

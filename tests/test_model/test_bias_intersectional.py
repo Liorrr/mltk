@@ -466,3 +466,164 @@ class TestIntersectionalMultiAttribute:
             sensitive_features={"gender": gender},
         )
         assert isinstance(result.passed, bool)
+
+
+class TestIntersectionalHardenedEdges:
+    """Hardened edge-case and parametrized tests."""
+
+    def test_intersectional_single_attribute(
+        self,
+    ) -> None:
+        """Single protected attr = standard group check.
+
+        Scenario: Only gender provided, no cross product.
+        Both subgroups have identical 70% selection rate,
+        so the test must pass cleanly.
+        """
+        n_per = 200
+        sub_pred = np.array(
+            [1] * 140 + [0] * 60, dtype=int
+        )
+        y_true = np.ones(n_per * 2, dtype=int)
+        y_pred = np.tile(sub_pred, 2)
+        gender = np.array(
+            ["M"] * n_per + ["F"] * n_per
+        )
+        result = assert_intersectional_fairness(
+            y_true, y_pred,
+            sensitive_features={"gender": gender},
+        )
+        assert result.passed is True
+
+    def test_intersectional_three_attributes(
+        self,
+    ) -> None:
+        """3 attributes -> Cartesian product of subgroups.
+
+        Scenario: gender x race x age = 8 combos, each
+        with identical selection rate -> must pass.
+        """
+        n_per = 100
+        n_combos = 8
+        sub_pred = np.array(
+            [1] * 75 + [0] * 25, dtype=int
+        )
+        y_true = np.ones(n_per * n_combos, dtype=int)
+        y_pred = np.tile(sub_pred, n_combos)
+        gender = np.array(
+            ["M"] * 400 + ["F"] * 400
+        )
+        race = np.tile(
+            ["white"] * 200 + ["black"] * 200, 2
+        )
+        age = np.tile(
+            ["young"] * 100 + ["old"] * 100, 4
+        )
+        result = assert_intersectional_fairness(
+            y_true, y_pred,
+            sensitive_features={
+                "gender": gender,
+                "race": race,
+                "age": age,
+            },
+        )
+        assert result.passed is True
+
+    def test_intersectional_all_same_rate(
+        self,
+    ) -> None:
+        """All subgroups identical rate -> must pass.
+
+        Scenario: Perfect fairness — every intersection
+        has exactly 80% selection rate.
+        """
+        n_per = 150
+        sub_pred = np.array(
+            [1] * 120 + [0] * 30, dtype=int
+        )
+        y_true = np.ones(n_per * 4, dtype=int)
+        y_pred = np.tile(sub_pred, 4)
+        gender = np.array(
+            ["M"] * (2 * n_per) + ["F"] * (2 * n_per)
+        )
+        race = np.tile(
+            ["white"] * n_per + ["black"] * n_per, 2
+        )
+        result = assert_intersectional_fairness(
+            y_true, y_pred,
+            sensitive_features={
+                "gender": gender,
+                "race": race,
+            },
+        )
+        assert result.passed is True
+
+    def test_intersectional_min_subgroup_too_small(
+        self,
+    ) -> None:
+        """Subgroup below min_size=30 gets pruned.
+
+        Scenario: One intersection has only 5 samples;
+        it must be skipped, not crash or distort results.
+        """
+        rng = np.random.default_rng(42)
+        n_big = 200
+        n_tiny = 5
+        total = 2 * n_big + n_tiny
+        y_true = np.ones(total, dtype=int)
+        y_pred = np.ones(total, dtype=int)
+        gender = np.array(
+            ["M"] * n_big + ["F"] * n_big
+            + ["NB"] * n_tiny
+        )
+        race = np.array(
+            ["white"] * n_big + ["black"] * n_big
+            + ["other"] * n_tiny
+        )
+        result = assert_intersectional_fairness(
+            y_true, y_pred,
+            sensitive_features={
+                "gender": gender,
+                "race": race,
+            },
+            min_subgroup_size=30,
+        )
+        assert result.passed is True or (
+            "skipped" in str(result.details).lower()
+            or "pruned" in str(result.details).lower()
+            or "small" in str(result.details).lower()
+        )
+
+    def test_intersectional_equalized_odds_method(
+        self,
+    ) -> None:
+        """Equalized odds: identical TPR/FPR -> pass.
+
+        Scenario: Each subgroup has TPR=90%, FPR=10%.
+        """
+        n_per = 100
+        sub_true = np.array(
+            [1] * 50 + [0] * 50, dtype=int
+        )
+        sub_pred = np.array(
+            [1] * 45 + [0] * 5
+            + [1] * 5 + [0] * 45,
+            dtype=int,
+        )
+        y_true = np.tile(sub_true, 4)
+        y_pred = np.tile(sub_pred, 4)
+        gender = np.array(
+            ["M"] * (2 * n_per) + ["F"] * (2 * n_per)
+        )
+        race = np.tile(
+            ["white"] * n_per + ["black"] * n_per, 2
+        )
+        result = assert_intersectional_fairness(
+            y_true, y_pred,
+            sensitive_features={
+                "gender": gender,
+                "race": race,
+            },
+            method="equalized_odds",
+        )
+        assert result.passed is True

@@ -631,3 +631,172 @@ class TestFormatInvariance:
         assert (
             exc.value.result.severity == Severity.CRITICAL
         )
+
+
+# ===================================================================
+# TestParaphraseInvarianceHardened
+# ===================================================================
+
+
+METHODS_TOKEN_LABEL = ["token_f1", "label_match"]
+
+
+class TestParaphraseInvarianceHardened:
+    """Hardened edge-case and parametrized tests."""
+
+    @pytest.mark.parametrize(
+        "method", METHODS_TOKEN_LABEL,
+    )
+    def test_paraphrase_invariance_methods(
+        self, method: str,
+    ) -> None:
+        """Consistent model passes under each method.
+
+        Parametrized over token_f1 and label_match —
+        the two methods that need no external model.
+        """
+        result = assert_paraphrase_invariance(
+            model_fn=consistent_model,
+            paraphrases=WW2_PARAPHRASES,
+            equivalence_method=method,
+            min_invariance=0.5,
+        )
+        assert result.passed is True
+        assert result.details["method"] == method
+
+    @patch(
+        "mltk.domains.llm._backends"
+        ".embedding_cosine_pairs"
+    )
+    def test_paraphrase_invariance_embedding(
+        self, mock_embed: MagicMock,
+    ) -> None:
+        """Embedding method passes with mocked backend."""
+        mock_embed.return_value = [0.96, 0.94, 0.95]
+        result = assert_paraphrase_invariance(
+            model_fn=consistent_model,
+            paraphrases=WW2_PARAPHRASES,
+            equivalence_method="embedding",
+            min_invariance=0.5,
+        )
+        assert result.passed is True
+
+    @patch(
+        "mltk.domains.llm._backends"
+        ".nli_bidirectional"
+    )
+    def test_paraphrase_invariance_entailment(
+        self, mock_nli: MagicMock,
+    ) -> None:
+        """Entailment method passes with mocked NLI."""
+        mock_nli.return_value = {
+            "forward": {
+                "entailment": 0.92,
+                "contradiction": 0.04,
+                "neutral": 0.04,
+                "label": "entailment",
+            },
+            "backward": {
+                "entailment": 0.90,
+                "contradiction": 0.05,
+                "neutral": 0.05,
+                "label": "entailment",
+            },
+            "equivalent": True,
+            "contradiction": False,
+        }
+        result = assert_paraphrase_invariance(
+            model_fn=consistent_model,
+            paraphrases=WW2_PARAPHRASES,
+            equivalence_method="entailment",
+            min_invariance=0.5,
+        )
+        assert result.passed is True
+
+    def test_paraphrase_invariance_judge_method(
+        self,
+    ) -> None:
+        """Judge method with explicit judge_fn passes."""
+        judge = MagicMock(return_value=0.99)
+        result = assert_paraphrase_invariance(
+            model_fn=consistent_model,
+            paraphrases=WW2_PARAPHRASES,
+            equivalence_method="judge",
+            judge_fn=judge,
+            min_invariance=0.5,
+        )
+        assert result.passed is True
+
+    def test_format_invariance_custom_transforms(
+        self,
+    ) -> None:
+        """User-provided transform functions applied.
+
+        Scenario: Custom transforms (reverse, title)
+        on a model that ignores formatting.
+        """
+        transforms = [
+            lambda t: t[::-1],
+            lambda t: t.title(),
+        ]
+        result = assert_format_invariance(
+            model_fn=case_insensitive_model,
+            input_text="What is the answer?",
+            transforms=transforms,
+            equivalence_method="token_f1",
+            min_invariance=0.5,
+        )
+        assert result.passed is True
+        _result_shape_ok(result)
+
+    def test_paraphrase_invariance_single_input(
+        self,
+    ) -> None:
+        """Edge case: only 1 input -> rejected.
+
+        Scenario: Caller accidentally passes a list
+        with a single paraphrase.
+        """
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_paraphrase_invariance(
+                model_fn=consistent_model,
+                paraphrases=["solo question"],
+                equivalence_method="token_f1",
+                min_invariance=0.8,
+            )
+        assert "Need >= 2" in exc.value.result.message
+
+    def test_format_invariance_empty_response(
+        self,
+    ) -> None:
+        """Model returns empty string for all inputs.
+
+        Scenario: Broken model that always returns "".
+        Should still produce a valid TestResult.
+        """
+        def empty_model(text: str) -> str:
+            return ""
+
+        result = assert_format_invariance(
+            model_fn=empty_model,
+            input_text="What is the answer?",
+            equivalence_method="token_f1",
+            min_invariance=0.5,
+        )
+        _result_shape_ok(result)
+
+    def test_paraphrase_high_threshold_fails(
+        self,
+    ) -> None:
+        """threshold=0.99 fails with imperfect model.
+
+        Scenario: Inconsistent model can never reach
+        99% invariance; test must fail.
+        """
+        with pytest.raises(MltkAssertionError):
+            assert_paraphrase_invariance(
+                model_fn=inconsistent_model,
+                paraphrases=WW2_PARAPHRASES,
+                equivalence_method="token_f1",
+                min_invariance=0.99,
+            )

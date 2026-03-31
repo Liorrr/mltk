@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### NER PII Detection (S73)
+- `assert_no_pii(method="ner")` — Microsoft Presidio + spaCy NER for contextual PII (names, orgs, locations)
+- `assert_no_pii(method="gliner")` — GLiNER zero-shot NER for domain-specific PII (healthcare MRN, legal case numbers)
+- `assert_no_pii(method="hybrid")` — regex + NER union with intelligent span deduplication
+- `scan_pii_dispatch()` — unified routing function for all 4 methods
+- `scan_pii_ner()`, `scan_pii_gliner()`, `scan_pii_hybrid()` — standalone NER scanning functions
+- New `ner` optional dependency group: `pip install mltk[ner]`
+
+#### Test Hardening (S73)
+- +22 tests across drift (MMD), calibration (SmoothECE), fairness (intersectional), behavioral (invariance)
+- High-dimensional MMD, perfectly calibrated ECE, three-attribute intersectionality, all 6 paraphrase methods
+
+#### Research (S73)
+- NER PII detection research brief (Presidio architecture, GLiNER zero-shot, hybrid approach)
+- Red teaming architecture research (Promptfoo 135 plugins, Giskard GOAT, hybrid recommendation)
+- MCP evaluation research (JSON Schema validation, resource access, DeepEval comparison)
+
 ## [0.8.0] — 2026-03-27
 
 ### Added

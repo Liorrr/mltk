@@ -97,6 +97,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S71a: Property-based testing (Hypothesis), E2E pipeline, backend hardening
 - [x] S71b: Presentation demo script, assertion index, snapshot tests (syrupy)
 - [x] S72: MMD multivariate drift, SmoothECE calibration, intersectional fairness — 3 new assertions
+- [x] S73: NER PII detection (Presidio/spaCy/GLiNER/hybrid), test hardening (+22), 3 research briefs
 
 ---
 
@@ -113,7 +114,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **E-2**: S72 — SmoothECE calibration (reflected Gaussian kernel, auto-bandwidth, ICLR 2024)
 - [x] **E-3**: S68 — BERTScore limitation warnings (antonymy blindness, number blindness)
 - [x] **E-4**: S72 — Intersectional fairness (Crenshaw, Cartesian product, min_subgroup_size=30)
-- [ ] **E-5**: Add NER-based PII detection method (Microsoft Presidio)
+- [x] **E-5**: S73 — NER PII detection (Presidio + spaCy + GLiNER + hybrid method dispatch)
 - [ ] **E-6**: Add semantic similarity method to system prompt leak detection
 
 ### Testing Infrastructure (S66 Audit: 5 items)

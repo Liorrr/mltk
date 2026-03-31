@@ -11,7 +11,12 @@ from mltk.data.lineage import (
     assert_lineage_complete,
     track_lineage,
 )
-from mltk.data.pii import PiiMatch, assert_no_pii, scan_pii
+from mltk.data.pii import PiiMatch, assert_no_pii, scan_pii, scan_pii_dispatch
+from mltk.data.pii_ner import (
+    scan_pii_gliner,
+    scan_pii_hybrid,
+    scan_pii_ner,
+)
 from mltk.data.preset import assert_data_quality, data_quality_report
 from mltk.data.schema import assert_dtypes, assert_no_nulls, assert_schema
 from mltk.data.statistics import (
@@ -46,6 +51,10 @@ __all__ = [
     "assert_no_multivariate_drift",
     "assert_no_pii",
     "scan_pii",
+    "scan_pii_dispatch",
+    "scan_pii_ner",
+    "scan_pii_gliner",
+    "scan_pii_hybrid",
     "PiiMatch",
     "assert_label_balance",
     "assert_label_coverage",

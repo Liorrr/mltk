@@ -51,7 +51,7 @@ Assertions for validating DataFrame schema, distributions, freshness, and comple
 
 | # | Assertion | Module | Description | Since |
 |---|-----------|--------|-------------|-------|
-| 15 | `assert_no_pii` | `mltk.data.pii` | Scan DataFrame columns for PII patterns (email, phone, SSN, credit card, API keys, and 30+ more) | v0.1.0 |
+| 15 | `assert_no_pii` | `mltk.data.pii` | Scan DataFrame columns for PII patterns (email, phone, SSN, credit card, API keys, and 30+ more). Supports `method="regex"` (default), `"ner"` (Presidio/spaCy), `"gliner"` (zero-shot), `"hybrid"` (regex+NER). | v0.1.0 (NER: v0.9.0) |
 
 ### Labels
 

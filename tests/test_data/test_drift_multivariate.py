@@ -235,3 +235,78 @@ class TestMultivariateDriftDetails:
         cur = rng.standard_normal((5000, 3))
         result = assert_no_multivariate_drift(ref, cur)
         assert isinstance(result.passed, bool)
+
+
+class TestMultivariateDriftHighDim:
+    """High-dimensional and degenerate-dimension cases."""
+
+    def test_mmd_high_dimensional_data(self) -> None:
+        """FAIL: 50+ features, drift still detected.
+
+        Scenario: Wide feature set (e.g. embeddings);
+        mean shift of +1.5 must be caught even at d=50.
+        """
+        rng = np.random.default_rng(42)
+        ref = rng.standard_normal((400, 50))
+        cur = rng.standard_normal((400, 50)) + 1.5
+        with pytest.raises(MltkAssertionError):
+            assert_no_multivariate_drift(ref, cur)
+
+    def test_mmd_identical_distributions_high_dim(
+        self,
+    ) -> None:
+        """PASS: Same distribution in 50-dim passes.
+
+        Scenario: High-dim data from same source — no
+        false positive expected.
+        """
+        rng = np.random.default_rng(42)
+        ref = rng.standard_normal((400, 50))
+        cur = rng.standard_normal((400, 50))
+        result = assert_no_multivariate_drift(
+            ref, cur
+        )
+        assert result.passed is True
+
+    def test_mmd_single_feature(self) -> None:
+        """FAIL: 1-D data with big shift detected.
+
+        Scenario: Single feature — degenerate case
+        that must still work (not just multivariate).
+        """
+        rng = np.random.default_rng(42)
+        ref = rng.standard_normal((300, 1))
+        cur = rng.standard_normal((300, 1)) + 3.0
+        with pytest.raises(MltkAssertionError):
+            assert_no_multivariate_drift(ref, cur)
+
+    def test_mmd_very_small_sample(self) -> None:
+        """n=10 handled gracefully, no crash.
+
+        Scenario: Tiny batch — permutation test has
+        low power but must not error out.
+        """
+        rng = np.random.default_rng(42)
+        ref = rng.standard_normal((10, 3))
+        cur = rng.standard_normal((10, 3))
+        result = assert_no_multivariate_drift(
+            ref, cur
+        )
+        assert isinstance(result.passed, bool)
+
+    def test_mmd_bandwidth_selection(self) -> None:
+        """Auto bandwidth vs explicit sigma agree.
+
+        Scenario: Identical data should pass regardless
+        of whether sigma is auto-selected or explicit.
+        """
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal((300, 4))
+        auto = assert_no_multivariate_drift(
+            data, data.copy()
+        )
+        explicit = assert_no_multivariate_drift(
+            data, data.copy(), sigma=1.0
+        )
+        assert auto.passed is True
+        assert explicit.passed is True

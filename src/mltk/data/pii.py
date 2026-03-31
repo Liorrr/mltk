@@ -520,29 +520,156 @@ def scan_pii(
     return matches
 
 
+def scan_pii_dispatch(
+    text: str,
+    method: str = "regex",
+    patterns: list[str] | None = None,
+    allowlist: list[str] | None = None,
+    entity_types: list[str] | None = None,
+    score_threshold: float | None = None,
+) -> list[PiiMatch]:
+    """Route PII scanning to the appropriate backend by method name.
+
+    This is the unified entry point for users who want raw scan results
+    without the assertion wrapper. It dispatches to one of four backends:
+
+      - ``"regex"`` -- fast, deterministic pattern matching (default).
+        Best for structured PII: API keys, credit cards, SSNs, IBANs.
+      - ``"ner"`` -- Microsoft Presidio with spaCy NER. Best for
+        contextual PII: person names, organizations, locations.
+      - ``"gliner"`` -- zero-shot NER for domain-specific entities.
+        Best for custom PII types not in Presidio's fixed list.
+      - ``"hybrid"`` -- regex + NER combined with deduplication.
+        Best overall coverage at the cost of higher latency.
+
+    Args:
+        text: Text to scan for PII.
+        method: Detection backend. One of ``"regex"``, ``"ner"``,
+            ``"gliner"``, ``"hybrid"``. Default: ``"regex"``.
+        patterns: Regex pattern categories (only used when method is
+            ``"regex"`` or ``"hybrid"``). None = all patterns.
+        allowlist: Exact strings to suppress (only used when method
+            is ``"regex"`` or ``"hybrid"``).
+        entity_types: Entity types for NER/GLiNER backends. None uses
+            each backend's default entity list.
+        score_threshold: Minimum confidence score for NER/GLiNER.
+            None uses the backend's default (0.5 for Presidio, 0.7
+            for GLiNER).
+
+    Returns:
+        List of PiiMatch objects from the selected backend.
+
+    Raises:
+        ValueError: If method is not one of the four valid values.
+        ImportError: If NER dependencies are not installed (only when
+            method requires them).
+
+    Example:
+        >>> from mltk.data.pii import scan_pii_dispatch
+        >>> # Regex (default, no extra deps)
+        >>> scan_pii_dispatch("key: sk-proj-abc123def456ghi789jkl")
+        [PiiMatch(type='api_key', ...)]
+        >>> # NER (requires presidio-analyzer + spacy)
+        >>> scan_pii_dispatch("Dr. Sarah Chen", method="ner")
+        [PiiMatch(type='person_name', ...)]
+        >>> # Hybrid (best coverage)
+        >>> scan_pii_dispatch("John's key: sk-proj-abc...", method="hybrid")
+        [PiiMatch(type='person_name', ...), PiiMatch(type='api_key', ...)]
+    """
+    if method == "regex":
+        return scan_pii(text, patterns=patterns, allowlist=allowlist)
+
+    if method == "ner":
+        from mltk.data.pii_ner import scan_pii_ner
+
+        threshold = score_threshold if score_threshold is not None else 0.5
+        return scan_pii_ner(
+            text,
+            entity_types=entity_types,
+            score_threshold=threshold,
+        )
+
+    if method == "gliner":
+        from mltk.data.pii_ner import scan_pii_gliner
+
+        threshold = score_threshold if score_threshold is not None else 0.7
+        return scan_pii_gliner(
+            text,
+            entity_types=entity_types,
+            score_threshold=threshold,
+        )
+
+    if method == "hybrid":
+        from mltk.data.pii_ner import scan_pii_hybrid
+
+        threshold = score_threshold if score_threshold is not None else 0.5
+        return scan_pii_hybrid(
+            text,
+            patterns=patterns,
+            entity_types=entity_types,
+            score_threshold=threshold,
+            allowlist=allowlist,
+        )
+
+    raise ValueError(
+        f"Unknown PII detection method: {method!r}. "
+        f"Valid methods: 'regex', 'ner', 'gliner', 'hybrid'."
+    )
+
+
 @timed_assertion
 def assert_no_pii(
     df: pd.DataFrame,
     columns: list[str] | None = None,
     patterns: list[str] | None = None,
     allowlist: list[str] | None = None,
+    method: str = "regex",
+    entity_types: list[str] | None = None,
+    score_threshold: float | None = None,
     severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert no PII detected in DataFrame text columns.
 
+    Supports four detection methods via the ``method`` parameter:
+
+      - ``"regex"`` (default) -- fast pattern matching for structured
+        PII (API keys, credit cards, SSNs). No extra dependencies.
+      - ``"ner"`` -- Microsoft Presidio with spaCy NER for contextual
+        PII (names, organizations, locations). Requires:
+        ``pip install mltk[ner]``.
+      - ``"gliner"`` -- zero-shot NER for domain-specific PII types.
+        Requires: ``pip install gliner``.
+      - ``"hybrid"`` -- regex + NER combined. Best coverage.
+
+    The default ``method="regex"`` preserves 100% backward compatibility
+    with existing code. Adding ``method="ner"`` or ``method="hybrid"``
+    is a drop-in upgrade that catches contextual PII that regex misses.
+
     Args:
         df: DataFrame to scan.
         columns: Columns to scan. None = all object/string columns.
-        patterns: Pattern categories to check. None = all.
-        allowlist: Optional list of exact strings to suppress across all
-            columns. Passed through to scan_pii() for each cell value.
+        patterns: Pattern categories to check (regex and hybrid only).
+            None = all patterns.
+        allowlist: Optional list of exact strings to suppress across
+            all columns. Passed through to the scanner for each cell.
+        method: Detection backend. One of ``"regex"``, ``"ner"``,
+            ``"gliner"``, ``"hybrid"``. Default: ``"regex"``.
+        entity_types: Entity types for NER/GLiNER backends. None uses
+            each backend's default entity list.
+        score_threshold: Minimum confidence score for NER/GLiNER.
+            None uses the backend's default threshold.
         severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
         TestResult with match details per column and type.
 
     Example:
+        >>> # Existing usage (unchanged)
         >>> assert_no_pii(df, columns=["feedback_text", "notes"])
+        >>> # NER-based (catches names, orgs, locations)
+        >>> assert_no_pii(df, method="ner")
+        >>> # Hybrid (best coverage -- regex + NER)
+        >>> assert_no_pii(df, method="hybrid")
         >>> assert_no_pii(df, allowlist=["noreply@example.com"])
     """
     if columns is None:
@@ -560,20 +687,34 @@ def assert_no_pii(
     for col in columns:
         col_matches = 0
         for value in df[col].dropna().astype(str):
-            found = scan_pii(str(value), patterns=patterns, allowlist=allowlist)
+            found = scan_pii_dispatch(
+                str(value),
+                method=method,
+                patterns=patterns,
+                allowlist=allowlist,
+                entity_types=entity_types,
+                score_threshold=score_threshold,
+            )
             col_matches += len(found)
             for m in found:
-                matches_by_type[m.type] = matches_by_type.get(m.type, 0) + 1
+                matches_by_type[m.type] = (
+                    matches_by_type.get(m.type, 0) + 1
+                )
 
         if col_matches > 0:
             matches_by_column[col] = col_matches
         total_matches += col_matches
 
     passed = total_matches == 0
+    method_label = method if method != "regex" else ""
+    method_suffix = f" ({method})" if method_label else ""
     message = (
-        f"No PII detected in {len(columns)} column(s)"
+        f"No PII detected in {len(columns)} column(s){method_suffix}"
         if passed
-        else f"{total_matches} PII match(es) in columns: {list(matches_by_column.keys())}"
+        else (
+            f"{total_matches} PII match(es) in columns: "
+            f"{list(matches_by_column.keys())}{method_suffix}"
+        )
     )
 
     return assert_true(
@@ -585,4 +726,5 @@ def assert_no_pii(
         matches_by_column=matches_by_column,
         matches_by_type=matches_by_type,
         columns_scanned=columns,
+        method=method,
     )
