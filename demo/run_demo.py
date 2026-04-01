@@ -882,12 +882,12 @@ def beat_6() -> None:
     print(f"\n{_progress_bar(6, 6)}")
 
     # TALK: "One pip install. Native pytest integration.
-    #        206 assertions covering data, behavioral,
+    #        224 assertions covering data, behavioral,
     #        fairness, RAG, security, and monitoring.
     #        This is pytest for ML."
     print(
         f"\n  {_BOLD}{_CYAN}"
-        f"  206 assertions."
+        f"  224 assertions."
         f" One pip install."
         f" Native pytest."
         f"{_RESET}"
