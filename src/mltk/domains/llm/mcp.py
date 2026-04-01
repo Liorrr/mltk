@@ -245,9 +245,9 @@ def assert_mcp_tool_schema_conformance(
             False,
             name="llm.mcp.tool_schema_conformance",
             message=(
-                "jsonschema is required for MCP schema "
-                "conformance assertions. Install it with: "
-                "pip install mltk[mcp]"
+                "jsonschema is required for MCP schema conformance "
+                "assertions. Install it with: pip install mltk[mcp]  "
+                "(or: pip install jsonschema)"
             ),
             severity=Severity.CRITICAL,
             tool_name=tool_name,
@@ -483,7 +483,9 @@ def assert_mcp_resource_access(
     ):
         raise ValueError(
             "At least one constraint required: "
-            "expected_uris, forbidden_uris, or max_reads."
+            "expected_uris, forbidden_uris, or max_reads. "
+            "Example: assert_mcp_resource_access(trace, "
+            "expected_uris=['file:///data.csv'])"
         )
 
     accessed_uris = {ra.uri for ra in trace.resource_accesses}
@@ -591,8 +593,10 @@ def assert_mcp_context_window(
     limit = model_context_limit or trace.model_context_limit
     if limit <= 0:
         raise ValueError(
-            "model_context_limit must be > 0. Provide it as "
-            "a parameter or set trace.model_context_limit."
+            "model_context_limit must be > 0. "
+            "Provide it as a parameter (e.g., model_context_limit=200000 "
+            "for Claude, 128000 for GPT-4o) or set "
+            "trace.model_context_limit before calling."
         )
 
     utilization = trace.total_tokens / limit

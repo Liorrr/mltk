@@ -139,9 +139,9 @@ class LangfuseAdapter:
             from langfuse import Langfuse  # noqa: PLC0415
         except ImportError as exc:
             raise ImportError(
-                "langfuse is required for LangfuseAdapter but is "
-                "not installed. "
-                "Install it with: pip install langfuse"
+                "langfuse is required for LangfuseAdapter. "
+                "Install it with: pip install mltk[langfuse]  "
+                "(or: pip install langfuse)"
             ) from exc
         self._langfuse = Langfuse()
         return self._langfuse

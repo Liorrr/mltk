@@ -75,11 +75,12 @@ def _load_and_resize(
     """
     try:
         from PIL import Image
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "Pillow is required for image comparison. "
-            "Install with: pip install mltk[multimodal]"
-        ) from None
+            "Install it with: pip install mltk[multimodal]  "
+            "(or: pip install Pillow)"
+        ) from exc
 
     raw = load_image(source)
     img = Image.open(io.BytesIO(raw)).convert("RGB")
@@ -114,12 +115,13 @@ def _get_clip_model(
     """
     try:
         import open_clip
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "open-clip-torch is required for CLIPScore "
-            "with raw image/text inputs. Install with: "
-            "pip install mltk[clip]"
-        ) from None
+            "with raw image/text inputs. "
+            "Install it with: pip install mltk[clip]  "
+            "(or: pip install open-clip-torch)"
+        ) from exc
 
     model, _, preprocess = open_clip.create_model_and_transforms(
         model_name,
@@ -144,19 +146,21 @@ def _encode_clip(
     """
     try:
         import torch
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "PyTorch is required for CLIPScore model path. "
-            "Install with: pip install torch"
-        ) from None
+            "Install it with: pip install mltk[clip]  "
+            "(or: pip install torch)"
+        ) from exc
 
     try:
         from PIL import Image
-    except ImportError:
+    except ImportError as exc:
         raise ImportError(
             "Pillow is required for CLIPScore model path. "
-            "Install with: pip install mltk[multimodal]"
-        ) from None
+            "Install it with: pip install mltk[multimodal]  "
+            "(or: pip install Pillow)"
+        ) from exc
 
     model, preprocess, tokenizer = _get_clip_model(model_name)
 
@@ -271,7 +275,8 @@ def assert_clip_score(
         raise ValueError(
             "Provide either (image_embedding + text_embedding) "
             "for zero-dep cosine similarity, or (image + text) "
-            "for model-based encoding.  Got neither complete pair."
+            "for model-based encoding. Got neither complete pair. "
+            "Example: assert_clip_score(image=b'...', text='a cat')"
         )
 
     passed = score >= min_score
@@ -350,8 +355,9 @@ def assert_edit_preservation(
     """
     if method not in ("ssim", "pixel_diff"):
         raise ValueError(
-            f"method must be 'ssim' or 'pixel_diff', "
-            f"got '{method}'"
+            f"Unknown method: '{method}'. "
+            f"Valid methods: 'ssim' (structural similarity, "
+            f"requires scikit-image) or 'pixel_diff' (pure numpy)."
         )
 
     error: str | None = None
@@ -380,11 +386,12 @@ def assert_edit_preservation(
     if method == "ssim":
         try:
             from skimage.metrics import structural_similarity
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "scikit-image is required for SSIM. "
-                "Install with: pip install mltk[multimodal]"
-            ) from None
+                "scikit-image is required for SSIM comparison. "
+                "Install it with: pip install mltk[multimodal]  "
+                "(or: pip install scikit-image)"
+            ) from exc
 
         # Convert to grayscale for SSIM
         if img_orig.ndim == 3:

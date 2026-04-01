@@ -213,7 +213,8 @@ def _get_gliner_model(model_name: str) -> Any:
     except ImportError as exc:
         raise ImportError(
             "GLiNER is required for zero-shot NER PII detection. "
-            "Install it with: pip install gliner"
+            "Install it with: pip install mltk[gliner]  "
+            "(or: pip install gliner)"
         ) from exc
 
     revision = _GLINER_REVISIONS.get(model_name)

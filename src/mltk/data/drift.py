@@ -348,7 +348,8 @@ def _drift_wasserstein(
         from scipy.stats import wasserstein_distance
     except ImportError as err:
         raise ImportError(
-            "scipy required for Wasserstein. Install: pip install mltk[scipy]"
+            "scipy is required for Wasserstein distance. "
+            "Install it with: pip install mltk[scipy]"
         ) from err
     w_value = float(wasserstein_distance(ref, cur))
     passed = w_value < threshold

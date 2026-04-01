@@ -261,8 +261,9 @@ def register_phoenix(
     except ImportError as exc:
         raise ImportError(
             "OpenTelemetry SDK is required for register_phoenix. "
-            "Install it with: pip install opentelemetry-sdk "
-            "opentelemetry-exporter-otlp-proto-http"
+            "Install it with: pip install mltk[phoenix]  "
+            "(or: pip install opentelemetry-sdk "
+            "opentelemetry-exporter-otlp-proto-http)"
         ) from exc
 
     resource = Resource.create({"service.name": project_name})

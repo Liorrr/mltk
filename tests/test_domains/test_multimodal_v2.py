@@ -403,7 +403,7 @@ class TestEditPreservation:
     def test_invalid_method_raises(self) -> None:
         """Invalid method string raises ValueError."""
         png = _make_png_bytes(4, 4)
-        with pytest.raises(ValueError, match="method must be"):
+        with pytest.raises(ValueError, match="Unknown method"):
             assert_edit_preservation(
                 original=png,
                 edited=png,

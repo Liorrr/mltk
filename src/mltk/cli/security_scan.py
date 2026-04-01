@@ -431,14 +431,16 @@ def _import_model_fn(path: str) -> Callable[..., Any]:
     module_path, _, fn_name = path.rpartition(":")
     if not module_path or not fn_name:
         raise ValueError(
-            f"Expected 'module:function', got '{path}'"
+            f"Expected 'module:function' format, got '{path}'. "
+            f"Example: 'myapp.llm:chat_fn'"
         )
     module = importlib.import_module(module_path)
     fn = getattr(module, fn_name)
     if not callable(fn):
         raise ValueError(
-            f"'{fn_name}' in '{module_path}' is not "
-            f"callable"
+            f"'{fn_name}' in '{module_path}' is not callable. "
+            f"It must be a function that accepts a string prompt "
+            f"and returns a string response."
         )
     return fn
 
@@ -664,31 +666,43 @@ def register_security_scan(app: Any) -> None:
             None,
             "--category",
             "-c",
-            help="Attack categories to test",
+            help=(
+                "Attack categories to test (repeatable). "
+                "Options: 'Prompt Injection', 'Jailbreak', "
+                "'Data Extraction', 'System Prompt Theft', "
+                "'Encoding Bypass', 'Delimiter Injection', "
+                "'Multi-Language'. Default: all."
+            ),
         ),
         threshold: float = typer.Option(
             0.8,
             "--threshold",
             "-t",
-            help="Min resilience rate (0.0-1.0)",
+            help=(
+                "Minimum resilience rate to pass "
+                "(0.0-1.0, default: 0.8 = 80%%)"
+            ),
         ),
         mutations: bool = typer.Option(
             False,
             "--mutations",
             "-m",
-            help="Include encoding mutations",
+            help=(
+                "Include encoding mutations (leetspeak, reversed) "
+                "to double the payload count"
+            ),
         ),
         output: str = typer.Option(
             "table",
             "--output",
             "-o",
-            help="Output format: table, json",
+            help="Output format: 'table' (human-readable) or 'json'",
         ),
         verbose: bool = typer.Option(
             False,
             "--verbose",
             "-v",
-            help="Show individual payload results",
+            help="Show per-payload RESISTED/VULNERABLE results",
         ),
     ) -> None:
         """Red team security scan against a model.
@@ -722,7 +736,11 @@ def register_security_scan(app: Any) -> None:
             ]
 
         if not catalog:
-            print("No payloads match the selected categories.")  # noqa: T201
+            valid_cats = sorted({e["category"] for e in _RED_TEAM_CATALOG})
+            print(  # noqa: T201
+                "No payloads match the selected categories. "
+                f"Valid categories: {valid_cats}"
+            )
             raise typer.Exit(0)
 
         # -- Run scan ------------------------------------

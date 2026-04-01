@@ -15,12 +15,20 @@ def main() -> None:
     try:
         import typer
     except ImportError as err:
-        print("CLI requires: pip install mltk[cli]")  # noqa: T201
+        print(  # noqa: T201
+            "Typer is required for the mltk CLI. "
+            "Install it with: pip install mltk[cli]"
+        )
         raise SystemExit(1) from err
 
     app = typer.Typer(
         name="mltk",
-        help="ML Test Kit -- pytest for ML. Unified testing across the entire ML lifecycle.",
+        help=(
+            "ML Test Kit -- pytest for ML. "
+            "Unified testing across the entire ML lifecycle: "
+            "data quality, drift detection, model validation, "
+            "compliance, and monitoring."
+        ),
     )
 
     @app.command()
@@ -69,8 +77,20 @@ def test_data_quality():
         print(f"Created {test_path}")  # noqa: T201
 
     @app.command()
-    def scan(path: str) -> None:
-        """Quick data quality scan on a CSV/Parquet file."""
+    def scan(
+        path: str = typer.Argument(
+            ..., help="Path to a CSV or Parquet file to scan",
+        ),
+    ) -> None:
+        """Quick data quality scan on a CSV/Parquet file.
+
+        Reads the file, reports shape, dtypes, and null values.
+
+        Example::
+
+            mltk scan data/features.csv
+            mltk scan data/features.parquet
+        """
         import pandas as pd
 
         p = Path(path)
@@ -101,18 +121,39 @@ def test_data_quality():
 
     @app.command()
     def drift(
-        reference: str,
-        current: str,
-        method: str = "psi",
+        reference: str = typer.Argument(
+            ..., help="Path to the reference (baseline) CSV file",
+        ),
+        current: str = typer.Argument(
+            ..., help="Path to the current CSV file to compare",
+        ),
+        method: str = typer.Option(
+            "psi",
+            help=(
+                "Drift detection method: ks, psi, kl, chi2, "
+                "js, wasserstein, or auto (default: psi)"
+            ),
+        ),
     ) -> None:
-        """Compare two datasets for distribution drift."""
+        """Compare two datasets for distribution drift.
+
+        Compares numeric columns shared between reference and current
+        files, reporting per-column drift statistics.
+
+        Example::
+
+            mltk drift train.csv production.csv --method ks
+        """
         import pandas as pd
 
         ref_path = Path(reference)
         cur_path = Path(current)
 
-        if not ref_path.exists() or not cur_path.exists():
-            print("Both files must exist")  # noqa: T201
+        if not ref_path.exists():
+            print(f"Reference file not found: {reference}")  # noqa: T201
+            raise typer.Exit(1)
+        if not cur_path.exists():
+            print(f"Current file not found: {current}")  # noqa: T201
             raise typer.Exit(1)
 
         ref_df = pd.read_csv(ref_path)
@@ -144,7 +185,12 @@ def test_data_quality():
 
     @app.command()
     def score() -> None:
-        """Show ML Test Score (run pytest first to generate results)."""
+        """Show the ML Test Score rubric and how to generate scores.
+
+        The ML Test Score uses Google's 28-test rubric to quantify
+        testing maturity across data, model, infrastructure, and
+        monitoring.
+        """
         print("ML Test Score")  # noqa: T201
         print("Run: pytest --mltk-report to generate scores")  # noqa: T201
         print()  # noqa: T201
@@ -387,7 +433,10 @@ quality:
 
         mkdocs_yml = Path("mkdocs.yml")
         if not mkdocs_yml.exists():
-            print("mkdocs.yml not found in current directory")  # noqa: T201
+            print(  # noqa: T201
+                "mkdocs.yml not found in current directory. "
+                "Run this command from the project root."
+            )
             raise typer.Exit(1)
 
         print(f"Serving docs at http://{host}:{port}")  # noqa: T201
@@ -408,7 +457,10 @@ quality:
 
         mkdocs_yml = Path("mkdocs.yml")
         if not mkdocs_yml.exists():
-            print("mkdocs.yml not found in current directory")  # noqa: T201
+            print(  # noqa: T201
+                "mkdocs.yml not found in current directory. "
+                "Run this command from the project root."
+            )
             raise typer.Exit(1)
 
         result = subprocess.run(  # noqa: S603
@@ -441,7 +493,10 @@ quality:
         # Build first
         mkdocs_yml = Path("mkdocs.yml")
         if not mkdocs_yml.exists():
-            print("mkdocs.yml not found in current directory")  # noqa: T201
+            print(  # noqa: T201
+                "mkdocs.yml not found in current directory. "
+                "Run this command from the project root."
+            )
             raise typer.Exit(1)
 
         print("Building docs...")  # noqa: T201
@@ -450,7 +505,9 @@ quality:
             check=False,
         )
         if build_result.returncode != 0:
-            print("Build failed")  # noqa: T201
+            print(  # noqa: T201
+                "Docs build failed. Check mkdocs output above for details."
+            )
             raise typer.Exit(1)
 
         # Serve with Python's built-in HTTP server
@@ -591,7 +648,10 @@ quality:
                 )
 
         if suite is None and message is None:
-            print("Provide --results-json or --message (or both)")  # noqa: T201
+            print(  # noqa: T201
+                "Nothing to send. Provide --results-json, --message, or both. "
+                "Example: mltk notify slack --message 'Tests passed'"
+            )
             raise typer.Exit(1)
 
         ok = notify_slack(webhook_url=webhook_url, suite=suite, message=message)
@@ -625,7 +685,10 @@ quality:
         try:
             import uvicorn
         except ImportError as err:
-            print("Server requires: pip install mltk[server]")  # noqa: T201
+            print(  # noqa: T201
+                "uvicorn is required for the mltk server. "
+                "Install it with: pip install mltk[server]"
+            )
             raise typer.Exit(1) from err
         from mltk.server import create_app
 
@@ -1121,7 +1184,8 @@ quality:
             "", help="Filter by name, module, or description",
         ),
         output_format: str = typer.Option(
-            "table", "--format", help="Output format: table or json",
+            "table", "--format",
+            help="Output format: 'table' (human-readable) or 'json' (machine-readable)",
         ),
     ) -> None:
         """List all available mltk assertions.
