@@ -8,10 +8,22 @@ from __future__ import annotations
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+__all__ = [
+    "OWASP_LLM_TOP_10",
+    "OWASP_LLM_IDS",
+    "owasp_llm_scan",
+    "assert_owasp_coverage",
+    "generate_owasp_report",
+]
+
 # ---------------------------------------------------------------------------
-# OWASP LLM Top 10 (2025 revision)
+# OWASP LLM Top 10 v2025 (official January 2025 release)
+# https://genai.owasp.org/llm-top-10/
+#
 # Keys are OWASP IDs; "assertions" lists assertion-name prefixes (matched via
 # startswith, same convention as eu_ai_act.ARTICLE_MAPPING).
+#
+# 2025 renumbered 8 of 10 categories vs. the 2023 edition.
 # ---------------------------------------------------------------------------
 
 OWASP_LLM_TOP_10: dict[str, dict] = {
@@ -24,7 +36,35 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
         "assertions": ["nlp.prompt_injection"],
     },
     "LLM02": {
-        "title": "Insecure Output Handling",
+        "title": "Sensitive Information Disclosure",
+        "description": (
+            "LLMs inadvertently reveal confidential data, PII, proprietary "
+            "algorithms, or training details in their responses."
+        ),
+        "assertions": [
+            "data.pii",
+            "llm.toxicity",
+            "llm.system_prompt_leakage",
+        ],
+    },
+    "LLM03": {
+        "title": "Supply Chain Vulnerabilities",
+        "description": (
+            "Compromised pre-trained models, datasets, or plugins introduce "
+            "vulnerabilities through the ML pipeline's third-party components."
+        ),
+        "assertions": ["pipeline.checksum", "pipeline.reproducible"],
+    },
+    "LLM04": {
+        "title": "Data and Model Poisoning",
+        "description": (
+            "Adversarial manipulation of training data introduces backdoors or "
+            "biases that degrade model security, accuracy, or ethical behaviour."
+        ),
+        "assertions": ["data.schema", "data.no_nulls", "data.drift", "data.pii"],
+    },
+    "LLM05": {
+        "title": "Improper Output Handling",
         "description": (
             "LLM outputs are passed to downstream components without validation, "
             "enabling XSS, SSRF, privilege escalation, or remote code execution."
@@ -37,56 +77,7 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "llm.safety.taxonomy",
         ],
     },
-    "LLM03": {
-        "title": "Training Data Poisoning",
-        "description": (
-            "Adversarial manipulation of training data introduces backdoors or "
-            "biases that degrade model security, accuracy, or ethical behaviour."
-        ),
-        "assertions": ["data.schema", "data.no_nulls", "data.drift", "data.pii"],
-    },
-    "LLM04": {
-        "title": "Model Denial of Service",
-        "description": (
-            "Inputs crafted to consume excessive resources cause service degradation "
-            "or outages by exhausting compute, memory, or token budgets."
-        ),
-        "assertions": ["inference.latency", "inference.throughput", "monitor.sla"],
-    },
-    "LLM05": {
-        "title": "Supply Chain Vulnerabilities",
-        "description": (
-            "Compromised pre-trained models, datasets, or plugins introduce "
-            "vulnerabilities through the ML pipeline's third-party components."
-        ),
-        "assertions": ["pipeline.checksum", "pipeline.reproducible"],
-    },
     "LLM06": {
-        "title": "Sensitive Information Disclosure",
-        "description": (
-            "LLMs inadvertently reveal confidential data, PII, proprietary "
-            "algorithms, or training details in their responses."
-        ),
-        "assertions": [
-            "data.pii",
-            "llm.toxicity",
-            "llm.system_prompt_leakage",
-        ],
-    },
-    "LLM07": {
-        "title": "Insecure Plugin Design",
-        "description": (
-            "LLM plugins that lack proper access controls, input validation, or "
-            "least-privilege principles expand the attack surface significantly."
-        ),
-        "assertions": [
-            "llm.tool_selection",
-            "llm.tool_call",
-            "llm.agentic.tool_chain",
-            "llm.agentic.no_hallucinated_tools",
-        ],
-    },
-    "LLM08": {
         "title": "Excessive Agency",
         "description": (
             "LLMs granted excessive functionality, permissions, or autonomy take "
@@ -104,21 +95,47 @@ OWASP_LLM_TOP_10: dict[str, dict] = {
             "llm.multi_agent.handoff",
         ],
     },
-    "LLM09": {
-        "title": "Overreliance",
+    "LLM07": {
+        "title": "System Prompt Leakage",
         "description": (
-            "Users or systems depend on LLM outputs without adequate verification, "
+            "LLM system prompts or instructions are extracted via direct "
+            "queries, side-channel attacks, or conversation manipulation."
+        ),
+        "assertions": [
+            "llm.system_prompt_leakage",
+            "llm.tool_selection",
+            "llm.tool_call",
+            "llm.agentic.tool_chain",
+            "llm.agentic.no_hallucinated_tools",
+        ],
+    },
+    "LLM08": {
+        "title": "Vector and Embedding Weaknesses",
+        "description": (
+            "Vulnerabilities in RAG vector databases, embedding pipelines, or "
+            "retrieval mechanisms allow data poisoning or access control bypass."
+        ),
+        "assertions": [
+            "data.drift",
+            "pipeline.checksum",
+            "pipeline.reproducible",
+        ],
+    },
+    "LLM09": {
+        "title": "Misinformation",
+        "description": (
+            "LLMs generate false or misleading content that appears authoritative, "
             "propagating hallucinations or errors into critical decisions."
         ),
         "assertions": ["llm.hallucination", "llm.faithfulness", "llm.coherence"],
     },
     "LLM10": {
-        "title": "Model Theft",
+        "title": "Unbounded Consumption",
         "description": (
-            "Unauthorised access, copying, or reverse-engineering of proprietary "
-            "models leads to intellectual property theft and competitive harm."
+            "Inputs crafted to consume excessive resources cause service degradation "
+            "or outages by exhausting compute, memory, or token budgets."
         ),
-        "assertions": ["pipeline.checksum"],
+        "assertions": ["inference.latency", "inference.throughput", "monitor.sla"],
     },
 }
 
@@ -131,11 +148,30 @@ OWASP_LLM_IDS: list[str] = list(OWASP_LLM_TOP_10.keys())
 # ---------------------------------------------------------------------------
 
 
+def _prefix_match(assertion_name: str, prefix: str) -> bool:
+    """Check if *assertion_name* matches *prefix* at a dot boundary.
+
+    A match requires *assertion_name* to either equal *prefix* exactly
+    or start with *prefix* followed by ``"."``.  This prevents false
+    positives like ``"data.pii_extra"`` matching prefix ``"data.pii"``.
+
+    Args:
+        assertion_name: Fully-qualified assertion name.
+        prefix: Assertion prefix to match against.
+
+    Returns:
+        True if *assertion_name* matches at a dot boundary.
+    """
+    if assertion_name == prefix:
+        return True
+    return assertion_name.startswith(prefix + ".")
+
+
 def _assertion_to_owasp_ids(assertion_name: str) -> list[str]:
     """Return all OWASP LLM IDs whose assertion prefixes match *assertion_name*.
 
-    A match occurs when *assertion_name* starts with any prefix listed in
-    ``OWASP_LLM_TOP_10[id]["assertions"]``.
+    A match occurs when *assertion_name* equals or starts with (at a dot
+    boundary) any prefix listed in ``OWASP_LLM_TOP_10[id]["assertions"]``.
 
     Args:
         assertion_name: Fully-qualified assertion name, e.g. ``"llm.hallucination.rag"``.
@@ -146,7 +182,7 @@ def _assertion_to_owasp_ids(assertion_name: str) -> list[str]:
     matched: list[str] = []
     for owasp_id, meta in OWASP_LLM_TOP_10.items():
         for prefix in meta["assertions"]:
-            if assertion_name.startswith(prefix):
+            if _prefix_match(assertion_name, prefix):
                 matched.append(owasp_id)
                 break  # one match per OWASP ID is enough
     return matched
@@ -211,7 +247,7 @@ def owasp_llm_scan(results: list[dict]) -> dict[str, dict]:
         for t in entry["tests"]:
             test_name = str(t.get("name", ""))
             for prefix in OWASP_LLM_TOP_10[owasp_id]["assertions"]:
-                if test_name.startswith(prefix):
+                if _prefix_match(test_name, prefix):
                     covered_prefixes.add(prefix)
         entry["gaps"] = [
             p for p in OWASP_LLM_TOP_10[owasp_id]["assertions"]

@@ -1664,3 +1664,119 @@ class TestEdgeCaseHardeningR2:
                 schema,
                 {"status": "active", "priority": 9},
             )
+
+
+# ===============================================================
+# Regression tests (S73-S80 polish)
+# ===============================================================
+
+
+class TestMcpTraceToolNamesRegression:
+    """Regression: McpTrace.tool_names override vs assert_tool_chain."""
+
+    def test_tool_names_with_server_uses_namespace(
+        self,
+    ) -> None:
+        """McpTrace.tool_names returns 'server::name' format.
+
+        This is critical because assert_tool_chain uses
+        trace.tool_names -- the override means callers
+        must use 'server::name' in expected_tools when
+        validating McpTrace instances.
+        """
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="search",
+                    server="docs",
+                    arguments={},
+                ),
+                McpToolCall(
+                    name="read_file",
+                    server="fs",
+                    arguments={},
+                ),
+            ],
+        )
+        names = trace.tool_names
+        assert names == [
+            "docs::search",
+            "fs::read_file",
+        ]
+        # Plain names should NOT match
+        assert "search" not in names
+        assert "read_file" not in names
+
+    def test_tool_names_without_server_bare_name(
+        self,
+    ) -> None:
+        """McpToolCall without server uses bare name."""
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="search",
+                    server="",
+                    arguments={},
+                ),
+            ],
+        )
+        assert trace.tool_names == ["search"]
+
+    def test_tool_names_preserves_order(self) -> None:
+        """tool_names preserves insertion order."""
+        trace = McpTrace(
+            tool_calls=[
+                McpToolCall(
+                    name="a", server="s1",
+                    arguments={},
+                ),
+                McpToolCall(
+                    name="b", server="s2",
+                    arguments={},
+                ),
+                McpToolCall(
+                    name="c", server="",
+                    arguments={},
+                ),
+            ],
+        )
+        assert trace.tool_names == [
+            "s1::a", "s2::b", "c",
+        ]
+
+
+class TestMcpResourceAccessNoConstraint:
+    """assert_mcp_resource_access ValueError guard."""
+
+    def test_no_constraint_raises_valueerror(
+        self,
+    ) -> None:
+        """Calling with no constraints raises ValueError."""
+        trace = McpTrace(resource_accesses=[])
+        with pytest.raises(
+            ValueError,
+            match="At least one constraint",
+        ):
+            assert_mcp_resource_access(trace)
+
+    def test_none_params_raises_valueerror(
+        self,
+    ) -> None:
+        """All params explicitly None raises ValueError."""
+        trace = McpTrace(
+            resource_accesses=[
+                McpResourceAccess(
+                    uri="file:///x.txt",
+                ),
+            ],
+        )
+        with pytest.raises(
+            ValueError,
+            match="At least one constraint",
+        ):
+            assert_mcp_resource_access(
+                trace,
+                expected_uris=None,
+                forbidden_uris=None,
+                max_reads=None,
+            )

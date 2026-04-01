@@ -217,9 +217,20 @@ def _get_gliner_model(model_name: str) -> Any:
         ) from exc
 
     revision = _GLINER_REVISIONS.get(model_name)
-    if revision:
+    if revision and revision != "main":
         return GLiNER.from_pretrained(
             model_name, revision=revision
+        )
+    if revision == "main":
+        import warnings
+
+        warnings.warn(
+            f"GLiNER model '{model_name}' is not pinned to a "
+            f"specific revision (using 'main'). Pin to a commit "
+            f"SHA in _GLINER_REVISIONS before production use to "
+            f"prevent supply-chain attacks.",
+            UserWarning,
+            stacklevel=2,
         )
     return GLiNER.from_pretrained(model_name)
 

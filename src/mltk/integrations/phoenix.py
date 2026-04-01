@@ -261,7 +261,7 @@ def register_phoenix(
     except ImportError as exc:
         raise ImportError(
             "OpenTelemetry SDK is required for register_phoenix. "
-            "Install with: pip install opentelemetry-sdk "
+            "Install it with: pip install opentelemetry-sdk "
             "opentelemetry-exporter-otlp-proto-http"
         ) from exc
 

@@ -21,49 +21,61 @@ from mltk.core.assertion import MltkAssertionError
 # Sample result fixtures
 # ---------------------------------------------------------------------------
 
-# Covers: LLM01, LLM02 (x3 prefixes), LLM03 (x4 prefixes), LLM04 (x3),
-#         LLM06, LLM07 (x2), LLM08 (partial), LLM09 (x3)
+# Covers (OWASP LLM Top 10 v2025 numbering):
+# LLM01 (Prompt Injection), LLM02 (Sensitive Info: data.pii + llm.toxicity),
+# LLM04 (Data Poisoning: data.schema/no_nulls/drift/pii),
+# LLM05 (Improper Output: text_length/output_format/toxicity),
+# LLM06 (Excessive Agency: tool_selection/task_completion),
+# LLM07 (System Prompt Leakage: tool_selection/tool_call),
+# LLM08 (Vector Weaknesses: data.drift/pipeline.checksum),
+# LLM09 (Misinformation: hallucination/faithfulness/coherence),
+# LLM10 (Unbounded Consumption: latency/throughput/sla)
 FULL_SAMPLE_RESULTS: list[dict] = [
     # LLM01 — Prompt Injection
     {"name": "nlp.prompt_injection.direct",    "passed": True,  "message": "no injection"},
-    # LLM02 — Insecure Output Handling
+    # LLM05 — Improper Output Handling (was LLM02 in 2023)
     {"name": "llm.text_length.max",            "passed": True,  "message": "len ok"},
     {"name": "llm.output_format.json",         "passed": True,  "message": "format ok"},
     {"name": "llm.toxicity.score",             "passed": False, "message": "toxicity=0.08 > 0.01"},
-    # LLM03 — Training Data Poisoning
+    # LLM04 — Data and Model Poisoning (was LLM03 in 2023)
     {"name": "data.schema.columns",            "passed": True,  "message": "schema ok"},
     {"name": "data.no_nulls.train",            "passed": True,  "message": "0 nulls"},
     {"name": "data.drift.psi",                 "passed": True,  "message": "PSI=0.04"},
     {"name": "data.pii.scan",                  "passed": True,  "message": "no PII"},
-    # LLM04 — Model Denial of Service
+    # LLM10 — Unbounded Consumption (was LLM04 in 2023)
     {"name": "inference.latency.p99",          "passed": True,  "message": "p99=120ms"},
     {"name": "inference.throughput.rps",       "passed": True,  "message": "rps=320"},
     {"name": "monitor.sla.uptime",             "passed": True,  "message": "99.9%"},
-    # LLM06 — Sensitive Information Disclosure (data.pii already above; toxicity too)
-    # LLM07 — Insecure Plugin Design
+    # LLM02 — Sensitive Information Disclosure (was LLM06 in 2023; data.pii also hits LLM04)
+    # LLM07 — System Prompt Leakage (was Insecure Plugin Design in 2023)
     {"name": "llm.tool_selection.whitelist",   "passed": True,  "message": "whitelist ok"},
     {"name": "llm.tool_call.schema",           "passed": True,  "message": "schema valid"},
-    # LLM08 — Excessive Agency (shares llm.tool_selection with LLM07)
+    # LLM06 — Excessive Agency (was LLM08 in 2023; shares llm.tool_selection with LLM07)
     {"name": "llm.task_completion.scope",      "passed": True,  "message": "in scope"},
-    # LLM09 — Overreliance
+    # LLM09 — Misinformation (was Overreliance in 2023)
     {"name": "llm.hallucination.rag",          "passed": False, "message": "2/10 unsupported"},
     {"name": "llm.faithfulness.bertscore",     "passed": True,  "message": "score=0.92"},
     {"name": "llm.coherence.ppl",              "passed": True,  "message": "ppl=12.3"},
 ]
 
-# Only covers LLM09 and partial LLM02 — well below 50% threshold
+# Only covers LLM09 and partial LLM02/LLM05 — well below 50% threshold
 SPARSE_RESULTS: list[dict] = [
     {"name": "llm.hallucination.direct",   "passed": True,  "message": "ok"},
     {"name": "llm.toxicity.basic",         "passed": True,  "message": "ok"},
 ]
 
-# Covers exactly 5 out of 10 categories (50 %)
+# Covers 5+ categories via prefix sharing (2025 numbering):
+# nlp.prompt_injection -> LLM01
+# llm.text_length -> LLM05
+# data.schema -> LLM04
+# inference.latency -> LLM10
+# pipeline.checksum -> LLM03 + LLM08 (shared prefix)
 HALF_COVERAGE_RESULTS: list[dict] = [
     {"name": "nlp.prompt_injection.x",    "passed": True, "message": ""},  # LLM01
-    {"name": "llm.text_length.x",         "passed": True, "message": ""},  # LLM02
-    {"name": "data.schema.x",             "passed": True, "message": ""},  # LLM03
-    {"name": "inference.latency.x",       "passed": True, "message": ""},  # LLM04
-    {"name": "pipeline.checksum.x",       "passed": True, "message": ""},  # LLM05 + LLM10
+    {"name": "llm.text_length.x",         "passed": True, "message": ""},  # LLM05
+    {"name": "data.schema.x",             "passed": True, "message": ""},  # LLM04
+    {"name": "inference.latency.x",       "passed": True, "message": ""},  # LLM10
+    {"name": "pipeline.checksum.x",       "passed": True, "message": ""},  # LLM03 + LLM08
 ]
 
 
@@ -86,23 +98,23 @@ def test_owasp_scan_maps_results():
     llm01_names = [t["name"] for t in scan["LLM01"]["tests"]]
     assert "nlp.prompt_injection.direct" in llm01_names
 
-    # LLM02 — all three prefixes covered
-    assert scan["LLM02"]["covered"] is True
-    llm02_names = [t["name"] for t in scan["LLM02"]["tests"]]
-    assert "llm.text_length.max"  in llm02_names
-    assert "llm.output_format.json" in llm02_names
-    assert "llm.toxicity.score"   in llm02_names
+    # LLM05 (2025) — Improper Output Handling: all three prefixes covered
+    assert scan["LLM05"]["covered"] is True
+    llm05_names = [t["name"] for t in scan["LLM05"]["tests"]]
+    assert "llm.text_length.max"  in llm05_names
+    assert "llm.output_format.json" in llm05_names
+    assert "llm.toxicity.score"   in llm05_names
 
-    # LLM09 — hallucination, faithfulness, coherence all present
+    # LLM09 — Misinformation: hallucination, faithfulness, coherence all present
     assert scan["LLM09"]["covered"] is True
     llm09_names = [t["name"] for t in scan["LLM09"]["tests"]]
     assert "llm.hallucination.rag"      in llm09_names
     assert "llm.faithfulness.bertscore" in llm09_names
     assert "llm.coherence.ppl"          in llm09_names
 
-    # LLM05 — pipeline.checksum not in FULL_SAMPLE_RESULTS → should be missing
-    assert scan["LLM05"]["covered"] is False
-    assert scan["LLM05"]["tests"] == []
+    # LLM03 — Supply Chain: pipeline.checksum not in FULL_SAMPLE_RESULTS → uncovered
+    assert scan["LLM03"]["covered"] is False
+    assert scan["LLM03"]["tests"] == []
 
     # Every result dict in a covered category is enriched with "owasp_id"
     for owasp_id, entry in scan.items():
@@ -215,12 +227,12 @@ def test_owasp_report_format():
 
 
 def test_owasp_partial_coverage():
-    # SCENARIO: HALF_COVERAGE_RESULTS covers exactly 5 of the 10 OWASP IDs
-    #           (LLM01, LLM02, LLM03, LLM04, LLM05/LLM10 via pipeline.checksum)
+    # SCENARIO: HALF_COVERAGE_RESULTS covers 5+ of the 10 OWASP IDs
+    #           (LLM01, LLM03, LLM04, LLM05, LLM08, LLM10 via prefix sharing)
     # WHY:      boundary condition — 50 % coverage must pass at min_coverage=0.5
-    #           but fail at min_coverage=0.6; gaps must be non-empty
-    # EXPECTED: coverage = 0.5 or above (pipeline.checksum hits LLM05 + LLM10);
-    #           assert passes at 0.5; assert fails at 0.6;
+    #           but fail at min_coverage=0.9; gaps must be non-empty
+    # EXPECTED: coverage = 0.5 or above (pipeline.checksum hits LLM03 + LLM08);
+    #           assert passes at 0.5; assert fails at 0.9;
     #           uncovered categories have non-empty gaps lists
 
     scan = owasp_llm_scan(HALF_COVERAGE_RESULTS)
@@ -253,20 +265,20 @@ def test_owasp_partial_coverage():
 
 
 def test_owasp_scan_gap_tracking():
-    # SCENARIO: results cover only ONE of three assertion prefixes in LLM02
-    #           (llm.text_length only; llm.output_format and llm.toxicity absent)
+    # SCENARIO: results cover only ONE of five assertion prefixes in LLM05
+    #           (llm.text_length only; llm.output_format, llm.toxicity, llm.safety.* absent)
     # WHY:      gap tracking must report individual missing prefixes, not just
     #           the category-level covered flag
-    # EXPECTED: LLM02 is "covered" (one test present); gaps lists the 2 missing prefixes
+    # EXPECTED: LLM05 is "covered" (one test present); gaps lists the 4 missing prefixes
 
     partial_results = [
         {"name": "llm.text_length.chars", "passed": True, "message": "ok"},
     ]
     scan = owasp_llm_scan(partial_results)
 
-    assert scan["LLM02"]["covered"] is True, "LLM02 should be covered (one test present)"
+    assert scan["LLM05"]["covered"] is True, "LLM05 should be covered (one test present)"
 
-    gaps = scan["LLM02"]["gaps"]
+    gaps = scan["LLM05"]["gaps"]
     assert "llm.output_format" in gaps, "llm.output_format should be a gap"
     assert "llm.toxicity"      in gaps, "llm.toxicity should be a gap"
     assert "llm.text_length"   not in gaps, "llm.text_length is covered, not a gap"
@@ -285,3 +297,39 @@ def test_owasp_coverage_timing():
     result = assert_owasp_coverage(FULL_SAMPLE_RESULTS, min_coverage=0.1)
     assert isinstance(result.duration_ms, float)
     assert result.duration_ms >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# Test 9 — prefix matching uses dot boundaries (not bare startswith)
+# ---------------------------------------------------------------------------
+
+
+def test_owasp_prefix_matching_dot_boundary():
+    # SCENARIO: assertion name "data.pii_extra" should NOT match prefix "data.pii"
+    #           but "data.pii.scan" SHOULD match prefix "data.pii"
+    # WHY:      startswith without dot boundary creates false positives
+    # EXPECTED: "data.pii_extra" does not map to any OWASP category that
+    #           lists "data.pii"; "data.pii.scan" does map
+
+    from mltk.compliance.owasp_llm import _assertion_to_owasp_ids
+
+    # Exact match
+    ids_exact = _assertion_to_owasp_ids("data.pii")
+    assert len(ids_exact) > 0, "data.pii should match at least one OWASP ID"
+
+    # Dot-separated child match
+    ids_child = _assertion_to_owasp_ids("data.pii.scan")
+    assert len(ids_child) > 0, "data.pii.scan should match via dot boundary"
+
+    # Underscore continuation should NOT match
+    ids_bad = _assertion_to_owasp_ids("data.pii_extra")
+    assert len(ids_bad) == 0, (
+        "data.pii_extra should NOT match prefix data.pii "
+        "(no dot boundary)"
+    )
+
+    # Similar: "llm.toxicity_v2" should NOT match "llm.toxicity"
+    ids_bad2 = _assertion_to_owasp_ids("llm.toxicity_v2")
+    assert len(ids_bad2) == 0, (
+        "llm.toxicity_v2 should NOT match prefix llm.toxicity"
+    )

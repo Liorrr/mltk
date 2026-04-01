@@ -3,10 +3,10 @@
 Provides a curated attack catalog, encoding mutation engine,
 stateful multi-turn sessions, confidence-tiered grading, and
 four pytest-native assertions for adversarial evaluation of
-large language models. Covers OWASP LLM Top 10 categories
-LLM01 (Prompt Injection), LLM02 (Data Extraction), LLM06
-(Excessive Agency), LLM07 (System Prompt Theft), and LLM09
-(Harmful Content).
+large language models. Covers OWASP LLM Top 10 v2025 categories:
+LLM01 (Prompt Injection), LLM02 (Sensitive Information Disclosure),
+LLM06 (Excessive Agency), LLM07 (System Prompt Leakage), and
+LLM09 (Misinformation).
 
 All payloads are educational/demonstrative -- designed for
 automated security testing, not malicious use.

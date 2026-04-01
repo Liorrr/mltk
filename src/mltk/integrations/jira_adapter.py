@@ -48,7 +48,8 @@ class JiraAdapter(IssueTrackerAdapter):
                 from jira import JIRA
             except ImportError as err:
                 raise ImportError(
-                    "jira library required. Install: pip install jira"
+                    "jira is required for JiraAdapter. "
+                    "Install it with: pip install jira"
                 ) from err
             self._jira = JIRA(
                 self.instance_url,

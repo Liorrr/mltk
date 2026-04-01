@@ -31,7 +31,7 @@ class AttackCategory(Enum):
     ENCODING_BYPASS = "encoding_bypass"
 
 
-# Map each category to its primary OWASP LLM Top 10 ID.
+# Map each category to its primary OWASP LLM Top 10 v2025 ID.
 CATEGORY_OWASP_MAP: dict[AttackCategory, str] = {
     AttackCategory.PROMPT_INJECTION: "LLM01",
     AttackCategory.JAILBREAK: "LLM01",
@@ -41,6 +41,9 @@ CATEGORY_OWASP_MAP: dict[AttackCategory, str] = {
     AttackCategory.SYSTEM_PROMPT_THEFT: "LLM07",
     AttackCategory.ENCODING_BYPASS: "LLM01",
 }
+# NOTE: LLM02 (2025) = Sensitive Information Disclosure, which aligns
+# with DATA_EXTRACTION. LLM07 (2025) = System Prompt Leakage, which
+# aligns with SYSTEM_PROMPT_THEFT. These IDs are correct for 2025.
 
 
 @dataclass(frozen=True)

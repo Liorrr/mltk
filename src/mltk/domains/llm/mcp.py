@@ -38,6 +38,17 @@ from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm.trace import AgentTrace, ToolCall
 
+__all__ = [
+    "McpToolCall",
+    "McpResourceAccess",
+    "McpTrace",
+    "assert_mcp_tool_schema_conformance",
+    "assert_mcp_tool_selection",
+    "assert_mcp_resource_access",
+    "assert_mcp_context_window",
+    "assert_mcp_error_recovery",
+]
+
 # ------------------------------------------------------------------
 # Dataclasses
 # ------------------------------------------------------------------
@@ -236,7 +247,7 @@ def assert_mcp_tool_schema_conformance(
             message=(
                 "jsonschema is required for MCP schema "
                 "conformance assertions. Install it with: "
-                "pip install jsonschema"
+                "pip install mltk[mcp]"
             ),
             severity=Severity.CRITICAL,
             tool_name=tool_name,
