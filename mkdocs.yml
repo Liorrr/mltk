@@ -99,6 +99,7 @@ nav:
       - LLM-as-Judge: api/llm-judge.md
       - Summarization Metrics: api/summarization-metrics.md
       - Long-Context LLM Testing: api/long-context.md
+      - Multimodal Evaluation: api/multimodal.md
       - Recommendation Systems: api/recommendation.md
       - Healthcare: api/healthcare.md
       - Synthetic QA Generator: api/synthetic-qa-generator.md

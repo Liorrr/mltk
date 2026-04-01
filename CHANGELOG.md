@@ -20,6 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `McpTrace`, `McpToolCall`, `McpResourceAccess` dataclasses (extend AgentTrace)
 - New `mcp` optional dependency group: `pip install mltk[mcp]`
 
+#### Multimodal Evaluation v1 (S78)
+- `assert_prompt_faithfulness` — text-to-image semantic alignment via LLM judge
+- `assert_image_coherence` — image-text document coherence
+- `assert_image_helpfulness` — image utility for comprehension
+- `assert_vqa_accuracy` — VQA correctness (judge + exact match modes)
+- `ImageInput` unified type (str path, Path, bytes) with `image_description` escape hatch
+- New `multimodal` and `clip` optional dependency groups
+
+#### Red Team v2 Enhancements (S78)
+- `RedTeamSession` — stateful multi-turn attack management
+- 3 built-in attack chains (trust building, roleplay escalation, context poisoning)
+- Confidence tiers (COMPROMISED/LIKELY/AMBIGUOUS/RESILIENT) with indicator tracking
+- `llm_attacker` parameter for LLM-generated payload variants
+
 #### Red Team Framework (S77)
 - `assert_red_team_resilient` — run 55+ attack payloads across 7 OWASP categories (closes CG-2)
 - `assert_no_session_jailbreak` — multi-turn conversation attack detection

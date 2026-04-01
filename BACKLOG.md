@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S77: 215 assertions, 3080+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S78: 219 assertions, 3220+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -102,6 +102,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S75: MCP evaluation (5 assertions, McpTrace dataclass), test hardening (+25), synthetic data research
 - [x] S76: SyntheticQAGenerator (template + LLM, 5 question types), test hardening (+20), NER PII research
 - [x] S77: Red Team v1 (4 assertions, 55 payloads, 8 mutations), Synthetic v2 (multi-hop, conversational, distracting), security-scan CLI
+- [x] S78: Multimodal v1 (4 assertions, ImageInput, judge-based), Red Team v2 (sessions, chains, tiers, LLM attacker)
 
 ---
 
@@ -148,7 +149,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **CG-1**: S76 — SyntheticQAGenerator (template + LLM modes, 5 question types, quality filter)
 - [x] **CG-2**: S77 — Red Team v1 (4 assertions, 55 payloads, 8 encoding mutations, multi-turn, security-scan CLI)
 - [x] **CG-3**: S75 — MCP evaluation (5 assertions, JSON Schema validation, resource access, context window)
-- [ ] **CG-4**: Multimodal LLM evaluation (image input/output) — 2 sprints
+- [x] **CG-4**: S78 — Multimodal v1 (4 assertions: faithfulness, coherence, helpfulness, VQA)
 - [ ] **CG-5**: LLM observability/tracing (Arize Phoenix 13K stars) — consider integration vs build
 - [ ] **CG-6**: Automated prompt optimization — 2 sprints
 

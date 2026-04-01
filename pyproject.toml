@@ -48,6 +48,8 @@ embedding = ["sentence-transformers>=2.0"]  # embedding-based LLM similarity eva
 nli = ["sentence-transformers>=2.0"]  # NLI cross-encoder for bidirectional entailment
 ner = ["presidio-analyzer>=2.2", "spacy>=3.4.4"]  # NER-based PII detection (names, orgs, locations)
 mcp = ["jsonschema>=4.0"]  # MCP tool schema validation
+multimodal = ["Pillow>=9.0"]  # Multimodal image-text evaluation
+clip = ["open-clip-torch>=2.24", "Pillow>=9.0"]  # CLIPScore image-text similarity
 classifier = ["transformers>=4.40", "torch>=2.0"]  # transformer-based toxicity classification
 torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)
 mlflow = ["mlflow>=2.0"]  # MLflow integration for logging test results
@@ -56,7 +58,7 @@ server = ["fastapi>=0.110", "uvicorn>=0.27"]  # mltk server platform
 aws = ["boto3>=1.28"]  # AWS SageMaker + CloudWatch monitoring
 gcp = ["google-cloud-aiplatform>=1.40"]  # GCP Vertex AI monitoring
 azure = ["azure-ai-ml>=1.12"]  # Azure ML monitoring
-all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,nli,ner,mcp,classifier,torch,mlflow,otel,server,aws,gcp,azure]"]
+all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,nli,ner,mcp,multimodal,clip,classifier,torch,mlflow,otel,server,aws,gcp,azure]"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
