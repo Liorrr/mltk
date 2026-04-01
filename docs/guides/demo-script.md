@@ -1,148 +1,115 @@
 # Presentation Demo Script
 
 **Event:** April 19 presentation
-**Duration:** ~14 minutes (5 beats)
-**Setup:** Python 3.10+, `pip install mltk[cli,report]`,
-terminal + editor visible to audience.
+**Duration:** ~12 minutes (6 beats)
+**Setup:** Python 3.10+, `pip install mltk[cli]`,
+terminal visible to audience.
 
 ---
 
-## Beat 1: "The Problem" (30 sec)
+## Quick Start
+
+```bash
+pip install mltk[cli]
+python demo/run_demo.py
+```
+
+The demo is **fully automated**. No typing during
+the presentation. No external APIs, no model
+downloads. Just run the script and talk over the
+output.
+
+---
+
+## Beat 1: "The Problem" (~30 sec)
+
+### What it does
+
+Creates a sample DataFrame with hidden issues
+(PII, nulls, subgroup bias). Prints the data and
+shows Group B has a lower average score -- but
+nobody tested for it.
 
 ### Talking points
 
 - ML fails silently -- a model scores 92% overall
-  but collapses to 55% on a subgroup
+  but collapses on a subgroup
 - Traditional pytest catches code bugs. Nothing
   catches ML bugs.
 - "pytest catches code bugs. mltk catches ML bugs."
 
-### Live code
-
-```python
-# A model that looks great... until you slice it.
-import numpy as np
-
-overall_accuracy = 0.92
-print(f"Overall accuracy: {overall_accuracy:.0%}")
-# Looks great, right?
-
-# But break it down by age group:
-age_groups = {
-    "18-35": 0.95,
-    "36-55": 0.93,
-    "56+":   0.55,  # <-- silent failure
-}
-for group, acc in age_groups.items():
-    flag = " ** FAILING **" if acc < 0.70 else ""
-    print(f"  {group}: {acc:.0%}{flag}")
-```
-
 ### Expected output
 
 ```
-Overall accuracy: 92%
-  18-35: 95%
-  36-55: 93%
-  56+: 55% ** FAILING **
+Sample ML dataset loaded.
+Looks fine, right?
+
+      name             email  age  score group
+John Smith  john@example.com 25.0   0.92     A
+  Jane Doe  jane@example.com  NaN   0.55     B
+...
+
+  Group A: avg score = 0.85
+  Group B: avg score = 0.73
 ```
 
 ### Transition
 
-> "Nobody caught that 55%. There was no test for it.
-> That is the problem mltk solves. Let me show you
-> how."
+> "Nobody tested for this. mltk catches it.
+> Let me show you how."
 
 ---
 
-## Beat 2: "Method Dispatch" (3 min)
+## Beat 2: "mltk Data Scan" (~2 min)
+
+### What it does
+
+Runs three data quality assertions on the same
+DataFrame:
+
+1. `assert_schema` -- verifies column types PASS
+2. `assert_no_nulls` -- catches the null age FAIL
+3. `assert_no_pii(method="regex")` -- catches
+   5 emails FAIL
+
+Then explains that names require NER/hybrid mode.
 
 ### Talking points
 
-- mltk has a `method` parameter on LLM assertions
-- Same data, different methods, dramatically
-  different detection
-- `lexical` is fast but blind to contradictions
-- `nli` catches factual errors that token overlap
-  misses
-- One parameter change upgrades your detection
-
-### Live code
-
-```python
-from mltk.domains.llm.safety import (
-    assert_no_hallucination,
-)
-
-claims = [
-    "Python was created by Guido van Rossum.",
-    "Python was first released in 1991.",
-    "Python is a compiled language.",  # wrong!
-]
-sources = [
-    "Python is an interpreted programming language "
-    "created by Guido van Rossum, first released "
-    "in 1991.",
-]
-
-# --- Lexical: token overlap ---
-r1 = assert_no_hallucination(
-    claims, sources, method="lexical",
-)
-print(f"lexical  -> passed={r1.passed}")
-print(f"  coverage: {r1.details['avg_coverage']:.2f}")
-# PASSES -- most tokens match!
-
-# --- NLI: catches the contradiction ---
-r2 = assert_no_hallucination(
-    claims, sources, method="nli",
-)
-print(f"nli      -> passed={r2.passed}")
-print(f"  coverage: {r2.details['avg_coverage']:.2f}")
-# FAILS -- "compiled" contradicts "interpreted"
-```
+- Schema validation is the first line of defense
+- One null in production can crash a pipeline
+- Regex catches structured PII (emails, SSNs, API
+  keys) with zero dependencies
+- For person names, upgrade to `method="hybrid"`
+  (one parameter change)
 
 ### Expected output
 
 ```
-lexical  -> passed=True
-  coverage: 0.72
-nli      -> passed=False
-  coverage: 0.58
-```
-
-### Decision flowchart (show on screen)
-
-```
-What matters most?
-|
-+-- Speed (CI/CD, large batch)
-|   +-- Need synonym handling?
-|       +-- No  --> lexical
-|       +-- Yes --> embedding
-|
-+-- Accuracy (correctness matters)
-|   +-- Contradictions are dangerous?
-|       +-- Yes --> nli
-|       +-- No  --> embedding
-|
-+-- Subjective quality (creative, open-ended)
-|   --> llm (bring your own judge)
-|
-+-- Not sure?
-    --> embedding (best default)
+  PASS  Schema valid
+  FAIL  1 null(s) in columns: ['age']
+  FAIL  5 PII match(es) in columns: ['email']
 ```
 
 ### Transition
 
-> "Method dispatch lets you trade speed for depth.
-> But what about testing model *behavior* -- not
-> just individual outputs? That is where we are the
-> only tool on the market."
+> "Three assertions, three findings. But data
+> quality is just the start. What about the model
+> itself?"
 
 ---
 
-## Beat 3: "Behavioral Consistency" (5 min)
+## Beat 3: "Behavioral Consistency" (~2 min)
+
+### What it does
+
+1. Defines a mock LLM with a fragile spot (one
+   paraphrase triggers a completely different
+   answer)
+2. Runs `assert_paraphrase_invariance` -- FAIL
+   (invariance 0.50 < 0.80, 3 of 6 pairs fail)
+3. Runs `assert_output_stability` with a model
+   that has run-to-run jitter -- FAIL (0.60 < 0.90)
 
 ### Talking points
 
@@ -150,316 +117,162 @@ What matters most?
   paraphrasing alone (NAACL 2025)
 - No other testing tool ships behavioral
   consistency as pytest assertions
-- 7 assertions covering invariance, stability,
-  equivalence, directionality, retrieval
-- Show per-input breakdown -- aggregate scores
-  hide the fragile inputs
-
-### Live code -- paraphrase invariance
-
-```python
-from mltk.domains.llm.behavioral import (
-    assert_paraphrase_invariance,
-)
-
-def my_model(prompt: str) -> str:
-    """Simulated model with a fragile spot."""
-    p = prompt.lower()
-    if "cause" in p and "ww2" in p:
-        return "Treaty of Versailles, economic crisis"
-    if "world war" in p:
-        return "Treaty of Versailles, economic crisis"
-    if "second" in p and "war" in p:
-        return "It started in 1939"  # inconsistent!
-    return "Treaty of Versailles, economic crisis"
-
-result = assert_paraphrase_invariance(
-    model_fn=my_model,
-    paraphrases=[
-        "What caused WW2?",
-        "Summarize the causes of World War 2",
-        "Why did the second world war happen?",
-        "Explain the origins of WW2",
-    ],
-    equivalence_method="token_f1",
-    min_invariance=0.8,
-)
-
-print(f"passed: {result.passed}")
-rate = result.details["invariance_rate"]
-print(f"invariance_rate: {rate:.2f}")
-
-# Show per-input outputs
-for item in result.details["per_input_outputs"]:
-    inp = item["input"][:45]
-    out = item["output"][:50]
-    print(f"  {inp:<45} -> {out}")
-
-# Show worst pair
-wp = result.details["worst_pair"]
-ws = result.details["worst_score"]
-print(f"\nworst pair: inputs {wp}, score={ws:.2f}")
-```
+- Per-input breakdown shows exactly which
+  paraphrase breaks the model
+- Output stability catches non-determinism
+  (temperature > 0 variance, race conditions)
 
 ### Expected output
 
 ```
-passed: False
-invariance_rate: 0.67
+  FAIL  Paraphrase invariance too low (token_f1):
+        0.5000 < 0.8 (3/6 pairs)
+    What caused WW2?            -> Treaty of...
+    What led to the second...   -> It started in...
 
-  What caused WW2?                              -> Treaty of Versailles, economic crisis
-  Summarize the causes of World War 2           -> Treaty of Versailles, economic crisis
-  Why did the second world war happen?           -> It started in 1939
-  Explain the origins of WW2                     -> Treaty of Versailles, economic crisis
+    worst pair: inputs [0, 2], score=0.00
 
-worst pair: inputs [1, 2], score=0.12
-```
-
-### Live code -- format invariance
-
-```python
-from mltk.domains.llm.behavioral import (
-    assert_format_invariance,
-)
-
-def case_sensitive_model(prompt: str) -> str:
-    """Model that breaks on uppercase."""
-    if prompt.isupper():
-        return "I don't understand the question."
-    return "Photosynthesis converts light to energy."
-
-result = assert_format_invariance(
-    model_fn=case_sensitive_model,
-    input_text="What is photosynthesis?",
-    equivalence_method="token_f1",
-    min_invariance=0.8,
-)
-
-print(f"passed: {result.passed}")
-rate = result.details["invariance_rate"]
-print(f"invariance_rate: {rate:.2f}")
-
-for t in result.details["transform_results"]:
-    name = t["transform"]
-    score = t["score"]
-    eq = "eq" if t["equivalent"] else "DIFF"
-    print(f"  {name:<20} score={score:.2f} [{eq}]")
-```
-
-### Expected output
-
-```
-passed: False
-invariance_rate: 0.80
-
-  lowercase            score=1.00 [eq]
-  uppercase            score=0.05 [DIFF]
-  strip_whitespace     score=1.00 [eq]
-  no_punctuation       score=0.95 [eq]
-  double_space         score=0.95 [eq]
+  FAIL  Output stability too low (token_f1):
+        0.6000 < 0.9
 ```
 
 ### Transition
 
 > "No competitor has this as a pytest assertion.
-> You write `assert_paraphrase_invariance`, push to
-> CI, and every commit is tested for behavioral
-> fragility. Now -- what if you do not use pytest?"
+> You write `assert_paraphrase_invariance`, push
+> to CI, and every commit is tested. Now let's
+> generate test data automatically."
 
 ---
 
-## Beat 4: "MltkSuite -- Works Everywhere" (2 min)
+## Beat 4: "Synthetic QA + RAG Testing" (~3 min)
+
+### What it does
+
+1. Uses `SyntheticQAGenerator` in template mode
+   (zero dependencies) to generate 5 QA pairs
+   from text chunks
+2. Prints the generated questions and answers
+3. Runs `assert_faithfulness(method="lexical")`
+   on each pair -- all PASS
 
 ### Talking points
 
-- Not everyone uses pytest -- notebooks, scripts,
-  pipelines
-- `MltkSuite` is a composable runner: add
-  assertions, call `.run()`, export results
-- Same assertions, same `TestResult` objects
-- Export to HTML report with one line
-
-### Live code
-
-```python
-from mltk.core import MltkSuite
-from mltk.data import (
-    assert_no_nulls,
-    assert_range,
-    assert_schema,
-)
-import pandas as pd
-import numpy as np
-
-# Create sample data
-df = pd.DataFrame({
-    "user_id": [1, 2, 3, 4, 5],
-    "score": [0.9, 0.85, 0.7, None, 0.95],
-    "label": [1, 0, 1, 1, 0],
-})
-
-# Build a suite
-suite = MltkSuite("Data Quality Check")
-
-suite.add(
-    assert_schema,
-    df,
-    {
-        "user_id": "int64",
-        "score": "float64",
-        "label": "int64",
-    },
-)
-suite.add(assert_no_nulls, df)
-suite.add(assert_range, df["score"], 0.0, 1.0)
-
-# Run everything
-suite.run()
-print(suite.summary())
-
-# Export to HTML
-suite.to_html("demo-report.html")
-print("\nReport saved to demo-report.html")
-```
+- Template mode is deterministic and CI-safe --
+  no API calls, no costs
+- For production, swap in `llm_fn=my_model` for
+  higher quality generation
+- Faithfulness checks that answers are grounded
+  in the source context
+- Lexical method is zero-dep; upgrade to
+  `method="nli"` for semantic checking
 
 ### Expected output
 
 ```
-MltkSuite: Data Quality Check
-  [PASS] assert_schema (2ms)
-  [FAIL] assert_no_nulls: 1 null in column 'score'
-  [PASS] assert_range (1ms)
+Generated 5 QA pairs:
 
-2/3 passed, 1 failed
+  Q1: What does Unsupervised learning?
+  A1: Unsupervised learning discovers hidden...
+
+  Q2: What does Transfer learning?
+  A2: Transfer learning allows pre-trained...
+  ...
+
+  PASS  Q1 faithfulness: 1.00
+  PASS  Q2 faithfulness: 1.00
+  ...
 ```
 
 ### Transition
 
-> "Same assertions everywhere. Now let me show you
-> the fastest path from zero to full model coverage."
+> "Automated test data generation plus RAG
+> testing in one pipeline. Now let's attack the
+> model."
 
 ---
 
-## Beat 5: "mltk scan -- Zero to Coverage" (3 min)
+## Beat 5: "Red Team Security Scan" (~3 min)
+
+### What it does
+
+1. Defines a mock chatbot that refuses attack
+   patterns (keyword-based safety)
+2. Runs `assert_red_team_resilient` across 3
+   attack categories (26 payloads) -- PASS
+3. Shows per-category resilience breakdown
+4. Runs `assert_encoding_mutation_resilience`
+   with 3 techniques (30 mutations) -- PASS
 
 ### Talking points
 
-- One command finds every blind spot in your model
-- 8 built-in scanners: Slice, Bias, Calibration,
-  Robustness, Leakage, Data, Drift, Overfit
-- Each finding includes severity + reproduction
-  recipe
-- Generates a pytest file you can commit
-- "From blind spot to test coverage in 30 seconds"
-
-### Live code
-
-```python
-from mltk.scan import scan
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import (
-    RandomForestClassifier,
-)
-from sklearn.model_selection import train_test_split
-
-# Build a deliberately biased model
-np.random.seed(42)
-n = 2000
-df = pd.DataFrame({
-    "age": np.random.randint(18, 80, n),
-    "income": np.random.normal(50000, 15000, n),
-    "gender": np.random.choice(
-        ["M", "F"], n
-    ),
-    "score": np.random.normal(0.5, 0.2, n),
-})
-
-# Label correlates with age (biased)
-df["label"] = (
-    (df["age"] < 40).astype(int)
-    & (df["score"] > 0.4).astype(int)
-)
-
-X = df[["age", "income", "score"]]
-y = df["label"].values
-
-X_train, X_test, y_train, y_test = (
-    train_test_split(X, y, test_size=0.3, random_state=42)
-)
-
-model = RandomForestClassifier(
-    n_estimators=50, random_state=42
-)
-model.fit(X_train, y_train)
-
-# Scan the model
-report = scan(
-    model.predict,
-    X_test,
-    y_test,
-    sensitive_columns=["age"],
-)
-
-# See findings
-print(report.summary())
-
-# Generate pytest file
-report.to_test_file("tests/test_scan_findings.py")
-print("\nGenerated: tests/test_scan_findings.py")
-print("Run: pytest tests/test_scan_findings.py -v")
-```
+- 7 attack categories mapped to OWASP LLM Top 10
+- 50+ built-in educational payloads, no external
+  attack tools needed
+- Encoding mutations test a critical blind spot:
+  models trained to refuse plaintext may comply
+  with Base64/ROT13/leetspeak
+- The mock chatbot resists everything -- a real
+  model probably won't
 
 ### Expected output
 
 ```
-+-- mltk scan ------------------------------------+
-| Model: classifier | 600 samples                 |
-| Features: 3 numeric                             |
-| Scanners: 7/8 run (OverfitScanner skipped)      |
-| Duration: 4.2s                                   |
-+--------------------------------------------------+
+  PASS  Red team resilience: 1.0000 >= 0.8
+        (26/26 attacks resisted)
 
-  X CRITICAL  Accuracy drops to 0.58 for age > 55
-              (overall: 0.91)       [SliceScanner]
-  X CRITICAL  Demographic parity violation on age
-              (ratio: 0.62)          [BiasScanner]
-  ! WARNING   Model uncalibrated (ECE: 0.14)
-                              [CalibrationScanner]
-  ! WARNING   Predictions unstable under 1% noise
-              (5% flip rate)   [RobustnessScanner]
-  i INFO      2 features with > 0.6 correlation
-                                 [LeakageScanner]
+  Per-category breakdown:
+    [OK] prompt_injection    resilience: 100%
+    [OK] jailbreak           resilience: 100%
+    [OK] data_extraction     resilience: 100%
 
-Summary: 2 critical, 2 warnings, 1 info
--> Run: pytest tests/test_scan_findings.py
+  PASS  Encoding mutation resilience: 1.0000
+        (30/30 mutations resisted)
 ```
 
 ### Transition
 
-> "Five findings. Severity levels. A pytest file
-> you can commit right now. From blind spot to test
-> coverage in 30 seconds."
+> "56 security checks in under a second. All
+> built-in, all pytest-native. Let's wrap up."
 
 ---
 
-## Closing Slide
+## Beat 6: "The Full Picture" (~1 min)
 
-**mltk -- pytest for ML**
+### What it does
 
-- :test_tube: 207+ assertions across the full ML lifecycle
-- :brain: 7 behavioral consistency assertions (first-mover)
-- :mag: Multi-method evaluation
-  (lexical :arrow_right: NLI :arrow_right: LLM-as-Judge)
-- :shield: 8 compliance frameworks
+Prints a summary: issues found, tests passed/
+failed, security checks, total time.
+
+### Expected output
+
+```
+  Summary
+  ----------------------------------------
+  Issues found:      4
+  Tests passed:      8 / 12
+  Tests failed:      4 / 12
+  Security checks:   56
+  ----------------------------------------
+  Total demo time:   0.1s
+
+  224 assertions, one pip install, native pytest.
+
+  pip install mltk[cli]
+  pytest for ML.
+```
+
+### Closing talking points
+
+- 224+ assertions across the full ML lifecycle
+- 7 behavioral consistency assertions (first-mover)
+- Multi-method evaluation
+  (lexical -> NLI -> LLM-as-Judge)
+- 8 compliance frameworks
   (EU AI Act, FDA, SR 11-7, HIPAA, OWASP LLM,
   NIST AI RMF, ISO 42001, SOC 2)
-- :zap: Rust-accelerated performance
-- :package: One `pip install`, replaces 5 tools
-
-```bash
-pip install mltk[cli,report]
-```
+- Rust-accelerated performance
+- One `pip install`, replaces 5 tools
 
 ---
 
@@ -467,32 +280,37 @@ pip install mltk[cli,report]
 
 ### Before the demo
 
-1. `pip install mltk[cli,report,embedding]` in a
-   clean venv
-2. Pre-download NLI model:
-   ```bash
-   python -c "from sentence_transformers import \
-     CrossEncoder; \
-     CrossEncoder('cross-encoder/nli-deberta-v3-base')"
-   ```
-3. Test every code block runs without errors
-4. Have `mltk doctor` output ready as backup
-5. Set terminal font size to 18pt+
+1. `pip install mltk[cli]` in a clean venv
+2. Run `python demo/run_demo.py` once to verify
+3. Set terminal font size to 18pt+
+4. Resize terminal: ~80 columns, ~40 rows
+5. Have `mltk doctor` output ready as backup
 
 ### If something breaks
 
-- Skip to the next beat -- each is self-contained
-- `MltkSuite` demo (Beat 4) has zero external deps
-  and always works
-- Beat 1 is pure Python, no imports needed
+- Each beat is independent -- skip to the next
+- The script catches all errors and prints a
+  traceback; read the error and explain what
+  the assertion would have done
+- If Python itself fails: show the source code
+  in `demo/run_demo.py` and walk through it
+
+### Fallback: run individual beats
+
+```python
+# In a Python REPL:
+from demo.run_demo import beat_1
+beat_1()  # Each beat is self-contained
+```
 
 ### Timing guide
 
 | Beat | Duration | Cumulative |
 |------|----------|------------|
 | 1. The Problem | 0:30 | 0:30 |
-| 2. Method Dispatch | 3:00 | 3:30 |
-| 3. Behavioral Consistency | 5:00 | 8:30 |
-| 4. MltkSuite | 2:00 | 10:30 |
-| 5. mltk scan | 3:00 | 13:30 |
-| Closing | 0:30 | 14:00 |
+| 2. Data Scan | 2:00 | 2:30 |
+| 3. Behavioral | 2:00 | 4:30 |
+| 4. Synthetic QA | 3:00 | 7:30 |
+| 5. Red Team | 3:00 | 10:30 |
+| 6. Full Picture | 1:00 | 11:30 |
+| Buffer | 0:30 | 12:00 |
