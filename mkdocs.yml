@@ -121,6 +121,8 @@ nav:
       - Integrations (Jira): api/integrations.md
       - GitHub, Slack & Plugins: api/github-integration.md
       - GitHub App: api/github-app.md
+      - LLM-as-Judge Defaults: api/judge-defaults.md
+      - LLM Observability: api/observability.md
       - OpenTelemetry: api/otel.md
       - MLflow Integration: api/mlflow.md
       - Weights & Biases: api/wandb.md

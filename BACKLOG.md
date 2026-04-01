@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S79: 223 assertions, 3350+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S80: 224 assertions, 3400+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -104,6 +104,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S77: Red Team v1 (4 assertions, 55 payloads, 8 mutations), Synthetic v2 (multi-hop, conversational, distracting), security-scan CLI
 - [x] S78: Multimodal v1 (4 assertions, ImageInput, judge-based), Red Team v2 (sessions, chains, tiers, LLM attacker)
 - [x] S79: Multimodal v2 (CLIPScore, POPE, SSIM, OCR — completes CG-4)
+- [x] S80: LLM-as-Judge defaults (IP-1) + Phoenix/Langfuse observability (CG-5)
 
 ---
 
@@ -151,7 +152,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **CG-2**: S77 — Red Team v1 (4 assertions, 55 payloads, 8 encoding mutations, multi-turn, security-scan CLI)
 - [x] **CG-3**: S75 — MCP evaluation (5 assertions, JSON Schema validation, resource access, context window)
 - [x] **CG-4**: S78 — Multimodal v1 (4 assertions: faithfulness, coherence, helpfulness, VQA)
-- [ ] **CG-5**: LLM observability/tracing (Arize Phoenix 13K stars) — consider integration vs build
+- [x] **CG-5**: S80 — Phoenix + Langfuse adapters, assert_trace_quality, register_phoenix
 - [ ] **CG-6**: Automated prompt optimization — 2 sprints
 
 ### Advanced Features

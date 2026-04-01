@@ -20,6 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `McpTrace`, `McpToolCall`, `McpResourceAccess` dataclasses (extend AgentTrace)
 - New `mcp` optional dependency group: `pip install mltk[mcp]`
 
+#### LLM-as-Judge Defaults (S80, IP-1)
+- `configure_default_judge()` — set a default judge_fn for all subjective assertions
+- `resolve_judge()` — priority chain: explicit > module default > fallback method
+- `assert_with_judge()` — convenience wrapper with auto-fallback to lexical
+- Thread-safe module-level configuration
+
+#### LLM Observability Adapters (S80, CG-5)
+- `PhoenixAdapter` — wrap any mltk assertion as a Phoenix evaluator callable
+- `register_phoenix()` — one-line OTLP endpoint configuration
+- `LangfuseAdapter` — wrap mltk assertion as Langfuse score function
+- `assert_trace_quality` — unified CI/CD quality gate (latency + cost + score)
+- New `phoenix` and `langfuse` optional dependency groups
+
 #### Multimodal Evaluation v2 (S79)
 - `assert_clip_score` — CLIPScore via open-clip or pre-computed embeddings (dual-path, zero-dep option)
 - `assert_object_hallucination` — POPE-style binary probing for VLM object hallucination

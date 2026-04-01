@@ -1176,3 +1176,170 @@ class TestAssertionNames:
         assert result.name == (
             "multimodal.cross_modal_consistency"
         )
+
+
+# ===============================================================
+# Part 8: Hardening Edge-Case Tests
+# ===============================================================
+
+
+class TestLoadImageHardening:
+    """Additional edge-case tests for load_image."""
+
+    def test_load_image_bytes_passthrough(self) -> None:
+        """Bytes input returns the exact same object."""
+        data = b"\x89PNG\r\n\x1a\nfake"
+        result = load_image(data)
+        assert result is data
+
+
+class TestImageToBase64Hardening:
+    """Additional edge-case tests for image_to_base64."""
+
+    def test_image_to_base64_valid(
+        self, sample_image_bytes: bytes
+    ) -> None:
+        """Output is a valid base64 string."""
+        import base64
+        b64 = image_to_base64(sample_image_bytes)
+        assert isinstance(b64, str)
+        # Must not raise on decode
+        decoded = base64.b64decode(b64)
+        assert decoded == sample_image_bytes
+
+
+class TestPromptFaithfulnessHardening:
+    """Additional edge-case tests for prompt faithfulness."""
+
+    def test_prompt_faithfulness_no_judge_no_desc(
+        self,
+    ) -> None:
+        """Missing both image and description raises."""
+        with pytest.raises(ValueError):
+            assert_prompt_faithfulness(
+                prompt="A test prompt",
+                image=None,
+                judge_fn=_mock_judge_pass,
+                image_description=None,
+            )
+
+
+class TestImageCoherenceHardening:
+    """Additional edge-case tests for image coherence."""
+
+    def test_coherence_with_description_only(self) -> None:
+        """No image, only description --> passes."""
+        result = assert_image_coherence(
+            text="A scientific paper on volcanoes.",
+            image=None,
+            judge_fn=_mock_judge_pass,
+            image_description="Volcanic eruption photo.",
+        )
+        assert result.passed
+        assert result.details["score"] == 0.85
+
+
+class TestImageHelpfulnessHardening:
+    """Additional edge-case tests for image helpfulness."""
+
+    def test_helpfulness_high_score(self) -> None:
+        """Mock judge returns 0.95 --> pass."""
+        def judge_95(prompt: str) -> str:
+            return json.dumps(
+                {"score": 0.95, "reasoning": "Very helpful"}
+            )
+
+        result = assert_image_helpfulness(
+            question="What is this diagram?",
+            image=None,
+            answer="A network topology.",
+            judge_fn=judge_95,
+            image_description="Network diagram.",
+        )
+        assert result.passed
+        assert result.details["score"] == 0.95
+
+
+class TestVqaAccuracyHardening:
+    """Additional edge-case tests for VQA accuracy."""
+
+    def test_vqa_exact_match_case_insensitive(self) -> None:
+        """'Yes' vs 'yes' matches case-insensitively."""
+        result = assert_vqa_accuracy(
+            question="Is the sky blue?",
+            image=None,
+            expected_answer="Yes",
+            actual_answer="yes",
+        )
+        assert result.passed
+        assert result.details["score"] == 1.0
+
+    def test_vqa_judge_low_score(self) -> None:
+        """Judge returns 0.2 --> assertion fails."""
+        with pytest.raises(MltkAssertionError):
+            assert_vqa_accuracy(
+                question="What color?",
+                image=None,
+                expected_answer="red",
+                actual_answer="the sky is blue",
+                judge_fn=_mock_judge_fail,
+                image_description="test",
+            )
+
+
+class TestBackwardCompatHardening:
+    """Backward compatibility checks for renamed assertions."""
+
+    def test_backward_compat_image_text_alignment(
+        self,
+    ) -> None:
+        """Old image_text_alignment assertion still works."""
+        img = np.array([[0.8, 0.6, 0.0]])
+        txt = np.array([[0.8, 0.6, 0.0]])
+        result = assert_image_text_alignment(
+            img, txt, min_cosine=0.9
+        )
+        assert result.passed
+        assert result.name == (
+            "multimodal.image_text_alignment"
+        )
+
+    def test_backward_compat_cross_modal(self) -> None:
+        """Old cross_modal_consistency assertion still works."""
+        result = assert_cross_modal_consistency(
+            ["x", "y", "z"],
+            ["x", "y", "z"],
+            min_agreement=1.0,
+        )
+        assert result.passed
+        assert result.details["agreement_rate"] == 1.0
+
+
+class TestMultimodalInitAllExports:
+    """Verify __all__ has all public names."""
+
+    def test_all_assertions_in_init(self) -> None:
+        """__all__ includes every public assertion."""
+        import mltk.domains.multimodal as mm
+        expected = [
+            "ImageInput",
+            "load_image",
+            "image_to_base64",
+            "assert_image_text_alignment",
+            "assert_cross_modal_consistency",
+            "assert_prompt_faithfulness",
+            "assert_image_coherence",
+            "assert_clip_score",
+            "assert_edit_preservation",
+            "assert_object_hallucination",
+            "assert_image_helpfulness",
+            "assert_vqa_accuracy",
+            "assert_ocr_accuracy",
+        ]
+        for name in expected:
+            assert name in mm.__all__, (
+                f"Missing from __all__: {name}"
+            )
+            assert hasattr(mm, name), (
+                f"Not importable: {name}"
+            )

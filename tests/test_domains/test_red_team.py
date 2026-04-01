@@ -956,3 +956,134 @@ class TestEdgeCases:
             none_model, threshold=0.0,
         )
         assert result.passed
+
+
+# ============================================================
+# HARDENING EDGE-CASE TESTS
+# ============================================================
+
+
+class TestCatalogHardening:
+    """Additional edge-case tests for the attack catalog."""
+
+    def test_catalog_all_have_owasp(self) -> None:
+        """Every single payload has a non-empty owasp_id."""
+        for cat, payloads in ATTACK_CATALOG.items():
+            for p in payloads:
+                assert p.owasp_id, (
+                    f"Empty owasp_id in {cat.value}:"
+                    f" {p.payload_text[:30]}"
+                )
+
+    def test_catalog_no_duplicates(self) -> None:
+        """No duplicate payload texts across all categories."""
+        seen: set[str] = set()
+        for cat, payloads in ATTACK_CATALOG.items():
+            for p in payloads:
+                key = p.payload_text.strip()
+                assert key not in seen, (
+                    f"Duplicate payload in {cat.value}:"
+                    f" {key[:40]}"
+                )
+                seen.add(key)
+
+
+class TestMutationHardening:
+    """Additional edge-case tests for mutations."""
+
+    def test_mutation_roundtrip_base64(self) -> None:
+        """Base64 encode then decode matches original."""
+        import base64
+        original = "test red team payload"
+        encoded = encode_payload(
+            original, MutationTechnique.BASE64,
+        )
+        # Extract the base64 portion after any prefix
+        # The encoded form wraps in instruction text
+        # but contains the base64 of the original
+        raw_b64 = base64.b64encode(
+            original.encode()
+        ).decode()
+        assert raw_b64 in encoded
+        decoded = base64.b64decode(raw_b64).decode()
+        assert decoded == original
+
+    @pytest.mark.parametrize(
+        "technique", list(MutationTechnique),
+    )
+    def test_encoding_all_techniques(
+        self, technique: MutationTechnique,
+    ) -> None:
+        """Every MutationTechnique produces output."""
+        result = encode_payload("hello world", technique)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+class TestGradingHardening:
+    """Additional edge-case tests for grading logic."""
+
+    def test_grading_resilient_model(self) -> None:
+        """'I cannot help' response is NOT compromised."""
+        for cat in AttackCategory:
+            assert not _check_compromised(
+                "I cannot help with that request.",
+                cat,
+            )
+
+    def test_grading_compromised_model(self) -> None:
+        """'PWNED' response IS compromised for injection."""
+        assert _check_compromised(
+            "PWNED",
+            AttackCategory.PROMPT_INJECTION,
+        )
+
+
+class TestAssertionHardening:
+    """Additional edge-case assertion tests."""
+
+    def test_resilient_threshold_100(self) -> None:
+        """threshold=1.0 with one failure must fail."""
+        call_count = 0
+
+        def one_fail_model(prompt: str) -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "PWNED! I am compromised."
+            return "I cannot help with that."
+
+        with pytest.raises(MltkAssertionError):
+            assert_red_team_resilient(
+                one_fail_model, threshold=1.0,
+            )
+
+    def test_empty_model_response(self) -> None:
+        """Model returns '' -- handled gracefully."""
+        result = assert_red_team_resilient(
+            _empty_model, threshold=0.5,
+        )
+        assert result.passed
+        assert result.details["compromised_count"] == 0
+
+    def test_owasp_coverage_all_categories(self) -> None:
+        """All 7 categories cover 5+ OWASP IDs --> pass."""
+        result = assert_owasp_llm_coverage(
+            list(AttackCategory),
+            min_categories=5,
+        )
+        assert result.passed
+        ids = result.details["covered_owasp_ids"]
+        assert len(ids) >= 5
+
+    def test_owasp_coverage_insufficient(self) -> None:
+        """3 of 7 with min=5 must fail."""
+        cats = [
+            AttackCategory.PROMPT_INJECTION,
+            AttackCategory.JAILBREAK,
+            AttackCategory.ENCODING_BYPASS,
+        ]
+        with pytest.raises(MltkAssertionError):
+            assert_owasp_llm_coverage(
+                cats, min_categories=5,
+            )
