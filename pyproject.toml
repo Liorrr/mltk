@@ -48,7 +48,7 @@ embedding = ["sentence-transformers>=2.0"]  # embedding-based LLM similarity eva
 nli = ["sentence-transformers>=2.0"]  # NLI cross-encoder for bidirectional entailment
 ner = ["presidio-analyzer>=2.2", "spacy>=3.4.4"]  # NER-based PII detection (names, orgs, locations)
 mcp = ["jsonschema>=4.0"]  # MCP tool schema validation
-multimodal = ["Pillow>=9.0"]  # Multimodal image-text evaluation
+multimodal = ["Pillow>=9.0", "scikit-image>=0.20"]  # Multimodal image-text evaluation
 clip = ["open-clip-torch>=2.24", "Pillow>=9.0"]  # CLIPScore image-text similarity
 classifier = ["transformers>=4.40", "torch>=2.0"]  # transformer-based toxicity classification
 torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)

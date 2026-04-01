@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S78: 219 assertions, 3220+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S79: 223 assertions, 3350+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -103,6 +103,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S76: SyntheticQAGenerator (template + LLM, 5 question types), test hardening (+20), NER PII research
 - [x] S77: Red Team v1 (4 assertions, 55 payloads, 8 mutations), Synthetic v2 (multi-hop, conversational, distracting), security-scan CLI
 - [x] S78: Multimodal v1 (4 assertions, ImageInput, judge-based), Red Team v2 (sessions, chains, tiers, LLM attacker)
+- [x] S79: Multimodal v2 (CLIPScore, POPE, SSIM, OCR — completes CG-4)
 
 ---
 

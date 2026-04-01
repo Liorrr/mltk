@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `McpTrace`, `McpToolCall`, `McpResourceAccess` dataclasses (extend AgentTrace)
 - New `mcp` optional dependency group: `pip install mltk[mcp]`
 
+#### Multimodal Evaluation v2 (S79)
+- `assert_clip_score` — CLIPScore via open-clip or pre-computed embeddings (dual-path, zero-dep option)
+- `assert_object_hallucination` — POPE-style binary probing for VLM object hallucination
+- `assert_edit_preservation` — SSIM structural similarity + pixel_diff fallback
+- `assert_ocr_accuracy` — CER/WER for OCR quality (pure Python Levenshtein, zero deps)
+
 #### Multimodal Evaluation v1 (S78)
 - `assert_prompt_faithfulness` — text-to-image semantic alignment via LLM judge
 - `assert_image_coherence` — image-text document coherence

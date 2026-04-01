@@ -17,11 +17,13 @@ the scene.
 
 mltk closes the multimodal evaluation gap with
 pytest-native assertions for the LLM-as-Judge path
-(v0.8.0) and a numerical/embedding path coming in a
-future release. The LLM-as-Judge assertions cover
-image-text alignment, document coherence, image utility,
-and VQA accuracy. No competitor provides VQA accuracy as
-a pytest-native assertion.
+(v0.8.0) and a numerical/embedding path (v0.9.0). The
+LLM-as-Judge assertions cover image-text alignment,
+document coherence, image utility, and VQA accuracy.
+v0.9.0 adds four numerical assertions: CLIPScore,
+object hallucination probing (POPE), SSIM edit
+preservation, and OCR accuracy. No competitor provides
+any of these as pytest-native CI assertions.
 
 **Module:** `mltk.domains.multimodal`
 
@@ -68,18 +70,18 @@ CLIPScore (Hessel et al., EMNLP 2021) is the standard
 reference-free metric: fast, numerically comparable
 across model versions, and deployable as a CI gate without
 human review. v0.8.0 provides the LLM-as-Judge proxy
-for this; a future release adds the numerical CLIPScore
-path.
+for this; v0.9.0 adds the numerical CLIPScore path
+(`assert_clip_score`) with a zero-dependency embeddings
+mode and an optional live CLIP model path.
 
 **The competitor gap.** DeepEval provides 7 multimodal
 metrics, all using LLM-as-Judge (GPT-4V required). No
 open-source tool provides a pytest-native VQA accuracy
 assertion. No competitor provides CLIPScore,
-edit-preservation SSIM, POPE-style object hallucination
-probing, or NSFW safety gating as CI assertions. mltk
-v0.8.0 establishes the LLM-judge path; a future release
-delivers the differentiated numerical path that DeepEval
-entirely lacks.
+edit-preservation SSIM, or POPE-style object hallucination
+probing as CI assertions. mltk v0.8.0 establishes the
+LLM-judge path; v0.9.0 delivers the differentiated
+numerical path that DeepEval entirely lacks.
 
 ---
 
@@ -490,34 +492,38 @@ The multimodal assertions are part of the mltk core.
 `assert_vqa_accuracy` with the default exact match mode
 requires no additional dependencies.
 
-For image-loading support (Pillow):
+For image-loading support (Pillow) and SSIM-based
+edit preservation (scikit-image):
 
 ```bash
 pip install mltk[multimodal]
 ```
 
-This installs `Pillow>=9.0` and `scikit-image>=0.21`.
+This installs `Pillow>=9.0` and `scikit-image>=0.20`.
 Pillow is required when passing images directly without
-an `image_description`. scikit-image is used by
-`assert_edit_preservation` (future release).
+an `image_description`. scikit-image is required by
+`assert_edit_preservation` when using `method="ssim"`.
+The `method="pixel_diff"` fallback requires only Pillow.
 
-For the numerical CLIPScore path (future release):
+For the live CLIPScore path (downloads ~340MB model):
 
 ```bash
 pip install mltk[clip]
 ```
 
 This installs `open-clip-torch>=2.24` and `Pillow>=9.0`.
-The CLIP ViT-B/32 checkpoint (~340MB) downloads on first
-use and is cached via the HuggingFace hub.
+The CLIP ViT-B/32 checkpoint downloads on first use and
+is cached via the HuggingFace hub. The zero-dependency
+embeddings path (`assert_clip_score` with pre-computed
+embeddings) requires no extra install.
 
 **Summary of extras:**
 
 | Extra | Installs | Enables |
 |-------|----------|---------|
-| `mltk[multimodal]` | Pillow, scikit-image | All assertions with raw image input; future SSIM |
-| `mltk[clip]` | open-clip-torch, Pillow | Future `assert_clip_score` live path |
-| `mltk[classifier]` | transformers, torch | Future `assert_no_nsfw` |
+| `mltk[multimodal]` | Pillow, scikit-image | All v1+v2 assertions with raw image input |
+| `mltk[clip]` | open-clip-torch, Pillow | `assert_clip_score` live CLIP model path |
+| `mltk[classifier]` | transformers, torch | Planned `assert_no_nsfw` |
 
 All assertions work without extras when `image_description`
 is provided or pre-computed embeddings are passed.
@@ -531,10 +537,11 @@ is provided or pre-computed embeddings are passed.
 | Pytest-native multimodal | **Yes** | No (custom runner) | No | No | No |
 | LLM-judge assertions | **4** | 7 (GPT-4V only) | 0 | 0 | 0 |
 | VQA accuracy assertion | **Yes (first-mover)** | No | No | No | No |
-| Numerical CLIPScore | **Planned** | No | No | No | No |
-| SSIM edit preservation | **Planned** | No | No | No | No |
-| POPE hallucination probe | **Planned** | No | No | No | No |
-| NSFW safety gate | **Planned** | No | No | No | No |
+| Numerical CLIPScore | **Yes (v0.9.0)** | No | No | No | No |
+| SSIM edit preservation | **Yes (v0.9.0)** | No | No | No | No |
+| POPE hallucination probe | **Yes (v0.9.0)** | No | No | No | No |
+| OCR accuracy (CER/WER) | **Yes (v0.9.0)** | No | No | No | No |
+| NSFW safety gate | Planned | No | No | No | No |
 | Zero-dep path | **Yes** | No | No | No | No |
 | Offline / air-gapped | **Yes (text judge path)** | No | No | No | No |
 
@@ -552,41 +559,315 @@ as a CI assertion.
 
 ---
 
-## Planned: Numerical Path
+## v2 Assertions — Numerical Path
 
-A future release delivers the numerical/embedding path
-that DeepEval entirely lacks. All planned assertions are
-first-mover in the open-source pytest-native space.
+v0.9.0 ships four numerical assertions that require no
+LLM judge. These live in two new submodules:
 
-| Assertion | Method | New dep |
-|-----------|--------|---------|
-| `assert_clip_score` | CLIP cosine similarity | `open-clip-torch` (optional) |
-| `assert_object_hallucination` | POPE-style binary probe | None (user-provided `vqa_fn`) |
-| `assert_edit_preservation` | SSIM structural similarity | `scikit-image` |
-| `assert_ocr_accuracy` | CER / WER edit distance | None (pure Python) |
-| `assert_no_nsfw` | ViT classifier | `transformers` + `torch` |
-| `assert_image_editing_score` | LLM-judge over image pair | Pillow |
+- `mltk.domains.multimodal.metrics` —
+  `assert_clip_score`, `assert_edit_preservation`
+- `mltk.domains.multimodal.hallucination` —
+  `assert_object_hallucination`
+- `mltk.domains.multimodal.vlm` (extended) —
+  `assert_ocr_accuracy`
 
-`assert_clip_score` supports a zero-dependency
-`method="embedding"` path when users supply pre-computed
-CLIP embeddings. The `method="clip"` live path downloads
-the ViT-B/32 checkpoint (~340MB) on first use.
+All four are re-exported from `mltk.domains.multimodal`.
 
-`assert_object_hallucination` implements the POPE
-protocol (Li et al., NeurIPS 2023, arXiv:2305.10355)
-over a user-provided `vqa_fn`. mltk does not bundle the
-COCO dataset; users supply their own probe objects. Three
-sampling strategies are supported: `"random"`,
-`"popular"`, and `"adversarial"`.
+| Assertion | Method | Extra needed |
+|-----------|--------|-------------|
+| `assert_clip_score` | CLIP cosine similarity | `mltk[clip]` (live path only) |
+| `assert_object_hallucination` | POPE binary probing | None |
+| `assert_edit_preservation` | SSIM or pixel diff | `mltk[multimodal]` (ssim path) |
+| `assert_ocr_accuracy` | CER / WER | None (pure Python) |
 
-Note on CLIPScore limitations: ViT-B/32 CLIPScore is
-fast and reference-free but compositionally blind --
-it fails on attribute binding ("red cube left of blue
-sphere"), spatial relationships, and negation. For
-compositional prompts, VQAScore (Lin et al., ECCV 2024)
-outperforms CLIPScore by 15%+ and is the recommended
-metric. CLIPScore is the regression gate; VQAScore is
-the composition test.
+---
+
+### assert_clip_score
+
+Measures image-text semantic similarity using CLIP cosine
+distance. Catches alignment regressions between model
+versions without an LLM judge.
+
+```python
+from mltk.domains.multimodal import assert_clip_score
+import numpy as np
+
+assert_clip_score(
+    image: ImageInput | None = None,
+    text: str | None = None,
+    image_embedding: np.ndarray | None = None,
+    text_embedding: np.ndarray | None = None,
+    min_score: float = 0.25,
+    model_name: str = "ViT-B-32",
+) -> TestResult
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `image` | `ImageInput \| None` | `None` | Image for live CLIP encoding. |
+| `text` | `str \| None` | `None` | Text for live CLIP encoding. |
+| `image_embedding` | `np.ndarray \| None` | `None` | Pre-computed image embedding (zero-dep path). |
+| `text_embedding` | `np.ndarray \| None` | `None` | Pre-computed text embedding (zero-dep path). |
+| `min_score` | `float` | `0.25` | Minimum cosine similarity to pass. |
+| `model_name` | `str` | `"ViT-B-32"` | CLIP model name for live path. |
+
+**Two paths:**
+
+- **Embeddings path** (`image_embedding` + `text_embedding`
+  provided): Computes cosine similarity with pure numpy.
+  Zero dependencies beyond mltk itself. Use when you
+  already have embeddings from your own CLIP pipeline.
+
+- **Live path** (`image` + `text` provided): Lazy-imports
+  `open-clip-torch`, encodes both inputs with ViT-B/32,
+  and computes cosine similarity. Requires `mltk[clip]`.
+
+Raise `ValueError` if neither pair is complete.
+
+**Threshold guidance:** ViT-B/32 cosine similarities are
+lower than typical embedding spaces. Random pairs score
+near 0.0-0.15; matched pairs 0.25-0.35; strong semantic
+matches 0.35+. The default `min_score` of 0.25 is the
+recommended CI gate for ViT-B/32.
+
+**CLIPScore limitations:** ViT-B/32 is compositionally
+blind — it fails on attribute binding ("red cube left of
+blue sphere"), spatial relations, and negation. For
+compositional prompts, use `assert_vqa_accuracy` with a
+VQAScore-style judge instead. CLIPScore is a fast
+regression gate, not a compositional correctness metric.
+
+**Citation:** CLIPScore (Hessel et al., EMNLP 2021,
+arXiv:2104.08718)
+
+```python
+# Zero-dep path: pre-computed embeddings
+import numpy as np
+
+image_emb = my_clip_pipeline.encode_image("photo.jpg")
+text_emb = my_clip_pipeline.encode_text("a dog on grass")
+
+assert_clip_score(
+    image_embedding=image_emb,
+    text_embedding=text_emb,
+    min_score=0.25,
+)
+
+# Live path: raw inputs (requires mltk[clip])
+assert_clip_score(
+    image="outputs/generated.png",
+    text="a golden retriever on a beach",
+    min_score=0.28,
+)
+```
+
+---
+
+### assert_object_hallucination
+
+POPE-style binary probing for object hallucination in
+VLMs. Asks yes/no questions about object presence and
+measures the rate at which the model falsely claims
+absent objects exist.
+
+```python
+from mltk.domains.multimodal import (
+    assert_object_hallucination,
+)
+from collections.abc import Callable
+
+assert_object_hallucination(
+    vqa_fn: Callable[[str, ImageInput | None, str | None], str],
+    image: ImageInput | None,
+    objects_present: list[str],
+    objects_absent: list[str],
+    threshold: float = 0.8,
+    image_description: str | None = None,
+) -> TestResult
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `vqa_fn` | `Callable[[str, ImageInput \| None, str \| None], str]` | required | Wraps your VLM. Receives `(question, image, description)`, returns string answer. |
+| `image` | `ImageInput \| None` | required | The image to probe, or `None` when using `image_description`. |
+| `objects_present` | `list[str]` | required | Objects known to be in the image. Expected answer: "yes". |
+| `objects_absent` | `list[str]` | required | Objects known to NOT be in the image. Expected answer: "no". |
+| `threshold` | `float` | `0.8` | Minimum overall accuracy to pass (accuracy = correct answers / total questions). |
+| `image_description` | `str \| None` | `None` | Optional text description of the image. Passed to `vqa_fn` as the third argument. |
+
+**How it works:** For each object in `objects_present`,
+the assertion calls `vqa_fn("Is there a [object] in the
+image?", image, image_description)` and expects "yes".
+For each object in `objects_absent`, it expects "no".
+Ambiguous answers (neither "yes" nor "no" detected) are
+treated as incorrect -- this is the conservative choice
+for safety.
+
+`accuracy = correct_answers / total_questions`
+
+**TestResult fields:** `passed`, `score` (overall POPE
+accuracy = correct answers / total probes),
+`hallucination_rate`, `false_positives`,
+`false_negatives`, `total_present`, `total_absent`,
+`per_object` (list of per-object results).
+
+**mltk does not bundle COCO object lists.** Users supply
+`objects_absent` — for adversarial probing, choose objects
+that statistically co-occur with `objects_present`.
+
+**Citation:** POPE (Li et al., NeurIPS 2023,
+arXiv:2305.10355)
+
+```python
+def ask_vlm(question: str, image: str, description: str | None) -> str:
+    response = my_vlm_client.chat(
+        image=image, prompt=question
+    )
+    return response.text
+
+assert_object_hallucination(
+    vqa_fn=ask_vlm,
+    image="living_room.jpg",
+    objects_present=["sofa", "television"],
+    # adversarial: co-occur with sofa/tv in training data
+    objects_absent=["dog", "laptop", "book"],
+    threshold=0.8,
+)
+```
+
+---
+
+### assert_edit_preservation
+
+Verifies structural similarity between an original image
+and an edited version. Catches image editing pipelines
+that alter unintended regions or degrade overall
+structure.
+
+```python
+from mltk.domains.multimodal import (
+    assert_edit_preservation,
+)
+
+assert_edit_preservation(
+    original: ImageInput,
+    edited: ImageInput,
+    method: str = "ssim",
+    threshold: float = 0.8,
+    max_image_size: int = 512,
+) -> TestResult
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `original` | `ImageInput` | required | The unedited reference image. |
+| `edited` | `ImageInput` | required | The edited image to evaluate. |
+| `method` | `str` | `"ssim"` | `"ssim"` (scikit-image, spec-compliant) or `"pixel_diff"` (pure numpy, lighter). |
+| `threshold` | `float` | `0.8` | Minimum similarity score to pass. SSIM range is [-1, 1] (typically [0, 1]); 0.85+ is typical for well-preserved edits. |
+| `max_image_size` | `int` | `512` | Resize images to this maximum dimension before comparison to control memory use. |
+
+**Two methods:**
+
+- **`method="ssim"`** (default): Uses
+  `skimage.metrics.structural_similarity` — 11x11
+  Gaussian windowing, correct boundary conditions,
+  multichannel RGB support. Requires `mltk[multimodal]`
+  (scikit-image). Spec-compliant per Wang et al. (2004).
+
+- **`method="pixel_diff"`**: Pure numpy. Computes
+  `1.0 - mean(abs(a - b)) / 255.0`. Weaker signal than
+  SSIM but zero extra dependencies beyond Pillow.
+  Use in environments where scikit-image cannot be
+  installed.
+
+Pillow is required for both paths (image loading and
+resizing). The `max_image_size` parameter prevents
+memory errors on large images — images are resized to
+fit within this dimension before comparison.
+
+**Citation:** SSIM (Wang et al., IEEE Trans. Image
+Processing, 2004)
+
+```python
+assert_edit_preservation(
+    original="before_inpaint.png",
+    edited="after_inpaint.png",
+    method="ssim",
+    threshold=0.85,
+    max_image_size=512,
+)
+
+# Lightweight fallback (no scikit-image needed)
+assert_edit_preservation(
+    original="before.png",
+    edited="after.png",
+    method="pixel_diff",
+    threshold=0.90,
+)
+```
+
+---
+
+### assert_ocr_accuracy
+
+Measures OCR output quality using Character Error Rate
+(CER) or Word Error Rate (WER). Zero external
+dependencies — uses a pure Python Levenshtein
+implementation.
+
+```python
+from mltk.domains.multimodal import assert_ocr_accuracy
+
+assert_ocr_accuracy(
+    expected_text: str,
+    actual_text: str,
+    method: str = "cer",
+    threshold: float = 0.1,
+) -> TestResult
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `expected_text` | `str` | required | Ground-truth text (the correct text). |
+| `actual_text` | `str` | required | OCR-extracted text to evaluate. |
+| `method` | `str` | `"cer"` | `"cer"` (Character Error Rate) or `"wer"` (Word Error Rate). |
+| `threshold` | `float` | `0.1` | Maximum error rate allowed before failing (default 10%). |
+
+**Metrics:**
+
+- **CER** = `edit_distance(chars) / len(reference)` —
+  sensitive to individual character errors. Correct for
+  OCR evaluation (a single transposed character in a
+  number is a critical error).
+
+- **WER** = `edit_distance(words) / len(ref_words)` —
+  forgiving of minor character errors but sensitive to
+  word splits and insertions. Useful for transcription.
+
+Both metrics can exceed 1.0 if the actual text is much
+longer than the expected text — this is correct behavior.
+
+**No external dependencies.** The Levenshtein distance
+is computed in pure Python. This assertion works in any
+environment, including offline CI and air-gapped systems.
+
+```python
+# Test a VLM-based invoice reader
+assert_ocr_accuracy(
+    expected_text="Invoice #1234",     # known correct
+    actual_text="Iuvoice #1234",       # VLM output
+    method="cer",
+    threshold=0.1,
+)
+
+# Word-level transcription check
+assert_ocr_accuracy(
+    expected_text="the quick brown fox",
+    actual_text="the quick bron fox",
+    method="wer",
+    threshold=0.10,
+)
+```
 
 ---
 
@@ -597,6 +878,7 @@ the composition test.
 | CLIPScore | Hessel et al. | EMNLP 2021 | arXiv:2104.08718 |
 | POPE | Li et al. | NeurIPS 2023 | arXiv:2305.10355 |
 | H-POPE | Cui et al. | NeurIPS 2024 | arXiv:2411.04077 |
+| SSIM | Wang et al. | IEEE Trans. Image Processing, 2004 | doi:10.1109/TIP.2003.819861 |
 | FaithScore | Jing et al. | EMNLP Findings 2024 | arXiv:2311.01477 |
 | VQAScore | Lin et al. (CMU/Meta) | ECCV 2024 | arXiv:2404.01291 |
 | T2I-CompBench++ | Huang et al. | TPAMI 2024 | arXiv:2307.06350 |
@@ -608,6 +890,12 @@ Full research brief and rejected alternatives:
 Feasibility verification (CLIP model sizes, Pillow
 status, SSIM implementation options):
 `docs/research/multimodal-feasibility-check.md`.
+v2 API verification (exact code patterns, formula
+constants, POPE protocol):
+`docs/research/multimodal-v2-verification.md`.
 Architecture decisions (subpackage layout, ImageInput
 type, judge_fn signature, namespace, sprint scope):
 `audit/s78-multimodal-architect-review.md`.
+v2 architect quick check (file placement, CLIP API,
+SSIM API, scikit-image version):
+`audit/s79-architect-quick-check.md`.

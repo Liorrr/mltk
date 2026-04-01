@@ -33,6 +33,7 @@ from mltk.domains.multimodal._image import (
 __all__ = [
     "assert_image_helpfulness",
     "assert_vqa_accuracy",
+    "assert_ocr_accuracy",
 ]
 
 # ---------------------------------------------------------------
@@ -301,4 +302,158 @@ def assert_vqa_accuracy(
         actual_answer=actual_answer,
         method=method,
         error=error,
+    )
+
+
+# ---------------------------------------------------------------
+# OCR accuracy (CER / WER)
+# ---------------------------------------------------------------
+
+
+def _levenshtein_distance(a: list, b: list) -> int:
+    """Compute Levenshtein (edit) distance between two sequences.
+
+    Uses the classic O(n*m) dynamic programming algorithm with
+    O(n) space optimization (single-row DP array).
+
+    Levenshtein distance counts the minimum number of single-element
+    edits (insertions, deletions, substitutions) needed to transform
+    sequence ``a`` into sequence ``b``.
+
+    Works with any comparable elements -- characters (for CER) or
+    words (for WER).
+
+    Args:
+        a: Source sequence (list of comparable elements).
+        b: Target sequence (list of comparable elements).
+
+    Returns:
+        Integer edit distance (0 = identical sequences).
+
+    Example:
+        >>> _levenshtein_distance(list("kitten"), list("sitting"))
+        3
+    """
+    m, n = len(a), len(b)
+    dp = list(range(n + 1))
+
+    for i in range(1, m + 1):
+        prev = dp[0]
+        dp[0] = i
+        for j in range(1, n + 1):
+            temp = dp[j]
+            if a[i - 1] == b[j - 1]:
+                dp[j] = prev
+            else:
+                dp[j] = 1 + min(prev, dp[j], dp[j - 1])
+            prev = temp
+
+    return dp[n]
+
+
+@timed_assertion
+def assert_ocr_accuracy(
+    expected_text: str,
+    actual_text: str,
+    method: str = "cer",
+    threshold: float = 0.1,
+) -> TestResult:
+    """Assert that OCR output is accurate enough vs ground truth.
+
+    Optical Character Recognition (OCR) extracts text from images.
+    This assertion measures extraction accuracy using standard
+    error rate metrics -- no external dependencies required.
+
+    **Two methods:**
+
+    1. **CER** (Character Error Rate): Levenshtein distance on
+       individual characters, divided by the reference length.
+       Sensitive to single-character errors -- ideal for OCR where
+       "Iuvoice" vs "Invoice" is a meaningful failure.
+
+    2. **WER** (Word Error Rate): Levenshtein distance on
+       whitespace-split words, divided by the reference word count.
+       More forgiving of minor character errors within words but
+       strict about word-level differences.
+
+    Both metrics can exceed 1.0 if the actual text is much longer
+    than the expected text (more insertions than reference length).
+
+    Args:
+        expected_text: Ground-truth text (the correct text).
+        actual_text: OCR-extracted text to evaluate.
+        method: Error metric -- "cer" or "wer" (default "cer").
+        threshold: Maximum error rate to pass (default 0.1 = 10%).
+            Lower is stricter.
+
+    Returns:
+        TestResult with details: ``error_rate``, ``threshold``,
+        ``method``, ``edit_distance``, ``reference_length``,
+        ``expected_text``, ``actual_text``.
+
+    Raises:
+        MltkAssertionError: If error_rate > threshold (CRITICAL).
+        ValueError: If method is not "cer" or "wer".
+
+    Example:
+        >>> result = assert_ocr_accuracy(
+        ...     expected_text="Invoice #1234",
+        ...     actual_text="Invoice #1234",
+        ...     method="cer",
+        ... )
+        >>> result.passed
+        True
+    """
+    if method not in ("cer", "wer"):
+        raise ValueError(
+            f"method must be 'cer' or 'wer', got '{method}'"
+        )
+
+    if method == "cer":
+        ref_seq = list(expected_text)
+        hyp_seq = list(actual_text)
+    else:
+        ref_seq = expected_text.split()
+        hyp_seq = actual_text.split()
+
+    ref_len = len(ref_seq)
+
+    # Handle empty reference
+    if ref_len == 0:
+        hyp_len = len(hyp_seq)
+        error_rate = 0.0 if hyp_len == 0 else 1.0
+        edit_dist = hyp_len
+    else:
+        edit_dist = _levenshtein_distance(hyp_seq, ref_seq)
+        error_rate = edit_dist / ref_len
+
+    # For OCR, we pass when error_rate <= threshold
+    passed = error_rate <= threshold
+
+    # Score is inverted: 1.0 - error_rate (higher = better)
+    score = max(0.0, 1.0 - error_rate)
+
+    method_label = "CER" if method == "cer" else "WER"
+
+    message = (
+        f"OCR accuracy ({method_label}): error_rate "
+        f"{error_rate:.4f} <= {threshold}"
+        if passed
+        else f"OCR accuracy too low ({method_label}): "
+        f"error_rate {error_rate:.4f} > {threshold}"
+    )
+
+    return assert_true(
+        passed,
+        name="multimodal.vlm.ocr_accuracy",
+        message=message,
+        severity=Severity.CRITICAL,
+        score=round(score, 4),
+        error_rate=round(error_rate, 4),
+        threshold=threshold,
+        method=method,
+        edit_distance=edit_dist,
+        reference_length=ref_len,
+        expected_text=expected_text,
+        actual_text=actual_text,
     )
