@@ -254,6 +254,37 @@ CMD ["pytest", "--mltk-report", "--mltk-export-json", "results.json", "-q"]
 
 ---
 
+## Security Scan in CI
+
+Add `mltk security-scan` as a CI gate to red team your LLM on every build:
+
+```yaml
+# GitHub Actions -- add after ML tests
+- name: Red team security scan
+  run: |
+    mltk security-scan myapp.llm:chat_fn \
+      --attacks owasp-top7 \
+      --mutations \
+      --threshold 0.9 \
+      --format json \
+      --output security-scan.json
+
+- name: Upload security report
+  uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: security-scan
+    path: security-scan.json
+```
+
+The command exits with code 1 when the model fails the threshold, blocking the merge.
+For multi-turn adaptive attacks, add `--strategy multi-turn --max-turns 5`.
+
+See [security-scan CLI](../api/security-scan.md) for the full option reference and
+[Red Team Framework](../api/red-team.md) for the assertion API.
+
+---
+
 ## YAML-Driven Tests in CI
 
 No Python code needed — QA teams write YAML:

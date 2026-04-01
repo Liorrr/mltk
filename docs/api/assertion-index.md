@@ -1,6 +1,6 @@
 # Assertion Reference
 
-Complete index of all 211 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
+Complete index of all 224 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
 
 ---
 
@@ -614,6 +614,39 @@ Assertions for verifying LLM output stability across paraphrased inputs, formatt
 | 210 | `assert_mcp_context_window` | `mltk.domains.llm.mcp` | Model-aware context window utilization check | v0.9.0 |
 | 211 | `assert_mcp_error_recovery` | `mltk.domains.llm.mcp` | Detect same-tool retry loops after MCP tool errors | v0.9.0 |
 
+### Red Team Security
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 212 | `assert_red_team_resilient` | `mltk.domains.llm.red_team` | Verify model resists attack payloads across 7 OWASP-mapped categories (55 static + 440+ mutated variants) | v0.9.0 |
+| 213 | `assert_no_session_jailbreak` | `mltk.domains.llm.red_team` | Verify model resists multi-turn trust-building jailbreak chains | v0.9.0 |
+| 214 | `assert_owasp_llm_red_team` | `mltk.domains.llm.red_team` | Verify red team coverage maps to OWASP LLM Top 10 categories | v0.9.0 |
+| 215 | `assert_encoding_mutation_resilience` | `mltk.domains.llm.red_team` | Verify model resists encoding-obfuscated payloads (Base64, ROT13, leetspeak, homoglyphs, etc.) | v0.9.0 |
+
+### Multimodal LLM Evaluation (LLM-as-Judge)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 216 | `assert_prompt_faithfulness` | `mltk.domains.multimodal` | Verify generated image is faithful to the text prompt via LLM judge | v0.9.0 |
+| 217 | `assert_image_coherence` | `mltk.domains.multimodal` | Verify image-text document coherence via LLM judge | v0.9.0 |
+| 218 | `assert_image_helpfulness` | `mltk.domains.multimodal` | Verify image adds information value to a document via LLM judge | v0.9.0 |
+| 219 | `assert_vqa_accuracy` | `mltk.domains.multimodal` | Verify visual question answering accuracy (exact match or LLM judge) | v0.9.0 |
+
+### Multimodal Numerical (Embedding / Pixel)
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 220 | `assert_clip_score` | `mltk.domains.multimodal` | Verify CLIP cosine similarity between image and text embeddings (zero-dep or live CLIP) | v0.9.0 |
+| 221 | `assert_object_hallucination` | `mltk.domains.multimodal` | Detect VLM object hallucination via POPE-style binary probing (Li et al., NeurIPS 2023) | v0.9.0 |
+| 222 | `assert_edit_preservation` | `mltk.domains.multimodal` | Verify image edit preserves structure via SSIM or pixel difference | v0.9.0 |
+| 223 | `assert_ocr_accuracy` | `mltk.domains.multimodal` | Verify OCR text extraction accuracy via CER/WER (pure Python, no deps) | v0.9.0 |
+
+### Observability
+
+| # | Assertion | Module | Description | Since |
+|---|-----------|--------|-------------|-------|
+| 224 | `assert_trace_quality` | `mltk.integrations.trace_quality` | CI/CD quality gate for LLM traces -- verify latency, token budget, and assertion pass rate across Phoenix/Langfuse spans | v0.9.0 |
+
 ---
 
 ## Core
@@ -728,6 +761,16 @@ from mltk.domains.codegen import assert_code_executes, assert_code_passes_tests,
 
 # Multimodal & RL
 from mltk.domains.multimodal import assert_image_text_alignment, assert_cross_modal_consistency
+from mltk.domains.multimodal import (
+    assert_prompt_faithfulness,
+    assert_image_coherence,
+    assert_image_helpfulness,
+    assert_vqa_accuracy,
+    assert_clip_score,
+    assert_object_hallucination,
+    assert_edit_preservation,
+    assert_ocr_accuracy,
+)
 from mltk.domains.rl import assert_reward_bounded, assert_cumulative_reward
 
 # Tabular
@@ -765,6 +808,17 @@ from mltk.integrations.dvc import assert_dvc_file_tracked, assert_dvc_data_versi
 
 # Enterprise
 from mltk.server.audit_log import assert_audit_log_complete
+
+# Red Team Security
+from mltk.domains.llm.red_team import (
+    assert_red_team_resilient,
+    assert_no_session_jailbreak,
+    assert_owasp_llm_red_team,
+    assert_encoding_mutation_resilience,
+)
+
+# Observability
+from mltk.integrations.trace_quality import assert_trace_quality
 
 # Testing utilities
 from mltk.testing.golden import assert_matches_golden

@@ -39,7 +39,7 @@ pytest --mltk-report -v
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional software testing does not catch these failures.
 
-mltk provides **211 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems, long-context LLM evaluation, behavioral consistency testing, and NER-based PII detection -- all runnable with `pytest`.
+mltk provides **224 purpose-built assertions** spanning the full ML lifecycle -- from raw data ingestion through production monitoring, including specialized kits for recommendation systems, long-context LLM evaluation, behavioral consistency testing, NER-based PII detection, red team security, multimodal evaluation, and observability -- all runnable with `pytest`.
 
 | What you get | Without mltk |
 |---|---|
@@ -83,6 +83,31 @@ Paraphrase invariance, format invariance, output stability, semantic equivalence
 
 :point_right: [Behavioral Consistency](api/behavioral-consistency.md) | [Method Dispatch](guides/method-dispatch.md)
 
+### :crossed_swords: Red Team Security
+Automated adversarial testing with 55 static payloads across 7 OWASP-mapped categories, 8 encoding mutations expanding to 440+ variants, multi-turn trust-building chains, and opt-in LLM-augmented adaptive attacks. `mltk security-scan` runs as a CI gate.
+
+:point_right: [Red Team Framework](api/red-team.md) | [security-scan CLI](api/security-scan.md)
+
+### :art: Multimodal Evaluation
+LLM-as-Judge path (prompt faithfulness, image coherence, helpfulness, VQA accuracy) and numerical path (CLIPScore, POPE hallucination probing, SSIM edit preservation, OCR accuracy). No competitor provides these as pytest-native CI assertions.
+
+:point_right: [Multimodal Evaluation](api/multimodal.md) | [Multimodal & RL](api/multimodal-rl.md)
+
+### :robot: MCP Agent Evaluation
+Validate MCP tool calls against JSON Schema, verify server-namespace-aware tool selection, check resource access patterns, enforce context window budgets, and detect retry loops -- 5 assertions purpose-built for the Model Context Protocol.
+
+:point_right: [MCP Evaluation](api/mcp-evaluation.md)
+
+### :factory: Synthetic QA Generation
+Generate question-answer pairs from documents for RAG evaluation. Template mode runs with zero network calls in CI; LLM mode accepts any `Callable[[str], str]`. Output feeds directly into `assert_faithfulness` and `assert_answer_relevancy`.
+
+:point_right: [Synthetic QA Generator](api/synthetic-qa-generator.md)
+
+### :telescope: Observability
+Wire mltk assertions into Phoenix or Langfuse so quality evaluations appear alongside LLM call traces. `assert_trace_quality` provides a single CI/CD gate for latency, token budget, and assertion pass rate.
+
+:point_right: [Observability](api/observability.md) | [OpenTelemetry](api/otel.md)
+
 ### :shield: Compliance & Audit
 EU AI Act evidence reports, FDA 21 CFR Part 11 audit trails, OWASP LLM Top 10 checks, HIPAA, SR 11-7, compliance PDF export.
 
@@ -119,7 +144,7 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 === "QA Engineer"
 
-    You write test suites for a living. mltk gives you **211 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
+    You write test suites for a living. mltk gives you **224 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
 
     :point_right: Start with [Getting Started](getting-started.md), then explore [YAML Test Definitions](api/yaml-tests.md) for no-code tests.
 
@@ -147,7 +172,7 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 | Metric | Count |
 |--------|-------|
-| Assertions | 211 across 70+ modules |
+| Assertions | 224 across 70+ modules |
 | Tests | 2,700+ |
 | CLI commands | 24 |
 | Behavioral consistency | 7 assertions (paraphrase, format, stability, equivalence, directional, retrieval, + ParaphraseGenerator) |
@@ -165,7 +190,7 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 | Layer | Modules | What |
 |-------|---------|------|
 | **pytest plugin** | auto-registered | markers, fixtures, `--mltk-report` |
-| **Assertions** | data, model, inference, llm | 211 `assert_*` functions |
+| **Assertions** | data, model, inference, llm | 224 `assert_*` functions |
 | **Behavioral** | llm.behavioral | 7 consistency assertions, ParaphraseGenerator |
 | **Method Dispatch** | llm `method=` param | lexical, embedding, nli, llm-as-judge per assertion |
 | **Training** | training, pipeline, monitor | gradient, leakage, drift, cloud |
@@ -181,7 +206,7 @@ Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, 
 
 ## Project Status
 
-mltk is approaching **v0.9.0**. Core modules are stable and tested with 211 assertions and 2,700+ tests. Recent additions include NER-based PII detection (Presidio, GLiNER zero-shot, and hybrid method dispatch), MMD multivariate drift detection, SmoothECE calibration, intersectional fairness testing, behavioral consistency testing (7 assertions -- the only ML testing tool that ships these as pytest assertions), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
+mltk is approaching **v0.9.0**. Core modules are stable and tested with 224 assertions and 2,700+ tests. Recent additions include red team security testing (4 assertions with 440+ attack variants), multimodal LLM evaluation (8 assertions covering LLM-as-Judge and numerical paths -- CLIPScore, POPE hallucination, SSIM, OCR), observability adapters (Phoenix/Langfuse with `assert_trace_quality` CI gate), synthetic QA generation, MCP agent evaluation (5 assertions), NER-based PII detection (Presidio, GLiNER zero-shot, and hybrid method dispatch), behavioral consistency testing (7 assertions -- the only ML testing tool that ships these as pytest assertions), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
 
 ## License
 

@@ -17,13 +17,16 @@ For the complete assertion-by-assertion index (every parameter, every module pat
 | [Computer Vision](#computer-vision) | 9 | `mltk.domains.cv.*` | IoU, mAP, video, tracking, face recognition, top-K |
 | [Speech](#speech) | 4 | `mltk.domains.speech.*` | WER, CER, real-time factor, accent coverage |
 | [Tabular](#tabular) | 3 | `mltk.domains.tabular.*` | Feature drift, importance stability, class balance |
-| [Multimodal](#multimodal) | 2 | `mltk.domains.multimodal` | Image-text alignment, cross-modal consistency |
+| [Multimodal](#multimodal) | 10 | `mltk.domains.multimodal` | Image-text alignment, cross-modal consistency, CLIPScore, POPE hallucination, SSIM, OCR, LLM-as-Judge path |
 | [Reinforcement Learning](#reinforcement-learning) | 2 | `mltk.domains.rl` | Reward bounds, cumulative reward |
 | [Recommendation](#recommendation) | 5 | `mltk.domains.recommendation` | Hit rate, diversity, novelty, coverage, serendipity |
 | [Healthcare](#healthcare) | 5 | `mltk.domains.healthcare` | Sensitivity, specificity, PPV, NPV, clinical agreement |
 | [Code Generation](#code-generation) | 4 | `mltk.domains.codegen` | Code execution, test passing, vulnerability scan, complexity check |
+| [Red Team Security](#red-team-security) | 4 | `mltk.domains.llm.red_team` | Adversarial payloads, multi-turn jailbreak, encoding mutations, OWASP mapping |
+| [MCP Evaluation](#mcp-evaluation) | 5 | `mltk.domains.llm.mcp` | Tool schema, tool selection, resource access, context window, error recovery |
+| [Observability](#observability) | 1 | `mltk.integrations.trace_quality` | Trace quality CI gate (Phoenix/Langfuse) |
 
-**Total: ~195+ assertions** across 12 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
+**Total: 224 assertions** across 15 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
 
 ---
 
@@ -174,16 +177,24 @@ Feature-level drift detection, SHAP importance stability, and class balance for 
 
 ## Multimodal
 
-Validate alignment between modalities (image-text, audio-text) in CLIP-style models and cross-modal prediction consistency.
+Validate vision-language models, image generation pipelines, and cross-modal alignment. Two evaluation paths: LLM-as-Judge (qualitative, uses any callable) and numerical (CLIPScore, POPE, SSIM, OCR -- no LLM needed).
 
-**2 assertions** in 1 module.
+**10 assertions** in `mltk.domains.multimodal`.
 
 | Assertion | What it tests |
 |-----------|--------------|
 | `assert_image_text_alignment` | Cosine similarity between paired image and text embeddings |
 | `assert_cross_modal_consistency` | Prediction agreement across different input modalities |
+| `assert_prompt_faithfulness` | Generated image matches text prompt (LLM judge) |
+| `assert_image_coherence` | Image supports surrounding document text (LLM judge) |
+| `assert_image_helpfulness` | Image adds information value (LLM judge) |
+| `assert_vqa_accuracy` | VQA accuracy (exact match or LLM judge) |
+| `assert_clip_score` | CLIP cosine similarity (zero-dep embeddings or live CLIP model) |
+| `assert_object_hallucination` | VLM hallucination via POPE-style binary probing |
+| `assert_edit_preservation` | Image edit structure preservation via SSIM or pixel diff |
+| `assert_ocr_accuracy` | OCR text extraction accuracy via CER/WER |
 
-:point_right: [Multimodal & RL Testing](multimodal-rl.md)
+:point_right: [Multimodal LLM Evaluation](multimodal.md) | [Multimodal & RL](multimodal-rl.md)
 
 ---
 
@@ -314,6 +325,55 @@ assert_code_complexity(generated_code, max_cyclomatic=10, max_lines=200)
 ```
 
 :point_right: [Code Generation Testing](codegen.md)
+
+---
+
+## Red Team Security
+
+Automated adversarial testing for LLMs. 55 static payloads across 7 OWASP-mapped categories, 8 encoding mutation types expanding to 440+ variants, multi-turn trust-building chains, and opt-in LLM-augmented adaptive attacks. `mltk security-scan` provides a zero-config CI gate.
+
+**4 assertions** in `mltk.domains.llm.red_team`.
+
+| Assertion | What it tests |
+|-----------|--------------|
+| `assert_red_team_resilient` | Model resists attack payloads across all enabled categories |
+| `assert_no_session_jailbreak` | Model resists multi-turn trust-building jailbreak chains |
+| `assert_owasp_llm_red_team` | Red team coverage maps to OWASP LLM Top 10 categories |
+| `assert_encoding_mutation_resilience` | Model resists encoding-obfuscated payloads (Base64, ROT13, leetspeak, etc.) |
+
+:point_right: [Red Team Framework](red-team.md) | [security-scan CLI](security-scan.md)
+
+---
+
+## MCP Evaluation
+
+Validate AI agents using the Model Context Protocol. Contract-based tool schema validation, server-namespace-aware tool selection, resource access pattern enforcement, context window budget checking, and retry loop detection.
+
+**5 assertions** in `mltk.domains.llm.mcp`.
+
+| Assertion | What it tests |
+|-----------|--------------|
+| `assert_mcp_tool_schema_conformance` | Tool arguments conform to JSON Schema |
+| `assert_mcp_tool_selection` | Agent selected the right tools (precision/recall/F1) |
+| `assert_mcp_resource_access` | Expected/forbidden URI access patterns |
+| `assert_mcp_context_window` | Context window utilization within model limits |
+| `assert_mcp_error_recovery` | No same-tool retry loops after errors |
+
+:point_right: [MCP Evaluation](mcp-evaluation.md)
+
+---
+
+## Observability
+
+Wire mltk assertions into Phoenix or Langfuse so quality evaluations appear alongside LLM call traces. One CI/CD gate for latency, token budget, and quality.
+
+**1 assertion** in `mltk.integrations.trace_quality`.
+
+| Assertion | What it tests |
+|-----------|--------------|
+| `assert_trace_quality` | Trace-level quality gate (latency, token budget, assertion pass rate) |
+
+:point_right: [Observability Adapters](observability.md) | [OpenTelemetry](otel.md)
 
 ---
 

@@ -899,3 +899,12 @@ type, judge_fn signature, namespace, sprint scope):
 v2 architect quick check (file placement, CLIP API,
 SSIM API, scikit-image version):
 `audit/s79-architect-quick-check.md`.
+
+---
+
+## Related
+
+- [Multimodal & RL](multimodal-rl.md) -- embedding-based `assert_image_text_alignment` and `assert_cross_modal_consistency` (pre-computed embeddings)
+- [LLM-as-Judge](llm-judge.md) -- the judge pattern used by `assert_prompt_faithfulness`, `assert_image_coherence`, `assert_image_helpfulness`
+- [LLM Judge Defaults](judge-defaults.md) -- configure a default judge to avoid passing `judge_fn` to every multimodal assertion
+- [Assertion Index](assertion-index.md) -- full list of all 224 assertions

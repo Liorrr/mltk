@@ -316,3 +316,12 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 - If `judge_fn` **returns unparseable text** during scoring (no numeric value found), the item gets score `0.0`.
 - If `judge_fn` **raises or returns gibberish** during pairwise comparison, the item counts as a **tie** (neither side benefits from judge failure).
 - If `prompts` and `responses` have **different lengths**, the assertion fails immediately with a descriptive error message.
+
+---
+
+## Related
+
+- [LLM Judge Defaults](judge-defaults.md) -- configure a default judge once so every subjective assertion uses it automatically
+- [Multimodal Evaluation](multimodal.md) -- LLM-as-Judge assertions for image-text evaluation
+- [Behavioral Consistency](behavioral-consistency.md) -- uses `method="llm"` for LLM-as-Judge dispatch
+- [Assertion Index](assertion-index.md) -- full list of all 224 assertions

@@ -496,6 +496,36 @@ within bounds, and retry loops are caught before they reach production.
 
 :point_right: [MCP Evaluation](api/mcp-evaluation.md)
 
+### "I need to red team my LLM before release"
+
+Run 440+ attack variants (prompt injection, jailbreak, encoding bypass, bias elicitation)
+as pytest assertions. Multi-turn trust-building chains catch what static payload lists miss.
+
+:point_right: [Red Team Framework](api/red-team.md) | [security-scan CLI](api/security-scan.md)
+
+### "I need to test vision-language models"
+
+Evaluate image-text alignment (CLIPScore), detect VLM hallucination (POPE probing),
+verify edit preservation (SSIM), and check OCR accuracy -- all as pytest assertions
+with no mandatory LLM dependency.
+
+:point_right: [Multimodal Evaluation](api/multimodal.md) | [Multimodal & RL](api/multimodal-rl.md)
+
+### "I need to generate test data for RAG evaluation"
+
+`SyntheticQAGenerator` produces question-answer pairs from your documents -- template
+mode runs with zero network calls for CI, LLM mode generates richer pairs via any
+`Callable[[str], str]`.
+
+:point_right: [Synthetic QA Generator](api/synthetic-qa-generator.md)
+
+### "I want mltk results in my Phoenix or Langfuse dashboard"
+
+Wire assertion results into your existing observability platform. `assert_trace_quality`
+provides a single CI/CD gate across latency, token budget, and quality scores.
+
+:point_right: [Observability Adapters](api/observability.md) | [OpenTelemetry](api/otel.md)
+
 ### "I want to scan data from the command line"
 
 Quick one-off data quality checks without writing any code.
