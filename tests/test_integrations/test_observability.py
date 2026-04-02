@@ -900,3 +900,155 @@ class TestAssertTraceQuality:
 
         assert result.passed is True
         assert not called
+
+
+# ===================================================================
+# Hardening edge-case tests (appended)
+# ===================================================================
+
+
+class TestPhoenixAdapterEdgeCases:
+    """Edge-case tests for PhoenixAdapter."""
+
+    def test_assertion_returns_none_raises(self) -> None:
+        # SCENARIO: Assertion returns None (type violation)
+        # WHY: None has no .passed attr; adapter propagates
+        # EXPECTED: AttributeError raised (not silenced)
+        from mltk.integrations.phoenix import PhoenixAdapter
+
+        def none_assertion(**kwargs: Any) -> Any:
+            return None
+
+        adapter = PhoenixAdapter(none_assertion, name="nil")
+        with pytest.raises(AttributeError):
+            adapter(output="test")
+
+    def test_evaluate_method_signature(self) -> None:
+        # SCENARIO: PhoenixAdapter is callable
+        # WHY: Phoenix calls evaluator(output=..., ...)
+        # EXPECTED: __call__ accepts expected kwargs
+        from mltk.integrations.phoenix import PhoenixAdapter
+
+        adapter = PhoenixAdapter(
+            _passing_assertion, name="sig"
+        )
+        result = adapter(
+            output="out",
+            expected="exp",
+            input="inp",
+            metadata={"k": "v"},
+        )
+        assert result["passed"] == 1.0
+
+
+class TestLangfuseAdapterEdgeCases:
+    """Edge-case tests for LangfuseAdapter."""
+
+    def test_empty_trace_name(self) -> None:
+        # SCENARIO: Empty string name provided
+        # WHY: Langfuse accepts empty names but tests it
+        # EXPECTED: adapter.name is empty string
+        from mltk.integrations.langfuse import (
+            LangfuseAdapter,
+        )
+
+        adapter = LangfuseAdapter(
+            _passing_assertion, name=""
+        )
+        assert adapter.name == ""
+
+        mock_langfuse = MagicMock()
+        adapter._langfuse = mock_langfuse
+        result = adapter.score(
+            trace_id="t-empty-name"
+        )
+        assert result.passed is True
+        call_kw = mock_langfuse.score.call_args[1]
+        assert call_kw["name"] == ""
+
+    def test_score_method_signature(self) -> None:
+        # SCENARIO: score() accepts trace_id + kwargs
+        # WHY: Verify method signature contract
+        # EXPECTED: Returns TestResult, posts to client
+        from mltk.integrations.langfuse import (
+            LangfuseAdapter,
+        )
+
+        mock_langfuse = MagicMock()
+        adapter = LangfuseAdapter(
+            _passing_assertion, name="sig_check"
+        )
+        adapter._langfuse = mock_langfuse
+
+        result = adapter.score(
+            trace_id="t-sig",
+            observation_id="o-sig",
+            output="test output",
+        )
+        assert isinstance(result, TestResult)
+        mock_langfuse.score.assert_called_once()
+
+
+class TestAssertTraceQualityEdgeCases:
+    """Edge-case tests for assert_trace_quality."""
+
+    def test_zero_spans_empty_trace(self) -> None:
+        # SCENARIO: Empty trace with all thresholds set
+        # WHY: Zero spans should skip, not fail
+        # EXPECTED: result.passed is True
+        from mltk.integrations.trace_quality import (
+            assert_trace_quality,
+        )
+
+        result = assert_trace_quality(
+            trace={},
+            max_latency_ms=100,
+            max_cost_usd=0.001,
+            min_score=0.9,
+        )
+        assert result.passed is True
+
+    def test_all_spans_pass(self) -> None:
+        # SCENARIO: All metrics well within thresholds
+        # WHY: Confirm happy path with all checks set
+        # EXPECTED: result.passed, all details present
+        from mltk.integrations.trace_quality import (
+            assert_trace_quality,
+        )
+
+        result = assert_trace_quality(
+            trace={
+                "latency_ms": 10,
+                "cost_usd": 0.0001,
+                "score": 0.99,
+            },
+            max_latency_ms=5000,
+            max_cost_usd=1.0,
+            min_score=0.1,
+        )
+        assert result.passed is True
+        assert result.details["latency_ms"] == 10
+        assert result.details["cost_usd"] == 0.0001
+        assert result.details["score"] == 0.99
+
+
+class TestRegisterPhoenixEdgeCases:
+    """Edge-case tests for register_phoenix."""
+
+    def test_missing_endpoint_import_error(self) -> None:
+        # SCENARIO: opentelemetry not installed
+        # WHY: Clear error for missing dependency
+        # EXPECTED: ImportError with install instructions
+        from mltk.integrations.phoenix import (
+            register_phoenix,
+        )
+
+        with patch.dict(
+            "sys.modules", {"opentelemetry": None}
+        ):
+            with pytest.raises(
+                ImportError, match="opentelemetry"
+            ):
+                register_phoenix(
+                    endpoint="http://bad:9999/v1/traces"
+                )

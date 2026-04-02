@@ -35,7 +35,23 @@ Usage::
     print(f"{passed}/{len(results)} passed")
 """
 
-from mltk.testdefs.runner import run_test_suite
-from mltk.testdefs.schema import TestDef, TestSuiteYaml, load_test_suite
+from mltk.testdefs.runner import run_red_team_suite, run_test_suite
+from mltk.testdefs.schema import (
+    CustomAttack,
+    RedTeamDefaults,
+    RedTeamSuiteYaml,
+    TestDef,
+    TestSuiteYaml,
+    load_test_suite,
+)
 
-__all__ = ["load_test_suite", "run_test_suite", "TestDef", "TestSuiteYaml"]
+__all__ = [
+    "CustomAttack",
+    "RedTeamDefaults",
+    "RedTeamSuiteYaml",
+    "TestDef",
+    "TestSuiteYaml",
+    "load_test_suite",
+    "run_red_team_suite",
+    "run_test_suite",
+]

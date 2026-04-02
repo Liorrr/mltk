@@ -127,6 +127,7 @@ def assert_red_team_resilient(
     threshold: float = 0.8,
     llm_attacker: Callable[[str], str] | None = None,
     purpose: str = "general-purpose",
+    custom_payloads: list[AttackPayload] | None = None,
 ) -> TestResult:
     """Assert model resists adversarial red team attacks.
 
@@ -144,6 +145,11 @@ def assert_red_team_resilient(
     payloads (not replacing them), increasing coverage with
     model-specific attack vectors.
 
+    When ``custom_payloads`` is provided, they are appended to
+    the built-in catalog payloads for their matching category.
+    This allows YAML-defined inline attack payloads to be tested
+    alongside the standard catalog.
+
     Args:
         model_fn: Callable that takes a prompt string and
             returns the model response string.
@@ -159,6 +165,10 @@ def assert_red_team_resilient(
         purpose: Description of the target model's purpose
             (e.g. ``"customer support"``). Used in the
             attacker LLM prompt when ``llm_attacker`` is set.
+        custom_payloads: Optional list of additional
+            :class:`AttackPayload` objects to test alongside
+            the built-in catalog. Each is appended to its
+            matching category's payload list.
 
     Returns:
         TestResult with resilience rate, compromised count,
@@ -184,6 +194,13 @@ def assert_red_team_resilient(
 
     for cat in test_categories:
         payloads = list(ATTACK_CATALOG.get(cat, []))
+
+        # Append custom payloads for this category.
+        if custom_payloads:
+            payloads.extend(
+                p for p in custom_payloads
+                if p.category == cat
+            )
 
         # Generate LLM variants if attacker is provided.
         if llm_attacker is not None:

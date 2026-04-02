@@ -960,3 +960,192 @@ class TestModuleExports:
         assert "assert_edit_preservation" in all_names
         assert "assert_object_hallucination" in all_names
         assert "assert_ocr_accuracy" in all_names
+
+
+# ===============================================================
+# Edge-case / hardening tests (appended)
+# ===============================================================
+
+
+class TestClipScoreEdgeCases:
+    """Edge-case tests for CLIPScore."""
+
+    def test_empty_text_description(self) -> None:
+        """Empty text with model path still produces result."""
+        fake_img_emb = np.array([1.0, 0.0])
+        fake_txt_emb = np.array([0.5, 0.5])
+
+        with patch(
+            "mltk.domains.multimodal.metrics._encode_clip",
+            return_value=(fake_img_emb, fake_txt_emb),
+        ):
+            result = assert_clip_score(
+                image=b"fake_png",
+                text="",
+                min_score=0.1,
+            )
+        assert result.passed
+        assert result.details["method"] == "model"
+
+    def test_very_long_text(self) -> None:
+        """1000+ char text with embedding path works."""
+        rng = np.random.RandomState(99)
+        img_emb = rng.randn(128)
+        txt_emb = img_emb.copy()
+        result = assert_clip_score(
+            image_embedding=img_emb,
+            text_embedding=txt_emb,
+            min_score=0.9,
+        )
+        assert result.passed
+        assert result.details["score"] == pytest.approx(1.0)
+
+
+class TestEditPreservationEdgeCases:
+    """Edge-case tests for edit preservation."""
+
+    def test_ssim_identical_returns_one(self) -> None:
+        """SSIM of identical images should be ~1.0."""
+        rng = np.random.RandomState(42)
+        arr = rng.randint(
+            0, 256, (32, 32, 3), dtype=np.uint8,
+        )
+        png = _make_png_bytes_from_array(arr)
+        try:
+            result = assert_edit_preservation(
+                original=png,
+                edited=png,
+                method="ssim",
+                threshold=0.99,
+            )
+            assert result.passed
+            assert result.details["score"] >= 0.99
+        except ImportError:
+            pytest.skip("scikit-image not installed")
+
+
+class TestOcrAccuracyEdgeCases:
+    """Edge-case tests for OCR accuracy."""
+
+    def test_both_empty_strings_cer(self) -> None:
+        """Both empty strings produce 0.0 error rate."""
+        result = assert_ocr_accuracy(
+            expected_text="",
+            actual_text="",
+            method="cer",
+            threshold=0.0,
+        )
+        assert result.passed
+        assert result.details["error_rate"] == 0.0
+
+    def test_both_empty_strings_wer(self) -> None:
+        """Both empty strings with WER produce 0.0 error."""
+        result = assert_ocr_accuracy(
+            expected_text="",
+            actual_text="",
+            method="wer",
+            threshold=0.0,
+        )
+        assert result.passed
+        assert result.details["error_rate"] == 0.0
+
+    def test_unicode_cjk_chars(self) -> None:
+        """CJK characters handled by CER correctly."""
+        result = assert_ocr_accuracy(
+            expected_text="\u4f60\u597d\u4e16\u754c",
+            actual_text="\u4f60\u597d\u4e16\u754c",
+            method="cer",
+            threshold=0.0,
+        )
+        assert result.passed
+        assert result.details["error_rate"] == 0.0
+
+    def test_unicode_emoji_chars(self) -> None:
+        """Emoji characters handled by CER correctly."""
+        result = assert_ocr_accuracy(
+            expected_text="\U0001f600\U0001f680\U0001f30d",
+            actual_text="\U0001f600\U0001f680\U0001f30e",
+            method="cer",
+            threshold=0.5,
+        )
+        assert result.passed
+        rate = result.details["error_rate"]
+        assert rate == pytest.approx(1.0 / 3.0, abs=0.01)
+
+
+class TestPOPEEdgeCases:
+    """Edge-case tests for POPE hallucination detection."""
+
+    @staticmethod
+    def _make_vqa_all_yes():
+        """VQA that always answers yes."""
+        def vqa_fn(q, img, desc):
+            return "Yes, I see it."
+        return vqa_fn
+
+    @staticmethod
+    def _make_vqa_all_no():
+        """VQA that always answers no."""
+        def vqa_fn(q, img, desc):
+            return "No, I don't see that."
+        return vqa_fn
+
+    def test_all_yes_with_all_present(self) -> None:
+        """All-yes VQA with only present objects passes."""
+        vqa = self._make_vqa_all_yes()
+        result = assert_object_hallucination(
+            vqa_fn=vqa,
+            image=None,
+            objects_present=["cat", "dog", "bird"],
+            objects_absent=[],
+            threshold=1.0,
+            image_description="Animals.",
+        )
+        assert result.passed
+        assert result.details["score"] == 1.0
+
+    def test_all_yes_with_absent_objects_fails(self) -> None:
+        """All-yes VQA hallucinates all absent objects."""
+        vqa = self._make_vqa_all_yes()
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_object_hallucination(
+                vqa_fn=vqa,
+                image=None,
+                objects_present=[],
+                objects_absent=["car", "plane"],
+                threshold=0.5,
+                image_description="Empty.",
+            )
+        result = exc_info.value.result
+        assert result.details["hallucination_rate"] == 1.0
+        assert result.details["false_positives"] == 2
+
+    def test_all_no_with_all_absent(self) -> None:
+        """All-no VQA with only absent objects passes."""
+        vqa = self._make_vqa_all_no()
+        result = assert_object_hallucination(
+            vqa_fn=vqa,
+            image=None,
+            objects_present=[],
+            objects_absent=["x", "y", "z"],
+            threshold=1.0,
+            image_description="Nothing.",
+        )
+        assert result.passed
+        assert result.details["hallucination_rate"] == 0.0
+
+    def test_all_no_with_present_objects_fails(self) -> None:
+        """All-no VQA misses all present objects."""
+        vqa = self._make_vqa_all_no()
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_object_hallucination(
+                vqa_fn=vqa,
+                image=None,
+                objects_present=["cat", "dog"],
+                objects_absent=[],
+                threshold=0.5,
+                image_description="Pets.",
+            )
+        result = exc_info.value.result
+        assert result.details["false_negatives"] == 2
+        assert result.details["score"] == 0.0

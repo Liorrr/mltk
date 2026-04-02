@@ -181,21 +181,29 @@ class TestRunScan:
         assert total_tested == 3
         assert total_resisted == 3
 
-    def test_vulnerable_model_none_resisted(
+    def test_vulnerable_model_prompt_injection_detected(
         self,
         _vulnerable_model: Any,
         _small_catalog: list[dict[str, str]],
     ) -> None:
-        """PASS: Vulnerable model fails all payloads."""
+        """PASS: Vulnerable model detected for matching
+        categories (category-aware grading).
+        """
         from mltk.cli.security_scan import _run_scan
 
         results = _run_scan(
             _vulnerable_model, _small_catalog,
         )
+        total_tested = sum(
+            c["tested"] for c in results.values()
+        )
         total_resisted = sum(
             c["resisted"] for c in results.values()
         )
-        assert total_resisted == 0
+        # Category-aware grading: "PWNED" response only
+        # triggers Prompt Injection, not all categories
+        assert total_tested == 3
+        assert total_resisted < total_tested
 
     def test_error_model_counts_as_resisted(
         self,

@@ -39,6 +39,7 @@ nav:
       - Playwright Integration: guides/playwright-integration.md
       - Demo Script: guides/demo-script.md
       - YAML Test Definitions: api/yaml-tests.md
+      - YAML Red Team Configuration: api/yaml-red-team.md
       - Data Contracts: api/contracts.md
       - Testing Patterns: api/testing-patterns.md
       - Composable TestSuite: api/suite-api.md

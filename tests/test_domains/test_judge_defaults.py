@@ -507,3 +507,110 @@ class TestEdgeCases:
         )
         assert result.passed is True
         assert result.details["score"] == 1.0
+
+
+# ===================================================================
+# Hardening edge-case tests (appended)
+# ===================================================================
+
+
+class TestConfigureDefaultJudgeEdgeCases:
+    """Edge cases for configure/get default judge."""
+
+    def test_set_none_clears_default(self) -> None:
+        """configure_default_judge(None) clears judge."""
+        configure_default_judge(_echo_judge)
+        assert get_default_judge() is _echo_judge
+        configure_default_judge(None)
+        assert get_default_judge() is None
+
+    def test_second_call_replaces_first(self) -> None:
+        """Second configure replaces the first judge."""
+        configure_default_judge(_echo_judge)
+        configure_default_judge(_score_high)
+        assert get_default_judge() is _score_high
+
+    def test_get_default_returns_none_initially(self) -> None:
+        """No default judge is set at startup."""
+        assert get_default_judge() is None
+
+
+class TestResolveJudgeEdgeCases:
+    """Edge cases for resolve_judge."""
+
+    def test_all_three_levels_explicit_wins(self) -> None:
+        """Explicit judge wins over default and fallback."""
+        configure_default_judge(_score_high)
+        judge, method = resolve_judge(
+            explicit_judge=_alternative_judge,
+            method="auto",
+            fallback_method="embedding",
+        )
+        assert judge is _alternative_judge
+        assert method == "llm"
+
+    def test_only_fallback_set(self) -> None:
+        """No explicit or default, fallback method used."""
+        judge, method = resolve_judge(
+            method="auto",
+            fallback_method="embedding",
+        )
+        assert judge is None
+        assert method == "embedding"
+
+
+class TestAssertWithJudgeEdgeCases:
+    """Edge cases for assert_with_judge."""
+
+    def test_judge_raises_exception(self) -> None:
+        """Judge that raises produces failing result."""
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_with_judge(
+                assertion_name="crash_test",
+                text_a="input",
+                text_b="reference",
+                judge_fn=_two_arg_error,
+                min_score=0.5,
+            )
+        result = exc.value.result
+        assert result.passed is False
+        assert "RuntimeError" in result.message
+
+
+class TestThreadSafetyEdgeCases:
+    """Concurrent configure + resolve edge case."""
+
+    def test_concurrent_configure_and_resolve(self) -> None:
+        """Concurrent configure + resolve is safe."""
+        errors: list[Exception] = []
+        results: list[tuple] = []
+
+        def configurer() -> None:
+            try:
+                for _ in range(50):
+                    configure_default_judge(_echo_judge)
+                    configure_default_judge(_score_high)
+            except Exception as exc:
+                errors.append(exc)
+
+        def resolver() -> None:
+            try:
+                for _ in range(50):
+                    r = resolve_judge(method="auto")
+                    results.append(r)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=configurer),
+            threading.Thread(target=resolver),
+            threading.Thread(target=resolver),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=5.0)
+
+        assert len(errors) == 0
+        for _judge, method in results:
+            assert method in ("llm", "lexical")
