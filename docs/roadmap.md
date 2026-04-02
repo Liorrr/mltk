@@ -185,7 +185,21 @@ Role-specific agent behaviors for QA engineers, developers, PMs, and DevOps usin
 - `mltk-pm-skill` — read reports, compliance status, quality trends
 - `mltk-devops-skill` — CI/CD integration, webhooks, quality gates
 
-**Effort:** 1 sprint per skill | **Priority:** Strategic — agent adoption multiplier
+**Includes:**
+- `CLAUDE.md` at repo root — project context, conventions, quality gates
+- `.mcp.json` — MCP server config for mltk-as-tool
+- 6 skills: `mltk-qa-skill`, `mltk-dev-skill`, `mltk-pm-skill`, `mltk-devops-skill`, `mltk-autoresearch`, `mltk-sprint-executor`
+- 4 subagents: ml-test-engineer (Opus), ml-test-researcher (Sonnet), ml-test-reviewer (Opus), ml-test-qa (Opus)
+- Workflow recipes: "add assertion", "red team scan", "audit docs", "release version"
+- Memory seed: project overview, workflow rules, key decisions
+- Model routing: Sonnet for research, Opus for code + review
+- Hooks: auto-memory, pre-commit quality gates
+- Prompt templates for common tasks
+- Memory vault: Obsidian bridge (human-browsable) + ShrimPK vault (AI recall) — dual-vault strategy with auto-consolidation hooks
+
+**Dependencies:** F-1 (MCP server mode) for `.mcp.json`
+
+**Effort:** 2 sprints | **Priority:** Strategic — transforms mltk from toolkit to AI-native platform
 
 #### Cost/Token Tracking
 *Status: Not started*

@@ -67,6 +67,13 @@ from mltk.domains.llm.safety import (
     assert_safety_taxonomy,
 )
 from mltk.domains.llm.similarity import assert_semantic_similarity
+from mltk.domains.llm.span import Span, SpanKind, SpanTrace
+from mltk.domains.llm.span_eval import (
+    assert_span_budget,
+    assert_span_latency,
+    assert_span_quality,
+    assert_span_sequence,
+)
 from mltk.domains.llm.summarization import (
     assert_summary_compression,
     assert_summary_coverage,
