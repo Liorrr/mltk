@@ -596,3 +596,164 @@ class TestFullPipeline:
         assert result.total_samples == 2
         assert result.duration_ms >= 0.0
         assert len(result.metrics) >= 2
+
+
+# ===============================================================
+# Edge-case / hardening tests (appended)
+# ===============================================================
+
+
+class TestEvalTaskSingleSample:
+    """EvalTask with single-sample dataset."""
+
+    def test_single_sample_dataset(self):
+        # SCENARIO: Dataset with exactly 1 sample.
+        # WHY: Boundary — minimal valid dataset.
+        # EXPECTED: result has 1 sample, metrics exist.
+        task = EvalTask(
+            name="single",
+            solver=GenerateSolver(),
+            scorers=[ExactMatchScorer()],
+            dataset=[
+                EvalSample(input="2+2?", target="4"),
+            ],
+        )
+        result = task.run(fixed_model)
+        assert result.total_samples == 1
+        assert len(result.metrics) >= 1
+        accuracy_keys = [
+            k for k in result.metrics
+            if "accuracy" in k.lower()
+        ]
+        assert len(accuracy_keys) >= 1
+
+
+class TestSolverSetsCompleted:
+    """EvalTask where solver sets completed=True."""
+
+    def test_completed_flag_skips_later_solvers(
+        self,
+    ):
+        # SCENARIO: First solver marks state completed.
+        # WHY: Pipeline must stop early on completed.
+        # EXPECTED: Output set by first solver only.
+        from mltk.eval.solvers import Solver
+
+        class EarlySolver(Solver):
+            """Solver that completes immediately."""
+
+            name = "EarlySolver"
+
+            def solve(self, state, generate):
+                state.output = "early"
+                state.completed = True
+                return state
+
+        class LateSolver(Solver):
+            """Solver that would overwrite output."""
+
+            name = "LateSolver"
+
+            def solve(self, state, generate):
+                state.output = "late"
+                return state
+
+        task = EvalTask(
+            name="completed",
+            solver=[EarlySolver(), LateSolver()],
+            scorers=[ExactMatchScorer()],
+            dataset=[
+                EvalSample(
+                    input="x", target="early",
+                ),
+            ],
+        )
+        result = task.run(fixed_model)
+        assert result.total_samples == 1
+        # Verify the early solver's output stuck
+        state = result.samples[0]
+        assert state.output == "early"
+
+
+class TestLoadDatasetUnicode:
+    """load_dataset with unicode content in CSV."""
+
+    def test_unicode_csv(self, tmp_path):
+        # SCENARIO: CSV with CJK + emoji + accents.
+        # WHY: Real datasets contain unicode.
+        # EXPECTED: Round-trip preserves all chars.
+        path = tmp_path / "unicode.csv"
+        with open(
+            path, "w", newline="", encoding="utf-8",
+        ) as f:
+            writer = csv.writer(f)
+            writer.writerow(["input", "target"])
+            writer.writerow(
+                ["\u4f60\u597d\u4e16\u754c", "\u5730\u7403"]
+            )
+            writer.writerow(
+                [
+                    "caf\u00e9 cr\u00e8me",
+                    "\u00e9clair",
+                ]
+            )
+        samples = load_dataset(str(path))
+        assert len(samples) == 2
+        assert samples[0].input == "\u4f60\u597d\u4e16\u754c"
+        assert samples[0].target == "\u5730\u7403"
+        assert samples[1].input == "caf\u00e9 cr\u00e8me"
+        assert samples[1].target == "\u00e9clair"
+
+
+class TestEvalResultMetricsKeysFormat:
+    """EvalResult metrics keys follow ScorerName/metric."""
+
+    def test_metrics_keys_format(self):
+        # SCENARIO: Run task, inspect metric key format.
+        # WHY: Key convention must be consistent.
+        # EXPECTED: Every key matches "Name/metric".
+        task = EvalTask(
+            name="fmt",
+            solver=GenerateSolver(),
+            scorers=[
+                ExactMatchScorer(),
+                IncludesScorer(),
+            ],
+            dataset=_matching_dataset(),
+        )
+        result = task.run(fixed_model)
+        for key in result.metrics:
+            parts = key.split("/")
+            assert len(parts) == 2, (
+                f"Key {key!r} not in Name/metric"
+            )
+            assert parts[0] != ""
+            assert parts[1] in ("accuracy", "mean")
+
+
+class TestEvalTaskChainSolver:
+    """EvalTask with chain() solver pipeline."""
+
+    def test_chain_pipeline_runs(self):
+        # SCENARIO: chain() with 3 solvers.
+        # WHY: Realistic multi-stage pipeline.
+        # EXPECTED: All solvers execute; result valid.
+        pipeline = chain(
+            FewShotSolver(
+                examples=[("1+1", "2")],
+            ),
+            FewShotSolver(
+                examples=[("2+2", "4")],
+            ),
+            GenerateSolver(),
+        )
+        task = EvalTask(
+            name="multi_chain",
+            solver=pipeline,
+            scorers=[ExactMatchScorer()],
+            dataset=_matching_dataset(),
+        )
+        result = task.run(fixed_model)
+        assert result.total_samples == 3
+        assert result.duration_ms >= 0.0
+        assert len(result.metrics) >= 1

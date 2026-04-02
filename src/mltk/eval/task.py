@@ -5,9 +5,14 @@ evaluation pipelines. It runs a dataset through a solver
 pipeline, scores each output with one or more scorers,
 and aggregates the results.
 
+Accepts both a plain ``list[EvalSample]`` and a structured
+``EvalDataset`` (with metadata, versioning, quality checks).
+When an EvalDataset is provided, its metadata is preserved
+and accessible via the ``eval_dataset`` property.
+
 Pipeline architecture::
 
-    Dataset (EvalSample[])
+    Dataset (list[EvalSample] | EvalDataset)
         |
         v
     [Solver 1] -> [Solver 2] -> ... -> [Solver N]
@@ -42,6 +47,21 @@ Example::
     )
     result = task.run(model_fn)
     assert result.metrics["ExactMatchScorer/accuracy"] >= 0.9
+
+With an EvalDataset::
+
+    ds = EvalDataset(
+        name="qa-v1",
+        samples=[EvalSample("2+2?", "4")],
+        version="1.0.0",
+    )
+    task = EvalTask(
+        name="qa-eval",
+        solver=GenerateSolver(),
+        scorers=ExactMatchScorer(),
+        dataset=ds,
+    )
+    assert task.eval_dataset is ds
 """
 
 from __future__ import annotations
@@ -62,6 +82,7 @@ from mltk.eval._types import (
 
 if TYPE_CHECKING:
     from mltk.core.result import TestResult
+    from mltk.eval.dataset import EvalDataset
     from mltk.eval.scorers import Scorer
     from mltk.eval.solvers import Solver
 
@@ -79,13 +100,19 @@ class EvalTask:
     -- you get clear errors immediately, not midway through a
     long evaluation run.
 
+    The ``dataset`` parameter accepts either a plain
+    ``list[EvalSample]`` or a structured ``EvalDataset``.
+    When an ``EvalDataset`` is provided, its samples are
+    extracted for evaluation and the dataset metadata is
+    accessible via the ``eval_dataset`` property.
+
     Args:
         name: Task name for logging/reporting.
         solver: Single solver or list of solvers (pipeline).
             If a list, they run in sequence (like chain()).
         scorers: Single scorer or list of scorers.
             Each scorer runs independently on the same state.
-        dataset: List of EvalSample to evaluate.
+        dataset: List of EvalSample or an EvalDataset.
 
     Raises:
         ValueError: If solver, scorers, or dataset is empty.
@@ -109,7 +136,7 @@ class EvalTask:
         name: str,
         solver: Solver | list[Solver],
         scorers: Scorer | list[Scorer],
-        dataset: list[EvalSample],
+        dataset: list[EvalSample] | EvalDataset,
     ) -> None:
         self.name = name
         self._solvers: list[Solver] = (
@@ -120,7 +147,16 @@ class EvalTask:
             if isinstance(scorers, list)
             else [scorers]
         )
-        self._dataset = dataset
+
+        # Accept EvalDataset or plain list[EvalSample]
+        if hasattr(dataset, "samples"):
+            self._eval_dataset: EvalDataset | None = (
+                dataset  # type: ignore[assignment]
+            )
+            self._dataset = dataset.samples  # type: ignore[union-attr]
+        else:
+            self._eval_dataset = None
+            self._dataset = dataset  # type: ignore[assignment]
 
         if not self._solvers:
             raise ValueError(
@@ -134,6 +170,17 @@ class EvalTask:
             raise ValueError(
                 "EvalTask requires a non-empty dataset"
             )
+
+    @property
+    def eval_dataset(self) -> EvalDataset | None:
+        """The EvalDataset if one was provided, else None.
+
+        Returns:
+            The original EvalDataset instance, or None if
+            the task was constructed with a plain sample
+            list.
+        """
+        return self._eval_dataset
 
     def run(
         self,

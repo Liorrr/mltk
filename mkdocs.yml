@@ -44,6 +44,7 @@ nav:
       - Testing Patterns: api/testing-patterns.md
       - Composable TestSuite: api/suite-api.md
       - Evaluation Pipeline: api/eval-pipeline.md
+      - Versioned Eval Datasets: api/eval-datasets.md
       - Trace-Level Evaluation: api/trace-evaluation.md
       - Behavioral Consistency: api/behavioral-consistency.md
       - S72 Enhancements (MMD, SmoothECE, Fairness): api/s72-enhancements.md

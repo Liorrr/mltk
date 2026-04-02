@@ -6,7 +6,7 @@ mltk's pytest-native, zero-dependency philosophy.
 
 Architecture overview::
 
-    Dataset (EvalSample[])
+    Dataset (list[EvalSample] | EvalDataset)
         |
         v
     Solver pipeline (prompt engineering)
@@ -21,6 +21,8 @@ Core components:
 
 - **Data types** (``_types``): EvalSample, EvalState,
   Score, EvalResult -- the contract between stages.
+- **Dataset** (``dataset``): EvalDataset with metadata,
+  versioning, quality checks, registry, and diffs.
 - **Solvers** (``solvers``): Transform state through a
   pipeline (CoT, few-shot, generate).
 - **Scorers** (``scorers``): Score model output against
@@ -49,6 +51,24 @@ Quick start::
     result = task.run(my_model_fn)
     assert result.metrics["ExactMatchScorer/accuracy"] >= 0.9
 
+With an EvalDataset::
+
+    from mltk.eval import EvalDataset, DatasetCard
+
+    ds = EvalDataset(
+        name="qa-v1",
+        samples=[EvalSample("2+2?", "4")],
+        card=DatasetCard(description="Math QA set"),
+        version="1.0.0",
+    )
+    task = EvalTask(
+        name="qa",
+        solver=GenerateSolver(),
+        scorers=ExactMatchScorer(),
+        dataset=ds,
+    )
+    assert task.eval_dataset is ds
+
 Pytest integration::
 
     def test_qa_eval():
@@ -65,6 +85,16 @@ from mltk.eval._types import (
     EvalSample,
     EvalState,
     Score,
+)
+
+# Dataset -- structured datasets with metadata + quality
+from mltk.eval.dataset import (
+    DatasetCard,
+    DatasetDiff,
+    DatasetInfo,
+    DatasetRegistry,
+    EvalDataset,
+    assert_dataset_quality,
 )
 
 # Scorers -- score model output against expected answers
@@ -94,6 +124,13 @@ __all__ = [
     "EvalState",
     "Score",
     "EvalResult",
+    # Dataset
+    "DatasetCard",
+    "DatasetDiff",
+    "DatasetInfo",
+    "DatasetRegistry",
+    "EvalDataset",
+    "assert_dataset_quality",
     # Solvers
     "Solver",
     "GenerateSolver",
