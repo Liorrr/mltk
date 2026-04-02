@@ -46,6 +46,7 @@ nav:
       - Evaluation Pipeline: api/eval-pipeline.md
       - Versioned Eval Datasets: api/eval-datasets.md
       - Trace-Level Evaluation: api/trace-evaluation.md
+      - MCP Server: api/mcp-server.md
       - Behavioral Consistency: api/behavioral-consistency.md
       - S72 Enhancements (MMD, SmoothECE, Fairness): api/s72-enhancements.md
       - Model Scanning: api/scan.md

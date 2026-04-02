@@ -1438,3 +1438,470 @@ class TestIntegration:
         reg_a.save(_make_dataset(name="only-in-a"))
         assert reg_a.exists("only-in-a")
         assert reg_b.exists("only-in-a") is False
+
+
+# ===============================================================
+# Hardened: parametrized + edge-case tests (15 new)
+# ===============================================================
+
+
+class TestHardenedEvalDataset:
+    """Edge-case and scale tests for EvalDataset."""
+
+    def test_scale_1000_samples(self):
+        # SCENARIO: dataset with 1000 samples
+        # WHY: must handle production-scale sizes
+        # EXPECTED: all properties work correctly
+        samples = [
+            EvalSample(
+                input=f"Q-{i:04d}?",
+                target=f"A-{i:04d}",
+                metadata={"category": f"c{i % 7}"},
+            )
+            for i in range(1000)
+        ]
+        ds = EvalDataset(
+            name="scale-ds",
+            version="1.0.0",
+            samples=samples,
+        )
+        assert ds.sample_count == 1000
+        assert len(ds.fingerprint) == 64
+        assert ds.target_coverage == pytest.approx(1.0)
+        cats = ds.categories
+        assert len(cats) == 7
+        assert sum(cats.values()) == 1000
+
+    def test_fingerprint_unicode_samples(self):
+        # SCENARIO: samples with unicode/emoji text
+        # WHY: fingerprint must handle all UTF-8
+        # EXPECTED: valid 64-char hex fingerprint
+        samples = [
+            EvalSample(
+                input="Qu'est-ce que c'est?",
+                target="r\u00e9ponse",
+            ),
+            EvalSample(
+                input="\u4f60\u597d\u4e16\u754c",
+                target="\u56de\u7b54",
+            ),
+            EvalSample(
+                input="\u043f\u0440\u0438\u0432\u0435\u0442",
+                target="\u043e\u0442\u0432\u0435\u0442",
+            ),
+            EvalSample(
+                input="launch \u2764?",
+                target="\u2605 star",
+            ),
+        ]
+        ds = EvalDataset(
+            name="unicode-ds",
+            version="1.0.0",
+            samples=samples,
+        )
+        assert len(ds.fingerprint) == 64
+        assert ds.sample_count == 4
+        # Round-trip preserves fingerprint
+        d = ds.to_dict()
+        restored = EvalDataset.from_dict(d)
+        assert restored.fingerprint == ds.fingerprint
+
+    def test_to_dict_from_dict_special_chars_target(
+        self,
+    ):
+        # SCENARIO: targets with special characters
+        # WHY: round-trip must not corrupt data
+        # EXPECTED: targets preserved exactly
+        targets = [
+            'He said "hello"',
+            "line1\nline2\ttab",
+            "back\\slash",
+            "<html>&amp;",
+            "\u00e9\u00e0\u00fc\u00f1",
+        ]
+        samples = [
+            EvalSample(
+                input=f"Q{i}?", target=t,
+            )
+            for i, t in enumerate(targets)
+        ]
+        ds = EvalDataset(
+            name="special",
+            version="1.0.0",
+            samples=samples,
+        )
+        d = ds.to_dict()
+        restored = EvalDataset.from_dict(d)
+        for orig, rest in zip(
+            ds.samples, restored.samples
+        ):
+            assert orig.target == rest.target
+
+    @pytest.mark.parametrize(
+        "n", [1, 2, 10, 50, 100, 500],
+    )
+    def test_equality_via_fingerprint(self, n):
+        # SCENARIO: two datasets same content => same fp
+        # WHY: equality defined by fingerprint
+        # EXPECTED: fingerprints match for same data
+        samples = [
+            EvalSample(
+                input=f"Q-{i}?",
+                target=f"A-{i}",
+            )
+            for i in range(n)
+        ]
+        ds1 = EvalDataset(
+            name="eq",
+            version="1.0.0",
+            samples=list(samples),
+        )
+        ds2 = EvalDataset(
+            name="eq",
+            version="1.0.0",
+            samples=list(samples),
+        )
+        assert ds1.fingerprint == ds2.fingerprint
+
+
+class TestHardenedDatasetCard:
+    """Edge-case tests for DatasetCard."""
+
+    def test_all_fields_populated(self):
+        # SCENARIO: card with every field explicit
+        # WHY: verify no field is silently dropped
+        # EXPECTED: all 7 fields match input
+        card = DatasetCard(
+            description="Full card test",
+            task="summarization",
+            source="https://example.com/data",
+            license="Apache-2.0",
+            tags=["en", "qa", "v3", "prod"],
+            created="2025-01-15T00:00:00+00:00",
+            author="test-team-alpha",
+        )
+        assert card.description == "Full card test"
+        assert card.task == "summarization"
+        assert card.source == (
+            "https://example.com/data"
+        )
+        assert card.license == "Apache-2.0"
+        assert len(card.tags) == 4
+        assert card.created == (
+            "2025-01-15T00:00:00+00:00"
+        )
+        assert card.author == "test-team-alpha"
+        # Round-trip through dict
+        d = card.to_dict()
+        restored = DatasetCard.from_dict(d)
+        assert restored.description == card.description
+        assert restored.tags == card.tags
+        assert restored.created == card.created
+
+
+class TestHardenedDatasetRegistry:
+    """Edge-case tests for DatasetRegistry."""
+
+    def test_save_delete_resave_same_version(
+        self, tmp_path
+    ):
+        # SCENARIO: save v1, delete v1, re-save v1
+        # WHY: delete must fully clear so resave works
+        # EXPECTED: resave succeeds, data accessible
+        reg = DatasetRegistry(registry_dir=tmp_path)
+        ds1 = _make_dataset(n=3, version="1.0.0")
+        reg.save(ds1)
+        assert reg.exists("qa-test", "1.0.0")
+        reg.delete("qa-test", "1.0.0")
+        assert not reg.exists("qa-test", "1.0.0")
+        # Re-save with different sample count
+        ds2 = _make_dataset(n=7, version="1.0.0")
+        reg.save(ds2)
+        loaded = reg.load("qa-test", "1.0.0")
+        assert loaded.sample_count == 7
+
+    def test_load_tampered_fingerprint_warns(
+        self, tmp_path
+    ):
+        # SCENARIO: tamper sidecar fingerprint.txt
+        # WHY: integrity check must detect tampering
+        # EXPECTED: warning emitted on load
+        reg = DatasetRegistry(registry_dir=tmp_path)
+        ds = _make_dataset(n=5)
+        reg.save(ds)
+        # Tamper both fingerprint.txt and JSON
+        vdir = tmp_path / "qa-test" / "1.0.0"
+        fp_path = vdir / "fingerprint.txt"
+        fp_path.write_text(
+            "bad" * 21 + "x", encoding="utf-8",
+        )
+        ds_path = vdir / "dataset.json"
+        data = json.loads(
+            ds_path.read_text(encoding="utf-8"),
+        )
+        data["fingerprint"] = "bad" * 21 + "x"
+        ds_path.write_text(
+            json.dumps(data), encoding="utf-8",
+        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            try:
+                reg.load("qa-test", "1.0.0")
+            except (ValueError, RuntimeError):
+                return  # raising is also acceptable
+            fp_warns = [
+                x for x in w
+                if "fingerprint" in str(
+                    x.message
+                ).lower()
+            ]
+            assert len(fp_warns) >= 1
+
+    def test_10_versions_of_same_dataset(
+        self, tmp_path
+    ):
+        # SCENARIO: save 10 sequential versions
+        # WHY: registry must handle many versions
+        # EXPECTED: all accessible, sorted correctly
+        reg = DatasetRegistry(registry_dir=tmp_path)
+        for i in range(10):
+            v = f"1.{i}.0"
+            ds = _make_dataset(
+                version=v, n=10 + i,
+            )
+            reg.save(ds)
+        versions = reg.versions("qa-test")
+        assert len(versions) == 10
+        assert versions[0] == "1.0.0"
+        assert versions[-1] == "1.9.0"
+        # Load latest
+        latest = reg.load("qa-test")
+        assert latest.version == "1.9.0"
+        assert latest.sample_count == 19
+
+    def test_list_multiple_datasets_versions(
+        self, tmp_path
+    ):
+        # SCENARIO: 3 datasets, 2 versions each
+        # WHY: list must enumerate all correctly
+        # EXPECTED: 3 infos, each with 2 versions
+        reg = DatasetRegistry(registry_dir=tmp_path)
+        for name in ["alpha", "beta", "gamma"]:
+            for v in ["1.0.0", "2.0.0"]:
+                ds = EvalDataset(
+                    name=name,
+                    version=v,
+                    samples=_make_samples(5),
+                )
+                reg.save(ds)
+        infos = reg.list()
+        assert len(infos) == 3
+        names = sorted(i.name for i in infos)
+        assert names == ["alpha", "beta", "gamma"]
+        for info in infos:
+            assert len(info.versions) == 2
+            assert info.latest_version == "2.0.0"
+
+
+class TestHardenedDatasetDiff:
+    """Edge-case tests for DatasetDiff."""
+
+    def test_identical_datasets_zero_changes(
+        self, tmp_path
+    ):
+        # SCENARIO: diff two versions with same samples
+        # WHY: must produce zero-change diff
+        # EXPECTED: 0 added, 0 removed, all unchanged
+        reg = DatasetRegistry(registry_dir=tmp_path)
+        samples = _make_samples(8)
+        ds1 = EvalDataset(
+            name="ident",
+            version="1.0.0",
+            samples=list(samples),
+        )
+        ds2 = EvalDataset(
+            name="ident",
+            version="2.0.0",
+            samples=list(samples),
+        )
+        reg.save(ds1)
+        reg.save(ds2)
+        diff = reg.diff("ident", "1.0.0", "2.0.0")
+        assert len(diff.added_samples) == 0
+        assert len(diff.removed_samples) == 0
+        assert len(diff.unchanged_samples) == 8
+        assert diff.suggested_bump == "patch"
+
+    def test_schema_only_change_suggests_major(
+        self, tmp_path
+    ):
+        # SCENARIO: same inputs but metadata keys differ
+        # WHY: schema change must suggest major bump
+        # EXPECTED: suggested_bump == "major"
+        reg = DatasetRegistry(registry_dir=tmp_path)
+        s1 = [
+            EvalSample(
+                input="Q?",
+                target="A",
+                metadata={"old_key": "v"},
+            ),
+        ]
+        s2 = [
+            EvalSample(
+                input="Q?",
+                target="A",
+                metadata={"new_key": "v"},
+            ),
+        ]
+        ds1 = EvalDataset(
+            name="schema",
+            version="1.0.0",
+            samples=s1,
+        )
+        ds2 = EvalDataset(
+            name="schema",
+            version="2.0.0",
+            samples=s2,
+        )
+        reg.save(ds1)
+        reg.save(ds2)
+        diff = reg.diff(
+            "schema", "1.0.0", "2.0.0",
+        )
+        assert len(diff.schema_changes) > 0
+        assert diff.suggested_bump == "major"
+
+
+class TestHardenedAssertDatasetQuality:
+    """Edge-case tests for assert_dataset_quality."""
+
+    def test_exactly_001_duplicate_rate_boundary(self):
+        # SCENARIO: dup rate ~0.01, threshold above it
+        # WHY: boundary -- just-below threshold passes
+        # EXPECTED: passes when threshold > actual rate
+        # 100 samples, 1 dup => rate ~= 0.01
+        unique = [
+            EvalSample(
+                input=f"Q-{i}?",
+                target=f"A-{i}",
+                metadata={"category": f"c{i % 3}"},
+            )
+            for i in range(99)
+        ]
+        samples = unique + [unique[0]]
+        ds = EvalDataset(
+            name="boundary",
+            version="1.0.0",
+            samples=samples,
+        )
+        # dup_rate = 1 - 99/100 ~ 0.01 (float repr)
+        # Use threshold 0.02 so rate is below it
+        result = assert_dataset_quality(
+            ds,
+            min_samples=10,
+            max_duplicate_rate=0.02,
+        )
+        assert result.passed is True
+        # Verify it FAILS when threshold is tighter
+        with pytest.raises(MltkAssertionError):
+            assert_dataset_quality(
+                ds,
+                min_samples=10,
+                max_duplicate_rate=0.005,
+            )
+
+    def test_all_samples_same_target(self):
+        # SCENARIO: every sample has identical target
+        # WHY: uniform targets are valid but suspicious
+        # EXPECTED: passes quality (no target-diversity)
+        samples = [
+            EvalSample(
+                input=f"Q-{i}?",
+                target="SAME",
+                metadata={"category": f"c{i % 3}"},
+            )
+            for i in range(100)
+        ]
+        ds = EvalDataset(
+            name="uniform-target",
+            version="1.0.0",
+            samples=samples,
+        )
+        result = assert_dataset_quality(
+            ds, min_samples=10,
+        )
+        assert result.passed is True
+        assert ds.target_coverage == pytest.approx(1.0)
+
+
+class TestHardenedFileLoaders:
+    """Edge-case tests for from_csv / from_json."""
+
+    def test_from_csv_extra_columns_metadata(
+        self, tmp_path
+    ):
+        # SCENARIO: CSV has extra columns beyond i/o
+        # WHY: extra cols must land in metadata
+        # EXPECTED: metadata has extra keys
+        path = tmp_path / "extra.csv"
+        with open(path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow([
+                "input", "target",
+                "difficulty", "source", "lang",
+            ])
+            w.writerow([
+                "Q1?", "A1", "hard", "web", "en",
+            ])
+            w.writerow([
+                "Q2?", "A2", "easy", "book", "fr",
+            ])
+        ds = EvalDataset.from_csv(
+            path, name="extra-csv", version="1.0.0",
+        )
+        assert ds.sample_count == 2
+        m0 = ds.samples[0].metadata
+        assert m0["difficulty"] == "hard"
+        assert m0["source"] == "web"
+        assert m0["lang"] == "en"
+        m1 = ds.samples[1].metadata
+        assert m1["difficulty"] == "easy"
+        assert m1["lang"] == "fr"
+
+    def test_from_json_nested_metadata(
+        self, tmp_path
+    ):
+        # SCENARIO: JSON records have nested metadata
+        # WHY: nested dicts must be preserved in meta
+        # EXPECTED: metadata keys include nested data
+        path = tmp_path / "nested.json"
+        data = [
+            {
+                "input": "Q1?",
+                "target": "A1",
+                "info": {"level": 3, "src": "db"},
+                "tags": ["a", "b"],
+            },
+            {
+                "input": "Q2?",
+                "target": "A2",
+                "info": {"level": 1},
+                "tags": ["c"],
+            },
+        ]
+        with open(path, "w") as f:
+            json.dump(data, f)
+        ds = EvalDataset.from_json(
+            path,
+            name="nested-json",
+            version="1.0.0",
+        )
+        assert ds.sample_count == 2
+        m0 = ds.samples[0].metadata
+        assert m0["info"] == {
+            "level": 3, "src": "db",
+        }
+        assert m0["tags"] == ["a", "b"]
+        m1 = ds.samples[1].metadata
+        assert m1["info"] == {"level": 1}
+        assert m1["tags"] == ["c"]
