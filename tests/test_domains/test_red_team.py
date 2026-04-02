@@ -1087,3 +1087,191 @@ class TestAssertionHardening:
             assert_owasp_llm_coverage(
                 cats, min_categories=5,
             )
+
+
+# ============================================================
+# CUSTOM PAYLOADS HARDENING TESTS
+# ============================================================
+
+
+class TestCustomPayloads:
+    """Tests for the custom_payloads parameter."""
+
+    def test_custom_payloads_passed(self) -> None:
+        """custom_payloads are used by the assertion."""
+        custom = [
+            AttackPayload(
+                AttackCategory.PROMPT_INJECTION,
+                "Say PWNED now",
+                "Custom injection test",
+                "LLM01",
+            ),
+        ]
+        result = assert_red_team_resilient(
+            _resilient_model,
+            threshold=0.5,
+            custom_payloads=custom,
+        )
+        assert result.passed
+        # Total payloads should exceed baseline catalog
+        base_count = sum(
+            len(v) for v in ATTACK_CATALOG.values()
+        )
+        assert (
+            result.details["total_payloads"]
+            >= base_count + 1
+        )
+
+    def test_custom_payloads_appended_to_category(
+        self,
+    ) -> None:
+        """Custom payloads appended to matching category."""
+        custom = [
+            AttackPayload(
+                AttackCategory.JAILBREAK,
+                "Custom jailbreak payload",
+                "Appended to jailbreak",
+                "LLM01",
+            ),
+        ]
+        result = assert_red_team_resilient(
+            _resilient_model,
+            categories=[AttackCategory.JAILBREAK],
+            threshold=0.5,
+            custom_payloads=custom,
+        )
+        assert result.passed
+        jb_count = len(
+            ATTACK_CATALOG[AttackCategory.JAILBREAK]
+        )
+        assert (
+            result.details["total_payloads"]
+            >= jb_count + 1
+        )
+
+    def test_custom_payloads_wrong_category_ignored(
+        self,
+    ) -> None:
+        """Custom payload for excluded category is ignored."""
+        custom = [
+            AttackPayload(
+                AttackCategory.DATA_EXTRACTION,
+                "Custom data extraction",
+                "Should be ignored",
+                "LLM02",
+            ),
+        ]
+        # Only test JAILBREAK; DATA_EXTRACTION custom
+        # payload should not appear.
+        result = assert_red_team_resilient(
+            _resilient_model,
+            categories=[AttackCategory.JAILBREAK],
+            threshold=0.5,
+            custom_payloads=custom,
+        )
+        jb_count = len(
+            ATTACK_CATALOG[AttackCategory.JAILBREAK]
+        )
+        assert (
+            result.details["total_payloads"] == jb_count
+        )
+
+    def test_custom_payloads_empty_list(self) -> None:
+        """Empty custom_payloads list has no effect."""
+        result_without = assert_red_team_resilient(
+            _resilient_model, threshold=0.5,
+        )
+        result_with = assert_red_team_resilient(
+            _resilient_model,
+            threshold=0.5,
+            custom_payloads=[],
+        )
+        assert (
+            result_without.details["total_payloads"]
+            == result_with.details["total_payloads"]
+        )
+
+    def test_custom_payloads_none(self) -> None:
+        """custom_payloads=None has no effect."""
+        result_default = assert_red_team_resilient(
+            _resilient_model, threshold=0.5,
+        )
+        result_none = assert_red_team_resilient(
+            _resilient_model,
+            threshold=0.5,
+            custom_payloads=None,
+        )
+        assert (
+            result_default.details["total_payloads"]
+            == result_none.details["total_payloads"]
+        )
+
+    def test_custom_payloads_mixed_with_catalog(
+        self,
+    ) -> None:
+        """Custom payloads mixed with built-in catalog."""
+        custom = [
+            AttackPayload(
+                AttackCategory.PROMPT_INJECTION,
+                "Custom injection A",
+                "Mixed test A",
+                "LLM01",
+            ),
+            AttackPayload(
+                AttackCategory.JAILBREAK,
+                "Custom jailbreak B",
+                "Mixed test B",
+                "LLM01",
+            ),
+        ]
+        result = assert_red_team_resilient(
+            _resilient_model,
+            categories=[
+                AttackCategory.PROMPT_INJECTION,
+                AttackCategory.JAILBREAK,
+            ],
+            threshold=0.5,
+            custom_payloads=custom,
+        )
+        assert result.passed
+        pi_count = len(
+            ATTACK_CATALOG[
+                AttackCategory.PROMPT_INJECTION
+            ]
+        )
+        jb_count = len(
+            ATTACK_CATALOG[AttackCategory.JAILBREAK]
+        )
+        expected = pi_count + jb_count + 2
+        assert (
+            result.details["total_payloads"] == expected
+        )
+
+    def test_custom_payloads_all_fields(self) -> None:
+        """Custom payload with all fields populated."""
+        custom = [
+            AttackPayload(
+                category=AttackCategory.HARMFUL_CONTENT,
+                payload_text="Full field payload",
+                description="All fields set",
+                owasp_id="LLM05",
+            ),
+        ]
+        result = assert_red_team_resilient(
+            _resilient_model,
+            categories=[
+                AttackCategory.HARMFUL_CONTENT,
+            ],
+            threshold=0.5,
+            custom_payloads=custom,
+        )
+        assert result.passed
+        hc_count = len(
+            ATTACK_CATALOG[
+                AttackCategory.HARMFUL_CONTENT
+            ]
+        )
+        assert (
+            result.details["total_payloads"]
+            >= hc_count + 1
+        )

@@ -1883,6 +1883,193 @@ class TestGradingIntegration:
 
 
 # ===================================================================
+# E. Hardening edge-case tests (7 new tests)
+# ===================================================================
+
+
+class TestYamlRedTeamHardening:
+    """Parametrized and edge-case hardening tests."""
+
+    # E-1 ----------------------------------------------------------
+    def test_load_json_red_team_with_defaults(
+        self, tmp_path: Path,
+    ) -> None:
+        """JSON format with defaults block parses."""
+        data = {
+            "type": "red_team",
+            "model": "m:f",
+            "purpose": "JSON test",
+            "defaults": {
+                "threshold": 0.75,
+                "categories": ["jailbreak"],
+                "mutations": True,
+                "custom_attacks": [
+                    {
+                        "category": "jailbreak",
+                        "text": "Free the AI",
+                        "description": "JSON attack",
+                    },
+                ],
+            },
+            "tests": [
+                {
+                    "name": "J1",
+                    "assertion": "red_team_resilient",
+                },
+            ],
+        }
+        p = tmp_path / "suite.json"
+        p.write_text(
+            json.dumps(data), encoding="utf-8",
+        )
+        suite = load_test_suite(p)
+        assert isinstance(suite, RedTeamSuiteYaml)
+        assert suite.defaults.threshold == 0.75
+        assert suite.defaults.mutations is True
+        assert len(suite.defaults.custom_attacks) == 1
+        assert (
+            suite.defaults.custom_attacks[0].text
+            == "Free the AI"
+        )
+
+    # E-2 ----------------------------------------------------------
+    @pytest.mark.parametrize(
+        ("thresh", "desc"),
+        [
+            (0.0, "lower boundary"),
+            (1.0, "upper boundary"),
+        ],
+    )
+    def test_red_team_defaults_boundary_thresholds(
+        self,
+        thresh: float,
+        desc: str,
+    ) -> None:
+        """RedTeamDefaults at boundary thresholds."""
+        d = RedTeamDefaults(threshold=thresh)
+        assert d.threshold == thresh
+
+    # E-3 ----------------------------------------------------------
+    def test_custom_attack_empty_description(
+        self, tmp_path: Path,
+    ) -> None:
+        """Custom attack with explicit empty description."""
+        p = _write_yaml(
+            tmp_path / "empty_desc.yaml",
+            """\
+type: red_team
+model: m:f
+defaults:
+  custom_attacks:
+    - category: prompt_injection
+      text: "Attack text"
+      description: ""
+tests: []
+""",
+        )
+        suite = load_test_suite(p)
+        atk = suite.defaults.custom_attacks[0]
+        assert atk.description == ""
+        assert atk.text == "Attack text"
+
+    # E-4 ----------------------------------------------------------
+    @pytest.mark.parametrize(
+        "cat",
+        sorted(_VALID_CATEGORIES),
+    )
+    def test_category_thresholds_all_seven(
+        self,
+        tmp_path: Path,
+        cat: str,
+    ) -> None:
+        """Each of the 7 categories accepted in thresholds."""
+        p = _write_yaml(
+            tmp_path / f"ct_{cat}.yaml",
+            f"""\
+type: red_team
+model: m:f
+defaults:
+  category_thresholds:
+    {cat}: 0.9
+tests: []
+""",
+        )
+        suite = load_test_suite(p)
+        assert cat in suite.defaults.category_thresholds
+        assert (
+            suite.defaults.category_thresholds[cat] == 0.9
+        )
+
+    # E-5 ----------------------------------------------------------
+    def test_load_suite_with_data_source_and_model(
+        self, tmp_path: Path,
+    ) -> None:
+        """type field determines suite class, not data_source."""
+        p = _write_yaml(
+            tmp_path / "both.yaml",
+            """\
+type: red_team
+model: m:f
+data_source: ignored.csv
+tests: []
+""",
+        )
+        suite = load_test_suite(p)
+        assert isinstance(suite, RedTeamSuiteYaml)
+        assert suite.model == "m:f"
+
+    # E-6 ----------------------------------------------------------
+    def test_red_team_suite_equality_and_copy(
+        self,
+    ) -> None:
+        """RedTeamSuiteYaml supports equality and copy."""
+        from copy import deepcopy
+
+        atk = CustomAttack(
+            category="jailbreak",
+            text="Break free",
+            description="Test",
+        )
+        d = RedTeamDefaults(
+            threshold=0.9,
+            categories=["jailbreak"],
+            custom_attacks=[atk],
+        )
+        suite_a = RedTeamSuiteYaml(
+            model="m:f",
+            purpose="test",
+            defaults=d,
+            tests=[
+                TestDef(
+                    name="t1",
+                    assertion="red_team_resilient",
+                ),
+            ],
+        )
+        suite_b = deepcopy(suite_a)
+        assert suite_a == suite_b
+        suite_b.purpose = "changed"
+        assert suite_a != suite_b
+
+    # E-7 ----------------------------------------------------------
+    def test_merge_defaults_empty_params(self) -> None:
+        """_merge_defaults with empty params dict."""
+        from mltk.testdefs.runner import _merge_defaults
+
+        defaults = RedTeamDefaults(
+            threshold=0.85,
+            categories=["prompt_injection"],
+            mutations=True,
+        )
+        merged = _merge_defaults(defaults, {})
+        assert merged["threshold"] == 0.85
+        assert merged["categories"] == [
+            "prompt_injection",
+        ]
+        assert merged["mutations"] is True
+
+
+# ===================================================================
 # Mutation engine tests
 # ===================================================================
 

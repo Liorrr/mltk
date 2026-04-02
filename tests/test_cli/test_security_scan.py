@@ -791,3 +791,123 @@ class TestCatalogIntegrity:
             assert "payload" in entry
             assert len(entry["category"]) > 0
             assert len(entry["payload"]) > 0
+
+
+# ---------------------------------------------------------------
+# Catalog unification hardening tests
+# ---------------------------------------------------------------
+
+class TestCatalogUnificationHardening:
+    """Hardening tests for catalog unification."""
+
+    def test_catalog_from_red_team_module(self) -> None:
+        """PASS: _RED_TEAM_CATALOG is derived from
+        red_team.catalog, not hardcoded.
+        """
+        from mltk.cli.security_scan import (
+            _RED_TEAM_CATALOG,
+        )
+        from mltk.domains.llm.red_team.catalog import (
+            ATTACK_CATALOG,
+        )
+
+        canonical_total = sum(
+            len(v) for v in ATTACK_CATALOG.values()
+        )
+        assert len(_RED_TEAM_CATALOG) == canonical_total
+
+    def test_category_count_matches_enum(self) -> None:
+        """PASS: Number of categories in CLI catalog
+        matches AttackCategory enum count.
+        """
+        from mltk.cli.security_scan import (
+            _RED_TEAM_CATALOG,
+        )
+        from mltk.domains.llm.red_team.catalog import (
+            AttackCategory,
+        )
+
+        cli_cats = {
+            e["category"] for e in _RED_TEAM_CATALOG
+        }
+        assert len(cli_cats) == len(AttackCategory)
+
+    def test_grading_uses_check_compromised(
+        self,
+    ) -> None:
+        """PASS: security_scan imports _check_compromised
+        for grading, not regex.
+        """
+        from mltk.cli import security_scan as mod
+
+        assert hasattr(mod, "_check_compromised")
+        assert callable(mod._check_compromised)
+
+    @pytest.mark.parametrize(
+        "cat",
+        [
+            "prompt_injection",
+            "jailbreak",
+            "data_extraction",
+            "harmful_content",
+            "excessive_agency",
+            "system_prompt_theft",
+            "encoding_bypass",
+        ],
+    )
+    def test_cli_category_flag_valid(
+        self, cat: str,
+    ) -> None:
+        """PASS: Each of 7 valid categories resolves
+        in _CLI_TO_CATEGORY.
+        """
+        from mltk.cli.security_scan import (
+            _CLI_TO_CATEGORY,
+        )
+
+        assert cat in _CLI_TO_CATEGORY
+        assert _CLI_TO_CATEGORY[cat].value == cat
+
+    def test_cli_category_invalid_not_found(
+        self,
+    ) -> None:
+        """PASS: Invalid category key not in
+        _CLI_TO_CATEGORY.
+        """
+        from mltk.cli.security_scan import (
+            _CLI_TO_CATEGORY,
+        )
+
+        assert "not_a_category" not in _CLI_TO_CATEGORY
+
+    def test_mutations_use_mutate_payloads(
+        self,
+    ) -> None:
+        """PASS: security_scan imports mutate_payloads
+        from the canonical mutations module.
+        """
+        from mltk.cli import security_scan as mod
+
+        assert hasattr(mod, "mutate_payloads")
+        from mltk.domains.llm.red_team.mutations import (
+            mutate_payloads,
+        )
+        assert mod.mutate_payloads is mutate_payloads
+
+    def test_payload_count_matches_catalog(
+        self,
+    ) -> None:
+        """PASS: _RED_TEAM_CATALOG total matches
+        ATTACK_CATALOG flat count.
+        """
+        from mltk.cli.security_scan import (
+            _RED_TEAM_CATALOG,
+        )
+        from mltk.domains.llm.red_team.catalog import (
+            ATTACK_CATALOG,
+        )
+
+        expected = sum(
+            len(ps) for ps in ATTACK_CATALOG.values()
+        )
+        assert len(_RED_TEAM_CATALOG) == expected

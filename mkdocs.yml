@@ -43,6 +43,7 @@ nav:
       - Data Contracts: api/contracts.md
       - Testing Patterns: api/testing-patterns.md
       - Composable TestSuite: api/suite-api.md
+      - Evaluation Pipeline: api/eval-pipeline.md
       - Behavioral Consistency: api/behavioral-consistency.md
       - S72 Enhancements (MMD, SmoothECE, Fairness): api/s72-enhancements.md
       - Model Scanning: api/scan.md
