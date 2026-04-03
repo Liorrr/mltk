@@ -166,11 +166,11 @@ class TestIntegration:
         # EXPECTED: registered_tools has 7 tools; server module itself does not
         #   import torch/tensorflow (numpy/pandas may be present from the
         #   broader mltk package, so we verify the server module's own imports).
-        assert len(registered_tools) == 7
+        assert len(registered_tools) == 8
         expected = {
             "mltk_scan", "mltk_test", "mltk_list",
             "mltk_eval", "mltk_dataset", "mltk_report",
-            "mltk_suggest",
+            "mltk_suggest", "mltk_experiment",
         }
         assert set(registered_tools.keys()) == expected
 
@@ -211,7 +211,7 @@ class TestIntegration:
             "scan", "run", "list", "evaluate", "get", "generate",
             "retrieve", "check", "detect", "find", "compute",
             "fetch", "create", "build", "produce", "return",
-            "search", "validate", "execute",
+            "search", "validate", "execute", "rank",
         }
         for name, fn in registered_tools.items():
             doc = (fn.__doc__ or "").strip()

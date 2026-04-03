@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Experiment Runner (S88, F-3)
+- `ExperimentRunner` — test fix hypotheses against scan findings: baseline → apply fix → re-run assertion → rank results
+- `Hypothesis` / `HypothesisResult` dataclasses — pair fix suggestions with apply functions, track improvement and ranking
+- `ExperimentResult` — aggregated results with `selected_fix`, `any_fix_works`, `best_result` properties
+- `rank_hypotheses()` — 3 ranking strategies: `passed` (binary pass/fail), `delta` (metric improvement), `composite` (weighted score)
+- `mltk_experiment` MCP tool — 8th tool, heuristic ranking of fixes by confidence/category/snippet availability
+- Per-hypothesis timeout with daemon thread isolation (matches ScanEngine pattern)
+- `run_batch()` for testing fixes across multiple findings with `apply_fns_map` lookup
+- 58 new tests (14 dataclass + 10 runner + 10 ranking + 10 integration + 14 MCP)
+
 #### Fix Suggestion Engine (S87, F-2)
 - `FixSuggestion` dataclass — category (code/config/data/process), title, description, confidence (high/medium/low), code_snippet
 - `ScanFinding.suggested_fixes` — 1-3 ranked fix suggestions per finding

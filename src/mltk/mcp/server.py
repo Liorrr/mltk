@@ -1,7 +1,7 @@
 """mltk MCP server -- expose ML testing tools to AI agents.
 
 Tools: mltk_scan, mltk_test, mltk_list, mltk_eval,
-mltk_dataset, mltk_report, mltk_suggest.
+mltk_dataset, mltk_report, mltk_suggest, mltk_experiment.
 
 Usage: ``mltk serve --mcp`` or ``python -m mltk.mcp``
 """
@@ -560,6 +560,142 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 "suggested_next_step": (
                     "Apply the highest-confidence fix first, "
                     "then re-scan to verify."
+                ),
+            })
+        except Exception as exc:
+            _log(traceback.format_exc())
+            return _error(str(exc))
+
+    @mcp.tool()
+    def mltk_experiment(
+        finding_json: str,
+        rank_by: str = "passed",
+        max_results: int = 5,
+    ) -> str:
+        """Rank fix suggestions for a finding using heuristic scoring.
+
+        Scores each fix based on category actionability, confidence level,
+        and code snippet availability. Use after mltk_suggest to prioritize
+        which fix to try first.
+
+        Args:
+            finding_json: JSON string of a single scan finding
+                (from mltk_scan or ScanReport.to_json()).
+            rank_by: Strategy: "passed" (confidence-first),
+                "delta" (actionability-first), "composite" (balanced).
+            max_results: Maximum results to return (1-50).
+        """
+        try:
+            if not finding_json.strip():
+                return _error(
+                    "Empty finding_json.",
+                    suggested_action=(
+                        "Provide a JSON object from mltk_scan."
+                    ),
+                )
+            try:
+                parsed = json.loads(finding_json)
+            except json.JSONDecodeError as exc:
+                return _error(
+                    f"Invalid finding_json: {exc}",
+                    suggested_action="Pass valid JSON.",
+                )
+            if isinstance(parsed, list):
+                return _error(
+                    "finding_json must be a single object, "
+                    "not an array.",
+                    suggested_action=(
+                        "Pass one finding at a time."
+                    ),
+                )
+            fixes = parsed.get("suggested_fixes", [])
+            if not fixes:
+                return _ok({
+                    "ranked_fixes": [],
+                    "total": 0,
+                    "strategy": rank_by,
+                    "suggested_next_step": (
+                        "No fixes available for this finding. "
+                        "Run mltk_suggest first to generate "
+                        "fix suggestions."
+                    ),
+                })
+            confidence_map = {
+                "high": 3, "medium": 2, "low": 1,
+            }
+            category_map = {
+                "code": 4, "config": 3, "data": 2,
+                "process": 1,
+            }
+
+            scored: list[dict[str, Any]] = []
+            for f in fixes:
+                conf = f.get("confidence", "").lower()
+                cat = f.get("category", "").lower()
+                snippet = f.get("code_snippet", "")
+                conf_score = confidence_map.get(conf, 1)
+                cat_score = category_map.get(cat, 1)
+                snip_score = 1 if snippet else 0
+                scored.append({
+                    **f,
+                    "_conf": conf_score,
+                    "_cat": cat_score,
+                    "_snip": snip_score,
+                })
+
+            strategy = rank_by.strip().lower()
+            if strategy == "delta":
+                scored.sort(
+                    key=lambda x: (
+                        x["_cat"], x["_conf"], x["_snip"],
+                    ),
+                    reverse=True,
+                )
+            elif strategy == "composite":
+                scored.sort(
+                    key=lambda x: (
+                        x["_conf"] * 0.4
+                        + x["_cat"] * 0.3
+                        + x["_snip"] * 0.3
+                    ),
+                    reverse=True,
+                )
+            else:
+                # "passed" or any unrecognised strategy
+                scored.sort(
+                    key=lambda x: (
+                        x["_conf"], x["_cat"], x["_snip"],
+                    ),
+                    reverse=True,
+                )
+                strategy = "passed"
+
+            limit = max(1, min(max_results, 50))
+            scored = scored[:limit]
+
+            ranked: list[dict[str, Any]] = []
+            for rank, entry in enumerate(scored, start=1):
+                score = round(
+                    entry["_conf"] * 0.4
+                    + entry["_cat"] * 0.3
+                    + entry["_snip"] * 0.3,
+                    2,
+                )
+                clean = {
+                    k: v for k, v in entry.items()
+                    if not k.startswith("_")
+                }
+                clean["score"] = score
+                clean["rank"] = rank
+                ranked.append(clean)
+
+            return _ok({
+                "ranked_fixes": ranked,
+                "total": len(ranked),
+                "strategy": strategy,
+                "suggested_next_step": (
+                    "Apply the top-ranked fix and re-scan "
+                    "to verify improvement."
                 ),
             })
         except Exception as exc:
