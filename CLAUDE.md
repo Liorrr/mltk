@@ -6,8 +6,8 @@
 ## Project Overview
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - Python 3.10+ with Rust acceleration (maturin build)
-- v0.9.0, 228 assertions, 4130+ tests, 8 scanners, 8 MCP tools
-- Phase F (Agent Integration): building toward v1.0.0
+- v0.9.0, 230 assertions, 4225+ tests, 8 scanners, 11 MCP tools
+- Phase F (Agent Integration): COMPLETE — building toward v1.0.0
 
 ## Architecture
 ```
@@ -15,7 +15,7 @@ src/mltk/
   scan/          # Scan engine: 8 scanners (data/drift/bias/overfit/calibration/robustness/leakage/slice)
   scan/finding.py  # ScanFinding + FixSuggestion dataclasses
   experiment/    # ExperimentRunner, Hypothesis, GitWorktree, sandboxed execution
-  mcp/           # FastMCP server (8 tools: scan/test/list/eval/dataset/report/suggest/experiment)
+  mcp/           # FastMCP server (11 tools: scan/test/list/eval/dataset/report/suggest/experiment/workflow/create_pr/create_issue)
   core/          # Config, assertions registry
   testdefs/      # YAML test definitions
   eval/          # Evaluation pipeline (solvers, scorers, spans, datasets)
@@ -55,8 +55,30 @@ Uses sprint-executor skill: research → design plan → user approval → paral
 - Don't create module scaffolding manually — agents create their own files
 - Update CHANGELOG.md + BACKLOG.md at sprint end
 
+## Codebase Index Skill
+A generated skill at `~/.claude/skills/mltk-index.md` indexes the full API surface (230 assertions, 11 MCP tools, 28 CLI commands, 8 scanners, 28 key classes with file:line pointers). Regenerate after each sprint:
+```
+python scripts/generate_skill_index.py
+```
+Detailed reference with full signatures: `docs/reference/full-api-index.md`
+
+### Subagent usage
+- **Builder agents**: Include skill index content in prompt — they need file locations
+- **Test hardening agents**: Include skill index — they need assertion names and test file mapping
+- **Wiring/integration agents**: Include skill index — they need module structure
+- **Documentation agents**: Include skill index — they need to know what exists
+- **Researchers**: Do NOT include — they search the web, not the codebase
+- **Reviewers/auditors**: Include skill index — helps them navigate during review
+
+### How to include in agent prompts
+Read the skill index and paste the content into the agent's prompt context:
+```
+Read ~/.claude/skills/mltk-index.md and include its content below as ## Codebase Index
+```
+
 ## Key Files
 - `BACKLOG.md` — sprint history + backlog items
 - `CHANGELOG.md` — version changelog
 - `pyproject.toml` — maturin build, dependencies
 - `src/mltk/__init__.py` — public API exports
+- `scripts/generate_skill_index.py` — regenerates skill index from source
