@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### MCP Server Test Debt (S86)
+- Rewrote 86 MCP server tests (77 were failing due to wrong mock targets and missing `create_server()` calls)
+- Split monolithic `test_server.py` into 8 focused files with shared conftest/helpers
+- Fixed mock targets: patch lazy imports at source modules (`mltk.scan.*`, `mltk.eval.task.*`, etc.) instead of non-existent module-level functions
+- Added autouse fixture that creates mock server and populates tool registry before every test
+- Added 7 hardening tests from Opus code review (YAML-not-dict, .yml extension, verbose .py, list error path, report FAIL items, dict results_json, 50-file cap)
+- Total: 93 MCP server tests, all passing (was 77 failing / 9 passing)
+
 ## [Unreleased]
 
 ### Added

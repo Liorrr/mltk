@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S80: 224 assertions, 3400+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S86: 228 assertions, 3921+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -105,6 +105,12 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S78: Multimodal v1 (4 assertions, ImageInput, judge-based), Red Team v2 (sessions, chains, tiers, LLM attacker)
 - [x] S79: Multimodal v2 (CLIPScore, POPE, SSIM, OCR — completes CG-4)
 - [x] S80: LLM-as-Judge defaults (IP-1) + Phoenix/Langfuse observability (CG-5)
+- [x] S81: YAML-first red team configuration (IP-2)
+- [x] S82: Solver/Scorer evaluation pipeline (IP-3)
+- [x] S83: Span-level trace evaluation (IP-4)
+- [x] S84: Versioned evaluation datasets (IP-5)
+- [x] S85: MCP server mode (F-1) — FastMCP server with 6 tools (scan/test/list/eval/dataset/report)
+- [x] S86: MCP server test debt cleanup — rewrote 93 tests (was 77 failures), split to 8 files, Opus-reviewed with 7 hardening tests
 
 ---
 
@@ -214,4 +220,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 66 (March 30, 2026) — counts verified from source*
+*Last updated: Sprint 86 (April 3, 2026) — counts verified from source*

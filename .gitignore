@@ -43,6 +43,7 @@ site/
 # Local config (per-developer settings)
 mltk.local.yaml
 .env
+.claude/settings.local.json
 
 # OS
 .DS_Store
