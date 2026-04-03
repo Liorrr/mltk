@@ -46,6 +46,15 @@ _TEMPLATES: dict[str, str] = {
         "- Message: {message}\n"
         "- Severity: {severity}\n"
     ),
+    "finding_issue": (
+        "[MLTK:{assertion_type}] {test_name}\n\n"
+        "Scan finding from mltk.\n"
+        "- Scanner: {assertion_type}\n"
+        "- Severity: {severity}\n"
+        "- Message: {message}\n"
+        "- Detection time: {timestamp}\n\n"
+        "Recommendation: Review the finding and apply the suggested fix."
+    ),
 }
 
 

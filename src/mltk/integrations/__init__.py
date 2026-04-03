@@ -12,12 +12,17 @@ from mltk.integrations.grafana import (
     generate_grafana_dashboard,
     generate_provisioning_yaml,
 )
+from mltk.integrations.issue_linker import IssueLinker
 from mltk.integrations.jira_adapter import JiraAdapter
 from mltk.integrations.langfuse import LangfuseAdapter
 from mltk.integrations.linear_adapter import LinearAdapter
 from mltk.integrations.mlflow_logger import MlflowLogger
 from mltk.integrations.otel import MltkTracer
 from mltk.integrations.phoenix import PhoenixAdapter, register_phoenix
+from mltk.integrations.pr_generator import (
+    PullRequestGenerator,
+    PullRequestResult,
+)
 from mltk.integrations.sagemaker_pipeline import (
     assert_sagemaker_pipeline_success,
     assert_sagemaker_step_status,
@@ -40,6 +45,10 @@ __all__ = [
     "MltkTracer",
     "PhoenixAdapter",
     "WandbLogger",
+    # PR + Issue linking
+    "IssueLinker",
+    "PullRequestGenerator",
+    "PullRequestResult",
     # Decision engine
     "TicketDecisionEngine",
     # Functions

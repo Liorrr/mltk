@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S89: 228 assertions, 4130+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S90: 228 assertions, 4170+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -114,6 +114,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S87: Fix Suggestion Engine (F-2) — FixSuggestion dataclass, _gen_fix() on all 8 scanners, mltk_suggest MCP tool (7th), console/JSON integration, 51 new tests
 - [x] S88: Experiment Runner (F-3) — ExperimentRunner + Hypothesis/Result dataclasses, rank_hypotheses (3 strategies), mltk_experiment MCP tool (8th), 58 new tests
 - [x] S89: Sandboxed Execution (F-4) — GitWorktree context manager, SandboxedExperimentRunner subclass, mltk_experiment sandbox param, path traversal + injection protection, 97 new tests
+- [x] S90: PR Generator + Issue Linker (F-5+F-6) — PullRequestGenerator, IssueLinker, GitHubIssuesAdapter.create_pull_request(), JiraAdapter.add_remote_link(), mltk_create_pr + mltk_create_issue MCP tools (10 total), 54 new tests
 
 ---
 
@@ -223,4 +224,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 89 (April 3, 2026) — counts verified from source*
+*Last updated: Sprint 90 (April 3, 2026) — counts verified from source*

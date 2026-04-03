@@ -108,6 +108,35 @@ class JiraAdapter(IssueTrackerAdapter):
             for i in issues
         ]
 
+    def add_remote_link(
+        self,
+        issue_id: str,
+        url: str,
+        title: str,
+    ) -> bool:
+        """Add a remote link (e.g. a PR URL) to a Jira issue.
+
+        Uses the Jira remote-links API to create a web link visible in
+        the issue's *Development* panel.
+
+        Args:
+            issue_id: Jira issue key (e.g., ``"ML-42"``).
+            url: Full URL to link (e.g., a GitHub PR URL).
+            title: Display title for the link.
+
+        Returns:
+            ``True`` if the link was created successfully.
+        """
+        try:
+            client = self._get_client()
+            client.add_remote_link(
+                issue_id,
+                {"url": url, "title": title},
+            )
+            return True
+        except Exception:
+            return False
+
     def update_issue(self, issue_id: str, updates: dict[str, Any]) -> bool:
         """Update a Jira issue.
 
@@ -120,8 +149,17 @@ class JiraAdapter(IssueTrackerAdapter):
         """
         try:
             client = self._get_client()
-            issue = client.issue(issue_id)
-            issue.update(**updates)
+
+            # Handle "comment" key separately — Jira SDK uses
+            # add_comment(), not a field update keyword.
+            if "comment" in updates:
+                client.add_comment(issue_id, updates["comment"])
+
+            patch_fields = {k: v for k, v in updates.items() if k != "comment"}
+            if patch_fields:
+                issue = client.issue(issue_id)
+                issue.update(**patch_fields)
+
             return True
         except Exception:
             return False

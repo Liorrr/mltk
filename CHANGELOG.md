@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### PR Generator + Issue Linker (S90, F-5+F-6)
+- `PullRequestGenerator` — create GitHub PRs from scan findings + fix suggestions via isolated git worktrees
+- `PullRequestResult` dataclass — PR URL, branch name, number, draft status
+- `render_pr_body()` — structured Markdown PR body (finding/fix/code sections)
+- `IssueLinker` — create tracker tickets from scan findings with dedup + template rendering
+- `GitHubIssuesAdapter.create_pull_request()` — GitHub REST API PR creation with draft support and label attachment
+- `JiraAdapter.add_remote_link()` — link external URLs (e.g., PRs) to Jira issues
+- `mltk_create_pr` MCP tool (9th) — end-to-end PR creation from finding + fix JSON
+- `mltk_create_issue` MCP tool (10th) — issue creation with GitHub/Jira backends, dedup, and optional PR linking
+- `"finding_issue"` ticket template for scan-finding-based issues
+- ~54 new tests across 4 test files (PR generator, issue linker, MCP tools, tool registration)
+
 #### Sandboxed Execution (S89, F-4)
 - `GitWorktree` context manager — create/cleanup git worktrees for isolated experiment execution
 - `SandboxedExperimentRunner(ExperimentRunner)` — runs hypotheses in isolated git worktrees via subprocess

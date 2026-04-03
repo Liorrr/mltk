@@ -1,10 +1,8 @@
 """mltk MCP server -- expose ML testing tools to AI agents.
 
 Tools: mltk_scan, mltk_test, mltk_list, mltk_eval,
-mltk_dataset, mltk_report, mltk_suggest, mltk_experiment.
-
-Params (mltk_experiment): finding_json, rank_by, max_results,
-sandbox (bool -- run fixes in git worktrees when True).
+mltk_dataset, mltk_report, mltk_suggest, mltk_experiment,
+mltk_create_pr, mltk_create_issue.
 
 Usage: ``python -m mltk.mcp``
 """
@@ -718,6 +716,71 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             _log(traceback.format_exc())
             return _error(str(exc))
 
+    @mcp.tool()
+    def mltk_create_pr(
+        finding_json: str,
+        fix_json: str,
+        repo: str,
+        base_branch: str = "main",
+        draft: bool = True,
+    ) -> str:
+        """Create a GitHub PR with a fix for a scan finding.
+
+        Takes a scan finding and a fix suggestion, creates an isolated
+        git branch with the fix applied, pushes to remote, and opens
+        a pull request via the GitHub REST API.
+
+        Args:
+            finding_json: JSON string of a scan finding
+                (from mltk_scan output).
+            fix_json: JSON string of a fix suggestion
+                (from mltk_suggest or mltk_experiment output).
+            repo: GitHub repository in ``owner/name`` format.
+            base_branch: Target branch for the PR (default ``"main"``).
+            draft: Create as draft PR when ``True`` (default).
+        """
+        try:
+            return _create_pr_impl(
+                finding_json, fix_json, repo,
+                base_branch, draft,
+            )
+        except Exception as exc:
+            _log(traceback.format_exc())
+            return _error(str(exc))
+
+    @mcp.tool()
+    def mltk_create_issue(
+        finding_json: str,
+        tracker: str = "github",
+        project: str = "",
+        config_json: str = "{}",
+        pr_url: str = "",
+    ) -> str:
+        """Create an issue ticket from a scan finding.
+
+        Supports GitHub Issues and Jira backends.  Applies deduplication
+        to avoid creating duplicate tickets for the same finding.
+        Optionally links an existing PR to the created issue.
+
+        Args:
+            finding_json: JSON string of a scan finding
+                (from mltk_scan output).
+            tracker: Backend tracker: ``"github"`` or ``"jira"``.
+            project: Project key (required for Jira, ignored for GitHub).
+            config_json: JSON with adapter credentials.
+                GitHub: ``{"repo": "owner/name", "token": "ghp_..."}``
+                Jira: ``{"url": "https://...", "email": "...", "token": "..."}``
+            pr_url: Optional PR URL to link to the created issue.
+        """
+        try:
+            return _create_issue_impl(
+                finding_json, tracker, project,
+                config_json, pr_url,
+            )
+        except Exception as exc:
+            _log(traceback.format_exc())
+            return _error(str(exc))
+
 
 def _experiment_sandbox(
     parsed: dict[str, Any],
@@ -878,6 +941,233 @@ def _experiment_sandbox(
     except Exception as exc:
         _log(traceback.format_exc())
         return _error(str(exc))
+
+
+def _finding_from_json(
+    finding_data: dict[str, Any],
+    fixes: list[Any] | None = None,
+) -> Any:
+    """Build a ScanFinding from parsed JSON.
+
+    Shared by ``_create_pr_impl`` and ``_create_issue_impl``
+    to avoid duplicating the Severity-map + TestResult
+    construction.
+    """
+    from mltk.core.result import Severity, TestResult
+    from mltk.scan.finding import ScanFinding
+
+    result_data = finding_data.get("result", {})
+    _sev_map = {
+        "critical": Severity.CRITICAL,
+        "warning": Severity.WARNING,
+        "info": Severity.INFO,
+    }
+    _baseline = TestResult(
+        name=result_data.get("name", ""),
+        passed=bool(result_data.get("passed", False)),
+        severity=_sev_map.get(
+            str(result_data.get("severity", "warning")).lower(),
+            Severity.WARNING,
+        ),
+        message=str(result_data.get("message", "")),
+    )
+    return ScanFinding(
+        result=_baseline,
+        assertion_fn=lambda: _baseline,
+        assertion_args=(),
+        assertion_kwargs={},
+        scanner_name=finding_data.get("scanner_name", ""),
+        suggested_fixes=fixes or [],
+    )
+
+
+def _create_pr_impl(
+    finding_json: str,
+    fix_json: str,
+    repo: str,
+    base_branch: str,
+    draft: bool,
+) -> str:
+    """Implementation for mltk_create_pr tool.
+
+    Validates inputs, checks git availability, constructs domain
+    objects, and delegates to :class:`PullRequestGenerator`.
+    """
+    if not finding_json.strip():
+        return _error(
+            "Empty finding_json.",
+            suggested_action="Provide a JSON object from mltk_scan.",
+        )
+    if not fix_json.strip():
+        return _error(
+            "Empty fix_json.",
+            suggested_action="Provide a JSON object from mltk_suggest.",
+        )
+
+    try:
+        finding_data = json.loads(finding_json)
+    except json.JSONDecodeError as exc:
+        return _error(
+            f"Invalid finding_json: {exc}",
+            suggested_action="Pass valid JSON.",
+        )
+
+    try:
+        fix_data = json.loads(fix_json)
+    except json.JSONDecodeError as exc:
+        return _error(
+            f"Invalid fix_json: {exc}",
+            suggested_action="Pass valid JSON.",
+        )
+
+    from mltk.experiment.worktree import (
+        find_git_root,
+        git_available,
+    )
+
+    if not git_available():
+        return _error(
+            "Git CLI not found; PR creation requires git.",
+            suggested_action="Install git or create the PR manually.",
+        )
+
+    try:
+        repo_root = find_git_root()
+    except FileNotFoundError:
+        return _error(
+            "Not in a git repository; PR creation requires a git repo.",
+            suggested_action="Run from inside a git repository.",
+        )
+
+    from mltk.integrations.github_adapter import GitHubIssuesAdapter
+    from mltk.integrations.pr_generator import PullRequestGenerator
+    from mltk.scan.finding import FixSuggestion
+
+    fix_obj = FixSuggestion(
+        category=fix_data.get("category", "code"),
+        title=fix_data.get("title", ""),
+        description=fix_data.get("description", ""),
+        confidence=fix_data.get("confidence", "low"),
+        code_snippet=fix_data.get("code_snippet", ""),
+    )
+
+    finding_obj = _finding_from_json(finding_data, fixes=[fix_obj])
+
+    github = GitHubIssuesAdapter(repo)
+    if not github.token:
+        return _error(
+            "No GitHub token found. Set GITHUB_TOKEN env var "
+            "or pass a token.",
+            suggested_action=(
+                "Export GITHUB_TOKEN=ghp_... before running."
+            ),
+        )
+    generator = PullRequestGenerator(
+        github=github, repo_root=repo_root,
+    )
+    pr_result = generator.create_pr(
+        finding=finding_obj,
+        fix=fix_obj,
+        base_branch=base_branch,
+        draft=draft,
+    )
+
+    return _ok({
+        "url": pr_result.url,
+        "branch": pr_result.branch,
+        "number": pr_result.number,
+        "draft": pr_result.draft,
+        "suggested_next_step": (
+            "PR created. Link it to an issue with "
+            "mltk_create_issue(pr_url=...) or review manually."
+        ),
+    })
+
+
+def _create_issue_impl(
+    finding_json: str,
+    tracker: str,
+    project: str,
+    config_json: str,
+    pr_url: str,
+) -> str:
+    """Implementation for mltk_create_issue tool.
+
+    Validates inputs, constructs the appropriate adapter, and
+    delegates to :class:`IssueLinker`.
+    """
+    if not finding_json.strip():
+        return _error(
+            "Empty finding_json.",
+            suggested_action="Provide a JSON object from mltk_scan.",
+        )
+
+    try:
+        finding_data = json.loads(finding_json)
+    except json.JSONDecodeError as exc:
+        return _error(
+            f"Invalid finding_json: {exc}",
+            suggested_action="Pass valid JSON.",
+        )
+
+    try:
+        config = json.loads(config_json)
+    except json.JSONDecodeError as exc:
+        return _error(
+            f"Invalid config_json: {exc}",
+            suggested_action="Pass valid JSON with adapter credentials.",
+        )
+
+    tracker_lower = tracker.strip().lower()
+    if tracker_lower not in ("github", "jira"):
+        return _error(
+            f"Unsupported tracker: {tracker!r}. "
+            f"Use 'github' or 'jira'.",
+            suggested_action="Set tracker to 'github' or 'jira'.",
+        )
+
+    from mltk.integrations.issue_linker import IssueLinker
+
+    # Build adapter
+    if tracker_lower == "github":
+        from mltk.integrations.github_adapter import (
+            GitHubIssuesAdapter,
+        )
+        adapter = GitHubIssuesAdapter(
+            repo=config.get("repo", ""),
+            token=config.get("token"),
+        )
+    else:
+        from mltk.integrations.jira_adapter import JiraAdapter
+        adapter = JiraAdapter(
+            instance_url=config.get("url", ""),
+            email=config.get("email", ""),
+            api_token=config.get("token", ""),
+        )
+
+    finding_obj = _finding_from_json(finding_data)
+
+    linker = IssueLinker(adapter)
+    issue_key = linker.create_from_finding(
+        finding_obj, project or "",
+    )
+
+    linked = ""
+    if pr_url and issue_key:
+        linker.link_pr(str(issue_key), pr_url)
+        linked = pr_url
+
+    return _ok({
+        "issue_key": str(issue_key) if issue_key else None,
+        "issue_url": issue_key,
+        "linked_pr": linked,
+        "suggested_next_step": (
+            "Issue created. Review and assign priority."
+            if issue_key
+            else "Issue skipped by dedup. A similar ticket "
+            "already exists — search your tracker."
+        ),
+    })
 
 
 def run_server() -> None:

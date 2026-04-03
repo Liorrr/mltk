@@ -150,6 +150,57 @@ class GitHubIssuesAdapter(IssueTrackerAdapter):
             for item in items
         ]
 
+    def create_pull_request(
+        self,
+        head: str,
+        base: str,
+        title: str,
+        body: str = "",
+        draft: bool = True,
+        labels: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a GitHub pull request.
+
+        Args:
+            head: Branch containing the changes.
+            base: Branch to merge into (e.g., ``"main"``).
+            title: PR title.
+            body: PR description (Markdown supported).
+            draft: Create as draft PR when ``True`` (default).
+            labels: Optional label names to attach after creation.
+
+        Returns:
+            Full GitHub API response dict (includes ``html_url``,
+            ``number``, ``draft``, etc.).
+
+        Raises:
+            RuntimeError: If the GitHub API returns a non-2xx status.
+        """
+        payload: dict[str, Any] = {
+            "title": title,
+            "head": head,
+            "base": base,
+            "body": body,
+            "draft": draft,
+        }
+
+        status, data = self._request("POST", f"/repos/{self.repo}/pulls", payload)
+        if status not in (200, 201):
+            message = data.get("message", "unknown error") if isinstance(data, dict) else str(data)
+            raise RuntimeError(f"GitHub API error {status}: {message}")
+
+        # Attach labels via the Issues API (PRs share the issues endpoint)
+        if labels and isinstance(data, dict):
+            pr_number = data.get("number")
+            if pr_number:
+                self._request(
+                    "POST",
+                    f"/repos/{self.repo}/issues/{pr_number}/labels",
+                    {"labels": labels},
+                )
+
+        return data if isinstance(data, dict) else {}
+
     def update_issue(self, issue_id: str, updates: dict[str, Any]) -> bool:
         """Update a GitHub issue or add a comment.
 

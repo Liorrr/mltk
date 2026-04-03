@@ -12,6 +12,8 @@ EXPECTED_TOOLS = {
     "mltk_report",
     "mltk_suggest",
     "mltk_experiment",
+    "mltk_create_pr",
+    "mltk_create_issue",
 }
 
 
