@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Fix Suggestion Engine (S87, F-2)
+- `FixSuggestion` dataclass — category (code/config/data/process), title, description, confidence (high/medium/low), code_snippet
+- `ScanFinding.suggested_fixes` — 1-3 ranked fix suggestions per finding
+- `_gen_fix()` / `_gen_null_fix()` / `_gen_pii_fix()` on all 8 scanners (drift, bias, overfit, calibration, data, leakage, robustness, slice)
+- `mltk_suggest` MCP tool — 7th tool, parses finding JSON, returns ranked fixes with category/confidence filtering
+- `format_fixes()` console formatter with confidence tags (+++/++/+) and code snippet display
+- `format_console_output(verbose=True)` shows inline fix suggestions per finding
+- `ScanReport.to_json()` serializes `suggested_fixes` array per finding
+- `ScanReport.summary()` shows fix count footer
+- `__post_init__` validation on FixSuggestion category and confidence values
+- 51 new tests (12 dataclass + 10 engine + 15 integration + 14 MCP)
+
 ### Fixed
 
 #### MCP Server Test Debt (S86)

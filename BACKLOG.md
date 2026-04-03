@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S86: 228 assertions, 3921+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S87: 228 assertions, 3962+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -111,6 +111,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S84: Versioned evaluation datasets (IP-5)
 - [x] S85: MCP server mode (F-1) — FastMCP server with 6 tools (scan/test/list/eval/dataset/report)
 - [x] S86: MCP server test debt cleanup — rewrote 93 tests (was 77 failures), split to 8 files, Opus-reviewed with 7 hardening tests
+- [x] S87: Fix Suggestion Engine (F-2) — FixSuggestion dataclass, _gen_fix() on all 8 scanners, mltk_suggest MCP tool (7th), console/JSON integration, 51 new tests
 
 ---
 
@@ -220,4 +221,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-*Last updated: Sprint 86 (April 3, 2026) — counts verified from source*
+*Last updated: Sprint 87 (April 3, 2026) — counts verified from source*

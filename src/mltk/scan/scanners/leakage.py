@@ -27,7 +27,7 @@ import pandas as pd
 from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import Severity, TestResult
 from mltk.scan.config import ScanContext
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 from mltk.training.leakage import assert_no_target_leakage
 
@@ -162,6 +162,9 @@ class LeakageScanner(Scanner):
                     col, corr_threshold,
                 ),
                 scanner_name=self.name,
+                suggested_fixes=self._gen_fix(
+                    col, result.details,
+                ),
             ))
 
         return findings
@@ -199,6 +202,15 @@ class LeakageScanner(Scanner):
                 message=exc.result.message,
                 details=exc.result.details,
             )
+            leaky = exc.result.details.get(
+                "leaky_features", [],
+            )
+            first_feature = (
+                leaky[0] if leaky else "unknown"
+            )
+            first_corr = exc.result.details.get(
+                "correlation", 0.0,
+            )
             return ScanFinding(
                 result=result,
                 assertion_fn=assert_no_target_leakage,
@@ -214,6 +226,10 @@ class LeakageScanner(Scanner):
                     corr_threshold,
                 ),
                 scanner_name=self.name,
+                suggested_fixes=self._gen_fix(
+                    first_feature,
+                    {"correlation": first_corr},
+                ),
             )
         return None
 
@@ -283,6 +299,74 @@ class LeakageScanner(Scanner):
         df = ctx.X.copy()
         df[_TARGET_COL_NAME] = np.asarray(ctx.y).copy()
         return df
+
+    @staticmethod
+    def _gen_fix(
+        feature: str,
+        details: dict[str, float],
+    ) -> list[FixSuggestion]:
+        """Generate fix suggestions for a leakage finding.
+
+        Args:
+            feature: Feature name that triggered the finding.
+            details: Result details dict with correlation etc.
+
+        Returns:
+            3 FixSuggestions ranked by confidence.
+        """
+        corr = abs(details.get("correlation", 0.0))
+        return [
+            FixSuggestion(
+                category="code",
+                title=(
+                    f"Remove leaking feature "
+                    f"'{feature}'"
+                ),
+                description=(
+                    f"Feature '{feature}' has "
+                    f"suspiciously high correlation "
+                    f"with the target ({corr:.3f}). "
+                    f"Remove it from X before "
+                    f"training to prevent data "
+                    f"leakage."
+                ),
+                confidence="high",
+                code_snippet=(
+                    f"X_train = X_train.drop("
+                    f"columns=['{feature}'])\n"
+                    f"X_test = X_test.drop("
+                    f"columns=['{feature}'])"
+                ),
+            ),
+            FixSuggestion(
+                category="process",
+                title=(
+                    "Audit feature engineering "
+                    "pipeline"
+                ),
+                description=(
+                    f"Investigate whether "
+                    f"'{feature}' is derived from "
+                    f"or proxies for the target "
+                    f"variable. Check temporal "
+                    f"ordering of feature creation "
+                    f"vs label assignment."
+                ),
+                confidence="high",
+            ),
+            FixSuggestion(
+                category="data",
+                title="Verify temporal integrity",
+                description=(
+                    "Ensure this feature was "
+                    "available at prediction time "
+                    "in production. Features "
+                    "created after the prediction "
+                    "event cause leakage."
+                ),
+                confidence="medium",
+            ),
+        ]
 
     @staticmethod
     def _gen_test(

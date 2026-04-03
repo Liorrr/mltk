@@ -30,7 +30,7 @@ from mltk.core.result import Severity, TestResult
 from mltk.model.bias import assert_no_bias
 from mltk.scan.config import ScanContext
 from mltk.scan.detect import _SENSITIVE_KEYWORDS
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["BiasScanner"]
@@ -238,6 +238,10 @@ class BiasScanner(Scanner):
                 suggested_test=self._gen_test(
                     col, method,
                 ),
+                suggested_fixes=self._gen_fix(
+                    col, method,
+                    exc.result.details,
+                ),
                 scanner_name=self.name,
             )
         return None
@@ -282,3 +286,66 @@ class BiasScanner(Scanner):
             f"        method='{method}',\n"
             f"    )\n"
         )
+
+    @staticmethod
+    def _gen_fix(
+        col: str,
+        method: str,
+        details: dict,
+    ) -> list[FixSuggestion]:
+        """Generate fix suggestions for bias finding."""
+        return [
+            FixSuggestion(
+                category="code",
+                title=(
+                    "Add class_weight='balanced'"
+                    " to model"
+                ),
+                description=(
+                    f"Bias detected on '{col}'"
+                    f" ({method}). Adding balanced"
+                    f" class weights compensates for"
+                    f" underrepresented groups."
+                ),
+                confidence="high",
+                code_snippet=(
+                    "model = RandomForestClassifier(\n"
+                    "    class_weight='balanced',\n"
+                    ")"
+                ),
+            ),
+            FixSuggestion(
+                category="data",
+                title="Balance training set",
+                description=(
+                    f"Resample training data to ensure"
+                    f" equal representation across"
+                    f" '{col}' groups."
+                ),
+                confidence="medium",
+                code_snippet=(
+                    "from sklearn.utils import"
+                    " resample\n"
+                    "# Upsample minority group\n"
+                    "X_balanced, y_balanced ="
+                    " resample(\n"
+                    "    X_minority, y_minority,\n"
+                    "    n_samples=len(X_majority),\n"
+                    ")"
+                ),
+            ),
+            FixSuggestion(
+                category="config",
+                title=(
+                    "Adjust decision threshold"
+                    " per group"
+                ),
+                description=(
+                    "Apply group-specific"
+                    " classification thresholds to"
+                    " equalize false positive/negative"
+                    " rates."
+                ),
+                confidence="medium",
+            ),
+        ]

@@ -24,7 +24,7 @@ from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import Severity, TestResult
 from mltk.model.overfitting import assert_no_overfitting
 from mltk.scan.config import ScanContext
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["OverfitScanner"]
@@ -121,6 +121,7 @@ class OverfitScanner(Scanner):
                 suggested_test=self._gen_test(
                     max_gap,
                 ),
+                suggested_fixes=self._gen_fix(gap),
                 scanner_name=self.name,
             ))
         return findings
@@ -178,3 +179,53 @@ class OverfitScanner(Scanner):
             f"        max_gap={max_gap},\n"
             "    )\n"
         )
+
+    @staticmethod
+    def _gen_fix(gap: float) -> list[FixSuggestion]:
+        """Generate fix suggestions for overfitting."""
+        return [
+            FixSuggestion(
+                category="code",
+                title="Add regularization",
+                description=(
+                    f"Train/test gap of {gap:.2f}"
+                    f" suggests overfitting. Add L2"
+                    f" regularization or dropout to"
+                    f" reduce model complexity."
+                ),
+                confidence="high",
+                code_snippet=(
+                    "model = RandomForestClassifier(\n"
+                    "    max_depth=10,\n"
+                    "    min_samples_leaf=5,\n"
+                    ")"
+                ),
+            ),
+            FixSuggestion(
+                category="data",
+                title="Increase training data",
+                description=(
+                    "More training samples reduce"
+                    " overfitting by exposing the"
+                    " model to greater variation."
+                ),
+                confidence="medium",
+            ),
+            FixSuggestion(
+                category="process",
+                title="Add cross-validation",
+                description=(
+                    "Validate with k-fold CV to"
+                    " confirm the gap is real and"
+                    " not a dataset split artifact."
+                ),
+                confidence="medium",
+                code_snippet=(
+                    "from sklearn.model_selection"
+                    " import cross_val_score\n"
+                    "scores = cross_val_score(\n"
+                    "    model, X, y, cv=5,\n"
+                    ")"
+                ),
+            ),
+        ]

@@ -1,7 +1,7 @@
 """mltk MCP server -- expose ML testing tools to AI agents.
 
 Tools: mltk_scan, mltk_test, mltk_list, mltk_eval,
-mltk_dataset, mltk_report.
+mltk_dataset, mltk_report, mltk_suggest.
 
 Usage: ``mltk serve --mcp`` or ``python -m mltk.mcp``
 """
@@ -24,8 +24,8 @@ except ImportError:
 __all__ = ["create_server", "run_server"]
 
 _SCANNER_NAMES = (
-    "data, model, drift, bias, calibration, "
-    "robustness, overfitting, security"
+    "data, drift, bias, overfit, calibration, "
+    "robustness, leakage, slice"
 )
 
 
@@ -479,6 +479,89 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 f"Invalid results_json: {exc}",
                 suggested_action="Pass valid JSON.",
             )
+        except Exception as exc:
+            _log(traceback.format_exc())
+            return _error(str(exc))
+
+    @mcp.tool()
+    def mltk_suggest(
+        finding_json: str,
+        category: str = "",
+        max_results: int = 5,
+    ) -> str:
+        """Get fix suggestions for a scan finding.
+
+        Args:
+            finding_json: JSON string of a single scan finding
+                (as produced by mltk_scan or ScanReport.to_json()).
+            category: Filter by category: code, config, data,
+                process. Empty = all categories.
+            max_results: Maximum number of suggestions to return.
+        """
+        try:
+            if not finding_json.strip():
+                return _error(
+                    "Empty finding_json.",
+                    suggested_action=(
+                        "Provide a JSON object from mltk_scan."
+                    ),
+                )
+            try:
+                parsed = json.loads(finding_json)
+            except json.JSONDecodeError as exc:
+                return _error(
+                    f"Invalid finding_json: {exc}",
+                    suggested_action="Pass valid JSON.",
+                )
+            if isinstance(parsed, list):
+                return _error(
+                    "finding_json must be a single object, "
+                    "not an array.",
+                    suggested_action=(
+                        "Pass one finding at a time."
+                    ),
+                )
+            fixes = parsed.get("suggested_fixes", [])
+            if not fixes:
+                return _ok({
+                    "suggestions": [],
+                    "total": 0,
+                    "filtered_by": (
+                        category.strip().lower() or "none"
+                    ),
+                    "suggested_next_step": (
+                        "No suggestions available for this "
+                        "finding. Run mltk_scan with more "
+                        "scanners for deeper analysis."
+                    ),
+                })
+            cat = category.strip().lower()
+            if cat:
+                fixes = [
+                    f for f in fixes
+                    if f.get("category", "").lower() == cat
+                ]
+            limit = max(1, min(max_results, 50))
+            fixes = fixes[:limit]
+            suggestions = [
+                {
+                    "category": f.get("category", ""),
+                    "title": f.get("title", ""),
+                    "description": f.get("description", ""),
+                    "confidence": f.get("confidence", ""),
+                    "code_snippet": f.get("code_snippet", ""),
+                }
+                for f in fixes
+            ]
+            return _ok({
+                "suggestions": suggestions,
+                "total": len(suggestions),
+                "filtered_by": cat or "none",
+                "suggested_next_step": (
+                    "Apply the highest-confidence fix first, "
+                    "then re-scan to verify."
+                ),
+            })
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))

@@ -31,7 +31,7 @@ from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import Severity, TestResult
 from mltk.model.metrics import assert_metric
 from mltk.scan.config import ScanContext
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["SliceScanner"]
@@ -207,6 +207,9 @@ class SliceScanner(Scanner):
                     "slice_size": int(mask.sum()),
                 },
             )
+            slice_acc = self._accuracy(
+                y_slice, p_slice,
+            )
             return ScanFinding(
                 result=result,
                 assertion_fn=assert_metric,
@@ -219,6 +222,12 @@ class SliceScanner(Scanner):
                     col, description, threshold,
                 ),
                 scanner_name=self.name,
+                suggested_fixes=self._gen_fix(
+                    col,
+                    description,
+                    slice_acc,
+                    threshold,
+                ),
             )
         return None
 
@@ -284,6 +293,75 @@ class SliceScanner(Scanner):
         if hi == np.inf:
             return values > lo
         return (values > lo) & (values <= hi)
+
+    @staticmethod
+    def _gen_fix(
+        slice_col: str,
+        slice_desc: str,
+        metric_val: float,
+        threshold: float,
+    ) -> list[FixSuggestion]:
+        """Generate fix suggestions for a slice failure.
+
+        Args:
+            slice_col: Column name used for slicing.
+            slice_desc: Human-readable slice description
+                (e.g. "gender=F").
+            metric_val: Actual metric value for the slice.
+            threshold: Required metric threshold.
+
+        Returns:
+            3 FixSuggestions ranked by confidence.
+        """
+        return [
+            FixSuggestion(
+                category="data",
+                title=(
+                    f"Collect more data for "
+                    f"'{slice_desc}'"
+                ),
+                description=(
+                    f"Slice '{slice_desc}' "
+                    f"underperforms "
+                    f"(metric={metric_val:.3f} < "
+                    f"{threshold}). Collect more "
+                    f"training examples for this "
+                    f"subgroup."
+                ),
+                confidence="high",
+            ),
+            FixSuggestion(
+                category="code",
+                title=(
+                    "Add slice-specific model or "
+                    "feature engineering"
+                ),
+                description=(
+                    f"Consider training a "
+                    f"specialized model or adding "
+                    f"features that capture the "
+                    f"characteristics of the "
+                    f"'{slice_desc}' subgroup."
+                ),
+                confidence="medium",
+            ),
+            FixSuggestion(
+                category="process",
+                title="Add slice monitoring",
+                description=(
+                    "Add per-slice performance "
+                    "monitoring to catch subgroup "
+                    "degradation early."
+                ),
+                confidence="medium",
+                code_snippet=(
+                    f"assert_metric(y_true[mask], "
+                    f"y_pred[mask], "
+                    f"metric='accuracy', "
+                    f"threshold={threshold})"
+                ),
+            ),
+        ]
 
     @staticmethod
     def _gen_test(

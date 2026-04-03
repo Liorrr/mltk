@@ -45,7 +45,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     pass
 
-__all__ = ["format_console_output"]
+__all__ = ["format_console_output", "format_fixes"]
 
 # ------------------------------------------------------------------
 # Severity ordering and display config
@@ -218,6 +218,44 @@ def _build_header_lines(report: Any) -> list[str]:
 
 
 # ------------------------------------------------------------------
+# Fix suggestion formatting
+# ------------------------------------------------------------------
+
+def format_fixes(fixes: list) -> str:
+    """Format fix suggestions for console display.
+
+    Renders each fix as a numbered line with a confidence
+    tag (``+++`` for high, ``++`` for medium, ``+`` for low).
+    If the fix includes a code snippet, the first three lines
+    are shown indented below the title.
+
+    Args:
+        fixes: List of :class:`FixSuggestion` objects.
+
+    Returns:
+        Multi-line string ready for terminal output, or
+        ``""`` if there are no fixes.
+    """
+    if not fixes:
+        return ""
+    lines = ["  Suggested fixes:"]
+    for i, fix in enumerate(fixes, 1):
+        conf_tag = {
+            "high": "+++",
+            "medium": "++",
+            "low": "+",
+        }
+        tag = conf_tag.get(fix.confidence, "+")
+        lines.append(f"    {i}. [{tag}] {fix.title}")
+        if fix.code_snippet:
+            for code_line in fix.code_snippet.split(
+                "\n"
+            )[:3]:
+                lines.append(f"       {code_line}")
+    return "\n".join(lines)
+
+
+# ------------------------------------------------------------------
 # Findings formatting
 # ------------------------------------------------------------------
 
@@ -270,6 +308,7 @@ def _count_by_severity(
 def format_console_output(
     report: Any,
     test_file: str = "tests/test_scan_results.py",
+    verbose: bool = False,
 ) -> str:
     """Format a ScanReport as rich console output.
 
@@ -282,9 +321,11 @@ def format_console_output(
        severity (CRITICAL first, then WARNING, then INFO).
        Each line shows a severity icon, the message, and
        which scanner produced it.
-    3. **Summary line** -- counts of critical, warnings, and
+    3. **Fix suggestions** -- when *verbose* is True, each
+       finding's suggested fixes are shown inline.
+    4. **Summary line** -- counts of critical, warnings, and
        info findings.
-    4. **Next step** -- a ``pytest`` command the developer
+    5. **Next step** -- a ``pytest`` command the developer
        can copy-paste to run the generated tests.
 
     When no findings exist the output shows a congratulatory
@@ -303,6 +344,8 @@ def format_console_output(
             ``model_type``, ``n_samples``, ``n_features``).
         test_file: Path shown in the "Run:" footer line.
             Defaults to ``"tests/test_scan_results.py"``.
+        verbose: When True, display fix suggestions inline
+            after each finding that has them.
 
     Returns:
         A multi-line string ready for ``print()``.
@@ -349,6 +392,11 @@ def format_console_output(
     sections.append("")  # blank line after box
     for f in sorted_findings:
         sections.append(_format_finding(f, icons))
+        if verbose:
+            fixes = getattr(f, "suggested_fixes", [])
+            fix_text = format_fixes(fixes)
+            if fix_text:
+                sections.append(fix_text)
 
     # -- Summary --
     counts = _count_by_severity(findings)

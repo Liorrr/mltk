@@ -18,13 +18,11 @@ No model is needed -- this is a data-only scanner.
 
 from __future__ import annotations
 
-import pandas as pd
-
 from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import Severity, TestResult
 from mltk.data.drift import assert_no_drift
 from mltk.scan.config import ScanContext
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["DriftScanner"]
@@ -133,6 +131,9 @@ class DriftScanner(Scanner):
                 suggested_test=(
                     self._gen_test(col, method)
                 ),
+                suggested_fixes=self._gen_fix(
+                    col, method, result.details,
+                ),
                 scanner_name=self.name,
             )
         return None
@@ -171,3 +172,71 @@ class DriftScanner(Scanner):
             f"        method='{method}',\n"
             f"    )\n"
         )
+
+    @staticmethod
+    def _gen_fix(
+        col: str,
+        method: str,
+        details: dict,
+    ) -> list[FixSuggestion]:
+        """Generate fix suggestions for drift finding."""
+        return [
+            FixSuggestion(
+                category="data",
+                title=(
+                    f"Retrain model with recent "
+                    f"'{col}' distribution"
+                ),
+                description=(
+                    f"Column '{col}' shows distribution"
+                    f" drift ({method} test). Retrain"
+                    f" with a dataset that includes"
+                    f" recent samples to capture the"
+                    f" current distribution."
+                ),
+                confidence="high",
+                code_snippet=(
+                    f"# Collect recent data and"
+                    f" retrain\n"
+                    f"X_recent = load_recent_data()"
+                    f"  # includes updated '{col}'\n"
+                    f"model.fit(X_recent, y_recent)"
+                ),
+            ),
+            FixSuggestion(
+                category="config",
+                title=(
+                    f"Tighten drift monitoring"
+                    f" threshold for '{col}'"
+                ),
+                description=(
+                    f"Add a stricter drift alert on"
+                    f" '{col}' so drift is caught"
+                    f" earlier in the pipeline before"
+                    f" it affects model performance."
+                ),
+                confidence="medium",
+                code_snippet=(
+                    f"assert_no_drift(\n"
+                    f"    reference, current,\n"
+                    f"    method='{method}',\n"
+                    f"    threshold=0.01,"
+                    f"  # stricter than default\n"
+                    f")"
+                ),
+            ),
+            FixSuggestion(
+                category="process",
+                title=(
+                    "Add automated drift monitoring"
+                    " to pipeline"
+                ),
+                description=(
+                    "Set up continuous drift detection"
+                    " with alerting so distribution"
+                    " shifts are caught before they"
+                    " impact production."
+                ),
+                confidence="medium",
+            ),
+        ]

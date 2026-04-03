@@ -300,6 +300,16 @@ class ScanReport:
                 "duration_ms": r.duration_ms,
                 "details": r.details,
                 "suggested_test": f.suggested_test,
+                "suggested_fixes": [
+                    {
+                        "category": fix.category,
+                        "title": fix.title,
+                        "description": fix.description,
+                        "confidence": fix.confidence,
+                        "code_snippet": fix.code_snippet,
+                    }
+                    for fix in f.suggested_fixes
+                ],
             }
             findings_list.append(finding)
 
@@ -395,11 +405,23 @@ class ScanReport:
                 f"  !  ERROR    {name}: {err}"
             )
 
+        # Fix suggestion count
+        n_fixes = sum(
+            len(f.suggested_fixes)
+            for f in self.findings
+        )
+
         lines.append("")
         lines.append(
             f"Summary: {critical} critical, "
             f"{warnings} warnings, {info} info"
         )
+
+        if n_fixes:
+            lines.append(
+                f"Fix suggestions: {n_fixes}"
+                f" (run with --verbose to see details)"
+            )
 
         if self.findings:
             lines.append(

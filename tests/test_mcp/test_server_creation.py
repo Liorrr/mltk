@@ -10,6 +10,7 @@ EXPECTED_TOOLS = {
     "mltk_eval",
     "mltk_dataset",
     "mltk_report",
+    "mltk_suggest",
 }
 
 
@@ -36,10 +37,10 @@ class TestServerCreation:
         assert isinstance(version, str)
         assert version, "version must be a non-empty string"
 
-    def test_all_six_tools_registered(self, mcp_server):
+    def test_all_seven_tools_registered(self, mcp_server):
         # SCENARIO: Verify the full tool set.
         # WHY: Missing tools break agent workflows.
-        # EXPECTED: Exactly the 6 expected tool names.
+        # EXPECTED: Exactly the 7 expected tool names.
         assert set(mcp_server._tools.keys()) == EXPECTED_TOOLS
 
     def test_tool_names_have_mltk_prefix(self, mcp_server):

@@ -37,7 +37,50 @@ from typing import Any
 
 from mltk.core.result import TestResult
 
-__all__ = ["ScanFinding"]
+__all__ = ["FixSuggestion", "ScanFinding"]
+
+
+@dataclass
+class FixSuggestion:
+    """A concrete remediation step for a scan finding.
+
+    Each suggestion carries a category (code/config/data/process),
+    a confidence level, and optionally a runnable code snippet.
+    Scanners attach 1-3 suggestions per finding, ranked by
+    confidence.
+
+    Attributes:
+        category: Type of fix -- "code", "config", "data",
+            or "process".
+        title: One-line summary shown in console/reports.
+        description: 1-2 sentence explanation of why this
+            fix applies and what it does.
+        confidence: How certain this fix is correct --
+            "high", "medium", or "low".
+        code_snippet: Optional Python code implementing the
+            fix.  Empty string if the fix is non-code.
+    """
+
+    _VALID_CATEGORIES = {"code", "config", "data", "process"}
+    _VALID_CONFIDENCES = {"high", "medium", "low"}
+
+    category: str   # "code" | "config" | "data" | "process"
+    title: str
+    description: str
+    confidence: str  # "high" | "medium" | "low"
+    code_snippet: str = ""
+
+    def __post_init__(self) -> None:
+        if self.category not in self._VALID_CATEGORIES:
+            raise ValueError(
+                f"Invalid category {self.category!r}, "
+                f"expected one of {self._VALID_CATEGORIES}"
+            )
+        if self.confidence not in self._VALID_CONFIDENCES:
+            raise ValueError(
+                f"Invalid confidence {self.confidence!r}, "
+                f"expected one of {self._VALID_CONFIDENCES}"
+            )
 
 
 @dataclass
@@ -84,6 +127,7 @@ class ScanFinding:
     )
     suggested_test: str = ""
     scanner_name: str = ""
+    suggested_fixes: list[FixSuggestion] = field(default_factory=list)
 
     def to_pending(
         self,

@@ -23,7 +23,7 @@ from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import Severity, TestResult
 from mltk.model.slicing import assert_calibration
 from mltk.scan.config import ScanContext
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["CalibrationScanner"]
@@ -112,6 +112,9 @@ class CalibrationScanner(Scanner):
                 suggested_test=(
                     self._gen_test(max_ece, n_bins)
                 ),
+                suggested_fixes=self._gen_fix(
+                    exc.result.details,
+                ),
                 scanner_name=self.name,
             ))
         return findings
@@ -179,3 +182,47 @@ class CalibrationScanner(Scanner):
             f"        n_bins={n_bins},\n"
             "    )\n"
         )
+
+    @staticmethod
+    def _gen_fix(
+        details: dict,
+    ) -> list[FixSuggestion]:
+        """Generate fix suggestions for calibration."""
+        return [
+            FixSuggestion(
+                category="code",
+                title=(
+                    "Wrap with CalibratedClassifierCV"
+                ),
+                description=(
+                    "Calibration error detected."
+                    " Platt scaling or isotonic"
+                    " regression can align predicted"
+                    " probabilities with actual"
+                    " frequencies."
+                ),
+                confidence="high",
+                code_snippet=(
+                    "from sklearn.calibration import"
+                    " CalibratedClassifierCV\n"
+                    "calibrated ="
+                    " CalibratedClassifierCV(\n"
+                    "    model, cv=5,"
+                    " method='sigmoid',\n"
+                    ")\n"
+                    "calibrated.fit(X_train, y_train)"
+                ),
+            ),
+            FixSuggestion(
+                category="config",
+                title=(
+                    "Adjust probability threshold"
+                ),
+                description=(
+                    "If using a fixed threshold"
+                    " (e.g., 0.5), consider adjusting"
+                    " based on the calibration curve."
+                ),
+                confidence="medium",
+            ),
+        ]

@@ -25,7 +25,7 @@ from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import Severity, TestResult
 from mltk.model.adversarial import assert_robust
 from mltk.scan.config import ScanContext
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["RobustnessScanner"]
@@ -121,6 +121,7 @@ class RobustnessScanner(Scanner):
                     epsilon, stability,
                 ),
                 scanner_name=self.name,
+                suggested_fixes=self._gen_fix(),
             ))
         return findings
 
@@ -155,6 +156,54 @@ class RobustnessScanner(Scanner):
                 self._DEFAULT_STABILITY,
             ),
         )
+
+    @staticmethod
+    def _gen_fix() -> list[FixSuggestion]:
+        """Generate fix suggestions for robustness failure.
+
+        Returns:
+            2 FixSuggestions ranked by confidence.
+        """
+        return [
+            FixSuggestion(
+                category="code",
+                title=(
+                    "Add noise augmentation to "
+                    "training"
+                ),
+                description=(
+                    "Model predictions change "
+                    "significantly under small "
+                    "perturbations. Add Gaussian "
+                    "noise augmentation during "
+                    "training to improve "
+                    "robustness."
+                ),
+                confidence="high",
+                code_snippet=(
+                    "from sklearn.utils import "
+                    "check_random_state\n"
+                    "noise = check_random_state(42)"
+                    ".normal(0, 0.01, "
+                    "X_train.shape)\n"
+                    "X_aug = np.vstack("
+                    "[X_train, X_train + noise])"
+                ),
+            ),
+            FixSuggestion(
+                category="config",
+                title=(
+                    "Increase model capacity or "
+                    "ensemble"
+                ),
+                description=(
+                    "A more expressive model or "
+                    "ensemble may be more robust "
+                    "to input perturbations."
+                ),
+                confidence="medium",
+            ),
+        ]
 
     @staticmethod
     def _gen_test(

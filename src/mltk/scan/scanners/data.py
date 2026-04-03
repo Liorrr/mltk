@@ -17,6 +17,8 @@ No model is needed -- this is a data-only scanner.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 from mltk.core.assertion import MltkAssertionError
@@ -24,7 +26,7 @@ from mltk.core.result import Severity, TestResult
 from mltk.data.pii import assert_no_pii
 from mltk.data.schema import assert_no_nulls
 from mltk.scan.config import ScanContext
-from mltk.scan.finding import ScanFinding
+from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["DataScanner"]
@@ -117,6 +119,9 @@ class DataScanner(Scanner):
                         self._gen_null_test(col)
                     ),
                     scanner_name=self.name,
+                    suggested_fixes=self._gen_null_fix(
+                        col, result.details,
+                    ),
                 ))
         return findings
 
@@ -177,12 +182,157 @@ class DataScanner(Scanner):
                         self._gen_pii_test(col)
                     ),
                     scanner_name=self.name,
+                    suggested_fixes=self._gen_pii_fix(
+                        col, result.details,
+                    ),
                 ))
         return findings
 
     # ----------------------------------------------------------
     # helpers
     # ----------------------------------------------------------
+
+    @staticmethod
+    def _gen_null_fix(
+        col: str,
+        details: dict[str, Any],
+    ) -> list[FixSuggestion]:
+        """Generate fix suggestions for null values.
+
+        Args:
+            col: Column name with nulls.
+            details: Result details dict with null_count etc.
+
+        Returns:
+            3 FixSuggestions ranked by confidence.
+        """
+        null_count = details.get("null_count", 0)
+        total = details.get("total_rows", 0)
+        null_rate = (
+            null_count / total if total > 0 else 0.0
+        )
+        return [
+            FixSuggestion(
+                category="data",
+                title=(
+                    f"Impute or remove null values "
+                    f"in '{col}'"
+                ),
+                description=(
+                    f"Column '{col}' has {null_count} "
+                    f"null values ({null_rate:.1%}). "
+                    f"Apply imputation (mean/median "
+                    f"for numeric, mode for "
+                    f"categorical) or remove "
+                    f"affected rows."
+                ),
+                confidence="high",
+                code_snippet=(
+                    f"df['{col}'] = df['{col}']"
+                    f".fillna(df['{col}'].median())"
+                ),
+            ),
+            FixSuggestion(
+                category="process",
+                title=(
+                    "Add upstream data validation"
+                ),
+                description=(
+                    "Add a data contract or schema "
+                    "check at data ingestion to "
+                    "catch quality issues before "
+                    "they reach the model."
+                ),
+                confidence="medium",
+            ),
+            FixSuggestion(
+                category="code",
+                title=(
+                    f"Drop column '{col}' entirely"
+                ),
+                description=(
+                    "If the column has too many "
+                    "nulls to be useful, consider "
+                    "removing it from the feature "
+                    "set."
+                ),
+                confidence="low",
+            ),
+        ]
+
+    @staticmethod
+    def _gen_pii_fix(
+        col: str,
+        details: dict[str, Any],
+    ) -> list[FixSuggestion]:
+        """Generate fix suggestions for PII detection.
+
+        Args:
+            col: Column name with PII.
+            details: Result details dict with PII types etc.
+
+        Returns:
+            3 FixSuggestions ranked by confidence.
+        """
+        pii_types = details.get("pii_types", [])
+        pii_desc = (
+            f" ({', '.join(pii_types)})"
+            if pii_types else ""
+        )
+        return [
+            FixSuggestion(
+                category="data",
+                title=(
+                    f"Anonymize PII in '{col}'"
+                ),
+                description=(
+                    f"Column '{col}' contains PII"
+                    f"{pii_desc}. Hash, mask, or "
+                    f"remove sensitive values before "
+                    f"model training."
+                ),
+                confidence="high",
+                code_snippet=(
+                    f"import hashlib\n"
+                    f"df['{col}'] = df['{col}']"
+                    f".apply(\n"
+                    f"    lambda x: hashlib.sha256("
+                    f"str(x).encode()).hexdigest()[:8]"
+                    f"\n)"
+                ),
+            ),
+            FixSuggestion(
+                category="code",
+                title=(
+                    f"Remove PII column '{col}' "
+                    f"from features"
+                ),
+                description=(
+                    "Drop the column entirely if "
+                    "it is not needed for model "
+                    "predictions. PII columns "
+                    "rarely improve model quality."
+                ),
+                confidence="high",
+                code_snippet=(
+                    f"df = df.drop(columns=['{col}'])"
+                ),
+            ),
+            FixSuggestion(
+                category="process",
+                title=(
+                    "Add PII scanning to data "
+                    "pipeline"
+                ),
+                description=(
+                    "Set up automated PII detection "
+                    "at data ingestion to catch "
+                    "sensitive data before it enters "
+                    "the training pipeline."
+                ),
+                confidence="medium",
+            ),
+        ]
 
     @staticmethod
     def _gen_null_test(col: str) -> str:
