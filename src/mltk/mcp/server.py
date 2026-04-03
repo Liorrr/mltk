@@ -3,6 +3,9 @@
 Tools: mltk_scan, mltk_test, mltk_list, mltk_eval,
 mltk_dataset, mltk_report, mltk_suggest, mltk_experiment.
 
+Params (mltk_experiment): finding_json, rank_by, max_results,
+sandbox (bool -- run fixes in git worktrees when True).
+
 Usage: ``mltk serve --mcp`` or ``python -m mltk.mcp``
 """
 from __future__ import annotations
@@ -571,6 +574,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         finding_json: str,
         rank_by: str = "passed",
         max_results: int = 5,
+        sandbox: bool = False,
     ) -> str:
         """Rank fix suggestions for a finding using heuristic scoring.
 
@@ -578,12 +582,18 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         and code snippet availability. Use after mltk_suggest to prioritize
         which fix to try first.
 
+        When ``sandbox=True``, runs each fix hypothesis in an isolated
+        git worktree via :class:`SandboxedExperimentRunner` instead of
+        pure heuristic scoring.  Requires ``git`` CLI and a git repo.
+
         Args:
             finding_json: JSON string of a single scan finding
                 (from mltk_scan or ScanReport.to_json()).
             rank_by: Strategy: "passed" (confidence-first),
                 "delta" (actionability-first), "composite" (balanced).
             max_results: Maximum results to return (1-50).
+            sandbox: If True, run fixes in isolated git worktrees
+                instead of heuristic ranking.
         """
         try:
             if not finding_json.strip():
@@ -608,6 +618,12 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                         "Pass one finding at a time."
                     ),
                 )
+
+            if sandbox:
+                return _experiment_sandbox(
+                    parsed, rank_by, max_results,
+                )
+
             fixes = parsed.get("suggested_fixes", [])
             if not fixes:
                 return _ok({
@@ -701,6 +717,167 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
+
+
+def _experiment_sandbox(
+    parsed: dict[str, Any],
+    rank_by: str,
+    max_results: int,
+) -> str:
+    """Run sandbox experiment using git worktrees.
+
+    Lazily imports sandbox dependencies, validates git
+    availability, constructs domain objects from the parsed
+    JSON, and delegates to
+    :class:`SandboxedExperimentRunner`.
+
+    Args:
+        parsed: Parsed finding JSON dict.
+        rank_by: Ranking strategy name.
+        max_results: Maximum results to return.
+
+    Returns:
+        JSON response string via ``_ok()`` or ``_error()``.
+    """
+    try:
+        from mltk.experiment.worktree import (
+            find_git_root,
+            git_available,
+        )
+
+        if not git_available():
+            return _error(
+                "Git CLI not found; sandbox mode requires git.",
+                suggested_action=(
+                    "Install git or use sandbox=False."
+                ),
+            )
+
+        try:
+            repo_root = find_git_root()
+        except FileNotFoundError:
+            return _error(
+                "Not in a git repository; sandbox mode "
+                "requires a git repo.",
+                suggested_action=(
+                    "Run from inside a git repository "
+                    "or use sandbox=False."
+                ),
+            )
+
+        from mltk.experiment.hypothesis import Hypothesis
+        from mltk.experiment.sandbox import (
+            SandboxedExperimentRunner,
+        )
+        from mltk.scan.finding import (
+            FixSuggestion,
+            ScanFinding,
+        )
+
+        fixes_raw = parsed.get("suggested_fixes", [])
+        if not fixes_raw:
+            return _ok({
+                "ranked_fixes": [],
+                "total": 0,
+                "strategy": rank_by,
+                "sandbox": True,
+                "suggested_next_step": (
+                    "No fixes available for this finding. "
+                    "Run mltk_suggest first to generate "
+                    "fix suggestions."
+                ),
+            })
+
+        fix_objs: list[FixSuggestion] = []
+        for f in fixes_raw:
+            fix_objs.append(FixSuggestion(
+                category=f.get("category", "code"),
+                title=f.get("title", ""),
+                description=f.get("description", ""),
+                confidence=f.get("confidence", "low"),
+                code_snippet=f.get("code_snippet", ""),
+            ))
+
+        from mltk.core.result import Severity, TestResult
+
+        _baseline = TestResult(
+            name="sandbox.baseline",
+            passed=False,
+            severity=Severity.WARNING,
+            message="Baseline from MCP sandbox request",
+        )
+        finding_obj = ScanFinding(
+            result=_baseline,
+            assertion_fn=lambda: _baseline,
+            assertion_args=(),
+            assertion_kwargs={},
+            scanner_name=parsed.get("scanner_name", ""),
+            suggested_fixes=fix_objs,
+        )
+
+        hypotheses = [
+            Hypothesis(
+                fix=fix,
+                apply_fn=lambda _f=fix: _baseline,  # noqa: ARG005
+                description=fix.title,
+            )
+            for fix in fix_objs
+        ]
+
+        strategy = rank_by.strip().lower() or "passed"
+        runner = SandboxedExperimentRunner(
+            repo_root=repo_root,
+            strategy=strategy,
+        )
+        result = runner.run(
+            finding_obj, hypotheses=hypotheses,
+        )
+
+        limit = max(1, min(max_results, 50))
+        ranked: list[dict[str, Any]] = []
+        for hr in result.hypothesis_results[:limit]:
+            ranked.append({
+                "category": hr.hypothesis.fix.category,
+                "title": hr.hypothesis.fix.title,
+                "description": (
+                    hr.hypothesis.fix.description
+                ),
+                "confidence": (
+                    hr.hypothesis.fix.confidence
+                ),
+                "code_snippet": (
+                    hr.hypothesis.fix.code_snippet
+                ),
+                "rank": hr.rank,
+                "improvement": hr.improvement,
+                "passed": hr.fixed_result.passed,
+            })
+
+        payload: dict[str, Any] = {
+            "ranked_fixes": ranked,
+            "total": len(ranked),
+            "strategy": strategy or "passed",
+            "sandbox": True,
+            "duration_ms": result.duration_ms,
+        }
+
+        if result.selected_fix is not None:
+            payload["selected_fix"] = (
+                result.selected_fix.title
+            )
+
+        payload["suggested_next_step"] = (
+            "Apply the selected fix from the sandbox "
+            "experiment and re-scan to verify."
+            if result.any_fix_works
+            else "No fix resolved the finding in sandbox. "
+            "Try different fixes or manual investigation."
+        )
+
+        return _ok(payload)
+    except Exception as exc:
+        _log(traceback.format_exc())
+        return _error(str(exc))
 
 
 def run_server() -> None:

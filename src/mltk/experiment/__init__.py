@@ -28,11 +28,15 @@ from mltk.experiment.hypothesis import Hypothesis, HypothesisResult
 from mltk.experiment.ranking import rank_hypotheses
 from mltk.experiment.result import ExperimentResult
 from mltk.experiment.runner import ExperimentRunner
+from mltk.experiment.sandbox import SandboxedExperimentRunner
+from mltk.experiment.worktree import GitWorktree
 
 __all__ = [
     "ExperimentResult",
     "ExperimentRunner",
+    "GitWorktree",
     "Hypothesis",
     "HypothesisResult",
+    "SandboxedExperimentRunner",
     "rank_hypotheses",
 ]

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Sandboxed Execution (S89, F-4)
+- `GitWorktree` context manager — create/cleanup git worktrees for isolated experiment execution
+- `SandboxedExperimentRunner(ExperimentRunner)` — runs hypotheses in isolated git worktrees via subprocess
+- `git_available()` / `find_git_root()` — git CLI detection and repo root discovery
+- Path traversal protection in `write_file()` — validates relative paths stay inside worktree
+- Code injection prevention in assertion scripts — scanner names escaped via `json.dumps()`
+- `mltk_experiment` MCP tool gains `sandbox: bool = False` parameter for worktree-based execution
+- Proper `ScanFinding` construction with baseline `TestResult` in MCP sandbox path
+- ~97 new tests across 4 test files (worktree, sandbox, MCP sandbox, integration)
+
 #### Experiment Runner (S88, F-3)
 - `ExperimentRunner` — test fix hypotheses against scan findings: baseline → apply fix → re-run assertion → rank results
 - `Hypothesis` / `HypothesisResult` dataclasses — pair fix suggestions with apply functions, track improvement and ranking
