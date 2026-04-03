@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "mltk": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "mltk.mcp"]
+    }
+  }
+}

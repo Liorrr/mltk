@@ -1,6 +1,6 @@
 """Pytest fixtures for MCP server tests.
 
-Auto-creates mock MCP server with all 8 tools registered
+Auto-creates mock MCP server with all 11 tools registered
 before every test. No real ``mcp`` package needed.
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from ._helpers import (
 def mcp_server():
     """Inject mock mcp package, import server, create it.
 
-    Populates ``registered_tools`` with all 8 tool functions
+    Populates ``registered_tools`` with all 11 tool functions
     so that ``call_tool()`` works in every test.
     """
     modules = make_mcp_modules()

@@ -2,7 +2,7 @@
 
 Tools: mltk_scan, mltk_test, mltk_list, mltk_eval,
 mltk_dataset, mltk_report, mltk_suggest, mltk_experiment,
-mltk_create_pr, mltk_create_issue.
+mltk_create_pr, mltk_create_issue, mltk_workflow.
 
 Usage: ``python -m mltk.mcp``
 """
@@ -45,9 +45,10 @@ def _error(
     msg: str, *,
     recoverable: bool = True,
     suggested_action: str = "",
+    fallback_parameters: dict[str, Any] | None = None,
 ) -> str:
     """Build a JSON error response."""
-    return json.dumps({
+    payload: dict[str, Any] = {
         "status": "error",
         "error": msg,
         "recoverable": recoverable,
@@ -55,7 +56,96 @@ def _error(
             suggested_action
             or "Check the error message and retry."
         ),
-    }, indent=2)
+    }
+    if fallback_parameters is not None:
+        payload["fallback_parameters"] = fallback_parameters
+    return json.dumps(payload, indent=2)
+
+
+# ----- Workflow hints for agent orchestration -----
+
+_WORKFLOW_HINTS: dict[str, dict[str, Any]] = {
+    "mltk_scan": {
+        "position": "start",
+        "next_tools": [
+            "mltk_suggest", "mltk_test", "mltk_report",
+        ],
+    },
+    "mltk_test": {
+        "position": "middle",
+        "next_tools": ["mltk_report"],
+    },
+    "mltk_list": {
+        "position": "start",
+        "next_tools": ["mltk_eval"],
+    },
+    "mltk_eval": {
+        "position": "middle",
+        "next_tools": ["mltk_report"],
+    },
+    "mltk_dataset": {
+        "position": "info",
+        "next_tools": ["mltk_eval"],
+    },
+    "mltk_report": {
+        "position": "end",
+        "next_tools": [],
+    },
+    "mltk_suggest": {
+        "position": "middle",
+        "next_tools": [
+            "mltk_experiment", "mltk_create_issue",
+        ],
+    },
+    "mltk_experiment": {
+        "position": "middle",
+        "next_tools": ["mltk_create_pr"],
+    },
+    "mltk_create_pr": {
+        "position": "late",
+        "next_tools": ["mltk_create_issue"],
+    },
+    "mltk_create_issue": {
+        "position": "end",
+        "next_tools": [],
+    },
+    "mltk_workflow": {
+        "position": "info",
+        "next_tools": ["mltk_scan", "mltk_list"],
+    },
+}
+
+
+def _with_hint(
+    tool_name: str, payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Inject workflow_hint into a payload dict."""
+    hint = _WORKFLOW_HINTS.get(tool_name)
+    if hint:
+        payload["workflow_hint"] = hint
+    return payload
+
+
+def _scan_next_step(findings: list[dict[str, Any]]) -> str:
+    """Return severity-conditional suggested_next_step."""
+    severities = {
+        f.get("severity", "").lower() for f in findings
+    }
+    if "critical" in severities:
+        return (
+            "Critical findings detected. Run mltk_suggest "
+            "on each critical finding, then mltk_experiment "
+            "to rank fixes, and mltk_create_pr to apply."
+        )
+    if "warning" in severities:
+        return (
+            "Warnings found. Run mltk_suggest for fix ideas, "
+            "then mltk_create_issue to track remediation."
+        )
+    return (
+        "Only informational findings. Run mltk_report "
+        "to document results."
+    )
 
 
 def create_server() -> FastMCP:
@@ -109,15 +199,15 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 raw = json.loads(
                     target.read_text(encoding="utf-8")
                 )
-                return _ok({
-                    "findings": raw.get("findings", []),
+                findings = raw.get("findings", [])
+                return _ok(_with_hint("mltk_scan", {
+                    "findings": findings,
                     "scanners_run": raw.get("scanners_run", []),
                     "duration_ms": raw.get("duration_ms", 0),
                     "suggested_next_step": (
-                        "Review findings and run "
-                        "mltk_test on suggested tests."
+                        _scan_next_step(findings)
                     ),
-                })
+                }))
             files: list[str] = []
             if target.is_dir():
                 files = [
@@ -128,7 +218,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 ][:50]
             else:
                 files = [target.name]
-            return _ok({
+            return _ok(_with_hint("mltk_scan", {
                 "path": str(target),
                 "scanners_available": _SCANNER_NAMES,
                 "enabled": enabled or "all",
@@ -138,7 +228,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "Run mltk scan CLI with model + "
                     "data for full scan: mltk scan -h"
                 ),
-            })
+            }))
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
@@ -178,7 +268,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                      "definition": t, "status": "parsed"}
                     for i, t in enumerate(tests)
                 ]
-                return _ok({
+                return _ok(_with_hint("mltk_test", {
                     "suite": raw.get("name", target.stem),
                     "total": len(tests),
                     "passed": 0, "failed": 0,
@@ -187,7 +277,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                         "Run with pytest: pytest "
                         + str(target)
                     ),
-                })
+                }))
             if suffix == ".py":
                 args = [
                     sys.executable, "-m", "pytest",
@@ -212,7 +302,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                         if fm:
                             failed = int(fm.group(1))
                         break
-                return _ok({
+                return _ok(_with_hint("mltk_test", {
                     "total": passed + failed,
                     "passed": passed, "failed": failed,
                     "exit_code": proc.returncode,
@@ -225,7 +315,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                         else "All passed. Run mltk_scan "
                         "for more coverage."
                     ),
-                })
+                }))
             return _error(
                 f"Unsupported type: {suffix}",
                 suggested_action="Use .yaml or .py.",
@@ -266,7 +356,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                         "domain": cat,
                         "description": e["doc"],
                     })
-            return _ok({
+            return _ok(_with_hint("mltk_list", {
                 "total": total,
                 "assertions": assertions,
                 "domains": domains_found,
@@ -274,7 +364,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "Pick an assertion for your tests, "
                     "or run mltk_scan to auto-generate."
                 ),
-            })
+            }))
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
@@ -344,7 +434,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 dataset=samples,
             )
             result = task.run(_passthrough)
-            return _ok({
+            return _ok(_with_hint("mltk_eval", {
                 "metrics": result.metrics,
                 "sample_count": result.total_samples,
                 "duration_ms": result.duration_ms,
@@ -353,7 +443,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "Review metrics. Integrate a real "
                     "model via the Python API."
                 ),
-            })
+            }))
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
@@ -389,7 +479,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             inp = [s.input for s in ds.samples]
             n, u = len(inp), len(set(inp))
             dup = round(1.0 - u / n, 4) if n else 0.0
-            return _ok({
+            return _ok(_with_hint("mltk_dataset", {
                 "info": {
                     "name": ds.name, "version": ds.version,
                     "card": ds.card.to_dict(),
@@ -406,7 +496,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 "suggested_next_step": (
                     "Run mltk_eval with this dataset."
                 ),
-            })
+            }))
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
@@ -467,14 +557,14 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 f"{n} results: {p} passed, {n-p} failed"
                 if n else "No results provided."
             )
-            return _ok({
+            return _ok(_with_hint("mltk_report", {
                 "report_text": report_text,
                 "summary": summary,
                 "suggested_next_step": (
                     "Share in PR or CI. Run mltk_scan "
                     "for fresh results."
                 ),
-            })
+            }))
         except json.JSONDecodeError as exc:
             return _error(
                 f"Invalid results_json: {exc}",
@@ -524,7 +614,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 )
             fixes = parsed.get("suggested_fixes", [])
             if not fixes:
-                return _ok({
+                return _ok(_with_hint("mltk_suggest", {
                     "suggestions": [],
                     "total": 0,
                     "filtered_by": (
@@ -535,7 +625,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                         "finding. Run mltk_scan with more "
                         "scanners for deeper analysis."
                     ),
-                })
+                }))
             cat = category.strip().lower()
             if cat:
                 fixes = [
@@ -554,7 +644,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 }
                 for f in fixes
             ]
-            return _ok({
+            return _ok(_with_hint("mltk_suggest", {
                 "suggestions": suggestions,
                 "total": len(suggestions),
                 "filtered_by": cat or "none",
@@ -562,7 +652,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "Apply the highest-confidence fix first, "
                     "then re-scan to verify."
                 ),
-            })
+            }))
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
@@ -624,7 +714,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
 
             fixes = parsed.get("suggested_fixes", [])
             if not fixes:
-                return _ok({
+                return _ok(_with_hint("mltk_experiment", {
                     "ranked_fixes": [],
                     "total": 0,
                     "strategy": rank_by,
@@ -633,7 +723,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                         "Run mltk_suggest first to generate "
                         "fix suggestions."
                     ),
-                })
+                }))
             confidence_map = {
                 "high": 3, "medium": 2, "low": 1,
             }
@@ -703,7 +793,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 clean["rank"] = rank
                 ranked.append(clean)
 
-            return _ok({
+            return _ok(_with_hint("mltk_experiment", {
                 "ranked_fixes": ranked,
                 "total": len(ranked),
                 "strategy": strategy,
@@ -711,10 +801,60 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "Apply the top-ranked fix and re-scan "
                     "to verify improvement."
                 ),
-            })
+            }))
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
+
+    @mcp.tool()
+    def mltk_workflow() -> str:
+        """Return the canonical mltk agent workflow.
+
+        Call this first to understand the available tools and
+        recommended execution order before starting an ML
+        testing workflow.  Returns pipeline paths for different
+        severity levels and a decision tree for routing.
+        """
+        return _ok(_with_hint("mltk_workflow", {
+            "pipeline": {
+                "critical_path": [
+                    "mltk_scan", "mltk_suggest",
+                    "mltk_experiment", "mltk_create_pr",
+                    "mltk_create_issue",
+                ],
+                "medium_path": [
+                    "mltk_scan", "mltk_suggest",
+                    "mltk_create_issue",
+                ],
+                "low_path": [
+                    "mltk_scan", "mltk_report",
+                ],
+                "eval_path": [
+                    "mltk_list", "mltk_eval",
+                    "mltk_report",
+                ],
+                "test_path": [
+                    "mltk_scan", "mltk_test",
+                    "mltk_report",
+                ],
+            },
+            "decision_tree": (
+                "1. Call mltk_scan on the target path.\n"
+                "2. If findings have severity=critical: "
+                "mltk_suggest -> mltk_experiment -> "
+                "mltk_create_pr -> mltk_create_issue.\n"
+                "3. If findings have severity=warning: "
+                "mltk_suggest -> mltk_create_issue.\n"
+                "4. If findings are informational only: "
+                "mltk_report.\n"
+                "5. For evaluation workflows: "
+                "mltk_list -> mltk_eval -> mltk_report."
+            ),
+            "tool_count": 11,
+            "suggested_next_step": (
+                "Call mltk_scan to begin."
+            ),
+        }))
 
     @mcp.tool()
     def mltk_create_pr(
@@ -743,6 +883,17 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             return _create_pr_impl(
                 finding_json, fix_json, repo,
                 base_branch, draft,
+            )
+        except RuntimeError as exc:
+            _log(traceback.format_exc())
+            return _error(
+                str(exc),
+                suggested_action=(
+                    "Create an issue instead of a PR."
+                ),
+                fallback_parameters={
+                    "tool": "mltk_create_issue",
+                },
             )
         except Exception as exc:
             _log(traceback.format_exc())
@@ -839,7 +990,7 @@ def _experiment_sandbox(
 
         fixes_raw = parsed.get("suggested_fixes", [])
         if not fixes_raw:
-            return _ok({
+            return _ok(_with_hint("mltk_experiment", {
                 "ranked_fixes": [],
                 "total": 0,
                 "strategy": rank_by,
@@ -849,7 +1000,7 @@ def _experiment_sandbox(
                     "Run mltk_suggest first to generate "
                     "fix suggestions."
                 ),
-            })
+            }))
 
         fix_objs: list[FixSuggestion] = []
         for f in fixes_raw:
@@ -937,7 +1088,7 @@ def _experiment_sandbox(
             "Try different fixes or manual investigation."
         )
 
-        return _ok(payload)
+        return _ok(_with_hint("mltk_experiment", payload))
     except Exception as exc:
         _log(traceback.format_exc())
         return _error(str(exc))
@@ -1072,7 +1223,7 @@ def _create_pr_impl(
         draft=draft,
     )
 
-    return _ok({
+    return _ok(_with_hint("mltk_create_pr", {
         "url": pr_result.url,
         "branch": pr_result.branch,
         "number": pr_result.number,
@@ -1081,7 +1232,7 @@ def _create_pr_impl(
             "PR created. Link it to an issue with "
             "mltk_create_issue(pr_url=...) or review manually."
         ),
-    })
+    }))
 
 
 def _create_issue_impl(
@@ -1157,7 +1308,7 @@ def _create_issue_impl(
         linker.link_pr(str(issue_key), pr_url)
         linked = pr_url
 
-    return _ok({
+    return _ok(_with_hint("mltk_create_issue", {
         "issue_key": str(issue_key) if issue_key else None,
         "issue_url": issue_key,
         "linked_pr": linked,
@@ -1167,7 +1318,7 @@ def _create_issue_impl(
             else "Issue skipped by dedup. A similar ticket "
             "already exists — search your tracker."
         ),
-    })
+    }))
 
 
 def run_server() -> None:

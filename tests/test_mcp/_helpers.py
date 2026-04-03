@@ -111,3 +111,20 @@ def assert_valid_json(raw: str) -> dict[str, Any]:
     assert isinstance(data, dict)
     assert "status" in data
     return data
+
+
+def assert_has_workflow_hint(data: dict[str, Any]) -> None:
+    """Assert response contains a well-formed workflow_hint."""
+    assert "workflow_hint" in data, "Missing workflow_hint"
+    hint = data["workflow_hint"]
+    assert isinstance(hint, dict)
+    assert "position" in hint
+    assert "next_tools" in hint
+    assert isinstance(hint["next_tools"], list)
+
+
+def assert_suggested_next_step(data: dict[str, Any]) -> None:
+    """Assert response has a non-empty suggested_next_step."""
+    assert "suggested_next_step" in data
+    assert isinstance(data["suggested_next_step"], str)
+    assert len(data["suggested_next_step"]) > 0

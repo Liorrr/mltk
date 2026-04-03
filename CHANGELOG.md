@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Agent Protocol + E2E Pipeline Tests (S91, F-7)
+- `mltk_workflow` MCP tool (11th) — canonical agent workflow with 5 pipeline paths and severity-based decision tree
+- `workflow_hint` metadata in all tool success responses — `position` (start/middle/late/end/info) + `next_tools` list for agent routing
+- Severity-conditional `suggested_next_step` in `mltk_scan` JSON-report path — critical→suggest, warning→issue, info→report
+- `fallback_parameters` in `_error()` responses — mid-chain recovery guidance (e.g., PR failure → issue creation)
+- `.mcp.json` sample config for Claude Code / Cursor / VS Code / Cline / OpenClaw
+- ~55 new tests: 34 E2E agent simulation tests + 23 workflow/response enhancement tests
+
 #### PR Generator + Issue Linker (S90, F-5+F-6)
 - `PullRequestGenerator` — create GitHub PRs from scan findings + fix suggestions via isolated git worktrees
 - `PullRequestResult` dataclass — PR URL, branch name, number, draft status
