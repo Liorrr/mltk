@@ -51,10 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added 7 hardening tests from Opus code review (YAML-not-dict, .yml extension, verbose .py, list error path, report FAIL items, dict results_json, 50-file cap)
 - Total: 93 MCP server tests, all passing (was 77 failing / 9 passing)
 
-## [Unreleased]
-
-### Added
-
 #### MCP Evaluation (S75)
 - `assert_mcp_tool_schema_conformance` — validate tool args against JSON Schema (first-mover, no LLM needed)
 - `assert_mcp_tool_selection` — server-namespace-aware tool selection (precision/recall/F1)

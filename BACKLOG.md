@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S89: 228 assertions, 4110+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S89: 228 assertions, 4130+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -213,14 +213,14 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **mltk-mcp-config** — `.mcp.json` project template that auto-registers mltk-MCP server for any Claude Code session opening the repo
 
 ### Industry Patterns (S66 Audit: 7 items)
-- [ ] **IP-1**: LLM-as-Judge as default for subjective metrics (toxicity, faithfulness, coherence)
-- [ ] **IP-2**: YAML-first red teaming configuration (extend YAML tests for security scans)
-- [ ] **IP-3**: Solver/Scorer architecture for complex eval workflows (Inspect AI pattern)
-- [ ] **IP-4**: Trace-level evaluation — extend AgentTrace to span-level scoring
-- [ ] **IP-5**: Versioned evaluation datasets via registry
+- [x] **IP-1**: LLM-as-Judge as default for subjective metrics (S80)
+- [x] **IP-2**: YAML-first red teaming configuration (S81)
+- [x] **IP-3**: Solver/Scorer architecture for complex eval workflows (S82)
+- [x] **IP-4**: Trace-level evaluation — span-level scoring (S83)
+- [x] **IP-5**: Versioned evaluation datasets via registry (S84)
 - [ ] **IP-6**: Document OTLP export, test with Phoenix/Langfuse
 - [ ] **IP-7**: Add `mltk security-scan` CLI command for continuous red teaming
 
 ---
 
-*Last updated: Sprint 88 (April 3, 2026) — counts verified from source*
+*Last updated: Sprint 89 (April 3, 2026) — counts verified from source*

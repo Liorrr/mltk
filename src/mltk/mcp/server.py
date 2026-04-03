@@ -6,7 +6,7 @@ mltk_dataset, mltk_report, mltk_suggest, mltk_experiment.
 Params (mltk_experiment): finding_json, rank_by, max_results,
 sandbox (bool -- run fixes in git worktrees when True).
 
-Usage: ``mltk serve --mcp`` or ``python -m mltk.mcp``
+Usage: ``python -m mltk.mcp``
 """
 from __future__ import annotations
 

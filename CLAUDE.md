@@ -6,7 +6,7 @@
 ## Project Overview
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - Python 3.10+ with Rust acceleration (maturin build)
-- v0.9.0, 228 assertions, 4020+ tests, 8 scanners, 8 MCP tools
+- v0.9.0, 228 assertions, 4130+ tests, 8 scanners, 8 MCP tools
 - Phase F (Agent Integration): building toward v1.0.0
 
 ## Architecture
@@ -14,11 +14,11 @@ mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 src/mltk/
   scan/          # Scan engine: 8 scanners (data/drift/bias/overfit/calibration/robustness/leakage/slice)
   scan/finding.py  # ScanFinding + FixSuggestion dataclasses
-  experiment/    # ExperimentRunner, Hypothesis, ranking strategies
+  experiment/    # ExperimentRunner, Hypothesis, GitWorktree, sandboxed execution
   mcp/           # FastMCP server (8 tools: scan/test/list/eval/dataset/report/suggest/experiment)
   core/          # Config, assertions registry
   testdefs/      # YAML test definitions
-  eval/          # Evaluation pipeline (solvers, scorers, spans)
+  eval/          # Evaluation pipeline (solvers, scorers, spans, datasets)
   data/          # Data assertions, contracts
   model/         # Model metrics, calibration
   training/      # Training bug detection
@@ -27,6 +27,14 @@ src/mltk/
   server/        # FastAPI server + dashboard
   report/        # HTML/JSON report generation
   compliance/    # FDA, NIST, ISO 42001, EU AI Act
+  chat/          # Rule-based Q&A chat interface
+  contracts/     # Data contract definitions
+  inference/     # Latency, throughput, contract assertions
+  integrations/  # Jira, GitHub, Slack, MLflow, etc.
+  monitor/       # Degradation, SLA, GPU monitoring
+  pipeline/      # Pipeline reproducibility, stage validation
+  registry/      # Test resource registry (push/pull/list)
+  testing/       # Testing patterns (flaky, golden, retry)
 ```
 
 ## Testing Conventions
