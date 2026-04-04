@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Persona Skills (S92)
+- `mltk-qa` skill — QA engineer persona: scan → triage → assert → report workflow (174 lines)
+- `mltk-dev` skill — Developer persona: TDD, failure fixes, test generation from scans (176 lines)
+- `mltk-pm` skill — PM persona: ML Test Score, compliance, risk assessment, stakeholder reports (171 lines)
+- `mltk-devops` skill — DevOps persona: CI/CD gates, server setup, monitoring, MCP config (221 lines)
+- Updated `scripts/generate_skill_index.py` to install all `mltk-*.md` skills from repo
+
 #### Quick Wins (S92)
 - `"semantic_equivalence"` criterion in LLM-as-Judge `DEFAULT_CRITERIA` — rubric for meaning-preserving evaluation
 - Per-module coverage thresholds in `pyproject.toml` (`[tool.coverage.run]` + `[tool.coverage.report]`)

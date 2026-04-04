@@ -541,13 +541,13 @@ def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:347)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:354)
 ```python
 def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None)
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:206)
+**`assert_llm_judge_score`** (domains/llm/judge.py:213)
 ```python
 def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None)
 ```
