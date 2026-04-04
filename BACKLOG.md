@@ -228,8 +228,9 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ---
 
 ### VS Code Extension Sync
-- [ ] Sync mltk-vscode with S85-S91 changes (11 MCP tools, new CLI commands)
-- [ ] Consider MCP client integration (replace subprocess with MCP tool calls)
-- [ ] Version alignment (extension 0.3.0 vs mltk 0.9.0)
+- [x] S93 — Foundation sync: 16 new commands, snippets 7→44, 6 new TS modules (v0.5.0)
+- [x] S94 — Agent workflow: MCP client, fix suggestion panel, eval pipeline UI (v0.6.0)
+- [x] MCP client integration: JSON-RPC 2.0 over stdio, 11 typed tool wrappers
+- [x] Version alignment: extension v0.6.0 synced with mltk v0.9.0
 
-*Last updated: Sprint 92 (April 4, 2026) — audit fixes, all IP items complete*
+*Last updated: Sprint 94 (April 5, 2026) — VS Code extension sync complete, roadmap in mltk-vscode/BACKLOG.md*
