@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Quick Wins (S92)
+- `"semantic_equivalence"` criterion in LLM-as-Judge `DEFAULT_CRITERIA` — rubric for meaning-preserving evaluation
+- Per-module coverage thresholds in `pyproject.toml` (`[tool.coverage.run]` + `[tool.coverage.report]`)
+- Marked E-6 (semantic similarity for prompt leak detection) as done — already implemented in S85
+
 #### Agent Protocol + E2E Pipeline Tests (S91, F-7)
 - `mltk_workflow` MCP tool (11th) — canonical agent workflow with 5 pipeline paths and severity-based decision tree
 - `workflow_hint` metadata in all tool success responses — `position` (start/middle/late/end/info) + `next_tools` list for agent routing

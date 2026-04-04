@@ -54,27 +54,48 @@ Uses sprint-executor skill: research → design plan → user approval → paral
 - Dispatch ALL implementation agents in a single parallel batch
 - Don't create module scaffolding manually — agents create their own files
 - Update CHANGELOG.md + BACKLOG.md at sprint end
+- Regenerate skill index after sprint: `python scripts/generate_skill_index.py`
 
-## Codebase Index Skill
-A generated skill at `~/.claude/skills/mltk-index.md` indexes the full API surface (230 assertions, 11 MCP tools, 28 CLI commands, 8 scanners, 28 key classes with file:line pointers). Regenerate after each sprint:
-```
-python scripts/generate_skill_index.py
-```
+## Skills for Subagents
+Two skills exist. The orchestrator MUST read and include them in agent prompts per the matrix below.
+
+| Skill | Path | Content |
+|-------|------|---------|
+| **Index** | `~/.claude/skills/mltk-index.md` (generated) | 230 assertions, 11 MCP tools, 28 CLI, 8 scanners, 28 classes with file:line |
+| **Templates** | `skills/mltk-templates.md` (repo) → `~/.claude/skills/` | Patterns for adding assertions, scanners, MCP tools, CLI commands |
+
+Regenerate index after each sprint: `python scripts/generate_skill_index.py`
 Detailed reference with full signatures: `docs/reference/full-api-index.md`
 
-### Subagent usage
-- **Builder agents**: Include skill index content in prompt — they need file locations
-- **Test hardening agents**: Include skill index — they need assertion names and test file mapping
-- **Wiring/integration agents**: Include skill index — they need module structure
-- **Documentation agents**: Include skill index — they need to know what exists
-- **Researchers**: Do NOT include — they search the web, not the codebase
-- **Reviewers/auditors**: Include skill index — helps them navigate during review
+### Which agents get which skills
 
-### How to include in agent prompts
-Read the skill index and paste the content into the agent's prompt context:
+| Agent Type | Index | Templates | Why |
+|------------|:-----:|:---------:|-----|
+| Builder | Y | Y | Needs file locations + code patterns |
+| Test hardening | Y | N | Needs assertion names + test file mapping |
+| Wiring/integration | Y | Y | Needs module structure + export patterns |
+| Documentation | Y | N | Needs to know what exists |
+| Reviewer/auditor | Y | N | Needs to navigate during review |
+| Researcher | N | N | Searches web, not codebase |
+
+### How to include
+Read both skill files and paste their content into the agent prompt:
 ```
-Read ~/.claude/skills/mltk-index.md and include its content below as ## Codebase Index
+## Codebase Index
+{content of ~/.claude/skills/mltk-index.md}
+
+## Development Templates
+{content of ~/.claude/skills/mltk-templates.md}
 ```
+
+## VS Code Extension (separate repo)
+- **Repo**: `C:\Users\lior1\mltk-vscode` (GitHub: `Liorrr/mltk-vscode`)
+- **Version**: 0.3.0, 27 TypeScript files, esbuild + vitest
+- **Architecture**: subprocess-based — spawns `python -m pytest` and `python -m mltk` CLI commands, parses JSON output
+- **No MCP integration** — uses CLI only, not the 11 MCP tools
+- **Features**: test runner, inline gutter/hover/CodeLens, dashboard webview, YAML validation, model scan, security scan, PII scan, red team CodeLens, native Test Explorer
+- **Key files**: `src/extension.ts` (entry), `src/testRunner.ts`, `src/scanRunner.ts`, `src/securityScanRunner.ts`
+- **Hard rule**: same no-company-name restriction as main repo
 
 ## Key Files
 - `BACKLOG.md` — sprint history + backlog items

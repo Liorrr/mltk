@@ -817,6 +817,13 @@ def main() -> None:
     detail_path.parent.mkdir(parents=True, exist_ok=True)
     detail_path.write_text(fmt_detailed(data), encoding="utf-8")
 
+    # Install templates skill from repo to ~/.claude/skills/
+    templates_src = repo_root / "skills" / "mltk-templates.md"
+    templates_dst = skill_path.parent / "mltk-templates.md"
+    if templates_src.exists():
+        import shutil
+        shutil.copy2(templates_src, templates_dst)
+
     print(  # noqa: T201
         f"Compact skill: {skill_path}"
         f" ({_line_count(skill_path)} lines)"
@@ -825,6 +832,11 @@ def main() -> None:
         f"Detailed ref:  {detail_path}"
         f" ({_line_count(detail_path)} lines)"
     )
+    if templates_src.exists():
+        print(  # noqa: T201
+            f"Templates:     {templates_dst}"
+            f" ({_line_count(templates_dst)} lines)"
+        )
     print(  # noqa: T201
         f"Assertions: {count}"
         f" | CLI: {len(cli_cmds)}"

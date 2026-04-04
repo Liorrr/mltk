@@ -476,13 +476,14 @@ class TestDefaultCriteria:
     """Tests for the DEFAULT_CRITERIA dictionary."""
 
     def test_contains_expected_keys(self) -> None:
-        """DEFAULT_CRITERIA has all five standard criteria."""
+        """DEFAULT_CRITERIA has all six standard criteria."""
         expected_keys = {
             "helpfulness",
             "correctness",
             "coherence",
             "relevance",
             "harmlessness",
+            "semantic_equivalence",
         }
         assert set(DEFAULT_CRITERIA.keys()) == expected_keys
 

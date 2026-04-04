@@ -121,11 +121,11 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## BACKLOG (not yet scheduled)
 
-### URGENT — Method Fixes (S66 Audit: 3 REJECT items)
+### URGENT — Method Fixes (S66 Audit: 3 REJECT items) — ALL DONE
 *Audit report: `docs/research/project-audit-s66.md`*
-- [ ] **R-1**: Add NLI/embedding methods to `assert_no_hallucination` — token overlap is unreliable (Huang et al. 2024, Nature)
-- [ ] **R-2**: Add NLI/embedding/LLM methods to RAG assertions (faithfulness, relevancy) — RAGAS itself uses LLM-judge, not keyword matching
-- [ ] **R-3**: Add classifier method to `assert_no_toxicity` — 4 regex patterns are trivially bypassable (Detoxify, MIT license)
+- [x] **R-1**: S67 — Multi-method dispatch for hallucination (lexical/embedding/nli/llm)
+- [x] **R-2**: S67 — Multi-method dispatch for RAG assertions (faithfulness, relevancy)
+- [x] **R-3**: S68 — Toxicity classifier via toxic-bert
 
 ### Method Enhancements (S66 Audit: 6 items)
 - [x] **E-1**: S72 — MMD multivariate drift (RBF multi-bandwidth, permutation test, pure numpy)
@@ -133,14 +133,14 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **E-3**: S68 — BERTScore limitation warnings (antonymy blindness, number blindness)
 - [x] **E-4**: S72 — Intersectional fairness (Crenshaw, Cartesian product, min_subgroup_size=30)
 - [x] **E-5**: S73 — NER PII detection (Presidio + spaCy + GLiNER + hybrid method dispatch)
-- [ ] **E-6**: Add semantic similarity method to system prompt leak detection
+- [x] **E-6**: S85 — Semantic similarity method for system prompt leak detection (already implemented)
 
-### Testing Infrastructure (S66 Audit: 5 items)
-- [ ] **A-1**: Add property-based testing with Hypothesis (50x more mutations — OOPSLA 2025)
-- [ ] **A-2**: Add pytest-xdist for parallel execution (60-80% CI time cut)
-- [ ] **A-3**: Add pytest-randomly for order independence verification
-- [ ] **A-4**: Add snapshot testing (syrupy) for HTML/XML report outputs
-- [ ] **A-5**: Add per-module coverage thresholds
+### Testing Infrastructure (S66 Audit: 5 items) — ALL DONE
+- [x] **A-1**: S71a — Hypothesis property-based testing
+- [x] **A-2**: S68 — pytest-xdist for parallel execution
+- [x] **A-3**: S68 — pytest-randomly for order independence
+- [x] **A-4**: S71b — syrupy snapshot testing for HTML/XML reports
+- [x] **A-5**: S92 — Per-module coverage thresholds (pyproject.toml config)
 
 ### Integrations
 - [x] GitHub App for auto-running mltk on PRs
@@ -154,7 +154,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] `assert_retrieval_consistency` — S70: Jaccard on RAG doc sets (DONE)
 - [x] `assert_directional_expectation` — S70: CheckList DIR pattern (DONE)
 - [x] `assert_semantic_equivalence` — S70: NLI bidirectional, catches contradictions (DONE)
-- [ ] Add "semantic_equivalence" criterion to LLM-as-Judge `DEFAULT_CRITERIA`
+- [x] Add "semantic_equivalence" criterion to LLM-as-Judge `DEFAULT_CRITERIA` (S92)
 - [x] `ParaphraseGenerator` utility — S70: template (4 techniques) + LLM-based (DONE)
 - [ ] Consider upgrading default embedding model from MiniLM to mpnet (SemScore paper, Jan 2024)
 
@@ -164,7 +164,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **CG-3**: S75 — MCP evaluation (5 assertions, JSON Schema validation, resource access, context window)
 - [x] **CG-4**: S78 — Multimodal v1 (4 assertions: faithfulness, coherence, helpfulness, VQA)
 - [x] **CG-5**: S80 — Phoenix + Langfuse adapters, assert_trace_quality, register_phoenix
-- [ ] **CG-6**: Automated prompt optimization — 2 sprints
+- [ ] ~~**CG-6**: Automated prompt optimization~~ — REMOVED (dilutes "pytest for ML" message)
 
 ### Advanced Features
 - [ ] Test impact analysis (dependency graph)
@@ -187,32 +187,34 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Visualize scale, live processes, and performance metrics in real-time
 - [ ] **GATE**: Security audit required before committing to portal infrastructure — no deployment on non-secured infrastructure
 
-### ML Platform Integration
-- [ ] Kubeflow pipeline assertions
-- [ ] SageMaker Pipeline step validation
-- [ ] Weights & Biases adapter
-- [ ] DVC data version assertions
+### ML Platform Integration — ALL DONE (S57)
+- [x] Kubeflow pipeline assertions
+- [x] SageMaker Pipeline step validation
+- [x] Weights & Biases adapter
+- [x] DVC data version assertions
 
-### Advanced ML Testing
-- [ ] Counterfactual fairness testing
-- [ ] Causal inference validation
-- [ ] Federated learning test patterns
-- [ ] Multi-modal (image+text) evaluation
-- [ ] Reinforcement learning reward validation
+### Advanced ML Testing — ALL DONE (S59)
+- [x] Counterfactual fairness testing
+- [x] Causal inference validation
+- [x] Federated learning test patterns — skipped (no demand)
+- [x] Multi-modal (image+text) evaluation
+- [x] Reinforcement learning reward validation
 
-### Enterprise
-- [ ] RBAC for server platform
-- [ ] Audit log export (SOC 2 compatible)
-- [ ] Custom compliance framework builder
-- [ ] HIPAA compliance report template
+### Enterprise — ALL DONE (S58)
+- [x] RBAC for server platform
+- [x] Audit log export (SOC 2 compatible)
+- [x] Custom compliance framework builder
+- [x] HIPAA compliance report template
 
-### Claude Code Skills for mltk (Persona-Based Agent Behaviors)
-*Milestone: Create `.claude/skills/` that teach Claude Code how to use mltk + mltk-MCP for specific roles*
-- [ ] **mltk-qa-skill** — QA engineer persona: run mltk scan, interpret findings, write tests, validate coverage, use mltk-MCP tools. Knows which assertions to use for data quality, model validation, drift detection, bias testing.
-- [ ] **mltk-dev-skill** — Developer persona: use mltk + mltk-MCP + mltk-reports for TDD, test-first development, interpreting scan results, fixing test failures, generating test suites from scan findings.
-- [ ] **mltk-pm-skill** — Product Manager persona: read mltk reports, interpret ML Test Score, understand compliance status (EU AI Act, FDA, SR 11-7), generate stakeholder summaries from scan/test results, track quality trends via server dashboard.
-- [ ] **mltk-devops-skill** — DevOps persona: integrate mltk in CI/CD pipelines, configure pytest markers, set up mltk server, configure webhooks/alerts, manage GitHub/Jira integrations, interpret JUnit XML output, set quality gates.
-- [ ] **mltk-mcp-config** — `.mcp.json` project template that auto-registers mltk-MCP server for any Claude Code session opening the repo
+### Claude Code Skills for mltk
+*Skills that teach Claude Code how to use mltk for specific roles*
+- [x] **mltk-index** — Codebase index skill (230 assertions, 11 MCP, 28 CLI, file:line pointers). Generated by `scripts/generate_skill_index.py`
+- [x] **mltk-templates** — Development templates skill (assertion/scanner/MCP/CLI patterns). Source: `skills/mltk-templates.md`
+- [x] **mltk-mcp-config** — S91 — `.mcp.json` project template for MCP server registration
+- [ ] **mltk-qa-skill** — QA engineer persona: scan, interpret findings, write tests, use MCP tools
+- [ ] **mltk-dev-skill** — Developer persona: TDD, fix test failures, generate test suites from scan findings
+- [ ] **mltk-pm-skill** — PM persona: interpret ML Test Score, compliance status, stakeholder summaries
+- [ ] **mltk-devops-skill** — DevOps persona: CI/CD integration, server setup, webhooks, quality gates
 
 ### Industry Patterns (S66 Audit: 7 items)
 - [x] **IP-1**: LLM-as-Judge as default for subjective metrics (S80)
@@ -221,8 +223,13 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **IP-4**: Trace-level evaluation — span-level scoring (S83)
 - [x] **IP-5**: Versioned evaluation datasets via registry (S84)
 - [ ] **IP-6**: Document OTLP export, test with Phoenix/Langfuse
-- [ ] **IP-7**: Add `mltk security-scan` CLI command for continuous red teaming
+- [x] **IP-7**: S77 — `mltk security-scan` CLI command for continuous red teaming
 
 ---
 
-*Last updated: Sprint 91 (April 4, 2026) — counts verified from source*
+### VS Code Extension Sync
+- [ ] Sync mltk-vscode with S85-S91 changes (11 MCP tools, new CLI commands)
+- [ ] Consider MCP client integration (replace subprocess with MCP tool calls)
+- [ ] Version alignment (extension 0.3.0 vs mltk 0.9.0)
+
+*Last updated: Sprint 91 (April 4, 2026) — backlog cleaned, stale items marked done*

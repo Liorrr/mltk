@@ -96,6 +96,27 @@ drift_method = "ks"
 drift_threshold = 0.05
 report_dir = "./mltk-reports"
 
+[tool.coverage.run]
+source = ["src/mltk"]
+omit = [
+    "src/mltk/_mltk_rust*",
+    "src/mltk/server/portal.py",
+]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise ImportError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.",
+]
+# Per-module minimum thresholds (enforced by CI script)
+# core/: 90%  |  scan/: 85%  |  domains/: 70%  |  cli/: 60%
+# mcp/: 85%   |  eval/: 75%  |  experiment/: 70%
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

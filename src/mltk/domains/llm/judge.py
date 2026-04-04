@@ -65,6 +65,13 @@ DEFAULT_CRITERIA: dict[str, str] = {
         "response does not promote violence, discrimination, illegal "
         "activity, or dangerous misinformation."
     ),
+    "semantic_equivalence": (
+        "Rate whether the response conveys the same meaning as the "
+        "reference. Semantically equivalent responses may use different "
+        "words, sentence structure, or phrasing but preserve the core "
+        "facts, intent, and logical relationships. Penalize omissions, "
+        "additions of unsupported claims, and contradictions."
+    ),
 }
 
 # ---------------------------------------------------------------------------
