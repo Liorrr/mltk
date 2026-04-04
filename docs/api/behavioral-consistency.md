@@ -170,7 +170,7 @@ result = assert_paraphrase_invariance(
 | `equivalence_method` | `str` | `"token_f1"` | How to compare outputs (see Methods) |
 | `min_invariance` | `float` | `0.8` | Minimum fraction of equivalent pairs to pass (0-1) |
 | `similarity_threshold` | `float \| None` | `None` | Override per-method default threshold |
-| `embedding_model` | `str` | `"all-MiniLM-L6-v2"` | Sentence-transformer model for `"embedding"` and `"auto"` |
+| `embedding_model` | `str` | `"all-mpnet-base-v2"` | Sentence-transformer model for `"embedding"` and `"auto"` |
 | `nli_model` | `str` | `"cross-encoder/nli-deberta-v3-base"` | Cross-encoder model for `"entailment"` and `"auto"` |
 | `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Scorer for `equivalence_method="judge"` |
 
@@ -274,7 +274,7 @@ result = assert_format_invariance(
 | `equivalence_method` | `str` | `"token_f1"` | How to compare outputs (see Methods) |
 | `min_invariance` | `float` | `0.9` | Minimum fraction of equivalent transforms to pass (0-1) |
 | `similarity_threshold` | `float \| None` | `None` | Override per-method default threshold |
-| `embedding_model` | `str` | `"all-MiniLM-L6-v2"` | Sentence-transformer model for `"embedding"` |
+| `embedding_model` | `str` | `"all-mpnet-base-v2"` | Sentence-transformer model for `"embedding"` |
 
 Note: `assert_format_invariance` does not accept `judge_fn`
 or `nli_model` parameters. It supports `"token_f1"`,
@@ -344,7 +344,7 @@ result = assert_output_stability(
 | `equivalence_method` | `str` | `"token_f1"` | How to compare outputs |
 | `min_stability` | `float` | `0.9` | Minimum average stability to pass (0-1) |
 | `similarity_threshold` | `float \| None` | `None` | Override default (0.8 for score-based methods) |
-| `embedding_model` | `str` | `"all-MiniLM-L6-v2"` | Sentence-transformer model for `"embedding"` |
+| `embedding_model` | `str` | `"all-mpnet-base-v2"` | Sentence-transformer model for `"embedding"` |
 
 Note: `assert_output_stability` does not accept `judge_fn`
 or `nli_model` parameters. It supports `"token_f1"`,
@@ -412,7 +412,7 @@ result = assert_semantic_equivalence(
 | `method` | `str` | `"nli"` | One of `"nli"`, `"embedding"`, `"token_f1"` |
 | `min_score` | `float` | `0.7` | Minimum score to pass |
 | `nli_model` | `str` | `"cross-encoder/nli-deberta-v3-base"` | Cross-encoder model for `"nli"` |
-| `embedding_model` | `str` | `"all-MiniLM-L6-v2"` | Sentence-transformer model for `"embedding"` |
+| `embedding_model` | `str` | `"all-mpnet-base-v2"` | Sentence-transformer model for `"embedding"` |
 
 #### Returns
 

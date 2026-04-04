@@ -34,7 +34,7 @@ def _token_f1(reference: str, hypothesis: str) -> float:
 def _embedding_cosine(
     references: list[str],
     hypotheses: list[str],
-    model_name: str = "all-MiniLM-L6-v2",
+    model_name: str = "all-mpnet-base-v2",
 ) -> list[float]:
     """Compute cosine similarity between reference and hypothesis embeddings.
 

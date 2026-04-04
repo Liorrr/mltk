@@ -94,7 +94,7 @@ accuracy for semantic equivalence.
 when wording varies. The default upgrade from `lexical` when
 you need accuracy without NLI overhead.
 
-Default model: `all-MiniLM-L6-v2` (fast, 22M params).
+Default model: `all-mpnet-base-v2` (110M params, STS 87-88%).
 
 ```python
 result = assert_faithfulness(
@@ -271,7 +271,7 @@ pip install mltk[embedding]
 pip install sentence-transformers
 ```
 
-This downloads the `all-MiniLM-L6-v2` model (~90MB) on
+This downloads the `all-mpnet-base-v2` model (~90MB) on
 first use. Subsequent runs use the cached model.
 
 ### `nli` — sentence-transformers (same package)
@@ -285,7 +285,7 @@ pip install sentence-transformers
 :point_right: The `embedding` and `nli` methods share the
 same Python package (`sentence-transformers`). Installing
 one gets you both. The difference is the *model*:
-`all-MiniLM-L6-v2` for embeddings,
+`all-mpnet-base-v2` for embeddings,
 `cross-encoder/nli-deberta-v3-base` for NLI. Each model
 is downloaded on first use.
 
@@ -404,7 +404,7 @@ assert_semantic_similarity(refs, hyps, method="embedding", min_score=0.80)
 ### Custom Embedding Model
 
 Every embedding-based assertion accepts a `embedding_model`
-parameter (or uses `all-MiniLM-L6-v2` by default). You can
+parameter (or uses `all-mpnet-base-v2` by default). You can
 swap in a larger model for better accuracy:
 
 ```python
@@ -618,7 +618,7 @@ need contradiction detection.
 ### Do I need a GPU?
 
 No. All methods work on CPU. The `embedding` method with
-`all-MiniLM-L6-v2` is fast enough for CI/CD on CPU. The
+`all-mpnet-base-v2` is fast enough for CI/CD on CPU. The
 `nli` method is slower on CPU (~500ms per pair) but still
 practical for test suites under 100 pairs.
 

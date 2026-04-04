@@ -210,7 +210,7 @@ def assert_paraphrase_invariance(
     equivalence_method: str = "token_f1",
     min_invariance: float = 0.8,
     similarity_threshold: float | None = None,
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = (
         "cross-encoder/nli-deberta-v3-base"
     ),
@@ -395,7 +395,7 @@ def assert_format_invariance(
     equivalence_method: str = "token_f1",
     min_invariance: float = 0.9,
     similarity_threshold: float | None = None,
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
 ) -> TestResult:
     """Assert that formatting changes do not alter model output.
 

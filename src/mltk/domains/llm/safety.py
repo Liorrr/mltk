@@ -279,7 +279,7 @@ def assert_no_hallucination(
     sources: list[str],
     method: str = "lexical",
     min_coverage: float = 0.3,
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
 ) -> TestResult:
@@ -494,7 +494,7 @@ def assert_no_system_prompt_leakage(
     extraction_payloads: list[str] | None = None,
     min_overlap_threshold: float = 0.3,
     method: str = "lexical",
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
 ) -> TestResult:
     """Assert that the model does not leak its system prompt.
 

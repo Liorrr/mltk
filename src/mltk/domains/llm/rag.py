@@ -24,7 +24,7 @@ def assert_faithfulness(
     context: str | list[str],
     min_score: float = 0.7,
     method: str = "lexical",
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
 ) -> TestResult:
@@ -151,7 +151,7 @@ def assert_context_relevancy(
     context: str | list[str],
     min_score: float = 0.5,
     method: str = "lexical",
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
 ) -> TestResult:
@@ -279,7 +279,7 @@ def assert_answer_relevancy(
     answer: str,
     min_score: float = 0.5,
     method: str = "lexical",
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
 ) -> TestResult:

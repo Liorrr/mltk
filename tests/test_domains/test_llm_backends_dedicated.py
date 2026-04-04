@@ -39,8 +39,12 @@ RNG = np.random.default_rng(SEED)
 class TestModelRevisions:
     """Pinned revisions for known models."""
 
+    def test_revision_dict_has_mpnet(self) -> None:
+        """MPNet revision is present (default model)."""
+        assert "all-mpnet-base-v2" in _MODEL_REVISIONS
+
     def test_revision_dict_has_minilm(self) -> None:
-        """MiniLM revision is present."""
+        """MiniLM revision is present (legacy/light model)."""
         assert "all-MiniLM-L6-v2" in _MODEL_REVISIONS
 
     def test_revision_dict_has_deberta(self) -> None:

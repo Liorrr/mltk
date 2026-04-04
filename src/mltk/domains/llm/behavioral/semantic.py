@@ -38,7 +38,7 @@ def assert_semantic_equivalence(
     nli_model: str = (
         "cross-encoder/nli-deberta-v3-base"
     ),
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
 ) -> TestResult:
     """Assert two texts are semantically equivalent.
 

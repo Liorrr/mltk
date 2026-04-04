@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mltk-devops` skill — DevOps persona: CI/CD gates, server setup, monitoring, MCP config (221 lines)
 - Updated `scripts/generate_skill_index.py` to install all `mltk-*.md` skills from repo
 
+#### Embedding Model Upgrade (S92)
+- Default embedding model upgraded from `all-MiniLM-L6-v2` (84-85% STS) to `all-mpnet-base-v2` (87-88% STS)
+- Validated by SemScore paper (Jan 2024) as best sentence-transformer for LLM evaluation
+- Pinned revision `e8c3b32edf5434bc` for supply-chain defense (SEC-2)
+- MiniLM still supported — pass `embedding_model="all-MiniLM-L6-v2"` for lightweight mode
+- Updated all 9 source files, 4 doc files, 2 test files, regenerated API index
+
 #### Quick Wins (S92)
 - `"semantic_equivalence"` criterion in LLM-as-Judge `DEFAULT_CRITERIA` — rubric for meaning-preserving evaluation
 - Per-module coverage thresholds in `pyproject.toml` (`[tool.coverage.run]` + `[tool.coverage.report]`)

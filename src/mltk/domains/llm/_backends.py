@@ -22,6 +22,7 @@ from mltk.domains.llm._utils import _normalize as normalize_unicode  # noqa: F40
 # ---------------------------------------------------------------------------
 
 _MODEL_REVISIONS: dict[str, str] = {
+    "all-mpnet-base-v2": "e8c3b32edf5434bc",
     "all-MiniLM-L6-v2": "c22d4bce25e7e04e",
     "cross-encoder/nli-deberta-v3-base": "6c749ce3425cd33b",
 }
@@ -56,7 +57,7 @@ def _load_sentence_model(model_name: str):  # noqa: ANN201
 def embedding_cosine_pairs(
     texts_a: list[str],
     texts_b: list[str],
-    model_name: str = "all-MiniLM-L6-v2",
+    model_name: str = "all-mpnet-base-v2",
 ) -> list[float]:
     """Compute pairwise cosine similarity between two text lists.
 
@@ -88,7 +89,7 @@ def embedding_cosine_pairs(
 def embedding_cosine_single(
     text_a: str,
     text_b: str,
-    model_name: str = "all-MiniLM-L6-v2",
+    model_name: str = "all-mpnet-base-v2",
 ) -> float:
     """Cosine similarity between two individual texts."""
     return embedding_cosine_pairs([text_a], [text_b], model_name)[0]

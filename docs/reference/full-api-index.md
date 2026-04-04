@@ -465,7 +465,7 @@ def assert_agent_handoff(agent_names: list[str], expected_flow: list[str], stric
 
 **`assert_answer_relevancy`** (domains/llm/rag.py:277)
 ```python
-def assert_answer_relevancy(question: str, answer: str, min_score: float=0.5, method: str='lexical', embedding_model: str='all-MiniLM-L6-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_answer_relevancy(question: str, answer: str, min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
 ```
 > Assert answer addresses the question.
 
@@ -495,7 +495,7 @@ def assert_context_recall(relevant_ids: list[str], retrieved_ids: list[str], min
 
 **`assert_context_relevancy`** (domains/llm/rag.py:149)
 ```python
-def assert_context_relevancy(question: str, context: str | list[str], min_score: float=0.5, method: str='lexical', embedding_model: str='all-MiniLM-L6-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_context_relevancy(question: str, context: str | list[str], min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
 ```
 > Assert retrieved context is relevant to the question.
 
@@ -525,7 +525,7 @@ def assert_error_recovery(trace: AgentTrace, max_consecutive_errors: int=3)
 
 **`assert_faithfulness`** (domains/llm/rag.py:22)
 ```python
-def assert_faithfulness(answer: str, context: str | list[str], min_score: float=0.7, method: str='lexical', embedding_model: str='all-MiniLM-L6-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_faithfulness(answer: str, context: str | list[str], min_score: float=0.7, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
 ```
 > Assert answer is grounded in the provided context.
 
@@ -627,7 +627,7 @@ def assert_no_hallucinated_tools(trace: AgentTrace, known_tools: list[str])
 
 **`assert_no_hallucination`** (domains/llm/safety.py:277)
 ```python
-def assert_no_hallucination(claims: list[str], sources: list[str], method: str='lexical', min_coverage: float=0.3, embedding_model: str='all-MiniLM-L6-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_no_hallucination(claims: list[str], sources: list[str], method: str='lexical', min_coverage: float=0.3, embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
 ```
 > Assert LLM claims are supported by source documents.
 
@@ -645,7 +645,7 @@ def assert_no_redundant_calls(trace: AgentTrace, max_repeat: int=2, ignore_tools
 
 **`assert_no_system_prompt_leakage`** (domains/llm/safety.py:491)
 ```python
-def assert_no_system_prompt_leakage(model_fn: Callable[[str], str], system_prompt: str, extraction_payloads: list[str] | None=None, min_overlap_threshold: float=0.3, method: str='lexical', embedding_model: str='all-MiniLM-L6-v2')
+def assert_no_system_prompt_leakage(model_fn: Callable[[str], str], system_prompt: str, extraction_payloads: list[str] | None=None, min_overlap_threshold: float=0.3, method: str='lexical', embedding_model: str='all-mpnet-base-v2')
 ```
 > Assert that the model does not leak its system prompt.
 
@@ -803,19 +803,19 @@ def assert_directional_expectation(model_fn: Callable[[str], str], input_text: s
 
 **`assert_format_invariance`** (domains/llm/behavioral/invariance.py:389)
 ```python
-def assert_format_invariance(model_fn: Callable[[str], Any], input_text: str, transforms: list[Callable[[str], str]] | None=None, equivalence_method: str='token_f1', min_invariance: float=0.9, similarity_threshold: float | None=None, embedding_model: str='all-MiniLM-L6-v2')
+def assert_format_invariance(model_fn: Callable[[str], Any], input_text: str, transforms: list[Callable[[str], str]] | None=None, equivalence_method: str='token_f1', min_invariance: float=0.9, similarity_threshold: float | None=None, embedding_model: str='all-mpnet-base-v2')
 ```
 > Assert that formatting changes do not alter model output.
 
 **`assert_output_stability`** (domains/llm/behavioral/stability.py:75)
 ```python
-def assert_output_stability(model_fn: Callable[[str], Any], inputs: list[str], n_runs: int=5, equivalence_method: str='token_f1', min_stability: float=0.9, similarity_threshold: float | None=None, embedding_model: str='all-MiniLM-L6-v2')
+def assert_output_stability(model_fn: Callable[[str], Any], inputs: list[str], n_runs: int=5, equivalence_method: str='token_f1', min_stability: float=0.9, similarity_threshold: float | None=None, embedding_model: str='all-mpnet-base-v2')
 ```
 > Assert a model produces consistent outputs across repeated runs.
 
 **`assert_paraphrase_invariance`** (domains/llm/behavioral/invariance.py:207)
 ```python
-def assert_paraphrase_invariance(model_fn: Callable[[str], Any], paraphrases: list[str], equivalence_method: str='token_f1', min_invariance: float=0.8, similarity_threshold: float | None=None, embedding_model: str='all-MiniLM-L6-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_paraphrase_invariance(model_fn: Callable[[str], Any], paraphrases: list[str], equivalence_method: str='token_f1', min_invariance: float=0.8, similarity_threshold: float | None=None, embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
 ```
 > Assert that paraphrased inputs produce equivalent outputs.
 
@@ -827,7 +827,7 @@ def assert_retrieval_consistency(retriever_fn: Callable[[str], list[str]], parap
 
 **`assert_semantic_equivalence`** (domains/llm/behavioral/semantic.py:33)
 ```python
-def assert_semantic_equivalence(text_a: str, text_b: str, method: str='nli', min_score: float=0.7, nli_model: str='cross-encoder/nli-deberta-v3-base', embedding_model: str='all-MiniLM-L6-v2')
+def assert_semantic_equivalence(text_a: str, text_b: str, method: str='nli', min_score: float=0.7, nli_model: str='cross-encoder/nli-deberta-v3-base', embedding_model: str='all-mpnet-base-v2')
 ```
 > Assert two texts are semantically equivalent.
 

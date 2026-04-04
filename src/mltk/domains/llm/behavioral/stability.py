@@ -79,7 +79,7 @@ def assert_output_stability(
     equivalence_method: str = "token_f1",
     min_stability: float = 0.9,
     similarity_threshold: float | None = None,
-    embedding_model: str = "all-MiniLM-L6-v2",
+    embedding_model: str = "all-mpnet-base-v2",
 ) -> TestResult:
     """Assert a model produces consistent outputs across repeated runs.
 

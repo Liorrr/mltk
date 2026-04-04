@@ -156,7 +156,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] `assert_semantic_equivalence` — S70: NLI bidirectional, catches contradictions (DONE)
 - [x] Add "semantic_equivalence" criterion to LLM-as-Judge `DEFAULT_CRITERIA` (S92)
 - [x] `ParaphraseGenerator` utility — S70: template (4 techniques) + LLM-based (DONE)
-- [ ] Consider upgrading default embedding model from MiniLM to mpnet (SemScore paper, Jan 2024)
+- [x] S92 — Upgraded default embedding model from MiniLM to mpnet (SemScore paper, Jan 2024)
 
 ### Competitive Gaps (S66 Audit: 6 critical)
 - [x] **CG-1**: S76 — SyntheticQAGenerator (template + LLM modes, 5 question types, quality filter)

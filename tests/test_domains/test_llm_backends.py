@@ -537,6 +537,7 @@ class TestModelRevisionHardening:
         from mltk.domains.llm._backends import (
             _MODEL_REVISIONS,
         )
+        assert "all-mpnet-base-v2" in _MODEL_REVISIONS
         assert "all-MiniLM-L6-v2" in _MODEL_REVISIONS
         assert (
             "cross-encoder/nli-deberta-v3-base"
