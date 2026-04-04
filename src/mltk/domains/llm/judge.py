@@ -281,7 +281,7 @@ def assert_llm_judge_score(
         return assert_true(
             True, name="llm.judge.score",
             message="No items to evaluate (empty prompts list).",
-            severity=Severity.CRITICAL,
+            severity=Severity.INFO,
             avg_score=0.0, min_score=min_score,
             per_item_scores=[], criterion=criterion,
             n_items=0, scores_below_min=0,
@@ -424,7 +424,7 @@ def assert_llm_judge_pairwise(
         return assert_true(
             True, name="llm.judge.pairwise",
             message="No items to compare (empty prompts list).",
-            severity=Severity.CRITICAL,
+            severity=Severity.INFO,
             win_rate=0.0, min_win_rate=min_win_rate,
             wins_a=0, wins_b=0, ties=0, n_comparisons=0,
         )

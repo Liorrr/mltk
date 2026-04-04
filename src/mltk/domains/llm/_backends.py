@@ -48,9 +48,9 @@ def _load_sentence_model(model_name: str):  # noqa: ANN201
             "Install with: pip install mltk[embedding]"
         ) from None
     revision = _MODEL_REVISIONS.get(model_name)
-    kwargs = {}
+    kwargs: dict[str, str] = {}
     if revision:
-        kwargs["model_kwargs"] = {"revision": revision}
+        kwargs["revision"] = revision
     return SentenceTransformer(model_name, **kwargs)
 
 

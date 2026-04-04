@@ -5,9 +5,12 @@ Requires: pip install jira
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from mltk.integrations.adapter import IssueTrackerAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class JiraAdapter(IssueTrackerAdapter):
@@ -135,6 +138,7 @@ class JiraAdapter(IssueTrackerAdapter):
             )
             return True
         except Exception:
+            logger.warning("Failed to add remote link to %s", issue_id, exc_info=True)
             return False
 
     def update_issue(self, issue_id: str, updates: dict[str, Any]) -> bool:
@@ -162,4 +166,5 @@ class JiraAdapter(IssueTrackerAdapter):
 
             return True
         except Exception:
+            logger.warning("Failed to update issue %s", issue_id, exc_info=True)
             return False

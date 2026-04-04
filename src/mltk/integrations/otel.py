@@ -95,6 +95,12 @@ def _result_to_span_dict(result: dict[str, Any]) -> dict[str, Any]:
             },
             {"key": "mltk.assertion.duration_ms", "value": {"doubleValue": duration_ms}},
             {"key": "mltk.assertion.message", "value": {"stringValue": result.get("message", "")}},
+            # OpenInference attributes — makes Phoenix display these as
+            # native evaluations in the Evaluations tab (not generic spans).
+            {"key": "openinference.span.kind", "value": {"stringValue": "EVALUATION"}},
+            {"key": "eval.name", "value": {"stringValue": result.get("name", "")}},
+            {"key": "eval.score", "value": {"doubleValue": 1.0 if passed else 0.0}},
+            {"key": "eval.label", "value": {"stringValue": "pass" if passed else "fail"}},
         ],
         "status": {
             "code": "STATUS_CODE_OK" if passed else "STATUS_CODE_ERROR",
@@ -260,6 +266,12 @@ class MltkTracer:
             span.set_attribute("mltk.assertion.severity", severity)
             span.set_attribute("mltk.assertion.duration_ms", duration_ms)
             span.set_attribute("mltk.assertion.message", message)
+
+            # OpenInference attributes — Phoenix Evaluations tab support
+            span.set_attribute("openinference.span.kind", "EVALUATION")
+            span.set_attribute("eval.name", name)
+            span.set_attribute("eval.score", 1.0 if passed else 0.0)
+            span.set_attribute("eval.label", "pass" if passed else "fail")
 
             if passed:
                 span.set_status(StatusCode.OK)

@@ -115,7 +115,7 @@ assert_no_system_prompt_leakage(
 |------|------|---------|-------------|
 | `model_fn` | `Callable` | *(required)* | Function that takes a prompt string and returns a string response |
 | `system_prompt` | `str` | *(required)* | The actual system prompt to check for leakage |
-| `extraction_payloads` | `list[str] \| None` | `None` | Custom extraction prompts. None = 33 built-in payloads across 8 categories |
+| `extraction_payloads` | `list[str] \| None` | `None` | Custom extraction prompts. None = 33 built-in payloads across 9 categories |
 | `min_overlap_threshold` | `float` | `0.3` | Token overlap ratio above which a response is flagged as leaked |
 
 **OWASP mapping:** LLM06 (Sensitive Information Disclosure)
@@ -548,14 +548,14 @@ assert_summary_coverage(
 )
 ```
 
-### assert_summary_conciseness
+### assert_summary_compression
 
 Verify a summary achieves a target compression ratio relative to its source. Catches summaries that are faithful and complete but too verbose (effectively just copying the source).
 
 ```python
-from mltk.domains.llm import assert_summary_conciseness
+from mltk.domains.llm import assert_summary_compression
 
-assert_summary_conciseness(
+assert_summary_compression(
     source=source,
     summary=summary,
     max_ratio=0.4,  # summary should be at most 40% the length of the source
@@ -649,18 +649,18 @@ assert_no_lost_in_middle(
 Test LLM-generated code for execution safety, correctness, vulnerabilities, and complexity. Four assertions cover the most common failure modes of code-generating models: syntactically plausible but non-functional output, hardcoded secrets and injection vulnerabilities, low test pass rates, and incorrect behavior on edge cases.
 
 ```python
-from mltk.domains.code_gen import (
-    assert_syntax_valid,
-    assert_test_pass_rate,
-    assert_no_security_issues,
-    assert_functional_correctness,
+from mltk.domains.codegen import (
+    assert_code_executes,
+    assert_code_passes_tests,
+    assert_no_code_vulnerabilities,
+    assert_code_complexity,
 )
 
 generated_code = model.generate("Write a function to merge two sorted lists.")
 
-assert_syntax_valid(generated_code, language="python")
-assert_no_security_issues(generated_code, language="python")
-assert_functional_correctness(
+assert_code_executes(generated_code, language="python")
+assert_no_code_vulnerabilities(generated_code, language="python")
+assert_code_passes_tests(
     generated_code,
     test_cases=[
         {"input": {"a": [1, 3, 5], "b": [2, 4, 6]}, "expected": [1, 2, 3, 4, 5, 6]},

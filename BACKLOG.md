@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S91: 228 assertions, 4225+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S92: 230 assertions, 4225+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -222,7 +222,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **IP-3**: Solver/Scorer architecture for complex eval workflows (S82)
 - [x] **IP-4**: Trace-level evaluation — span-level scoring (S83)
 - [x] **IP-5**: Versioned evaluation datasets via registry (S84)
-- [ ] **IP-6**: Document OTLP export, test with Phoenix/Langfuse
+- [x] **IP-6**: S92 — OTLP: OpenInference attributes, env var docs, workflow examples
 - [x] **IP-7**: S77 — `mltk security-scan` CLI command for continuous red teaming
 
 ---
@@ -232,4 +232,4 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Consider MCP client integration (replace subprocess with MCP tool calls)
 - [ ] Version alignment (extension 0.3.0 vs mltk 0.9.0)
 
-*Last updated: Sprint 91 (April 4, 2026) — backlog cleaned, stale items marked done*
+*Last updated: Sprint 92 (April 4, 2026) — audit fixes, all IP items complete*

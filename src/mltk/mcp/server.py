@@ -1310,7 +1310,7 @@ def _create_issue_impl(
 
     return _ok(_with_hint("mltk_create_issue", {
         "issue_key": str(issue_key) if issue_key else None,
-        "issue_url": issue_key,
+        "issue_url": str(issue_key) if issue_key else None,
         "linked_pr": linked,
         "suggested_next_step": (
             "Issue created. Review and assign priority."

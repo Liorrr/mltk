@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -71,7 +72,7 @@ class GitHubIssuesAdapter(IssueTrackerAdapter):
         except urllib.error.HTTPError as exc:
             try:
                 err_body = json.loads(exc.read())
-            except Exception:
+            except (json.JSONDecodeError, ValueError):
                 err_body = {}
             return exc.code, err_body
 
@@ -132,7 +133,6 @@ class GitHubIssuesAdapter(IssueTrackerAdapter):
         if "repo:" not in query:
             scoped_query = f"{query} repo:{self.repo}"
 
-        import urllib.parse
         encoded = urllib.parse.quote(scoped_query)
         status, data = self._request("GET", f"/search/issues?q={encoded}&per_page=50")
 

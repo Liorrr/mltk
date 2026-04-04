@@ -262,6 +262,47 @@ class TestExportJson:
         assert attrs["mltk.assertion.duration_ms"] == {"doubleValue": 42.5}
         assert attrs["mltk.assertion.message"] == {"stringValue": "PSI=0.35 > 0.25"}
 
+    def test_export_json_openinference_attributes_pass(self, tmp_path: Path) -> None:
+        # SCENARIO: Passed assertion has OpenInference eval attributes.
+        # WHY: Phoenix uses openinference.span.kind="EVALUATION" to display
+        #      spans in the native Evaluations tab instead of as generic spans.
+        # EXPECTED: eval.score=1.0, eval.label="pass" for a passed result.
+
+        from mltk.integrations.otel import MltkTracer
+
+        tracer = MltkTracer()
+        out = str(tmp_path / "oi_pass.json")
+        tracer.export_json([_make_result("accuracy", passed=True)], out)
+
+        data = json.loads(Path(out).read_text(encoding="utf-8"))
+        span = data["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+        attrs = {a["key"]: a["value"] for a in span["attributes"]}
+
+        assert attrs["openinference.span.kind"] == {"stringValue": "EVALUATION"}
+        assert attrs["eval.name"] == {"stringValue": "accuracy"}
+        assert attrs["eval.score"] == {"doubleValue": 1.0}
+        assert attrs["eval.label"] == {"stringValue": "pass"}
+
+    def test_export_json_openinference_attributes_fail(self, tmp_path: Path) -> None:
+        # SCENARIO: Failed assertion has OpenInference eval attributes.
+        # WHY: Phoenix must show failed evaluations with score=0.0 and label="fail".
+        # EXPECTED: eval.score=0.0, eval.label="fail" for a failed result.
+
+        from mltk.integrations.otel import MltkTracer
+
+        tracer = MltkTracer()
+        out = str(tmp_path / "oi_fail.json")
+        tracer.export_json([_make_result("drift", passed=False)], out)
+
+        data = json.loads(Path(out).read_text(encoding="utf-8"))
+        span = data["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+        attrs = {a["key"]: a["value"] for a in span["attributes"]}
+
+        assert attrs["openinference.span.kind"] == {"stringValue": "EVALUATION"}
+        assert attrs["eval.name"] == {"stringValue": "drift"}
+        assert attrs["eval.score"] == {"doubleValue": 0.0}
+        assert attrs["eval.label"] == {"stringValue": "fail"}
+
     def test_export_json_duration_recorded(self, tmp_path: Path) -> None:
         # SCENARIO: A result with a specific duration_ms is exported.
         # WHY: Duration is the primary metric for identifying slow assertions.

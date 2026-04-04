@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
@@ -41,29 +39,9 @@ def _embedding_cosine(
     Uses sentence-transformers to encode texts, then computes pairwise
     cosine similarity. Raises ImportError if sentence-transformers is missing.
     """
-    try:
-        from sentence_transformers import SentenceTransformer
-    except ImportError:
-        raise ImportError(
-            "sentence-transformers is required for method='embedding'. "
-            "Install with: pip install mltk[embedding] or pip install sentence-transformers"
-        )
+    from mltk.domains.llm._backends import embedding_cosine_pairs
 
-    model = SentenceTransformer(model_name)
-    ref_embeddings = model.encode(references, convert_to_numpy=True)
-    hyp_embeddings = model.encode(hypotheses, convert_to_numpy=True)
-
-    # Cosine similarity per pair
-    scores: list[float] = []
-    for ref_emb, hyp_emb in zip(ref_embeddings, hyp_embeddings):
-        ref_norm = np.linalg.norm(ref_emb)
-        hyp_norm = np.linalg.norm(hyp_emb)
-        if ref_norm == 0 or hyp_norm == 0:
-            scores.append(0.0)
-        else:
-            cos_sim = float(np.dot(ref_emb, hyp_emb) / (ref_norm * hyp_norm))
-            scores.append(cos_sim)
-    return scores
+    return embedding_cosine_pairs(references, hypotheses, model_name)
 
 
 @timed_assertion

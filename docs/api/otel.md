@@ -169,21 +169,16 @@ No `try/except ImportError` in your test code. No feature flags. No conditional 
 ### trace_result
 
 ```python
-def trace_result(
-    self,
-    result: TestResult,
-    parent_span: Span | None = None,
-) -> None
+def trace_result(self, result: dict[str, Any]) -> None
 ```
 
-Trace a single `TestResult` as an OpenTelemetry span. The span name is the assertion name (e.g., `data.drift[age]`), and structured attributes are attached for filtering and analysis in the tracing backend.
+Trace a single test result as an OpenTelemetry span. The span name is the assertion name (e.g., `data.drift[age]`), and structured attributes are attached for filtering and analysis in the tracing backend. In no-op mode (OTEL not installed) this returns immediately.
 
 #### Parameters
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `result` | `TestResult` | *(required)* | The mltk test result to trace |
-| `parent_span` | `Span \| None` | `None` | Optional parent span. When provided, the result span becomes a child, creating a hierarchy. Used internally by `trace_suite`. |
+| `result` | `dict[str, Any]` | *(required)* | A dict with keys: `name` (str), `passed` (bool), `severity` (str), `message` (str), and optionally `duration_ms` (float). |
 
 #### Span attributes
 
@@ -191,41 +186,32 @@ Every span created by `trace_result` carries these attributes:
 
 | Attribute | Type | Example | Description |
 |-----------|------|---------|-------------|
-| `mltk.test.name` | `str` | `"data.drift[age]"` | Assertion name from `TestResult.name` |
-| `mltk.test.passed` | `bool` | `false` | Pass/fail status |
-| `mltk.test.severity` | `str` | `"critical"` | Severity level |
-| `mltk.test.message` | `str` | `"PSI 0.35 > 0.2"` | Human-readable result message |
-| `mltk.test.duration_ms` | `float` | `340.8` | Assertion execution time in milliseconds |
-| `mltk.test.details.*` | varies | `0.35` | Each key in `TestResult.details` is flattened into a span attribute with the `mltk.test.details.` prefix |
+| `mltk.assertion.name` | `str` | `"data.drift[age]"` | Assertion name |
+| `mltk.assertion.passed` | `bool` | `false` | Pass/fail status |
+| `mltk.assertion.severity` | `str` | `"critical"` | Severity level |
+| `mltk.assertion.message` | `str` | `"PSI 0.35 > 0.2"` | Human-readable result message |
+| `mltk.assertion.duration_ms` | `float` | `340.8` | Assertion execution time in milliseconds |
+| `openinference.span.kind` | `str` | `"EVALUATION"` | Phoenix Evaluations tab support |
+| `eval.name` | `str` | `"data.drift[age]"` | OpenInference evaluation name |
+| `eval.score` | `float` | `0.0` | 1.0 (pass) or 0.0 (fail) |
+| `eval.label` | `str` | `"fail"` | "pass" or "fail" |
 
-If the result failed, the span's status is set to `ERROR` with the failure message as the status description. This makes failed assertions immediately visible in tracing UIs that color-code error spans in red.
+If the result failed, the span's status is set to `ERROR` with the failure message as the status description.
 
 #### Example
 
 ```python
 from mltk.integrations.otel import MltkTracer
-from mltk.core.result import TestResult, Severity
 
 tracer = MltkTracer(service_name="ml-tests")
 
-result = TestResult(
-    name="data.drift[age]",
-    passed=False,
-    severity=Severity.CRITICAL,
-    message="PSI 0.35 exceeds threshold 0.2",
-    duration_ms=340.8,
-    details={"psi_score": 0.35, "threshold": 0.2, "feature": "age"},
-)
-
-tracer.trace_result(result)
-# Creates a span named "data.drift[age]" with:
-#   mltk.test.passed = false
-#   mltk.test.severity = "critical"
-#   mltk.test.duration_ms = 340.8
-#   mltk.test.details.psi_score = 0.35
-#   mltk.test.details.threshold = 0.2
-#   mltk.test.details.feature = "age"
-#   status = ERROR ("PSI 0.35 exceeds threshold 0.2")
+tracer.trace_result({
+    "name": "data.drift[age]",
+    "passed": False,
+    "severity": "critical",
+    "message": "PSI 0.35 exceeds threshold 0.2",
+    "duration_ms": 340.8,
+})
 ```
 
 ---
@@ -233,23 +219,16 @@ tracer.trace_result(result)
 ### trace_suite
 
 ```python
-def trace_suite(
-    self,
-    suite: TestSuite,
-    run_name: str | None = None,
-) -> None
+def trace_suite(self, results: list[dict[str, Any]]) -> None
 ```
 
-Trace an entire `TestSuite` as a parent span with one child span per test result. This creates a tree structure in the tracing backend where the root span represents the full test run and each child span represents an individual assertion.
-
-The parent span carries aggregate attributes (total count, pass count, fail count, score, total duration). Each child span carries the individual assertion attributes described in `trace_result`.
+Trace an entire list of results as a parent span (`mltk.test_suite`) with one child span per result. Creates a tree structure in the tracing backend. In no-op mode this returns immediately.
 
 #### Parameters
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `suite` | `TestSuite` | *(required)* | The mltk test suite to trace |
-| `run_name` | `str \| None` | `None` | Display name for the root span. Defaults to `"mltk-run"` if not provided. Use descriptive names like `"nightly-2024-03-15"` or `"pr-142-data-checks"`. |
+| `results` | `list[dict[str, Any]]` | *(required)* | List of result dicts (same format as `trace_result`). |
 
 #### Parent span attributes
 
@@ -258,8 +237,6 @@ The parent span carries aggregate attributes (total count, pass count, fail coun
 | `mltk.suite.total` | `int` | `156` | Total number of assertions |
 | `mltk.suite.passed` | `int` | `153` | Number of passing assertions |
 | `mltk.suite.failed` | `int` | `3` | Number of failing assertions |
-| `mltk.suite.score` | `float` | `98.1` | Pass rate as percentage |
-| `mltk.suite.duration_ms` | `float` | `45230.0` | Sum of all assertion durations |
 
 #### Span hierarchy
 
@@ -279,24 +256,19 @@ mltk-run (parent)                     -- 45.2s total, 153/156 passed
 
 ```python
 from mltk.integrations.otel import MltkTracer
-from mltk.core.result import TestSuite, TestResult, Severity
 
 tracer = MltkTracer(service_name="ml-tests", endpoint="http://jaeger:4317")
 
-# Assume `suite` is populated from a pytest run or manual test execution
-suite = TestSuite()
-suite.add(TestResult(name="data.schema", passed=True,
-                     severity=Severity.CRITICAL, message="ok", duration_ms=800))
-suite.add(TestResult(name="data.drift[age]", passed=False,
-                     severity=Severity.CRITICAL, message="PSI 0.35 > 0.2",
-                     duration_ms=2300,
-                     details={"psi_score": 0.35, "threshold": 0.2}))
-suite.add(TestResult(name="model.accuracy", passed=True,
-                     severity=Severity.CRITICAL, message="0.94 >= 0.90",
-                     duration_ms=1200,
-                     details={"accuracy": 0.94, "threshold": 0.90}))
+results = [
+    {"name": "data.schema", "passed": True, "severity": "critical",
+     "message": "ok", "duration_ms": 800.0},
+    {"name": "data.drift[age]", "passed": False, "severity": "critical",
+     "message": "PSI 0.35 > 0.2", "duration_ms": 2300.0},
+    {"name": "model.accuracy", "passed": True, "severity": "critical",
+     "message": "0.94 >= 0.90", "duration_ms": 1200.0},
+]
 
-tracer.trace_suite(suite, run_name="nightly-2024-03-15")
+tracer.trace_suite(results)
 ```
 
 ---
@@ -304,28 +276,27 @@ tracer.trace_suite(suite, run_name="nightly-2024-03-15")
 ### export_json
 
 ```python
-def export_json(self, suite: TestSuite, run_name: str | None = None) -> dict
+def export_json(self, results: list[dict[str, Any]], output_path: str) -> str
 ```
 
-Export a test suite as a JSON-compatible dictionary in a trace-like format. This method does not require OpenTelemetry to be installed -- it produces the same logical structure (parent span with child spans) as `trace_suite`, but serialized as a plain Python dict.
+Export results as OTLP-compatible JSON. This method does **not** require OpenTelemetry to be installed — it performs pure dict-to-JSON serialization using only the standard library. The output follows the OTLP `ResourceSpans` schema for import into Jaeger, Grafana Tempo, or custom tools.
 
 Use `export_json` for:
 
-- **Offline analysis.** Save trace data to a file when no OTEL backend is available, then import it later.
-- **CI artifacts.** Attach the JSON export as a build artifact for post-run analysis.
-- **Custom dashboards.** Feed the structured data into your own visualization tools.
-- **Testing.** Verify tracing behavior without running an OTEL collector.
+- **Offline analysis.** Save trace data when no OTEL collector is running.
+- **CI artifacts.** Attach as a build artifact for post-run analysis.
+- **Custom dashboards.** Feed structured data into your own tools.
 
 #### Parameters
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `suite` | `TestSuite` | *(required)* | The mltk test suite to export |
-| `run_name` | `str \| None` | `None` | Run identifier. Defaults to `"mltk-run"`. |
+| `results` | `list[dict[str, Any]]` | *(required)* | List of result dicts (same format as `trace_result`). |
+| `output_path` | `str` | *(required)* | File path where the JSON will be written. Parent dirs are created automatically. |
 
 #### Returns
 
-A dictionary with the following structure:
+The absolute path of the written file (str). The JSON structure follows the OTLP `ResourceSpans` schema:
 
 ```python
 {
@@ -603,6 +574,135 @@ pytest --mltk-report \
        --mltk-server-project my-project
 # Traces are emitted automatically via conftest.py
 # Results are submitted to the mltk server via the --mltk-server flag
+```
+
+---
+
+## Environment Variables
+
+mltk respects standard OpenTelemetry environment variables. No mltk-specific env vars are needed.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector endpoint (gRPC). Used when no `endpoint` is passed to `MltkTracer()`. |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | Transport protocol. `MltkTracer` uses gRPC; `register_phoenix` uses HTTP. |
+| `OTEL_SERVICE_NAME` | — | Service name (alternative to `service_name` constructor arg). |
+| `OTEL_RESOURCE_ATTRIBUTES` | — | Additional resource attributes as `key=value,key=value`. |
+
+Example `.env` for local development:
+
+```bash
+# Point MltkTracer at a local Jaeger instance
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+
+# Or point at Phoenix
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006/v1/traces
+```
+
+Example GitHub Actions secrets:
+
+```yaml
+env:
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTLP_ENDPOINT }}
+```
+
+---
+
+## OpenInference Attributes (Phoenix Native UI)
+
+When exporting spans, mltk automatically includes [OpenInference](https://github.com/Arize-ai/openinference) semantic attributes on every assertion span:
+
+| Attribute | Value | Purpose |
+|-----------|-------|---------|
+| `openinference.span.kind` | `"EVALUATION"` | Phoenix displays span in Evaluations tab |
+| `eval.name` | assertion name | Evaluation name in Phoenix UI |
+| `eval.score` | `1.0` (pass) / `0.0` (fail) | Numeric score for aggregation |
+| `eval.label` | `"pass"` / `"fail"` | Human-readable label |
+
+This means mltk assertions appear as first-class evaluations in Phoenix -- not generic spans. No extra configuration needed.
+
+---
+
+## End-to-End Workflow Examples
+
+### Workflow 1: Local Phoenix + mltk Assertions
+
+```bash
+# 1. Start Phoenix locally
+pip install arize-phoenix
+phoenix serve  # Runs on http://localhost:6006
+
+# 2. Install mltk with Phoenix support
+pip install mltk[phoenix]
+```
+
+```python
+# 3. Configure and run
+from mltk.integrations.phoenix import register_phoenix
+from mltk.integrations.otel import MltkTracer
+from mltk.data import assert_no_nulls, assert_no_drift
+
+# One-line setup — all spans go to Phoenix
+register_phoenix()
+
+# Run assertions (they emit OTEL spans automatically via MltkTracer)
+tracer = MltkTracer()
+results = []
+
+r1 = assert_no_nulls(df, columns=["age", "income"])
+results.append(r1.to_dict())
+
+r2 = assert_no_drift(train_df, serve_df)
+results.append(r2.to_dict())
+
+# Send to Phoenix
+tracer.trace_suite(results)
+
+# Open http://localhost:6006 — assertions appear in Evaluations tab
+```
+
+### Workflow 2: CI/CD with JSON Export (No Collector)
+
+```yaml
+# GitHub Actions — export traces as CI artifact
+- name: Run ML tests with tracing
+  run: |
+    python -c "
+    from mltk.integrations.otel import MltkTracer
+    from mltk.data import assert_no_nulls
+    import pandas as pd
+
+    df = pd.read_csv('data/features.csv')
+    r = assert_no_nulls(df)
+    tracer = MltkTracer(service_name='ci-ml-tests')
+    tracer.export_json([r.to_dict()], 'mltk-reports/spans.json')
+    "
+
+- name: Upload trace artifact
+  uses: actions/upload-artifact@v4
+  with:
+    name: ml-test-traces
+    path: mltk-reports/spans.json
+```
+
+### Workflow 3: Langfuse Production Scoring
+
+```python
+from mltk.integrations.langfuse import LangfuseAdapter
+from mltk.domains.llm import assert_faithfulness
+
+# Wrap assertion as Langfuse scorer
+scorer = LangfuseAdapter(
+    assert_faithfulness,
+    name="rag_faithfulness",
+)
+
+# Score a production trace (posts result to Langfuse dashboard)
+scorer.score(
+    trace_id="trace-abc-123",
+    answer="Paris is the capital of France.",
+    context="France is in Europe. Its capital is Paris.",
+)
 ```
 
 ---

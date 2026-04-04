@@ -16,12 +16,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mltk-devops` skill — DevOps persona: CI/CD gates, server setup, monitoring, MCP config (221 lines)
 - Updated `scripts/generate_skill_index.py` to install all `mltk-*.md` skills from repo
 
+### Fixed
+
+#### S90-S92 Audit Fixes
+- **SEC-2**: `similarity.py` now uses `_backends.embedding_cosine_pairs()` instead of direct `SentenceTransformer` — restores supply-chain revision pinning
+- **SEC-2**: `_backends.py` uses `revision=` kwarg directly (not `model_kwargs`) for correct SentenceTransformer API
+- `server.py`: `issue_url` field now properly stringified (was passing raw object for Jira)
+- `jira_adapter.py`: `add_remote_link` and `update_issue` now log warnings on failure instead of silent swallow
+- `github_adapter.py`: narrowed `except Exception` to `json.JSONDecodeError/ValueError`; moved `urllib.parse` to top-level import
+- `judge.py`: empty-prompts pass case uses `Severity.INFO` (was `CRITICAL`)
+- `similarity.py`: removed unused `numpy` import after refactor
+- `docs/api/otel.md`: fixed all 3 `MltkTracer` method signatures (were documenting wrong API)
+- `docs/api/llm.md`: fixed code-gen section (wrong module `code_gen` → `codegen`, 4 wrong function names)
+- `docs/api/llm.md`: `assert_summary_conciseness` → `assert_summary_compression` (function didn't exist)
+- `docs/api/llm.md`: extraction payload categories 8 → 9
+- `BACKLOG.md`: header S91→S92, 228→230 assertions; footer updated
+- `CHANGELOG.md`: source file count 9→7
+
+### Added
+
+#### OTLP / OpenInference (S92, IP-6)
+- OpenInference span attributes on all assertion spans (`openinference.span.kind=EVALUATION`, `eval.name`, `eval.score`, `eval.label`)
+- Phoenix displays mltk assertions in native Evaluations tab (not generic spans)
+- Added to both live `trace_result()` and JSON `export_json()` code paths
+- Environment variable documentation (OTEL_EXPORTER_OTLP_ENDPOINT, etc.)
+- End-to-end workflow examples: local Phoenix, CI/CD JSON export, Langfuse scoring
+- 2 new tests for OpenInference attribute verification
+
 #### Embedding Model Upgrade (S92)
 - Default embedding model upgraded from `all-MiniLM-L6-v2` (84-85% STS) to `all-mpnet-base-v2` (87-88% STS)
 - Validated by SemScore paper (Jan 2024) as best sentence-transformer for LLM evaluation
 - Pinned revision `e8c3b32edf5434bc` for supply-chain defense (SEC-2)
 - MiniLM still supported — pass `embedding_model="all-MiniLM-L6-v2"` for lightweight mode
-- Updated all 9 source files, 4 doc files, 2 test files, regenerated API index
+- Updated all 7 source files, 4 doc files, 2 test files, regenerated API index
 
 #### Quick Wins (S92)
 - `"semantic_equivalence"` criterion in LLM-as-Judge `DEFAULT_CRITERIA` — rubric for meaning-preserving evaluation
