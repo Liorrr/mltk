@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [0.11.0] — 2026-04-24
+## [0.11.1] — 2026-04-24
 ### Added
 
 #### Persona Skills (S92)
@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `mltk-pm` skill — PM persona: ML Test Score, compliance, risk assessment, stakeholder reports (171 lines)
 - `mltk-devops` skill — DevOps persona: CI/CD gates, server setup, monitoring, MCP config (221 lines)
 - Updated `scripts/generate_skill_index.py` to install all `mltk-*.md` skills from repo
+
+### Changed
+
+#### License
+- **License changed from Apache 2.0 to Elastic License 2.0 (ELv2).** Free for internal, non-commercial, and evaluation use. Redistribution as a hosted/managed service requires a commercial license. See [LICENSE](LICENSE) and [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md). Prior releases (v0.9.0 and earlier) remain under Apache 2.0.
 
 ### Fixed
 

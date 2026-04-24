@@ -1,6 +1,6 @@
 # Release Process
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md#release-process) for the full workflow.
+See `CONTRIBUTING.md` in the repo root for the full workflow.
 
 ## Quick reference
 

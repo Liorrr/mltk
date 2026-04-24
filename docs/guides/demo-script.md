@@ -221,7 +221,7 @@ Pause. Let hands go up. Nod.
 
 ### "Is this open source? What's the license?"
 
-> "Apache 2.0. Fully open source on GitHub and PyPI. The repo is `Liorrr/mltk`. No commercial license, no usage limits, no telemetry."
+> "Elastic License 2.0. Free for internal use — no usage limits, no telemetry. The repo is `Liorrr/mltk` on GitHub. Commercial licensing available for products built on top of it."
 
 ### "Does it work with LangChain / LlamaIndex?"
 
@@ -247,7 +247,7 @@ Pause. Let hands go up. Nod.
 > "Third: **red team plus multimodal, zero dependencies**. 56 attack payloads built in, encoding mutations, OWASP mapping -- all running offline with no external APIs. No other tool combines security scanning and evaluation testing in one pip install."
 
 ### Call to Action (15 sec)
-> "`pip install mltk`. The repo is `Liorrr/mltk` on GitHub. Apache 2.0. Star it, try it, break it, tell us what's missing."
+> "`pip install mltk`. The repo is `Liorrr/mltk` on GitHub. Free for internal use. Star it, try it, break it, tell us what's missing."
 
 ### Close (15 sec)
 > "Questions?"
@@ -317,7 +317,7 @@ BEAT 4:  "Generate test data, test RAG, zero human labeling. Runs in CI."
 BEAT 5:  "56 attacks in under a second. Your security gate."
 BEAT 6:  "230 assertions. One pip install. pytest for ML."
 
-CLOSE:   pip install mltk | GitHub: Liorrr/mltk | Apache 2.0
+CLOSE:   pip install mltk | GitHub: Liorrr/mltk | Elastic 2.0
          "Questions?"
 ```
 

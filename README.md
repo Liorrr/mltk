@@ -2,7 +2,7 @@
 
 **pytest for ML** -- unified testing across the entire ML lifecycle.
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
 [![Tests](https://img.shields.io/badge/tests-4247%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
@@ -65,7 +65,7 @@ Run with HTML report:
 pytest --mltk-report
 ```
 
-## What's Included (v0.11.0)
+## What's Included (v0.11.1)
 
 **Behavioral consistency testing** — 7 assertions (paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency, ParaphraseGenerator) that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation: lexical (token F1), embedding, NLI, LLM-as-Judge. No other ML testing tool ships these as pytest assertions.
 
@@ -291,7 +291,7 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | Safety taxonomy | No | No | No | Yes (red-teaming) | Yes (OWASP) | No | **Yes (per-category)** |
 | LLM observability | No | No | No | No | No | **Yes** | No |
 | OWASP LLM scanning | No | No | No | No | **Yes** | No | **Yes** |
-| License | Elastic | AGPL | Apache 2.0 | Apache 2.0 | Apache 2.0 | Elastic | **Apache 2.0** |
+| License | Elastic | AGPL | Apache 2.0 | Apache 2.0 | Apache 2.0 | Elastic | **Elastic 2.0** |
 | Core deps | Heavy | Heavy | Medium | Heavy (LLM) | Heavy | Heavy | **2 (numpy, pandas)** |
 
 ## Documentation
@@ -303,4 +303,5 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 
 ## License
 
-Apache-2.0
+[Elastic License 2.0](LICENSE) — free for internal use; commercial licensing
+available at lior1cc@gmail.com. See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md).

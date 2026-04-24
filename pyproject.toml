@@ -4,18 +4,18 @@ build-backend = "maturin"
 
 [project]
 name = "mltk"
-version = "0.11.0"
+version = "0.11.1"
 description = "pytest for ML — unified testing across the entire ML lifecycle"
-license = {text = "Apache-2.0"}
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
-authors = [{name = "Lior"}]
+authors = [{name = "Lior Cohen"}]
 readme = "README.md"
 keywords = ["ml", "testing", "pytest", "data-quality", "drift-detection", "mlops"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

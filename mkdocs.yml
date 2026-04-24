@@ -38,6 +38,7 @@ nav:
       - VS Code Integration: guides/vscode-integration.md
       - Playwright Integration: guides/playwright-integration.md
       - Demo Script: guides/demo-script.md
+      - Release Process: dev/release.md
       - YAML Test Definitions: api/yaml-tests.md
       - YAML Red Team Configuration: api/yaml-red-team.md
       - Data Contracts: api/contracts.md
