@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 230 assertions, 4225+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S92: 230 assertions, 4247+ tests, 38 Rust tests) — v0.9.0
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -18,7 +18,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S2: 4 drift methods, 14 PII patterns, Rust KS/PSI
 - [x] S3: 9 model metrics, regression, slicing, calibration
 - [x] S4: 5 bias methods, adversarial, --mltk-report
-- [x] S5: Inference (latency, throughput, contract), 5 CLI commands
+- [x] S5: Inference (latency, throughput, contract), 28 CLI commands
 - [x] S6: HTML reports, ML Test Score, pipeline reproducibility
 - [x] S7: CV (IoU, mAP, frame accuracy, temporal consistency, top-K)
 - [x] S8: NLP (BLEU, ROUGE, NER, prompt injection), Speech (WER, CER, RTF)
@@ -64,7 +64,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S38: FDA 21 CFR Part 11 audit trail, compliance PDF export, CLI commands (fda-audit, compliance-pdf)
 - [x] S39: Resource summarization (trend analysis, flaky detection, recommendations), visual diff reports
 - [x] S40: Linear adapter (GraphQL), Asana adapter (REST), data lineage tracking (assert_lineage_complete)
-- [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 24 CLI commands total
+- [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 28 CLI commands total
 
 ### Phase G: Audit & Research (S42-S46)
 - [x] S42-S46: Full audit (21 subagent review, 189 suggestions), P0/P1 fixes, 12-topic research offensive
@@ -166,6 +166,18 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **CG-5**: S80 — Phoenix + Langfuse adapters, assert_trace_quality, register_phoenix
 - [ ] ~~**CG-6**: Automated prompt optimization~~ — REMOVED (dilutes "pytest for ML" message)
 
+### First-Mover Assertions (Epic Plan — not yet tracked)
+*Source: Obsidian v0.9.0 Epic Plan — First-Mover Opportunities*
+- [ ] `assert_no_unicode_attacks` — Zero-width, homoglyph, bidi attack detection (defense exists in tokenizer, user-facing assertion missing)
+- [ ] `assert_pipeline_stages_compatible` — Inter-stage schema validation (distinct from data contracts)
+- [ ] `assert_pipeline_resilient` — ML chaos engineering primitives (inject faults, assert graceful degradation)
+- [ ] `assert_combinatorial_coverage` — NIST Covering Arrays / SDCC input space coverage
+
+### Structured Output & Cost Tracking
+*Source: roadmap.md Tier 2-3, Competitors & Positioning*
+- [ ] JSON Schema / Structured Output Validation — validate LLM outputs against JSON Schema, Pydantic models (competitors DeepEval, Promptfoo have this; jsonschema dep already present from S75)
+- [ ] Cost and Token Tracking per Assertion/Suite — budget alerts, cost-per-suite reports (provider-specific adapters needed)
+
 ### Advanced Features
 - [ ] Test impact analysis (dependency graph)
 - [ ] Anomaly detection on test result time series
@@ -205,6 +217,15 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Audit log export (SOC 2 compatible)
 - [x] Custom compliance framework builder
 - [x] HIPAA compliance report template
+
+### MCP Server Expansion
+*Source: docs/research/agent-integration-research.md*
+- [ ] MCP HTTP transport + OAuth 2.1 — remote/enterprise mode (stdio-only limits to local use)
+- [ ] MCP registry publishing — publish to Smithery, mcp.so for discoverability
+
+### Claude Code-Native Project Skeleton
+*Source: Obsidian MLTK/Idea - Claude Code Native Project.md*
+- [ ] Full `.claude/` folder shipped with repo — CLAUDE.md at root, subagents, workflow recipes, hooks, memory seed (4 persona skills done in S91-S92; surrounding infrastructure not)
 
 ### Claude Code Skills for mltk
 *Skills that teach Claude Code how to use mltk for specific roles*

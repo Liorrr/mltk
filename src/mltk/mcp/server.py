@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from mltk import __version__
+
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError:
@@ -156,7 +158,7 @@ def create_server() -> FastMCP:
             "Install with: pip install mltk[mcp]"
         )
     mcp = FastMCP(
-        "mltk", version="0.9.0",
+        "mltk", version=__version__,
         description=(
             "ML Test Kit -- pytest for ML. "
             "Scan, test, evaluate, and report."
@@ -549,7 +551,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     msg = r.get("message", r.get("error", ""))
                     tag = f": {msg}" if msg else ""
                     lines.append(f"- **{nm}** [{st}]{tag}")
-            lines += ["", "---", "*mltk v0.9.0*"]
+            lines += ["", "---", f"*mltk v{__version__}*"]
             report_text = "\n".join(lines)
             n = len(results)
             p = sum(1 for r in results if _is_pass(r))

@@ -324,4 +324,4 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 - [LLM Judge Defaults](judge-defaults.md) -- configure a default judge once so every subjective assertion uses it automatically
 - [Multimodal Evaluation](multimodal.md) -- LLM-as-Judge assertions for image-text evaluation
 - [Behavioral Consistency](behavioral-consistency.md) -- uses `method="llm"` for LLM-as-Judge dispatch
-- [Assertion Index](assertion-index.md) -- full list of all 224 assertions
+- [Assertion Index](assertion-index.md) -- full list of all 230 assertions

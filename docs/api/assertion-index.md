@@ -1,6 +1,6 @@
 # Assertion Reference
 
-Complete index of all 224 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
+Complete index of all 230 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
 
 ---
 

@@ -58,7 +58,7 @@ Pause. Let hands go up. Nod.
 > "That's why we built mltk. The short version: **pytest catches code bugs. mltk catches ML bugs.**"
 
 ### Stats (30 sec)
-> "224 assertions covering the full ML lifecycle. Data quality, model validation, behavioral consistency, RAG evaluation, red team security, compliance, production monitoring. Native pytest integration -- it's a plugin, not a separate tool. One pip install. Today I'll show you what that looks like in practice."
+> "230 assertions covering the full ML lifecycle. Data quality, model validation, behavioral consistency, RAG evaluation, red team security, compliance, production monitoring. Native pytest integration -- it's a plugin, not a separate tool. One pip install. Today I'll show you what that looks like in practice."
 
 ---
 
@@ -197,7 +197,7 @@ Pause. Let hands go up. Nod.
   - Point at total time: "All of this in under a second."
 
 #### AFTER (the close, 30 sec)
-> "224 assertions. One pip install. Native pytest. You don't learn a new tool -- you write `assert_paraphrase_invariance` the same way you write `assert True`. It runs in CI, it runs locally, it runs in your existing test suite."
+> "230 assertions. One pip install. Native pytest. You don't learn a new tool -- you write `assert_paraphrase_invariance` the same way you write `assert True`. It runs in CI, it runs locally, it runs in your existing test suite."
 
 > "This is pytest for ML."
 
@@ -209,7 +209,7 @@ Pause. Let hands go up. Nod.
 
 ### "How does this compare to DeepEval / RAGAS / Promptfoo?"
 
-> "They're LLM-only tools. DeepEval has ~50 LLM metrics, Promptfoo has prompt evaluation with 135 plugins. Both are strong in their lane. But they don't do data quality, drift detection, training bug detection, fairness testing, or compliance frameworks. mltk covers the full ML lifecycle -- 224 assertions from data ingestion to production monitoring. Plus we have 7 behavioral consistency assertions that nobody else ships. And our core has only 2 dependencies -- numpy and pandas. DeepEval requires an LLM for most assertions; mltk works offline by default."
+> "They're LLM-only tools. DeepEval has ~50 LLM metrics, Promptfoo has prompt evaluation with 135 plugins. Both are strong in their lane. But they don't do data quality, drift detection, training bug detection, fairness testing, or compliance frameworks. mltk covers the full ML lifecycle -- 230 assertions from data ingestion to production monitoring. Plus we have 7 behavioral consistency assertions that nobody else ships. And our core has only 2 dependencies -- numpy and pandas. DeepEval requires an LLM for most assertions; mltk works offline by default."
 
 ### "Can I use this with my existing pytest suite?"
 
@@ -240,7 +240,7 @@ Pause. Let hands go up. Nod.
 ## 5. Closing (1 min)
 
 ### Recap the 3 Differentiators (30 sec)
-> "Three things to remember. First: **breadth**. 224 assertions covering the full ML lifecycle. No other tool does data quality AND model testing AND LLM evaluation AND security AND compliance in one package."
+> "Three things to remember. First: **breadth**. 230 assertions covering the full ML lifecycle. No other tool does data quality AND model testing AND LLM evaluation AND security AND compliance in one package."
 
 > "Second: **behavioral consistency**. 7 assertions that catch models memorizing phrasing instead of learning concepts. We're the first and only tool shipping this as pytest assertions."
 
@@ -307,7 +307,7 @@ Print this section and keep it on the podium:
 
 ```
 OPENING: "pytest catches code bugs. mltk catches ML bugs."
-         224 assertions, native pytest, one pip install.
+         230 assertions, native pytest, one pip install.
 
 BEAT 1:  "The model looks great at 92%. But Group B is at 73%."
 BEAT 2:  "Three lines of code. PII and nulls. No ML expertise needed."
@@ -315,7 +315,7 @@ BEAT 3:  ** PEAK ** "No other tool tests this." Point at DIVERGENT.
          Slow down. Let it land.
 BEAT 4:  "Generate test data, test RAG, zero human labeling. Runs in CI."
 BEAT 5:  "56 attacks in under a second. Your security gate."
-BEAT 6:  "224 assertions. One pip install. pytest for ML."
+BEAT 6:  "230 assertions. One pip install. pytest for ML."
 
 CLOSE:   pip install mltk | GitHub: Liorrr/mltk | Apache 2.0
          "Questions?"

@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: mltk-bump-refresh
+        name: mltk doc count refresh
+        entry: python scripts/bump.py refresh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

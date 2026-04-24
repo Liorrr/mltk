@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.11.0] — 2026-04-24
+### Added
+
 #### Persona Skills (S92)
 - `mltk-qa` skill — QA engineer persona: scan → triage → assert → report workflow (174 lines)
 - `mltk-dev` skill — Developer persona: TDD, failure fixes, test generation from scans (176 lines)

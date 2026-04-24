@@ -143,6 +143,32 @@ tests/        pytest test suite (204 tests)
 docs/         MkDocs documentation
 ```
 
+## Release Process
+
+| Command | Purpose |
+|---|---|
+| `python scripts/bump.py refresh` | Update all count references from source (auto-run by pre-commit) |
+| `python scripts/bump.py verify` | Check for drift, exit non-zero if found (CI gate) |
+| `python scripts/bump.py release --dry-run X.Y.Z` | Preview all changes a release would make |
+| `python scripts/bump.py release X.Y.Z` | Bump version, roll CHANGELOG, refresh counts |
+
+### Pre-commit hook
+
+Install once:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+On every commit, the hook runs `bump.py refresh` and auto-stages any count corrections so they land in your commit.
+
+### Shipping a release
+
+1. Curate `CHANGELOG.md` `[Unreleased]` section manually.
+2. `python scripts/bump.py release --dry-run X.Y.Z` — review diff.
+3. `python scripts/bump.py release X.Y.Z` — writes files and git-adds them.
+4. `git commit -m "chore: release vX.Y.Z"` then `git tag vX.Y.Z`.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under Apache-2.0.

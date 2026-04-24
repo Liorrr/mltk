@@ -377,4 +377,4 @@ def test_reward_function_sanity(env, trained_agent):
 ## Related
 
 - [Multimodal LLM Evaluation](multimodal.md) -- LLM-as-Judge path (`assert_prompt_faithfulness`, `assert_image_coherence`, etc.) and numerical path (`assert_clip_score`, `assert_object_hallucination`, `assert_edit_preservation`, `assert_ocr_accuracy`)
-- [Assertion Index](assertion-index.md) -- full list of all 224 assertions
+- [Assertion Index](assertion-index.md) -- full list of all 230 assertions

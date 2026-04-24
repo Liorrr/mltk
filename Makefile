@@ -1,7 +1,9 @@
-.PHONY: install test lint fmt rust-test rust-check clean
+.PHONY: install test lint fmt rust-test rust-check clean bump-refresh bump-verify bump-release
 
 install:
 	pip install -e ".[dev]"
+	pip install pre-commit
+	pre-commit install
 
 test:
 	pytest --cov=mltk --cov-report=term-missing -q

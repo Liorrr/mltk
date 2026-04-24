@@ -43,7 +43,11 @@ site/
 # Local config (per-developer settings)
 mltk.local.yaml
 .env
-.claude/settings.local.json
+.claude/
+
+# Graphify knowledge graph (generated, per-developer)
+graphify-out/
+.graphifyignore
 
 # OS
 .DS_Store

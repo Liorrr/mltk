@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "mltk"
-version = "0.9.0"
+version = "0.11.0"
 description = "pytest for ML — unified testing across the entire ML lifecycle"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
@@ -70,6 +70,7 @@ dev = [
     "syrupy>=4.0",
     "ruff>=0.3",
     "mypy>=1.8",
+    "pre-commit>=3.5",
 ]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.24"]
 
