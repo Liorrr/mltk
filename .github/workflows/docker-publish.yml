@@ -1,3 +1,7 @@
+# Required secrets (Settings → Secrets and variables → Actions → Secrets):
+#   DOCKERHUB_USERNAME — Docker Hub account login username (e.g. liorcohenil)
+#   DOCKERHUB_TOKEN    — Docker Hub access token (Read/Write scope)
+#                        Create at: hub.docker.com → Account Settings → Security
 name: Publish Docker images
 
 on:
@@ -43,7 +47,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: liorrr
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Compute image tags
@@ -112,7 +116,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: liorrr
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Compute image tags
