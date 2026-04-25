@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.12.0] — 2026-04-25
+### Added
+
 #### Container & Kubernetes Friendliness (S93)
 - **`mltk.container` module** — Trivy-backed container image security scanning
   - `assert_container_vulnerabilities(image, max_critical=0, max_high=0)` — pytest-native CVE threshold assertion

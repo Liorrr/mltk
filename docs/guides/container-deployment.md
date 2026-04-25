@@ -39,8 +39,8 @@ docker pull liorrr/mltk:full
 Pin to a specific release in production:
 
 ```bash
-docker pull liorrr/mltk:v0.11.1
-docker pull liorrr/mltk:v0.11.1-full
+docker pull liorrr/mltk:v0.12.0
+docker pull liorrr/mltk:v0.12.0-full
 ```
 
 ## 2. Quick smoke test

@@ -42,6 +42,7 @@ PROSE_VERSION_TARGETS: list[str] = [
     "CLAUDE.md",
     "docs/index.md",
     "docs/guides/demo-script.md",
+    "docs/guides/container-deployment.md",
 ]
 
 COUNT_TARGETS: list[str] = [
@@ -238,6 +239,16 @@ def _replace_version_in_text(
     return _VER_RE.sub(_sub_ver, text)
 
 
+_BACKLOG_HEADER_RE = re.compile(
+    r"(## DONE \(S0-S\d+:.*?\))\s*—\s*v[\d.]+(?: / v[\d.]+ pending)?"
+)
+
+
+def _update_backlog_header(text: str, new_ver: str) -> str:
+    """Replace the DONE header's version suffix with the new release version."""
+    return _BACKLOG_HEADER_RE.sub(rf"\1 — v{new_ver}", text)
+
+
 def _roll_changelog(text: str, new_ver: str) -> str:
     today = date.today().isoformat()
     new_header = f"## [{new_ver}] — {today}"
@@ -364,6 +375,15 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
     if changelog_new != changelog_orig:
         diffs.append(_unified_diff(CHANGELOG, changelog_orig, changelog_new))
         writes.append((CHANGELOG, changelog_new))
+
+    # BACKLOG DONE header version
+    backlog_path = REPO_ROOT / "BACKLOG.md"
+    if backlog_path.exists():
+        backlog_orig = backlog_path.read_text(encoding="utf-8")
+        backlog_new = _update_backlog_header(backlog_orig, new_ver)
+        if backlog_new != backlog_orig:
+            diffs.append(_unified_diff(backlog_path, backlog_orig, backlog_new))
+            writes.append((backlog_path, backlog_new))
 
     # Count refresh + prose version bump for doc targets
     count_modified_paths: list[Path] = []
