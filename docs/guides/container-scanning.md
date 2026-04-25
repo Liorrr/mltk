@@ -103,7 +103,7 @@ spec:
           restartPolicy: Never
           containers:
           - name: scanner
-            image: ghcr.io/liorrr/mltk:full
+            image: liorrr/mltk:full
             resources:
               requests:
                 memory: "256Mi"

@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`/metrics` endpoint** on FastAPI server — Prometheus exposition format (opt-in: `pip install mltk[metrics]`); returns HTTP 404 if `prometheus_client` not installed
   - Counters: `mltk_assertions_total{status,category}`, `mltk_container_scan_vulnerabilities_total{severity}`
   - Histogram: `mltk_assertion_duration_seconds{category}`
-- **Multi-architecture Docker images** on `ghcr.io/liorrr/mltk` (published on `v*` tags via `docker-publish.yml`):
+- **Multi-architecture Docker images** on Docker Hub (`liorrr/mltk`) and GHCR (`ghcr.io/liorrr/mltk`) (published on `v*` tags via `docker-publish.yml`):
   - `:latest` / `:<version>` — `python:3.12-slim` + `mltk[all]`, `linux/amd64` + `linux/arm64`
   - `:full` / `:<version>-full` — `:latest` + Trivy 0.60.0 bundled at `/usr/local/bin/trivy`
 - New docs: `guides/container-scanning.md`, `guides/container-deployment.md`
