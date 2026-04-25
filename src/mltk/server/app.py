@@ -51,4 +51,19 @@ def create_app(db_path: str = "mltk_server.db") -> FastAPI:
     app.state.storage = Storage(db_path)
     app.include_router(static_router)  # dashboard at /
     app.include_router(router, prefix="/api")
+
+    from mltk.server.metrics import metrics_response  # noqa: PLC0415
+
+    @app.get("/metrics", include_in_schema=False)
+    def get_metrics() -> Response:
+        """Expose Prometheus metrics. Returns 404 if mltk[metrics] not installed."""
+        result = metrics_response()
+        if result is None:
+            return Response(
+                status_code=404,
+                content="Metrics disabled. Install: pip install mltk[metrics]",
+            )
+        body, content_type = result
+        return Response(content=body, media_type=content_type)
+
     return app

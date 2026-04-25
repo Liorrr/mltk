@@ -1,0 +1,119 @@
+name: Publish Docker images
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build ${{ matrix.target }} (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [runtime-slim, runtime-full]
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            platform_pair: linux-amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            platform_pair: linux-arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Compute image tags
+        id: tags
+        shell: bash
+        run: |
+          ref_tag="${GITHUB_REF_NAME}"
+          # Strip leading 'v' to get bare version for pip install
+          pip_version="${ref_tag#v}"
+          if [ "${{ matrix.target }}" = "runtime-slim" ]; then
+            version_tag="ghcr.io/liorrr/mltk:${ref_tag}"
+            moving_tag="ghcr.io/liorrr/mltk:latest"
+          else
+            version_tag="ghcr.io/liorrr/mltk:${ref_tag}-full"
+            moving_tag="ghcr.io/liorrr/mltk:full"
+          fi
+          {
+            echo "version_tag=${version_tag}"
+            echo "moving_tag=${moving_tag}"
+            echo "pip_version=${pip_version}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push (${{ matrix.platform }}, ${{ matrix.target }})
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: ${{ matrix.target }}
+          platforms: ${{ matrix.platform }}
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.tags.outputs.version_tag }}-${{ matrix.platform_pair }}
+            ${{ steps.tags.outputs.moving_tag }}-${{ matrix.platform_pair }}
+          # Pin to the exact released version so the image matches tagged source.
+          # The build fails loudly if PyPI does not yet have this version.
+          build-args: |
+            MLTK_PIP_TARGET=mltk[all]==${{ steps.tags.outputs.pip_version }}
+          cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform_pair }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}-${{ matrix.platform_pair }}
+
+  manifest:
+    name: Create multi-arch manifest (${{ matrix.target }})
+    needs: build-and-push
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [runtime-slim, runtime-full]
+    steps:
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Compute image tags
+        id: tags
+        shell: bash
+        run: |
+          ref_tag="${GITHUB_REF_NAME}"
+          if [ "${{ matrix.target }}" = "runtime-slim" ]; then
+            version_tag="ghcr.io/liorrr/mltk:${ref_tag}"
+            moving_tag="ghcr.io/liorrr/mltk:latest"
+          else
+            version_tag="ghcr.io/liorrr/mltk:${ref_tag}-full"
+            moving_tag="ghcr.io/liorrr/mltk:full"
+          fi
+          {
+            echo "version_tag=${version_tag}"
+            echo "moving_tag=${moving_tag}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create and push version manifest
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.version_tag }}" \
+            "${{ steps.tags.outputs.version_tag }}-linux-amd64" \
+            "${{ steps.tags.outputs.version_tag }}-linux-arm64"
+
+      - name: Create and push moving-tag manifest
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.moving_tag }}" \
+            "${{ steps.tags.outputs.moving_tag }}-linux-amd64" \
+            "${{ steps.tags.outputs.moving_tag }}-linux-arm64"

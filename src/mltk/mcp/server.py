@@ -934,6 +934,66 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             _log(traceback.format_exc())
             return _error(str(exc))
 
+    @mcp.tool()
+    def mltk_container_scan(
+        image: str,
+        max_critical: int = 0,
+        max_high: int = 0,
+    ) -> str:
+        """Scan a container image for vulnerabilities and secrets using Trivy.
+
+        Args:
+            image: Container image reference (e.g. ``"alpine:3.18"``).
+            max_critical: Maximum allowed CRITICAL severity CVEs.
+            max_high: Maximum allowed HIGH severity CVEs.
+        """
+        try:
+            from mltk.container.assertions import (  # noqa: PLC0415
+                assert_container_vulnerabilities,
+                assert_no_secrets_in_image,
+            )
+            from mltk.core.assertion import MltkAssertionError  # noqa: PLC0415
+        except ImportError as exc:
+            return _error(
+                str(exc),
+                recoverable=True,
+                suggested_action="Install the container extra: pip install mltk[container]",
+            )
+        try:
+            # Run both assertions.  MltkAssertionError = policy threshold exceeded
+            # (scan ran fine, image just failed).  Any other exception = infra error.
+            try:
+                vuln = assert_container_vulnerabilities(
+                    image, max_critical=max_critical, max_high=max_high,
+                )
+            except MltkAssertionError as exc:
+                vuln = exc.result
+            try:
+                secret = assert_no_secrets_in_image(image)
+            except MltkAssertionError as exc:
+                secret = exc.result
+            return _ok({
+                "image": image,
+                "passed": vuln.passed and secret.passed,
+                "vulnerabilities": {
+                    "passed": vuln.passed,
+                    "message": vuln.message,
+                    "details": vuln.details,
+                },
+                "secrets": {
+                    "passed": secret.passed,
+                    "message": secret.message,
+                    "details": secret.details,
+                },
+                "suggested_next_step": (
+                    "Run mltk_report to export results to HTML, "
+                    "or add assert_container_vulnerabilities to your pytest suite."
+                ),
+            })
+        except Exception as exc:  # noqa: BLE001
+            _log(traceback.format_exc())
+            return _error(str(exc))
+
 
 def _experiment_sandbox(
     parsed: dict[str, Any],

@@ -663,6 +663,9 @@ quality:
 
     app.add_typer(notify_app)
 
+    from mltk.cli.container import app as container_app  # noqa: PLC0415
+    app.add_typer(container_app)
+
     @app.command()
     def chat(
         results_json: str = typer.Option(

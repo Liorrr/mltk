@@ -26,6 +26,10 @@ from mltk.model import (
     assert_no_regression,
     assert_slice_performance,
 )
+from mltk.container import (
+    assert_container_vulnerabilities,
+    assert_no_secrets_in_image,
+)
 
 __all__ = [
     "__version__",
@@ -46,4 +50,7 @@ __all__ = [
     "assert_calibration",
     "assert_intersectional_fairness",
     "assert_no_bias",
+    # Container
+    "assert_container_vulnerabilities",
+    "assert_no_secrets_in_image",
 ]

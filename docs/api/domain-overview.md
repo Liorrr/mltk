@@ -26,7 +26,7 @@ For the complete assertion-by-assertion index (every parameter, every module pat
 | [MCP Evaluation](#mcp-evaluation) | 5 | `mltk.domains.llm.mcp` | Tool schema, tool selection, resource access, context window, error recovery |
 | [Observability](#observability) | 1 | `mltk.integrations.trace_quality` | Trace quality CI gate (Phoenix/Langfuse) |
 
-**Total: 230 assertions** across 15 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
+**Total: 232 assertions** across 15 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
 
 ---
 

@@ -1,6 +1,6 @@
 """Pytest fixtures for MCP server tests.
 
-Auto-creates mock MCP server with all 11 tools registered
+Auto-creates mock MCP server with all 12 tools registered
 before every test. No real ``mcp`` package needed.
 """
 from __future__ import annotations

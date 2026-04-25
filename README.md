@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-4247%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4291%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 ```bash
@@ -15,7 +15,7 @@ pip install mltk
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional testing does not catch these failures.
 
-**mltk** gives you **230 assertions** covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
+**mltk** gives you **232 assertions** covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
 
 ## Quick Start
 
@@ -99,7 +99,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (230 assertions)
+## Feature Matrix (232 assertions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -282,7 +282,7 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | Conformal prediction | No | No | No | No | No | No | **Yes** |
 | Composable TestSuite | No | No | No | No | No | No | **Yes** |
 | Code Generation | No | No | No | No | No | No | **Yes (4 assertions)** |
-| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (230 assertions)** |
+| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (232 assertions)** |
 | Behavioral consistency | No | No | No | No | No | No | **Yes (7 assertions)** |
 | NER PII detection | No | No | No | No | No | No | **Yes (4 methods)** |
 | Agent trace testing | No | No | No | Yes (basic) | No | Yes (tracing) | **Yes (9 assertions)** |

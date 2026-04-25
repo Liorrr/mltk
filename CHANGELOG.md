@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Container & Kubernetes Friendliness (S93)
+- **`mltk.container` module** — Trivy-backed container image security scanning
+  - `assert_container_vulnerabilities(image, max_critical=0, max_high=0)` — pytest-native CVE threshold assertion
+  - `assert_no_secrets_in_image(image)` — pytest-native exposed-secrets assertion
+  - `ContainerScanner` — sibling scanner returning `ScanFinding` objects (not a `Scanner` ABC subclass)
+  - `TrivyAdapter` — subprocess wrapper for Trivy JSON SchemaVersion 2 output; supports `scan_image` and `scan_fs`
+  - `_binary.py` — Trivy binary auto-discovery: `PATH` → `trivy-py` installed binary → `ImportError` with install hint
+- **MCP tool #12**: `mltk_container_scan(image, max_critical, max_high)` — scans image and returns structured JSON with pass/fail + CVE + secret details
+- **CLI**: `mltk container scan <image>` — with `--max-critical`, `--max-high`, `--severity-floor`, `--json`, `--junit-xml` flags; exit codes 0/1/2
+- **`/metrics` endpoint** on FastAPI server — Prometheus exposition format (opt-in: `pip install mltk[metrics]`); returns HTTP 404 if `prometheus_client` not installed
+  - Counters: `mltk_assertions_total{status,category}`, `mltk_container_scan_vulnerabilities_total{severity}`
+  - Histogram: `mltk_assertion_duration_seconds{category}`
+- **Multi-architecture Docker images** on `ghcr.io/liorrr/mltk` (published on `v*` tags via `docker-publish.yml`):
+  - `:latest` / `:<version>` — `python:3.12-slim` + `mltk[all]`, `linux/amd64` + `linux/arm64`
+  - `:full` / `:<version>-full` — `:latest` + Trivy 0.60.0 bundled at `/usr/local/bin/trivy`
+- New docs: `guides/container-scanning.md`, `guides/container-deployment.md`
+- New pyproject extras: `mltk[container]` (`trivy-py>=0.70`), `mltk[metrics]` (`prometheus-client>=0.20`); both included in `mltk[all]`
+- 61 new tests (4273+ total); 2 known pre-existing leakage scanner failures unchanged
+
 ### Changed
 
 ### Fixed

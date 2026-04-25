@@ -1,0 +1,69 @@
+{
+  "SchemaVersion": 2,
+  "ArtifactName": "alpine:3.18",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "OS": {
+      "Family": "alpine",
+      "Name": "3.18.6"
+    }
+  },
+  "Results": [
+    {
+      "Target": "alpine:3.18 (alpine 3.18.6)",
+      "Class": "os-pkgs",
+      "Type": "alpine",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2024-1234",
+          "PkgName": "openssl",
+          "InstalledVersion": "3.1.4-r1",
+          "FixedVersion": "3.1.5-r0",
+          "Severity": "CRITICAL",
+          "Title": "openssl: remote code execution via crafted certificate",
+          "Description": "A critical flaw in OpenSSL allows RCE."
+        },
+        {
+          "VulnerabilityID": "CVE-2024-2001",
+          "PkgName": "busybox",
+          "InstalledVersion": "1.36.1-r5",
+          "FixedVersion": "1.36.1-r7",
+          "Severity": "HIGH",
+          "Title": "busybox: heap overflow in tar parser",
+          "Description": "Heap overflow when parsing malicious tar archive."
+        },
+        {
+          "VulnerabilityID": "CVE-2024-2002",
+          "PkgName": "libcrypto3",
+          "InstalledVersion": "3.1.4-r1",
+          "FixedVersion": "3.1.5-r0",
+          "Severity": "HIGH",
+          "Title": "libcrypto3: denial of service via malformed input",
+          "Description": "DoS via crafted cryptographic payload."
+        },
+        {
+          "VulnerabilityID": "CVE-2024-3003",
+          "PkgName": "zlib",
+          "InstalledVersion": "1.2.13-r1",
+          "FixedVersion": "",
+          "Severity": "MEDIUM",
+          "Title": "zlib: information disclosure",
+          "Description": "Minor information disclosure in zlib."
+        }
+      ]
+    },
+    {
+      "Target": "app/config.env",
+      "Class": "secret",
+      "Secrets": [
+        {
+          "RuleID": "aws-access-key-id",
+          "Category": "AWS",
+          "Severity": "CRITICAL",
+          "Title": "AWS Access Key ID",
+          "Match": "AWS_ACCESS_KEY_ID=AKIA************"
+        }
+      ]
+    }
+  ]
+}

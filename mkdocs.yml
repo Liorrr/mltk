@@ -37,6 +37,8 @@ nav:
       - Method Dispatch: guides/method-dispatch.md
       - VS Code Integration: guides/vscode-integration.md
       - Playwright Integration: guides/playwright-integration.md
+      - Container Scanning: guides/container-scanning.md
+      - Container Deployment: guides/container-deployment.md
       - Demo Script: guides/demo-script.md
       - Release Process: dev/release.md
       - YAML Test Definitions: api/yaml-tests.md
