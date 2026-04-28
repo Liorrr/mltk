@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S93: 232 assertions, 4291+ tests, 38 Rust tests) — v0.12.0
+## DONE (S0-S93: 232 assertions, 4291+ tests, 38 Rust tests) — v0.12.2
 
 ### S93 — Container & Kubernetes Friendliness
 - [x] Multi-stage Dockerfile: `runtime-slim` (`:latest`) + `runtime-full` (`:full`, Trivy 0.60.0 bundled)
@@ -43,7 +43,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 232 assertions, 4291+ tests, 38 Rust tests) — v0.9.0
+## DONE (S0-S92: 232 assertions, 4291+ tests, 38 Rust tests) — v0.12.2
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD

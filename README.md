@@ -73,7 +73,7 @@ Run with HTML report:
 pytest --mltk-report
 ```
 
-## What's Included (v0.12.0)
+## What's Included (v0.12.2)
 
 **Behavioral consistency testing** — 7 assertions (paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency, ParaphraseGenerator) that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation: lexical (token F1), embedding, NLI, LLM-as-Judge. No other ML testing tool ships these as pytest assertions.
 
