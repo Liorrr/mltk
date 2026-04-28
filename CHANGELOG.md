@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 #### License
-- **License changed from Apache 2.0 to Elastic License 2.0 (ELv2).** Free for internal, non-commercial, and evaluation use. Redistribution as a hosted/managed service requires a commercial license. See [LICENSE](LICENSE) and [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md). Prior releases (v0.9.0 and earlier) remain under Apache 2.0.
+- **License changed from Apache 2.0 to Elastic License 2.0 (ELv2).** Free for internal, non-commercial, and evaluation use. Redistribution as a hosted/managed service requires a commercial license. See [LICENSE](LICENSE) and [LICENSE-COMMERCIAL](LICENSE-COMMERCIAL). Prior releases (v0.9.0 and earlier) remain under Apache 2.0.
 
 ### Fixed
 

@@ -312,4 +312,4 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 ## License
 
 [Elastic License 2.0](LICENSE) — free for internal use; commercial licensing
-available at lior1cc@gmail.com. See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md).
+available at lior1cc@gmail.com. See [LICENSE-COMMERCIAL](LICENSE-COMMERCIAL).
