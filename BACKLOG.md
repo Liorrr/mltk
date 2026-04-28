@@ -23,6 +23,18 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] pyproject extras: `mltk[container]`, `mltk[metrics]` (both in `mltk[all]`)
 - [ ] v0.12.0 PyPI publish — separate release PR after soak on master
 
+### PyPI Name Claim — PEP 541 (A2-quiet, started 2026-04-25)
+- [ ] **Week 0**: Send first outreach email to manan.shah.777@gmail.com (see `audit/pypi-claim/email-template.md`)
+- [ ] **Week 0**: Configure Trusted Publisher on TestPyPI: project `mlspec`, owner `Liorrr`, repo `mltk`, workflow `release.yml`
+- [ ] **Week 0**: Create GitHub Actions environment `test-pypi` in repo settings
+- [ ] **Week 0**: Capture archive.org snapshots (github.com/mananshah99/mltk 404 + TestPyPI page)
+- [ ] **Week 2**: Second outreach email
+- [ ] **Week 4**: Third outreach email
+- [ ] **Week 6**: File pypi-support issue (see `audit/pypi-claim/issue-body.md`)
+- [ ] **Week 16 deadline (2026-08-15)**: If no PSF decision → switch to Path B (full rename to ml-test-kit everywhere)
+- [ ] If claim granted → `mlspec` becomes deprecation alias for `mltk`, docs updated to `pip install mltk`
+- [ ] If claim denied → `mlspec` becomes primary brand; decide whether to unify import name too (see Obsidian `MLTK/PyPI Rename Plan.md`)
+
 ### S94 — Golden Data DB Connection / Gateway (PLANNED)
 - [ ] User-based DB connection or mltk gateway service for golden datasets
 - [ ] Helm chart for mltk server (deferred from S93)

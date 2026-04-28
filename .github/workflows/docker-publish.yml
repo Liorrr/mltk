@@ -1,22 +1,48 @@
 # Required secrets (Settings → Secrets and variables → Actions → Secrets):
-#   DOCKERHUB_USERNAME — Docker Hub account login username (e.g. liorcohenil)
+#   DOCKERHUB_USERNAME — Docker Hub account login username
 #   DOCKERHUB_TOKEN    — Docker Hub access token (Read/Write scope)
 #                        Create at: hub.docker.com → Account Settings → Security
 name: Publish Docker images
 
 on:
-  push:
-    tags:
-      - 'v*'
+  # Runs after Release workflow completes — ensures PyPI package exists before Docker build.
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  # Manual trigger for re-runs or hotfixes after PyPI publish.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag to build (e.g. v0.12.0)'
+        required: true
 
 permissions:
   contents: read
   packages: write
 
 jobs:
+  # Resolve the git tag regardless of trigger source.
+  resolve-ref:
+    runs-on: ubuntu-24.04
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            # workflow_run: head_branch contains the tag name for tag-triggered runs
+            echo "tag=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-push:
     name: Build ${{ matrix.target }} (${{ matrix.platform }})
+    needs: resolve-ref
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -33,6 +59,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-ref.outputs.tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -54,8 +82,7 @@ jobs:
         id: tags
         shell: bash
         run: |
-          ref_tag="${GITHUB_REF_NAME}"
-          # Strip leading 'v' to get bare version for pip install
+          ref_tag="${{ needs.resolve-ref.outputs.tag }}"
           pip_version="${ref_tag#v}"
           if [ "${{ matrix.target }}" = "runtime-slim" ]; then
             ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}"
@@ -90,8 +117,7 @@ jobs:
             ${{ steps.tags.outputs.ghcr_moving }}-${{ matrix.platform_pair }}
             ${{ steps.tags.outputs.dh_version }}-${{ matrix.platform_pair }}
             ${{ steps.tags.outputs.dh_moving }}-${{ matrix.platform_pair }}
-          # Pin to the exact released version so the image matches tagged source.
-          # The build fails loudly if PyPI does not yet have this version.
+          # Pin to the exact released version — build fails loudly if PyPI doesn't have it yet.
           build-args: |
             MLTK_PIP_TARGET=mltk[all]==${{ steps.tags.outputs.pip_version }}
           cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform_pair }}
@@ -99,7 +125,7 @@ jobs:
 
   manifest:
     name: Create multi-arch manifest (${{ matrix.target }})
-    needs: build-and-push
+    needs: [resolve-ref, build-and-push]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -123,7 +149,7 @@ jobs:
         id: tags
         shell: bash
         run: |
-          ref_tag="${GITHUB_REF_NAME}"
+          ref_tag="${{ needs.resolve-ref.outputs.tag }}"
           if [ "${{ matrix.target }}" = "runtime-slim" ]; then
             ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}"
             ghcr_moving="ghcr.io/liorrr/mltk:latest"

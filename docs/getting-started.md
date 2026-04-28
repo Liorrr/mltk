@@ -4,6 +4,19 @@ This hands-on tutorial takes you from zero to running ML tests with reports in a
 
 ---
 
+<!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
+!!! warning "Temporary installation note"
+    `pip install mltk` is not yet available — the PyPI name is pending a transfer claim.
+    Install directly from GitHub in the meantime:
+
+    ```bash
+    pip install git+https://github.com/Liorrr/mltk
+    ```
+
+    All imports (`import mltk`), CLI commands (`mltk scan`), and functionality are identical.
+    This note will be removed once `pip install mltk` is live on PyPI.
+<!-- END TEMP-PYPI-CLAIM -->
+
 ## Step 1: Install (30 seconds)
 
 ### Basic install

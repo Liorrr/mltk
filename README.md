@@ -7,6 +7,14 @@
 [![Tests](https://img.shields.io/badge/tests-4291%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
+<!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
+> **Installation note (temporary):** `pip install mltk` is not yet available — the PyPI name is pending a transfer claim. Until resolved, install directly from GitHub:
+> ```bash
+> pip install git+https://github.com/Liorrr/mltk
+> ```
+> All imports (`import mltk`), CLI commands (`mltk scan`), and functionality are identical.
+<!-- END TEMP-PYPI-CLAIM -->
+
 ```bash
 pip install mltk
 ```

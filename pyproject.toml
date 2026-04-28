@@ -3,7 +3,7 @@ requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "mltk"
+name = "mlspec"
 version = "0.12.0"
 description = "pytest for ML — unified testing across the entire ML lifecycle"
 license = {file = "LICENSE"}
@@ -62,7 +62,7 @@ gcp = ["google-cloud-aiplatform>=1.40"]  # GCP Vertex AI monitoring
 azure = ["azure-ai-ml>=1.12"]  # Azure ML monitoring
 container = ["trivy-py>=0.70"]  # Container image security scanning via Trivy (v0.70.0 verified 2026-04-24)
 metrics = ["prometheus-client>=0.20"]  # Prometheus /metrics endpoint for mltk server
-all = ["mltk[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,nli,ner,mcp,multimodal,clip,classifier,torch,mlflow,otel,server,aws,gcp,azure,container,metrics]"]
+all = ["mlspec[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,nli,ner,mcp,multimodal,clip,classifier,torch,mlflow,otel,server,aws,gcp,azure,container,metrics]"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
