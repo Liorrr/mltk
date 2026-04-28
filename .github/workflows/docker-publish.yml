@@ -119,7 +119,7 @@ jobs:
             ${{ steps.tags.outputs.dh_moving }}-${{ matrix.platform_pair }}
           # Pin to the exact released version — build fails loudly if PyPI doesn't have it yet.
           build-args: |
-            MLTK_PIP_TARGET=mltk[all]==${{ steps.tags.outputs.pip_version }}
+            MLTK_PIP_TARGET=mlspec[all]==${{ steps.tags.outputs.pip_version }}
           cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform_pair }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}-${{ matrix.platform_pair }}
 

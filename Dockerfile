@@ -2,7 +2,7 @@
 # mltk multi-stage runtime image.
 #
 # Targets:
-#   runtime-slim  -> ghcr.io/liorrr/mltk:latest    (python:3.12-slim + mltk[all])
+#   runtime-slim  -> ghcr.io/liorrr/mltk:latest    (python:3.12-slim + mlspec[all])
 #   runtime-full  -> ghcr.io/liorrr/mltk:full      (runtime-slim + Trivy 0.60.0)
 #
 # Build locally:
@@ -21,10 +21,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install mltk with all optional extras. If the published wheel is unavailable
-# (for example during local dev builds from a checkout), a caller can override
-# with `--build-arg MLTK_PIP_TARGET=.` to install from source.
-ARG MLTK_PIP_TARGET=mltk[all]
+# Install mlspec (distribution name) with all optional extras. Override with
+# `--build-arg MLTK_PIP_TARGET=.` to install from a local checkout.
+ARG MLTK_PIP_TARGET=mlspec[all]
 RUN pip install --no-cache-dir "${MLTK_PIP_TARGET}"
 
 ENTRYPOINT ["mltk"]
