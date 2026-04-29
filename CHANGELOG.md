@@ -13,12 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [0.12.2] — 2026-04-28
-### Added
+## [0.12.3] — 2026-04-29
 
 ### Changed
+- Repository is now public on GitHub
+- PyPI distribution name is `mlspec` (`pip install mlspec`); Python import, CLI, and module names remain `mltk`
 
 ### Fixed
+- CI: pin Python 3.12 in wheel build jobs (previously picked up runner default, causing cp312/cp314 mismatch across platforms)
+- CI: add `skip-existing: true` to TestPyPI publish step so re-runs don't fail on already-uploaded files
+- CI/Docker: update `MLTK_PIP_TARGET` from `mltk[all]` to `mlspec[all]` in Dockerfile and docker-publish workflow
+- Rename `LICENSE-COMMERCIAL.md` → `LICENSE-COMMERCIAL` (TestPyPI rejected sdist when referenced license file had `.md` extension)
+
+## [0.12.2] — 2026-04-28
+
+### Changed
+- Distribution name changed to `mlspec` on PyPI/TestPyPI (PyPI name `mltk` pending transfer claim)
+- Added temporary installation note to README and docs pointing to `pip install git+https://github.com/Liorrr/mltk`
 
 ## [0.12.0] — 2026-04-25
 ### Added
