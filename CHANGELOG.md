@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.12.5] — 2026-04-29
+
+### Fixed
+- Fix `LICENSE-COMMERCIAL` missing from sdist: add `license-files` (PEP 639) to `[project]` and `include` to `[tool.maturin]` — maturin was declaring it in metadata but not packaging it, causing TestPyPI 400 rejection
+
 ## [0.12.4] — 2026-04-29
 
 ### Fixed

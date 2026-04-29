@@ -4,9 +4,10 @@ build-backend = "maturin"
 
 [project]
 name = "mlspec"
-version = "0.12.4"
+version = "0.12.5"
 description = "pytest for ML — unified testing across the entire ML lifecycle"
 license = {file = "LICENSE"}
+license-files = ["LICENSE", "LICENSE-COMMERCIAL"]
 requires-python = ">=3.10"
 authors = [{name = "Lior Cohen"}]
 readme = "README.md"
@@ -93,6 +94,9 @@ python-source = "src"
 module-name = "mltk._mltk_rust"
 features = ["pyo3/extension-module"]
 manifest-path = "rust/Cargo.toml"
+include = [
+  { path = "LICENSE-COMMERCIAL", format = ["sdist", "wheel"] }
+]
 
 [tool.mltk]
 drift_method = "ks"
