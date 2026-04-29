@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.12.4] — 2026-04-29
+
+### Fixed
+- Add `MANIFEST.in` to explicitly include `LICENSE-COMMERCIAL` in sdist archive (maturin auto-discovers it for metadata but doesn't package it, causing TestPyPI 400 rejection)
+
 ## [0.12.3] — 2026-04-29
 
 ### Changed

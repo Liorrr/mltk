@@ -4,7 +4,7 @@ try:
     from importlib.metadata import version as _pkg_version, PackageNotFoundError
     __version__ = _pkg_version("mltk")
 except PackageNotFoundError:
-    __version__ = "0.12.3"  # fallback for uninstalled source tree
+    __version__ = "0.12.4"  # fallback for uninstalled source tree
 
 # Convenience imports for the most common assertions
 from mltk.data import (
