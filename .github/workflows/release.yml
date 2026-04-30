@@ -80,3 +80,22 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
+
+  # Publishes to production PyPI after TestPyPI succeeds.
+  # Requires Trusted Publisher configured at pypi.org:
+  #   Project: mlspec | Owner: Liorrr | Repo: mltk | Workflow: release.yml | Env: pypi
+  # Also requires a "pypi" GitHub Actions environment in repo Settings > Environments.
+  pypi:
+    needs: [test-pypi]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

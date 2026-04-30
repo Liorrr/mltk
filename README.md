@@ -15,8 +15,17 @@
 > All imports (`import mltk`), CLI commands (`mltk scan`), and functionality are identical.
 <!-- END TEMP-PYPI-CLAIM -->
 
+## Install
+
+**Homebrew (macOS/Linux):**
 ```bash
-pip install mltk
+brew tap Liorrr/mltk
+brew install mltk
+```
+
+**pip:**
+```bash
+pip install mlspec  # PyPI name — 'mltk' pending transfer
 ```
 
 ## Why mltk?

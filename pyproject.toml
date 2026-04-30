@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "mlspec"
-version = "0.12.5"
+version = "0.12.6"
 description = "pytest for ML — unified testing across the entire ML lifecycle"
 license = {file = "LICENSE"}
 license-files = ["LICENSE", "LICENSE-COMMERCIAL"]

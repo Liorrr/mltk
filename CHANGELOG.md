@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.12.6] — 2026-04-30
+
+### Added
+- Homebrew tap: `brew tap Liorrr/mltk && brew install mltk` (custom tap at github.com/Liorrr/homebrew-mltk)
+
+### Changed
+- `release.yml`: add production PyPI publish job (`pypi` env, OIDC Trusted Publisher) — runs after TestPyPI succeeds
+- README: add `## Install` section with Homebrew and pip instructions
+
 ## [0.12.5] — 2026-04-29
 
 ### Fixed
