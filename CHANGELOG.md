@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.12.7] — 2026-04-30
+
+### Fixed
+- Add `ubuntu-24.04-arm` to release matrix so arm64 Linux wheels are published to PyPI — Docker arm64 builds were failing due to missing wheel (falling back to sdist + Rust compile inside slim container)
+
 ## [0.12.6] — 2026-04-30
 
 ### Added
