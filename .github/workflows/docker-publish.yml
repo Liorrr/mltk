@@ -1,7 +1,12 @@
 # Required secrets (Settings → Secrets and variables → Actions → Secrets):
 #   DOCKERHUB_USERNAME — Docker Hub account login username
-#   DOCKERHUB_TOKEN    — Docker Hub access token (Read/Write scope)
+#   DOCKERHUB_TOKEN    — Docker Hub access token (Read, Write, Delete scope)
 #                        Create at: hub.docker.com → Account Settings → Security
+#
+# Required manual setup before first push:
+#   1. Create repository at hub.docker.com → Repositories → Create Repository → name: mltk
+#   2. Generate access token with Read, Write, Delete scope (see above)
+#   3. Add both secrets to GitHub repo Settings → Secrets and variables → Actions
 name: Publish Docker images
 
 on:
@@ -40,6 +45,9 @@ jobs:
             echo "tag=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
           fi
 
+  # Build single-arch images and push to GHCR.
+  # Docker Hub mirroring happens in a separate job (mirror-dockerhub) so a Docker Hub
+  # credential failure never blocks the GHCR push.
   build-and-push:
     name: Build ${{ matrix.target }} (${{ matrix.platform }})
     needs: resolve-ref
@@ -72,12 +80,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Compute image tags
         id: tags
         shell: bash
@@ -87,23 +89,35 @@ jobs:
           if [ "${{ matrix.target }}" = "runtime-slim" ]; then
             ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}"
             ghcr_moving="ghcr.io/liorrr/mltk:latest"
-            dh_version="liorrr/mltk:${ref_tag}"
-            dh_moving="liorrr/mltk:latest"
           else
             ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}-full"
             ghcr_moving="ghcr.io/liorrr/mltk:full"
-            dh_version="liorrr/mltk:${ref_tag}-full"
-            dh_moving="liorrr/mltk:full"
           fi
           {
             echo "ghcr_version=${ghcr_version}"
             echo "ghcr_moving=${ghcr_moving}"
-            echo "dh_version=${dh_version}"
-            echo "dh_moving=${dh_moving}"
             echo "pip_version=${pip_version}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Build and push (${{ matrix.platform }}, ${{ matrix.target }})
+      # PyPI indexing can lag 1-3 minutes behind the upload. Poll until the exact
+      # version is available so the Docker build doesn't fail mid-RUN layer.
+      - name: Wait for mlspec ${{ steps.tags.outputs.pip_version }} on PyPI
+        run: |
+          version="${{ steps.tags.outputs.pip_version }}"
+          for i in $(seq 1 30); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://pypi.org/pypi/mlspec/${version}/json")
+            if [ "$status" = "200" ]; then
+              echo "mlspec ${version} is available on PyPI"
+              exit 0
+            fi
+            echo "Waiting for mlspec ${version} on PyPI... attempt $i/30 (HTTP $status)"
+            sleep 30
+          done
+          echo "::error::mlspec ${version} not available on PyPI after 15 minutes"
+          exit 1
+
+      - name: Build and push to GHCR (${{ matrix.platform }}, ${{ matrix.target }})
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -115,18 +129,69 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.ghcr_version }}-${{ matrix.platform_pair }}
             ${{ steps.tags.outputs.ghcr_moving }}-${{ matrix.platform_pair }}
-            ${{ steps.tags.outputs.dh_version }}-${{ matrix.platform_pair }}
-            ${{ steps.tags.outputs.dh_moving }}-${{ matrix.platform_pair }}
           # Pin to the exact released version — build fails loudly if PyPI doesn't have it yet.
           build-args: |
             MLTK_PIP_TARGET=mlspec[all]==${{ steps.tags.outputs.pip_version }}
           cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform_pair }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}-${{ matrix.platform_pair }}
 
+  # Combine single-arch GHCR images into multi-arch manifest lists.
   manifest:
-    name: Create multi-arch manifest (${{ matrix.target }})
+    name: Create GHCR multi-arch manifest (${{ matrix.target }})
     needs: [resolve-ref, build-and-push]
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [runtime-slim, runtime-full]
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: tags
+        shell: bash
+        run: |
+          ref_tag="${{ needs.resolve-ref.outputs.tag }}"
+          if [ "${{ matrix.target }}" = "runtime-slim" ]; then
+            ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}"
+            ghcr_moving="ghcr.io/liorrr/mltk:latest"
+          else
+            ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}-full"
+            ghcr_moving="ghcr.io/liorrr/mltk:full"
+          fi
+          {
+            echo "ghcr_version=${ghcr_version}"
+            echo "ghcr_moving=${ghcr_moving}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create and push GHCR version manifest
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.ghcr_version }}" \
+            "${{ steps.tags.outputs.ghcr_version }}-linux-amd64" \
+            "${{ steps.tags.outputs.ghcr_version }}-linux-arm64"
+
+      - name: Create and push GHCR moving-tag manifest
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.ghcr_moving }}" \
+            "${{ steps.tags.outputs.ghcr_moving }}-linux-amd64" \
+            "${{ steps.tags.outputs.ghcr_moving }}-linux-arm64"
+
+  # Mirror the finished GHCR multi-arch images to Docker Hub.
+  # This job is continue-on-error so a Docker Hub credential or quota failure
+  # never blocks the GHCR images from being marked as ready.
+  # Prerequisites: see header comment at the top of this file.
+  mirror-dockerhub:
+    name: Mirror to Docker Hub (${{ matrix.target }})
+    needs: [resolve-ref, manifest]
+    runs-on: ubuntu-24.04
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -153,13 +218,13 @@ jobs:
           if [ "${{ matrix.target }}" = "runtime-slim" ]; then
             ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}"
             ghcr_moving="ghcr.io/liorrr/mltk:latest"
-            dh_version="liorrr/mltk:${ref_tag}"
-            dh_moving="liorrr/mltk:latest"
+            dh_version="liorcohenil/mltk:${ref_tag}"
+            dh_moving="liorcohenil/mltk:latest"
           else
             ghcr_version="ghcr.io/liorrr/mltk:${ref_tag}-full"
             ghcr_moving="ghcr.io/liorrr/mltk:full"
-            dh_version="liorrr/mltk:${ref_tag}-full"
-            dh_moving="liorrr/mltk:full"
+            dh_version="liorcohenil/mltk:${ref_tag}-full"
+            dh_moving="liorcohenil/mltk:full"
           fi
           {
             echo "ghcr_version=${ghcr_version}"
@@ -168,30 +233,18 @@ jobs:
             echo "dh_moving=${dh_moving}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create and push GHCR version manifest
+      # skopeo copy --all copies the entire manifest list (all arches + blobs) in one shot.
+      # skopeo reads credentials from ~/.docker/config.json written by docker/login-action above.
+      - name: Mirror version tag to Docker Hub
         run: |
-          docker buildx imagetools create \
-            --tag "${{ steps.tags.outputs.ghcr_version }}" \
-            "${{ steps.tags.outputs.ghcr_version }}-linux-amd64" \
-            "${{ steps.tags.outputs.ghcr_version }}-linux-arm64"
+          skopeo copy --all \
+            --authfile ~/.docker/config.json \
+            "docker://${{ steps.tags.outputs.ghcr_version }}" \
+            "docker://${{ steps.tags.outputs.dh_version }}"
 
-      - name: Create and push GHCR moving-tag manifest
+      - name: Mirror moving tag to Docker Hub
         run: |
-          docker buildx imagetools create \
-            --tag "${{ steps.tags.outputs.ghcr_moving }}" \
-            "${{ steps.tags.outputs.ghcr_moving }}-linux-amd64" \
-            "${{ steps.tags.outputs.ghcr_moving }}-linux-arm64"
-
-      - name: Create and push Docker Hub version manifest
-        run: |
-          docker buildx imagetools create \
-            --tag "${{ steps.tags.outputs.dh_version }}" \
-            "${{ steps.tags.outputs.dh_version }}-linux-amd64" \
-            "${{ steps.tags.outputs.dh_version }}-linux-arm64"
-
-      - name: Create and push Docker Hub moving-tag manifest
-        run: |
-          docker buildx imagetools create \
-            --tag "${{ steps.tags.outputs.dh_moving }}" \
-            "${{ steps.tags.outputs.dh_moving }}-linux-amd64" \
-            "${{ steps.tags.outputs.dh_moving }}-linux-arm64"
+          skopeo copy --all \
+            --authfile ~/.docker/config.json \
+            "docker://${{ steps.tags.outputs.ghcr_moving }}" \
+            "docker://${{ steps.tags.outputs.dh_moving }}"
