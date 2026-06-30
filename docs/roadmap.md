@@ -14,7 +14,7 @@ We believe transparency builds trust. Here's what we have, what we don't, and wh
 |-----------|:----:|-------------------|:---:|
 | Behavioral consistency testing | **7 assertions** | Nobody | Only provider |
 | Multi-method dispatch (lexical→NLI→LLM) | **Unified API** | Promptfoo (partial) | Major |
-| Full ML lifecycle coverage | **232 assertions** | Evidently (monitoring) + DeepEval (LLM) | Nobody covers all stages |
+| Full ML lifecycle coverage | **236 assertions** | Evidently (monitoring) + DeepEval (LLM) | Nobody covers all stages |
 | Compliance test frameworks | **8 frameworks** | Giskard (platform certs) | Major |
 | Rust acceleration (PyO3) | **Yes** | Nobody | Only provider |
 | Training bug detection | **P0-P2 coverage** | Nobody | Only provider |
@@ -118,6 +118,19 @@ Test Model Context Protocol tool use correctness — tool selection accuracy, ar
 **Effort:** 1 sprint | **Dependencies:** jsonschema (lightweight) | **Priority:** High — agentic AI is mainstream
 
 *Research brief: `docs/research/` — MCP evaluation (24 sources)*
+
+#### Smart Dataset Importer / Test-Suite Mapper
+*Status: Proposed*
+
+One-click onboarding: point mltk at a dataset (HuggingFace Hub, CSV/Parquet/JSON, or URL) plus an optional golden set, and get a runnable mltk evaluation suite — no manual glue code.
+
+**The workflow:** `DatasetImporter` loads and normalizes the source to a common schema. A column auto-mapper infers field roles (input/prompt, golden/expected, context, label) from name heuristics and dtypes, with a preview the user can override. A task-type classifier (classification, QA/RAG, summarization, generation, retrieval) then generates the matching assertions as both a live suite and a committable pytest file, wired into the existing eval pipeline (solvers/scorers) and the versioned dataset registry.
+
+**Differentiator:** competitors require you to hand-write test cases or adopt their dataset format. mltk would turn any public dataset into a runnable eval in one command (`mltk import <source>`) or one MCP call.
+
+**Approach:** HuggingFace `datasets` adapter first; pluggable adapters for Kaggle/OpenML/local/object-storage later. Golden-set binding maps references to expected outputs; falls back to LLM-judge scorers when no exact golden exists.
+
+**Effort:** 2-3 sprints | **Dependencies:** `datasets` (optional extra) | **Priority:** High — lowers time-to-first-eval to near zero
 
 ### Tier 2: Expanding Capabilities
 

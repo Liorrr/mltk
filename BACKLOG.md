@@ -10,7 +10,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S93: 232 assertions, 4291+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S95: 236 assertions, 4379+ tests, 38 Rust tests) — v0.12.7
+
+### S95 — First-Mover Assertions
+- [x] 4 net-new assertions: `assert_no_unicode_attacks` (llm), `assert_pipeline_stages_compatible` + `assert_pipeline_resilient` (pipeline), `assert_combinatorial_coverage` (testing) — 88 new tests (incl. 8 from Opus review fixes), no new deps
 
 ### S93 — Container & Kubernetes Friendliness
 - [x] Multi-stage Dockerfile: `runtime-slim` (`:latest`) + `runtime-full` (`:full`, Trivy 0.60.0 bundled)
@@ -43,7 +46,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 232 assertions, 4291+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 236 assertions, 4379+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -199,12 +202,17 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **CG-5**: S80 — Phoenix + Langfuse adapters, assert_trace_quality, register_phoenix
 - [ ] ~~**CG-6**: Automated prompt optimization~~ — REMOVED (dilutes "pytest for ML" message)
 
-### First-Mover Assertions (Epic Plan — not yet tracked)
+### First-Mover Assertions (S95 — DONE)
 *Source: Obsidian v0.9.0 Epic Plan — First-Mover Opportunities*
-- [ ] `assert_no_unicode_attacks` — Zero-width, homoglyph, bidi attack detection (defense exists in tokenizer, user-facing assertion missing)
-- [ ] `assert_pipeline_stages_compatible` — Inter-stage schema validation (distinct from data contracts)
-- [ ] `assert_pipeline_resilient` — ML chaos engineering primitives (inject faults, assert graceful degradation)
-- [ ] `assert_combinatorial_coverage` — NIST Covering Arrays / SDCC input space coverage
+- [x] **S95** `assert_no_unicode_attacks` — Zero-width (cat Cf, legit Arabic/Syriac allowlisted), bidi override (Trojan Source CVE-2021-42574), mixed-script homoglyph detection + `detect_unicode_attacks()` (28 tests)
+- [x] **S95** `assert_pipeline_stages_compatible` — Inter-stage schema validation via `StageSpec(produces/requires)`, distinct from data contracts (17 tests)
+- [x] **S95** `assert_pipeline_resilient` — ML chaos engineering: 7-fault injection catalog, graceful-degradation assertion + `apply_fault()`/`DEFAULT_FAULTS` (22 tests)
+- [x] **S95** `assert_combinatorial_coverage` — NIST t-way covering-array coverage measurement + `combinatorial_coverage()` (21 tests)
+
+### First-Mover Sprint Follow-ups (S95 Opus review — deferred P2 enhancements)
+- [ ] `assert_pipeline_stages_compatible` — dtype canonicalization (`np.dtype(x).name`) so `int64`/`Int64`/`int` compare equal; optional widening-aware predicate (currently exact-string match → false FAILs)
+- [ ] `assert_pipeline_resilient` — optional `validate_output: Callable[[Any], bool]` so silent `None`/garbage output counts as a failure (currently "graceful == no exception raised" only)
+- [ ] `assert_no_unicode_attacks` — single-script confusable detection (whole-word Cyrillic/Greek spoofs, e.g. an all-Cyrillic lookalike) + widen confusable set beyond Cyrillic/Greek (fullwidth, mathematical-alphanumeric)
 
 ### Structured Output & Cost Tracking
 *Source: roadmap.md Tier 2-3, Competitors & Positioning*
@@ -214,6 +222,15 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Advanced Features
 - [ ] Test impact analysis (dependency graph)
 - [ ] Anomaly detection on test result time series
+
+### Smart Dataset Importer / Test-Suite Mapper (NEW — high priority)
+*One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
+- [ ] `DatasetImporter` — load datasets from HuggingFace Hub (`datasets`), CSV/Parquet/JSON, and URLs; normalize to a common schema (inputs, references/golden, optional metadata)
+- [ ] Schema/column auto-mapper — infer field roles (prompt/input, expected/golden, context, label) via name heuristics + dtype + optional user override; show a mapping preview before running
+- [ ] Task-type detection → suite generation — classify the dataset (classification, QA/RAG, summarization, generation, retrieval) and emit the matching mltk assertions (e.g. `assert_faithfulness`/`assert_answer_relevancy` for QA, `assert_metric` for classification) as a runnable suite + committable pytest file
+- [ ] One-click CLI/MCP entrypoint — `mltk import <source>` and an MCP tool returning a ready suite; integrate with the existing `eval` pipeline (solvers/scorers) and versioned dataset registry (S84)
+- [ ] Golden-set binding — map a provided golden/reference set to expected outputs; fall back to LLM-judge scorers when no exact golden exists
+- [ ] Pluggable source adapters — HuggingFace first; design for Kaggle, OpenML, local files, and object storage later
 
 ### Monetization (Pro tier)
 - [ ] Cloud dashboard: hosted report aggregation, team views
@@ -262,7 +279,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ### Claude Code Skills for mltk
 *Skills that teach Claude Code how to use mltk for specific roles*
-- [x] **mltk-index** — Codebase index skill (232 assertions, 11 MCP, 28 CLI, file:line pointers). Generated by `scripts/generate_skill_index.py`
+- [x] **mltk-index** — Codebase index skill (236 assertions, 11 MCP, 28 CLI, file:line pointers). Generated by `scripts/generate_skill_index.py`
 - [x] **mltk-templates** — Development templates skill (assertion/scanner/MCP/CLI patterns). Source: `skills/mltk-templates.md`
 - [x] **mltk-mcp-config** — S91 — `.mcp.json` project template for MCP server registration
 - [x] **mltk-qa-skill** — S92 — QA engineer persona: scan, interpret findings, write tests, use MCP tools

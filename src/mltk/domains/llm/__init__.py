@@ -85,6 +85,10 @@ from mltk.domains.llm.text_quality import (
     assert_readability,
     assert_text_length,
 )
+from mltk.domains.llm.unicode_attacks import (
+    assert_no_unicode_attacks,
+    detect_unicode_attacks,
+)
 
 __all__ = [
     # bertscore
@@ -171,4 +175,7 @@ __all__ = [
     "assert_no_session_jailbreak",
     "assert_owasp_llm_coverage",
     "assert_encoding_mutation_resilience",
+    # unicode attack detection
+    "assert_no_unicode_attacks",
+    "detect_unicode_attacks",
 ]
