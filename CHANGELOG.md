@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`assert_combinatorial_coverage(test_cases, parameters, *, strength, min_coverage)`** (`mltk.testing`) — NIST-style t-way (pairwise default) covering-array coverage measurement over a parameter space. Ships with `combinatorial_coverage()` helper. Missing test-case keys are distinguished from explicit `None` values (sentinel), duplicate parameter values are deduped, and empty value lists raise `ValueError`. 21 tests.
 - 88 new tests (4379 total), incl. 8 regression tests from Opus review fixes; all four are pure stdlib/numpy/pandas — no new dependencies.
 
+#### Structured Output & Cost Tracking (S96)
+- **`assert_valid_json` / `assert_json_schema` / `assert_pydantic_schema`** (`mltk.domains.llm`) — validate LLM outputs as JSON, against a JSON Schema (optional `jsonschema`), or against a Pydantic model (optional `pydantic`, v1/v2 auto-detected). Replaces the regex-only `assert_output_format` gap. The wrappers fail cleanly rather than leak a raw `SchemaError`/`TypeError`/`AttributeError` on a malformed schema, non-str input, or a non-`BaseModel` `model` argument.
+- **`mltk.cost` package** — token/dollar cost tracking: `MODEL_PRICING` table (Anthropic + OpenAI, 15 models, prices as of 2026-06-30), `estimate_cost()`, runtime-overridable `register_pricing()` / `get_pricing()` (raises on unknown model, rejects negative tokens — never silently returns 0), `CostTracker` accumulator with `by_model()` breakdown, and `assert_cost_within()` / `assert_token_usage()` suite-level budget assertions (distinct from agentic's per-trace `assert_cost_budget`).
+- 76 new tests; `jsonschema` and `pydantic` are optional deps surfaced with `pip install` hints. 5 new assertions (241 total).
+
 ### Changed
 
 ### Fixed

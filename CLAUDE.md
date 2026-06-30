@@ -6,7 +6,7 @@
 ## Project Overview
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - Python 3.10+ with Rust acceleration (maturin build)
-- v0.12.7, 236 assertions, 4379+ tests, 8 scanners, 12 MCP tools
+- v0.12.7, 241 assertions, 4455+ tests, 8 scanners, 12 MCP tools
 - Phase F (Agent Integration): COMPLETE — building toward v1.0.0
 
 ## Architecture
@@ -61,7 +61,7 @@ Two skills exist. The orchestrator MUST read and include them in agent prompts p
 
 | Skill | Path | Content |
 |-------|------|---------|
-| **Index** | `~/.claude/skills/mltk-index.md` (generated) | 236 assertions, 12 MCP tools, 28 CLI, 8 scanners, 28 classes with file:line |
+| **Index** | `~/.claude/skills/mltk-index.md` (generated) | 241 assertions, 12 MCP tools, 28 CLI, 8 scanners, 28 classes with file:line |
 | **Templates** | `skills/mltk-templates.md` (repo) → `~/.claude/skills/` | Patterns for adding assertions, scanners, MCP tools, CLI commands |
 
 Regenerate index after each sprint: `python scripts/generate_skill_index.py`
