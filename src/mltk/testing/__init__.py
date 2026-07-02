@@ -1,5 +1,9 @@
 """Testing patterns — flaky detection, golden sets, retry, smart selection."""
 
+from mltk.testing.combinatorial import (
+    assert_combinatorial_coverage,
+    combinatorial_coverage,
+)
 from mltk.testing.flaky import FlakySummary, detect_flaky
 from mltk.testing.golden import assert_matches_golden, load_golden, save_golden
 from mltk.testing.impact import analyze_impact, assert_impact_coverage
@@ -23,4 +27,7 @@ __all__ = [
     # impact analysis
     "analyze_impact",
     "assert_impact_coverage",
+    # combinatorial coverage
+    "combinatorial_coverage",
+    "assert_combinatorial_coverage",
 ]

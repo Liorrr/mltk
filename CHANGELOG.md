@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### First-Mover Assertions (S95)
+- **`assert_no_unicode_attacks(text, *, checks)`** (`mltk.domains.llm`) — detects zero-width/invisible characters (Unicode category `Cf` + explicit set), bidirectional override controls (Trojan Source / CVE-2021-42574), and mixed-script homoglyph tokens (Latin + Cyrillic/Greek). Ships with `detect_unicode_attacks()` raw detector. Legitimate Arabic/Syriac/Kaithi `Cf` format marks are allowlisted to avoid false positives on real RTL text. 28 tests.
+- **`assert_pipeline_stages_compatible(stages, *, check_dtypes)`** (`mltk.pipeline`) — validates inter-stage schema flow via `StageSpec(name, produces, requires)`; a stage may consume any column produced by any upstream stage. Distinct from single-dataset data contracts. 17 tests.
+- **`assert_pipeline_resilient(pipeline_fn, baseline_input, *, faults, max_failure_rate)`** (`mltk.pipeline`) — ML chaos engineering: injects a 7-fault catalog (`null_injection`, `empty_input`, `dropped_column`, `dtype_corruption`, `scale_shift`, `duplicate_rows`, `single_row`) and asserts graceful degradation within a crash-rate budget. Never mutates `baseline_input`. Ships with `apply_fault()` + `DEFAULT_FAULTS`. 22 tests.
+- **`assert_combinatorial_coverage(test_cases, parameters, *, strength, min_coverage)`** (`mltk.testing`) — NIST-style t-way (pairwise default) covering-array coverage measurement over a parameter space. Ships with `combinatorial_coverage()` helper. Missing test-case keys are distinguished from explicit `None` values (sentinel), duplicate parameter values are deduped, and empty value lists raise `ValueError`. 21 tests.
+- 88 new tests (4379 total), incl. 8 regression tests from Opus review fixes; all four are pure stdlib/numpy/pandas — no new dependencies.
+
 ### Changed
 
 ### Fixed

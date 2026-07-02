@@ -1,11 +1,11 @@
 # mltk Full API Index
-> Generated 2026-04-04 by scripts/generate_skill_index.py
+> Generated 2026-06-30 by scripts/generate_skill_index.py
 
-**230** assertions | **11** MCP tools | **28** CLI commands | **8** scanners
+**236** assertions | **12** MCP tools | **28** CLI commands | **8** scanners
 
 ---
 
-## Assertion Signatures (230)
+## Assertion Signatures (236)
 
 ### compliance
 
@@ -655,6 +655,12 @@ def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str=
 ```
 > Assert LLM outputs are not toxic.
 
+**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:144)
+```python
+def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), severity: Severity=Severity.CRITICAL)
+```
+> Assert that *text* contains no unicode-based attack characters.
+
 **`assert_output_format`** (domains/llm/text_quality.py:82)
 ```python
 def assert_output_format(text: str, pattern: str, description: str | None=None)
@@ -691,7 +697,7 @@ def assert_safety_taxonomy(model_fn: Callable[[str], str], prompts_by_category: 
 ```
 > Assert that a model refuses unsafe prompts consistently across safety categories.
 
-**`assert_semantic_similarity`** (domains/llm/similarity.py:70)
+**`assert_semantic_similarity`** (domains/llm/similarity.py:48)
 ```python
 def assert_semantic_similarity(references: list[str], hypotheses: list[str], min_score: float=0.7, method: str='token')
 ```
@@ -1189,6 +1195,20 @@ def assert_text_robust(model_fn: Callable[[str], Any], texts: list[str], perturb
 ```
 > Assert that an NLP model produces stable predictions under text noise.
 
+### other
+
+**`assert_container_vulnerabilities`** (container/assertions.py:43)
+```python
+def assert_container_vulnerabilities(image: str, *, max_critical: int=0, max_high: int=0, severity_floor: str='MEDIUM', adapter: TrivyAdapter | None=None)
+```
+> Assert a container image has no CVEs above the configured threshold.
+
+**`assert_no_secrets_in_image`** (container/assertions.py:126)
+```python
+def assert_no_secrets_in_image(image: str, *, adapter: TrivyAdapter | None=None)
+```
+> Assert a container image contains no exposed secrets.
+
 ### pipeline
 
 **`assert_checksum`** (pipeline/reproducibility.py:107)
@@ -1208,6 +1228,18 @@ def assert_onnx_valid(model_path: str | Path, test_input: np.ndarray, expected_o
 def assert_pipeline(steps: list[Callable[..., Any]], input_data: Any, expected_output_type: type | None=None)
 ```
 > Assert an end-to-end pipeline runs without errors.
+
+**`assert_pipeline_resilient`** (pipeline/resilience.py:93)
+```python
+def assert_pipeline_resilient(pipeline_fn: Callable[[pd.DataFrame], Any], baseline_input: pd.DataFrame, *, faults: list[str] | None=None, max_failure_rate: float=0.0, severity: Severity=Severity.CRITICAL, seed: int=42)
+```
+> Assert that *pipeline_fn* degrades gracefully under fault injection.
+
+**`assert_pipeline_stages_compatible`** (pipeline/compatibility.py:30)
+```python
+def assert_pipeline_stages_compatible(stages: list[StageSpec], *, check_dtypes: bool=True, severity: Severity=Severity.CRITICAL)
+```
+> Assert that consecutive pipeline stages are schema-compatible.
 
 **`assert_reproducible`** (pipeline/reproducibility.py:18)
 ```python
@@ -1270,6 +1302,12 @@ def assert_feature_importance_stable(shap_ref: dict[str, float], shap_cur: dict[
 > Assert SHAP feature importance rankings are stable.
 
 ### testing
+
+**`assert_combinatorial_coverage`** (testing/combinatorial.py:84)
+```python
+def assert_combinatorial_coverage(test_cases: list[dict[str, Any]], parameters: dict[str, list[Any]], *, strength: int=2, min_coverage: float=1.0, severity: Severity=Severity.CRITICAL)
+```
+> Assert that test_cases achieve at least min_coverage t-way coverage.
 
 **`assert_impact_coverage`** (testing/impact.py:297)
 ```python
@@ -1432,9 +1470,9 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ---
 
-## MCP Tools (11)
+## MCP Tools (12)
 
-### `mltk_scan` (server.py:173)
+### `mltk_scan` (server.py:175)
 
 > Scan an ML project for quality issues, drift, bias, and security vulnerabilities.
 
@@ -1443,7 +1481,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | path | `str` | *required* |
 | scanners | `str` | `'all'` |
 
-### `mltk_test` (server.py:237)
+### `mltk_test` (server.py:239)
 
 > Run an mltk test suite and return pass/fail results.
 
@@ -1452,7 +1490,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | suite_path | `str` | *required* |
 | verbose | `bool` | `False` |
 
-### `mltk_list` (server.py:328)
+### `mltk_list` (server.py:330)
 
 > List available mltk assertions for ML testing.
 
@@ -1461,7 +1499,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | filter_text | `str` | `''` |
 | domain | `str` | `''` |
 
-### `mltk_eval` (server.py:373)
+### `mltk_eval` (server.py:375)
 
 > Run an evaluation pipeline on a dataset with configurable solvers and scorers.
 
@@ -1471,7 +1509,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | scorer | `str` | `'exact_match'` |
 | solver | `str` | `'generate'` |
 
-### `mltk_dataset` (server.py:452)
+### `mltk_dataset` (server.py:454)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1480,7 +1518,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:505)
+### `mltk_report` (server.py:507)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1490,7 +1528,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:578)
+### `mltk_suggest` (server.py:580)
 
 > Get fix suggestions for a scan finding.
 
@@ -1500,7 +1538,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:661)
+### `mltk_experiment` (server.py:663)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1511,13 +1549,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:810)
+### `mltk_workflow` (server.py:812)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:860)
+### `mltk_create_pr` (server.py:862)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1529,7 +1567,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:903)
+### `mltk_create_issue` (server.py:905)
 
 > Create an issue ticket from a scan finding.
 
@@ -1540,6 +1578,16 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | project | `str` | `''` |
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
+
+### `mltk_container_scan` (server.py:938)
+
+> Scan a container image for vulnerabilities and secrets using Trivy.
+
+| Param | Type | Default |
+|-------|------|---------|
+| image | `str` | *required* |
+| max_critical | `int` | `0` |
+| max_high | `int` | `0` |
 
 
 ---
@@ -1567,15 +1615,15 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | 17 | `mltk registry pull` | 560 | Pull a named collection from the registry into a local directory. |
 | 18 | `mltk registry list` | 575 | List all collections in the registry. |
 | 19 | `mltk notify slack` | 597 | Send test results (or a custom message) to Slack. |
-| 20 | `mltk chat` | 667 | Interactive Q&A about test results. |
-| 21 | `mltk server` | 679 | Start the mltk server platform. |
-| 22 | `mltk server-create-key` | 700 | Generate an API key for the mltk server. |
-| 23 | `mltk fda-audit` | 727 | Generate FDA 21 CFR Part 11 audit trail. |
-| 24 | `mltk compliance-pdf` | 750 | Convert HTML compliance report to print-ready PDF. |
-| 25 | `mltk compliance-gap` | 766 | Run compliance gap analysis across frameworks. |
-| 26 | `mltk grafana-export` | 975 | Export a Grafana dashboard JSON for mltk metrics. |
-| 27 | `mltk scan-model` | 1000 | Scan a model for issues and generate tests. |
-| 28 | `mltk list` | 1182 | List all available mltk assertions. |
+| 20 | `mltk chat` | 670 | Interactive Q&A about test results. |
+| 21 | `mltk server` | 682 | Start the mltk server platform. |
+| 22 | `mltk server-create-key` | 703 | Generate an API key for the mltk server. |
+| 23 | `mltk fda-audit` | 730 | Generate FDA 21 CFR Part 11 audit trail. |
+| 24 | `mltk compliance-pdf` | 753 | Convert HTML compliance report to print-ready PDF. |
+| 25 | `mltk compliance-gap` | 769 | Run compliance gap analysis across frameworks. |
+| 26 | `mltk grafana-export` | 978 | Export a Grafana dashboard JSON for mltk metrics. |
+| 27 | `mltk scan-model` | 1003 | Scan a model for issues and generate tests. |
+| 28 | `mltk list` | 1185 | List all available mltk assertions. |
 
 ---
 
@@ -1900,6 +1948,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | test_chat/ | src/mltk/chat/ |
 | test_cli/ | src/mltk/cli/ |
 | test_compliance/ | src/mltk/compliance/ |
+| test_container/ | src/mltk/container/ |
 | test_contracts/ | src/mltk/contracts/ |
 | test_core/ | src/mltk/core/ |
 | test_data/ | src/mltk/data/ |
