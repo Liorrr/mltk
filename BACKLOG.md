@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S96: 241 assertions, 4455+ tests, 38 Rust tests) — v0.12.7
+## DONE (S0-S96: 241 assertions, 4466+ tests, 38 Rust tests) — v0.12.7
 
 ### S96 — Structured Output + Cost Tracking
 - [x] 5 net-new assertions: `assert_valid_json` / `assert_json_schema` / `assert_pydantic_schema` (llm), `assert_cost_within` / `assert_token_usage` (new `mltk.cost` package) — 76 new tests, jsonschema + pydantic optional deps
@@ -49,7 +49,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 241 assertions, 4455+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 241 assertions, 4466+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD

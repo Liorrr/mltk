@@ -82,13 +82,52 @@ def _is_ascii_latin(ch: str) -> bool:
 
 
 def _is_confusable_script(ch: str) -> bool:
-    """Return True if *ch* is a Cyrillic or Greek letter (homoglyph candidate).
+    """Return True if *ch* is a Cyrillic letter (homoglyph candidate).
 
-    Cyrillic block: U+0400 through U+04FF.
-    Greek block: U+0370 through U+03FF.
+    Only the Cyrillic block (U+0400 through U+04FF) is treated as confusable
+    with ASCII Latin -- the real phishing vector (e.g. Cyrillic 'а' U+0430 in
+    "pаypal"). The Greek block is deliberately excluded: scientific text
+    routinely mixes Latin with Greek lookalikes (e.g. "α-helix", "5μm", "kΩ"),
+    and Greek letters such as α genuinely resemble Latin ones, so any
+    Greek-in-token rule produces unavoidable false positives on real text.
     """
     cp = ord(ch)
-    return (0x0400 <= cp <= 0x04FF) or (0x0370 <= cp <= 0x03FF)
+    return 0x0400 <= cp <= 0x04FF
+
+
+def _is_pictographic(ch: str) -> bool:
+    """Return True if *ch* is an emoji / pictographic character.
+
+    Used only to recognise legitimate emoji ZWJ sequences (e.g. 👨‍💻) so a
+    zero-width joiner between two emoji is not mistaken for a smuggling attack.
+
+    The variation-selector range (U+FE00-FE0F) is load-bearing: emoji VS16
+    (U+FE0F) is what makes sequences like 👨‍❤️‍👨 register as emoji context.
+    Do not drop it.
+    """
+    cp = ord(ch)
+    return (
+        0x1F000 <= cp <= 0x1FAFF  # SMP emoji: pictographs, emoticons, transport,
+                                   # flags (1F1E6-1F1FF), skin-tone (1F3FB-1F3FF), cards
+        or 0x2600 <= cp <= 0x27BF  # Misc symbols + Dingbats (❤ ✌ ✍ ...)
+        or 0x2B00 <= cp <= 0x2BFF  # Misc symbols & arrows (⭐ ⬛ ...)
+        or 0xFE00 <= cp <= 0xFE0F  # Variation selectors (incl. emoji VS16 U+FE0F)
+    )
+
+
+def _in_emoji_zwj_context(text: str, i: int) -> bool:
+    """Return True if the ZWJ at ``text[i]`` joins two pictographs.
+
+    A ZWJ (U+200D) is legitimate inside an emoji sequence but an attack when
+    smuggled into ordinary text. It counts as emoji context only with a
+    pictographic character on BOTH sides; a ZWJ at either end of the string,
+    or with a non-emoji neighbour, is still treated as an attack.
+    """
+    return (
+        0 < i < len(text) - 1
+        and _is_pictographic(text[i - 1])
+        and _is_pictographic(text[i + 1])
+    )
 
 
 def detect_unicode_attacks(
@@ -122,11 +161,15 @@ def detect_unicode_attacks(
     total = 0
 
     if "zero_width" in checks:
-        zw_findings = [
-            {"codepoint": f"U+{ord(ch):04X}", "index": i}
-            for i, ch in enumerate(text)
-            if _is_zero_width(ch)
-        ]
+        zw_findings = []
+        for i, ch in enumerate(text):
+            if not _is_zero_width(ch):
+                continue
+            # U+200D is legitimate between two emoji (e.g. 👨‍💻); flag it only
+            # when NOT joining pictographs, i.e. smuggled into ordinary text.
+            if ch == "‍" and _in_emoji_zwj_context(text, i):
+                continue
+            zw_findings.append({"codepoint": f"U+{ord(ch):04X}", "index": i})
         result["zero_width"] = zw_findings
         total += len(zw_findings)
 
@@ -179,10 +222,15 @@ def assert_no_unicode_attacks(
 
     Note:
         Homoglyph detection flags only tokens that MIX ASCII Latin with
-        Cyrillic/Greek. Whole-word single-script spoofs (e.g. an all-Cyrillic
+        Cyrillic. Whole-word single-script spoofs (e.g. an all-Cyrillic
         lookalike) and variation-selector smuggling (U+FE0x) are out of scope.
+        Greek is intentionally not treated as confusable: scientific text
+        routinely mixes Latin with Greek (e.g. "α-helix"), so flagging Greek
+        would be an unavoidable false-positive generator.
         ``zero_width`` excludes legitimate Arabic/Syriac/Kaithi format marks to
-        avoid false positives on real RTL text.
+        avoid false positives on real RTL text, and excludes zero-width joiners
+        (U+200D) that sit between two emoji/pictographic characters, since
+        that is the legitimate emoji-ZWJ-sequence pattern (e.g. 👨‍💻).
 
     Example:
         >>> assert_no_unicode_attacks("Hello, world!")
