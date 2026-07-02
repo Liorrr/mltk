@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S95: 236 assertions, 4379+ tests, 38 Rust tests) — v0.12.7
+## DONE (S0-S95: 236 assertions, 4390+ tests, 38 Rust tests) — v0.12.7
 
 ### S95 — First-Mover Assertions
 - [x] 4 net-new assertions: `assert_no_unicode_attacks` (llm), `assert_pipeline_stages_compatible` + `assert_pipeline_resilient` (pipeline), `assert_combinatorial_coverage` (testing) — 88 new tests (incl. 8 from Opus review fixes), no new deps
@@ -46,7 +46,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 236 assertions, 4379+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 236 assertions, 4390+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
