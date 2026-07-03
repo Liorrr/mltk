@@ -1,0 +1,37 @@
+[
+  {
+    "question": "What is the capital of France?",
+    "answer": "Paris",
+    "passage": "France is a country in Western Europe. Its capital city is Paris, known for the Eiffel Tower.",
+    "category": "geography",
+    "id": 1
+  },
+  {
+    "question": "What is 7 plus 5?",
+    "answer": "12",
+    "passage": "Basic arithmetic: addition combines two numbers to form a sum.",
+    "category": "math",
+    "id": 2
+  },
+  {
+    "question": "What is the capital of Japan?",
+    "answer": "Tokyo",
+    "passage": "Japan is an island nation in East Asia. Its capital is Tokyo, one of the most populous cities in the world.",
+    "category": "geography",
+    "id": 3
+  },
+  {
+    "question": "What is 9 times 6?",
+    "answer": "54",
+    "passage": "Multiplication is repeated addition of a number by itself a certain number of times.",
+    "category": "math",
+    "id": 4
+  },
+  {
+    "question": "What is the capital of Australia?",
+    "answer": "Canberra",
+    "passage": "Australia is a country and continent surrounded by the Indian and Pacific Oceans. Its capital is Canberra, not Sydney as many assume.",
+    "category": "geography",
+    "id": 5
+  }
+]

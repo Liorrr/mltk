@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-06-30 by scripts/generate_skill_index.py
+> Generated 2026-07-02 by scripts/generate_skill_index.py
 
 **241** assertions | **12** MCP tools | **28** CLI commands | **8** scanners
 
@@ -1986,6 +1986,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | test_domains/ | src/mltk/domains/ |
 | test_eval/ | src/mltk/eval/ |
 | test_experiment/ | src/mltk/experiment/ |
+| test_importer/ | src/mltk/importer/ |
 | test_inference/ | src/mltk/inference/ |
 | test_integrations/ | src/mltk/integrations/ |
 | test_mcp/ | src/mltk/mcp/ |

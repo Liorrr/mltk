@@ -69,6 +69,15 @@ evaluation tool provides simultaneously:
 
 ---
 
+!!! tip "Building a card + samples by hand? Try the importer first"
+    Steps 1-2 below (build a `DatasetCard`, turn raw rows into
+    `EvalSample`s) can be automated from a CSV/JSON/Parquet file or a
+    HuggingFace Hub id via `mltk.importer.DatasetImporter` — see
+    [Smart Dataset Importer](dataset-importer.md). It infers column
+    roles (input/golden/context/label) instead of requiring you to name
+    them explicitly, and produces the same `EvalDataset` this page
+    describes.
+
 ## Quick Start
 
 Five steps from raw data to a versioned, quality-gated dataset:
@@ -1174,6 +1183,9 @@ Research brief: `docs/research/dataset-cards-quality.md`
 
 ## See Also
 
+- [dataset-importer.md](dataset-importer.md) — `DatasetImporter` and
+  column auto-mapping; the on-ramp that builds the `EvalDataset` this
+  page describes from a CSV/JSON/Parquet file or a HuggingFace Hub id
 - [eval-pipeline.md](eval-pipeline.md) — `EvalTask`, `EvalSample`,
   solvers and scorers; consume registered datasets with `dataset.samples`
 - [suite-api.md](suite-api.md) — `MltkSuite` integration; mix dataset

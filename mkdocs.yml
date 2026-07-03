@@ -48,6 +48,7 @@ nav:
       - Composable TestSuite: api/suite-api.md
       - Evaluation Pipeline: api/eval-pipeline.md
       - Versioned Eval Datasets: api/eval-datasets.md
+      - Smart Dataset Importer: api/dataset-importer.md
       - Trace-Level Evaluation: api/trace-evaluation.md
       - MCP Server: api/mcp-server.md
       - Behavioral Consistency: api/behavioral-consistency.md
