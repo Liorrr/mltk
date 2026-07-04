@@ -1,11 +1,11 @@
 # mltk Full API Index
 > Generated 2026-06-30 by scripts/generate_skill_index.py
 
-**236** assertions | **12** MCP tools | **28** CLI commands | **8** scanners
+**241** assertions | **12** MCP tools | **28** CLI commands | **8** scanners
 
 ---
 
-## Assertion Signatures (236)
+## Assertion Signatures (241)
 
 ### compliance
 
@@ -535,6 +535,12 @@ def assert_itl(func: Callable[..., Any], *args: Any, max_ms: float=50.0, num_tok
 ```
 > Assert Inter-Token Latency is within bounds.
 
+**`assert_json_schema`** (domains/llm/structured_output.py:85)
+```python
+def assert_json_schema(output: Any, schema: dict, *, severity: Severity=Severity.CRITICAL)
+```
+> Assert that output conforms to a JSON Schema.
+
 **`assert_knowledge_retention`** (domains/llm/conversation.py:16)
 ```python
 def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7)
@@ -655,7 +661,7 @@ def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str=
 ```
 > Assert LLM outputs are not toxic.
 
-**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:144)
+**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:158)
 ```python
 def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), severity: Severity=Severity.CRITICAL)
 ```
@@ -666,6 +672,12 @@ def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width
 def assert_output_format(text: str, pattern: str, description: str | None=None)
 ```
 > Assert text matches a regex pattern.
+
+**`assert_pydantic_schema`** (domains/llm/structured_output.py:165)
+```python
+def assert_pydantic_schema(output: Any, model: type, *, severity: Severity=Severity.CRITICAL)
+```
+> Assert that output validates against a Pydantic model.
 
 **`assert_ragas_score`** (domains/llm/ragas.py:97)
 ```python
@@ -792,6 +804,12 @@ def assert_ttft(func: Callable[..., Any], *args: Any, max_ms: float=1000.0, iter
 def assert_turn_relevancy(turns: list[dict[str, str]], min_score: float=0.5)
 ```
 > Assert each assistant turn is relevant to the preceding user turn.
+
+**`assert_valid_json`** (domains/llm/structured_output.py:44)
+```python
+def assert_valid_json(text: str, *, severity: Severity=Severity.CRITICAL)
+```
+> Assert that a string is valid JSON.
 
 **`assert_with_judge`** (domains/llm/judge_defaults.py:156)
 ```python
@@ -1203,11 +1221,23 @@ def assert_container_vulnerabilities(image: str, *, max_critical: int=0, max_hig
 ```
 > Assert a container image has no CVEs above the configured threshold.
 
+**`assert_cost_within`** (cost/tracking.py:107)
+```python
+def assert_cost_within(usage: CostTracker | float, max_usd: float, *, severity: Severity=Severity.CRITICAL)
+```
+> Assert that total LLM spend does not exceed *max_usd*.
+
 **`assert_no_secrets_in_image`** (container/assertions.py:126)
 ```python
 def assert_no_secrets_in_image(image: str, *, adapter: TrivyAdapter | None=None)
 ```
 > Assert a container image contains no exposed secrets.
+
+**`assert_token_usage`** (cost/tracking.py:159)
+```python
+def assert_token_usage(usage: CostTracker | int, max_tokens: int, *, severity: Severity=Severity.CRITICAL)
+```
+> Assert that total token consumption does not exceed *max_tokens*.
 
 ### pipeline
 
@@ -1303,7 +1333,7 @@ def assert_feature_importance_stable(shap_ref: dict[str, float], shap_cur: dict[
 
 ### testing
 
-**`assert_combinatorial_coverage`** (testing/combinatorial.py:84)
+**`assert_combinatorial_coverage`** (testing/combinatorial.py:108)
 ```python
 def assert_combinatorial_coverage(test_cases: list[dict[str, Any]], parameters: dict[str, list[Any]], *, strength: int=2, min_coverage: float=1.0, severity: Severity=Severity.CRITICAL)
 ```
@@ -1951,6 +1981,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | test_container/ | src/mltk/container/ |
 | test_contracts/ | src/mltk/contracts/ |
 | test_core/ | src/mltk/core/ |
+| test_cost/ | src/mltk/cost/ |
 | test_data/ | src/mltk/data/ |
 | test_domains/ | src/mltk/domains/ |
 | test_eval/ | src/mltk/eval/ |

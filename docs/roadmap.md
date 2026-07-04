@@ -14,7 +14,7 @@ We believe transparency builds trust. Here's what we have, what we don't, and wh
 |-----------|:----:|-------------------|:---:|
 | Behavioral consistency testing | **7 assertions** | Nobody | Only provider |
 | Multi-method dispatch (lexical→NLI→LLM) | **Unified API** | Promptfoo (partial) | Major |
-| Full ML lifecycle coverage | **236 assertions** | Evidently (monitoring) + DeepEval (LLM) | Nobody covers all stages |
+| Full ML lifecycle coverage | **241 assertions** | Evidently (monitoring) + DeepEval (LLM) | Nobody covers all stages |
 | Compliance test frameworks | **8 frameworks** | Giskard (platform certs) | Major |
 | Rust acceleration (PyO3) | **Yes** | Nobody | Only provider |
 | Training bug detection | **P0-P2 coverage** | Nobody | Only provider |
@@ -170,11 +170,11 @@ Test image generation quality, image-text alignment, visual reasoning, image edi
 *Research brief: `docs/research/` — observability build vs integrate (15 sources including Phoenix, Langfuse, OTel GenAI semconv)*
 
 #### JSON Schema Validation
-*Status: Not started*
+*Status: Shipped (S96)*
 
-Validate LLM structured outputs against JSON Schema, Pydantic models, XML schemas, SQL syntax. Our `assert_output_format` uses regex — competitors use proper schema validation.
+Validate LLM structured outputs against JSON Schema and Pydantic models. `assert_valid_json`, `assert_json_schema` (jsonschema), and `assert_pydantic_schema` (pydantic v1/v2) in `mltk.domains.llm` complement the regex-based `assert_output_format`. XML/SQL validation remains future work.
 
-**Effort:** 1 sprint | **Dependencies:** jsonschema (lightweight) | **Priority:** Medium
+**Shipped:** S96 | **Dependencies:** jsonschema + pydantic (optional, with install hints)
 
 ### Tier 3: Future Vision
 
@@ -215,11 +215,11 @@ Role-specific agent behaviors for QA engineers, developers, PMs, and DevOps usin
 **Effort:** 2 sprints | **Priority:** Strategic — transforms mltk from toolkit to AI-native platform
 
 #### Cost/Token Tracking
-*Status: Not started*
+*Status: Shipped (S96)*
 
-Track LLM token usage and dollar costs per assertion run. Budget alerts, cost-per-test-suite reports.
+`mltk.cost` package: `MODEL_PRICING` table (Anthropic + OpenAI, 15 models), `estimate_cost`, runtime-overridable `register_pricing` / `get_pricing`, a `CostTracker` accumulator with per-model breakdown, and `assert_cost_within` / `assert_token_usage` suite-level budget assertions.
 
-**Effort:** 1 sprint | **Dependencies:** Provider-specific token counting | **Priority:** Low — nice to have
+**Shipped:** S96 | **Dependencies:** none (stdlib)
 
 ---
 

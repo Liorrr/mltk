@@ -74,6 +74,11 @@ from mltk.domains.llm.span_eval import (
     assert_span_quality,
     assert_span_sequence,
 )
+from mltk.domains.llm.structured_output import (
+    assert_json_schema,
+    assert_pydantic_schema,
+    assert_valid_json,
+)
 from mltk.domains.llm.summarization import (
     assert_summary_compression,
     assert_summary_coverage,
@@ -178,4 +183,8 @@ __all__ = [
     # unicode attack detection
     "assert_no_unicode_attacks",
     "detect_unicode_attacks",
+    # structured output validation
+    "assert_valid_json",
+    "assert_json_schema",
+    "assert_pydantic_schema",
 ]
