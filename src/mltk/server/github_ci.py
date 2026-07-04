@@ -4,10 +4,10 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from importlib.metadata import version as _pkg_version
 
-# Single-source version — reads from installed package metadata (pyproject.toml)
-_VERSION = _pkg_version("mltk")
+# Single-source version — mltk.__version__ resolves the installed
+# distribution (mlspec, legacy mltk) with a source-tree fallback.
+from mltk import __version__ as _VERSION
 
 # ---------------------------------------------------------------------------
 # Internal helper

@@ -3,9 +3,12 @@
 try:
     from importlib.metadata import PackageNotFoundError
     from importlib.metadata import version as _pkg_version
-    __version__ = _pkg_version("mltk")
+    try:
+        __version__ = _pkg_version("mltk")  # editable/dev installs (pre-rename), PEP 541 claim pending
+    except PackageNotFoundError:
+        __version__ = _pkg_version("mlspec")  # current PyPI distribution name
 except PackageNotFoundError:
-    __version__ = "0.12.5"  # fallback for uninstalled source tree
+    __version__ = "0.12.7"  # fallback for uninstalled source tree
 
 # Convenience imports for the most common assertions
 from mltk.container import (
