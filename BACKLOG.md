@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S96: 241 assertions, 4614+ tests, 38 Rust tests) — v0.12.7
+## DONE (S0-S96: 241 assertions, 4625+ tests, 38 Rust tests) — v0.12.7
 
 ### S96 — Structured Output + Cost Tracking
 - [x] 5 net-new assertions: `assert_valid_json` / `assert_json_schema` / `assert_pydantic_schema` (llm), `assert_cost_within` / `assert_token_usage` (new `mltk.cost` package) — 76 new tests, jsonschema + pydantic optional deps
@@ -49,7 +49,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 241 assertions, 4614+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 241 assertions, 4625+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -229,7 +229,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (IN PROGRESS — S1 done)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S1) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S1) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4614+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S1) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4625+ tests, no network in tests.
 - [ ] Task-type detection → suite generation (S2) — classify the dataset (classification, QA/RAG, summarization, generation, retrieval) and emit the matching mltk assertions (e.g. `assert_faithfulness`/`assert_answer_relevancy` for QA, `assert_metric` for classification) as a runnable suite + committable pytest file
 - [ ] One-click CLI/MCP entrypoint (S3) — `mltk import <source>` and an MCP tool returning a ready suite; integrate with the existing `eval` pipeline (solvers/scorers) and versioned dataset registry (S84)
 - [ ] Golden-set binding — map a provided golden/reference set to expected outputs; fall back to LLM-judge scorers when no exact golden exists

@@ -25,6 +25,11 @@ _ZWSP = chr(0x200B)
 # Right-to-left override (U+202E)
 _RLO = chr(0x202E)
 
+# Zero-width joiner (U+200D) and legitimate emoji ZWJ sequences
+_ZWJ = chr(0x200D)
+_EMOJI_MAN_TECH = "\U0001F468" + _ZWJ + "\U0001F4BB"  # 👨‍💻 man technologist
+_EMOJI_FAMILY = "\U0001F468" + _ZWJ + "\U0001F469" + _ZWJ + "\U0001F467"  # 👨‍👩‍👧
+
 
 # ---------------------------------------------------------------------------
 # Tests for the pure detector
@@ -161,6 +166,48 @@ class TestDetectUnicodeAttacks:
         assert "total" in result
         assert result["total"] == 0
 
+    def test_emoji_zwj_sequence_not_flagged(self) -> None:
+        """PASS: ZWJ between two emoji (man technologist) is not flagged."""
+        result = detect_unicode_attacks(_EMOJI_MAN_TECH, checks=("zero_width",))
+        assert result["total"] == 0
+        assert result["zero_width"] == []
+
+    def test_emoji_family_multiple_zwj_not_flagged(self) -> None:
+        """PASS: Multiple ZWJs joining a family emoji sequence are not flagged."""
+        result = detect_unicode_attacks(_EMOJI_FAMILY, checks=("zero_width",))
+        assert result["total"] == 0
+
+    def test_zwj_smuggled_in_plain_text_flagged(self) -> None:
+        """DETECT: ZWJ between plain ASCII letters (not emoji) is still flagged."""
+        text = "ad" + _ZWJ + "min"
+        result = detect_unicode_attacks(text, checks=("zero_width",))
+        assert result["total"] == 1
+        assert result["zero_width"][0]["codepoint"] == "U+200D"
+        assert result["zero_width"][0]["index"] == 2
+
+    def test_zwj_one_sided_emoji_flagged(self) -> None:
+        """DETECT: ZWJ with an emoji on only one side is still flagged."""
+        text = "hi\U0001F44D" + _ZWJ + "there"
+        result = detect_unicode_attacks(text, checks=("zero_width",))
+        assert result["total"] == 1
+
+    def test_leading_zwj_flagged(self) -> None:
+        """DETECT: A ZWJ at the start of the string (no left neighbour) is flagged."""
+        result = detect_unicode_attacks(_ZWJ + "hello", checks=("zero_width",))
+        assert result["total"] == 1
+
+    def test_greek_latin_scientific_token_not_flagged(self) -> None:
+        """PASS: Scientific tokens mixing Latin and Greek are not homoglyphs."""
+        for token in ("α-helix", "5μm", "kΩ"):
+            result = detect_unicode_attacks(token, checks=("homoglyph",))
+            assert result["total"] == 0, token
+
+    def test_cyrillic_latin_homoglyph_still_flagged(self) -> None:
+        """DETECT: Cyrillic/Latin mixed token is still flagged after Greek carve-out."""
+        text = "p" + chr(0x0430) + "yp" + chr(0x0430) + "l"  # pаypаl
+        result = detect_unicode_attacks(text, checks=("homoglyph",))
+        assert result["total"] == 1
+
 
 # ---------------------------------------------------------------------------
 # Tests for the assertion wrapper
@@ -235,6 +282,27 @@ class TestAssertNoUnicodeAttacks:
             assert_no_unicode_attacks("bad" + _ZWSP + "text")
         assert exc_info.value.result.passed is False
         assert exc_info.value.result.details["total_attacks"] >= 1
+
+    def test_emoji_zwj_sequence_passes_assertion(self) -> None:
+        """PASS: Legitimate emoji ZWJ sequence does not raise."""
+        result = assert_no_unicode_attacks(_EMOJI_MAN_TECH, checks=("zero_width",))
+        assert result.passed is True
+
+    def test_greek_scientific_token_passes_assertion(self) -> None:
+        """PASS: Greek/Latin scientific token does not raise."""
+        result = assert_no_unicode_attacks("α-helix", checks=("homoglyph",))
+        assert result.passed is True
+
+    def test_zwj_smuggle_raises(self) -> None:
+        """FAIL/CRITICAL: ZWJ smuggled into plain text still raises."""
+        with pytest.raises(MltkAssertionError):
+            assert_no_unicode_attacks("ad" + _ZWJ + "min", checks=("zero_width",))
+
+    def test_cyrillic_homoglyph_still_raises(self) -> None:
+        """FAIL/CRITICAL: Cyrillic/Latin homoglyph still raises after Greek carve-out."""
+        token = "p" + chr(0x0430) + "yp" + chr(0x0430) + "l"
+        with pytest.raises(MltkAssertionError):
+            assert_no_unicode_attacks("Visit " + token, checks=("homoglyph",))
 
 
 # ---------------------------------------------------------------------------
