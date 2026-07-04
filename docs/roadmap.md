@@ -120,17 +120,17 @@ Test Model Context Protocol tool use correctness — tool selection accuracy, ar
 *Research brief: `docs/research/` — MCP evaluation (24 sources)*
 
 #### Smart Dataset Importer / Test-Suite Mapper
-*Status: In Progress — Sprint 1 of 3 done (see [Smart Dataset Importer docs](api/dataset-importer.md))*
+*Status: In Progress — S97 (sprint 1 of 3) done (see [Smart Dataset Importer docs](api/dataset-importer.md))*
 
 One-click onboarding: point mltk at a dataset (HuggingFace Hub or local CSV/Parquet/JSON) plus an optional golden set, and get a runnable mltk evaluation suite — no manual glue code.
 
-**The workflow:** `DatasetImporter` loads and normalizes the source to a common schema (**done, Sprint 1**). A column auto-mapper infers field roles (input/prompt, golden/expected, context, label) from name heuristics and dtypes, with a preview the user can override (**done, Sprint 1**). A task-type classifier (classification, QA/RAG, summarization, generation, retrieval) then generates the matching assertions as both a live suite and a committable pytest file (**Sprint 2**), wired into the existing eval pipeline (solvers/scorers) and the versioned dataset registry (**Sprint 3**).
+**The workflow:** `DatasetImporter` loads and normalizes the source to a common schema (**done, S97**). A column auto-mapper infers field roles (input/prompt, golden/expected, context, label) from name heuristics and dtypes, with a preview the user can override (**done, S97**). A task-type classifier (classification, QA/RAG, summarization, generation, retrieval) then generates the matching assertions as both a live suite and a committable pytest file (**S98**, second sprint of the epic), wired into the existing eval pipeline (solvers/scorers) and the versioned dataset registry (**S99**, third sprint of the epic).
 
 **Differentiator:** competitors require you to hand-write test cases or adopt their dataset format. mltk would turn any public dataset into a runnable eval in one command (`mltk import <source>`) or one MCP call.
 
-**Approach:** HuggingFace `datasets` adapter first (**done**); pluggable adapters for Kaggle/OpenML/local/object-storage later. Golden-set binding maps references to expected outputs; falls back to LLM-judge scorers when no exact golden exists (**Sprint 3**).
+**Approach:** HuggingFace `datasets` adapter first (**done**); pluggable adapters for Kaggle/OpenML/local/object-storage later. Golden-set binding maps references to expected outputs; falls back to LLM-judge scorers when no exact golden exists (**S99**).
 
-**Not in scope for this epic:** a URL-fetch adapter (raises `NotImplementedError` for now — download locally first), a SQL/database source, and HuggingFace's `streaming=True` mode (large-dataset streaming is deferred past Sprint 3; `DatasetImporter` always fully materializes the source).
+**Not in scope for this epic:** a URL-fetch adapter (raises `NotImplementedError` for now — download locally first), a SQL/database source, and HuggingFace's `streaming=True` mode (large-dataset streaming is deferred past S99; `DatasetImporter` always fully materializes the source).
 
 **Effort:** 2-3 sprints | **Dependencies:** `datasets`, `pyarrow` (optional `mltk[importer]` extra) | **Priority:** High — lowers time-to-first-eval to near zero
 

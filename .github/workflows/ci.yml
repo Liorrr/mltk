@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: pip install -e ".[dev,scipy]"
+      - run: pip install -e ".[dev,scipy,importer]"
       - run: pytest --cov=mltk --cov-report=xml --fail-under=80 -q
 
   rust:

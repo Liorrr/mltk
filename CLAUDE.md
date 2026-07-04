@@ -6,7 +6,7 @@
 ## Project Overview
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - Python 3.10+ with Rust acceleration (maturin build)
-- v0.12.7, 241 assertions, 4625+ tests, 8 scanners, 12 MCP tools
+- v0.12.7, 241 assertions, 4666+ tests, 8 scanners, 12 MCP tools
 - Phase F (Agent Integration): COMPLETE — building toward v1.0.0
 
 ## Architecture

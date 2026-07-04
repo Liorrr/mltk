@@ -35,7 +35,7 @@ class ColumnRole(Enum):
     INPUT = "input"  # the prompt/question fed to the model
     GOLDEN = "golden"  # expected answer / reference -> EvalSample.target
     CONTEXT = "context"  # retrieval context / passage (RAG) -> metadata["context"]
-    LABEL = "label"  # classification label -> metadata["label"]
+    LABEL = "label"  # classification label -> metadata["label"] (+ ["category"] if sole LABEL col)
     METADATA = "metadata"  # passthrough, arbitrary metadata
     IGNORE = "ignore"  # explicitly excluded from the normalized dataset
     UNKNOWN = "unknown"  # could not be inferred -- always surfaced, never guessed
@@ -75,6 +75,23 @@ def _stringify(value: Any) -> str | None:
         ``str(value)``, or ``None`` if the cell is missing.
     """
     return None if _is_missing(value) else str(value)
+
+
+def _normalize(value: Any) -> Any:
+    """Return *value* unchanged, or ``None`` if it's a missing cell.
+
+    Unlike :func:`_stringify`, this never coerces to ``str`` -- used for
+    passthrough values (LABEL, METADATA, UNKNOWN, extra-INPUT columns)
+    where the original type matters (e.g. a LABEL column may legitimately
+    hold ``int`` values that should not be stringified).
+
+    Args:
+        value: A single cell value from an :class:`ImportResult` row.
+
+    Returns:
+        *value* unchanged, or ``None`` if the cell is missing.
+    """
+    return None if _is_missing(value) else value
 
 
 @dataclass
@@ -136,7 +153,9 @@ class ColumnMapping:
             lines.append(f"{column} | {role.value} | {sample}{marker}")
         return "\n".join(lines)
 
-    def override(self, column: str, role: ColumnRole) -> ColumnMapping:
+    def override(
+        self, column: str, role: ColumnRole, *, exclusive: bool = False
+    ) -> ColumnMapping:
         """Return a new mapping with *column* reassigned to *role*.
 
         Does not mutate ``self`` -- the ``roles`` dict is copied so the
@@ -145,6 +164,14 @@ class ColumnMapping:
         Args:
             column: Source column name to reassign.
             role: New role to assign to *column*.
+            exclusive: If True, every OTHER column currently holding
+                *role* is demoted to :attr:`ColumnRole.UNKNOWN` in the
+                returned mapping, so *column* becomes the ONLY column
+                with *role* -- e.g. guaranteeing a force-assigned INPUT
+                column actually becomes ``EvalSample.input`` instead of
+                losing a tie to a column that already had that role.
+                Defaults to False (current behavior: only *column* is
+                touched).
 
         Returns:
             A new :class:`ColumnMapping` with the override applied.
@@ -159,6 +186,15 @@ class ColumnMapping:
             True
             >>> m.roles["x"] is ColumnRole.UNKNOWN
             True
+
+            >>> m3 = ColumnMapping(
+            ...     roles={"a": ColumnRole.INPUT, "b": ColumnRole.UNKNOWN},
+            ... )
+            >>> m4 = m3.override("b", ColumnRole.INPUT, exclusive=True)
+            >>> m4.roles["b"] is ColumnRole.INPUT
+            True
+            >>> m4.roles["a"] is ColumnRole.UNKNOWN
+            True
         """
         if column not in self.roles:
             raise ValueError(
@@ -166,6 +202,10 @@ class ColumnMapping:
                 f"Known columns: {list(self.roles.keys())}"
             )
         new_roles = dict(self.roles)
+        if exclusive:
+            for other_column, other_role in new_roles.items():
+                if other_column != column and other_role is role:
+                    new_roles[other_column] = ColumnRole.UNKNOWN
         new_roles[column] = role
         return ColumnMapping(roles=new_roles, samples=dict(self.samples))
 
@@ -275,7 +315,12 @@ class ImportResult:
         - ``INPUT``: the first column with role ``INPUT`` becomes
           ``EvalSample.input`` (``str(value)``, or ``""`` if the cell is
           missing/NaN/empty -- ``EvalSample.input`` is non-optional).
-          Raises if there is no ``INPUT`` column at all.
+          Raises if there is no ``INPUT`` column at all. Any additional
+          ``INPUT`` columns (possible only via a hand-built
+          :class:`ColumnMapping` -- :func:`~mltk.importer.mapping.auto_map_columns`
+          never emits more than one) pass through into sample metadata
+          keyed by their own column name, same missing-value handling as
+          ``METADATA``/``UNKNOWN`` below -- never silently dropped.
         - ``GOLDEN``: the first column with role ``GOLDEN`` becomes
           ``EvalSample.target`` (``str(value)``, or ``None`` if the cell
           is missing/NaN/empty). Any additional ``GOLDEN`` columns go
@@ -286,12 +331,20 @@ class ImportResult:
           ``metadata["context"]`` -- a single ``str | None`` if there is
           exactly one such column, else a list of ``str | None``
           preserving column order. Missing cells become ``None``.
-        - ``LABEL``: all ``LABEL`` columns go into ``metadata["label"]``
-          -- a single value if there is exactly one such column, else a
-          dict of ``{column: value}``.
+        - ``LABEL``: a single ``LABEL`` column sets BOTH
+          ``metadata["label"]`` and ``metadata["category"]`` to the same
+          normalized value (missing -> ``None``, otherwise the original
+          value, never stringified) -- the ``category`` mirror is what
+          :attr:`~mltk.eval.dataset.EvalDataset.categories` and
+          ``assert_dataset_quality(min_categories=...)`` read. Multiple
+          ``LABEL`` columns set only ``metadata["label"]`` to a
+          ``{column: value}`` dict -- no ``category`` mirror, since it's
+          ambiguous which of several label columns is "the" category.
         - ``METADATA`` and ``UNKNOWN`` columns pass through into sample
-          metadata keyed by their own column name. ``IGNORE`` columns
-          are dropped entirely.
+          metadata keyed by their own column name, normalized (missing
+          -> ``None``, otherwise the original value, never stringified
+          -- these columns may legitimately hold non-string types).
+          ``IGNORE`` columns are dropped entirely.
 
         Args:
             name: Name for the resulting dataset.
@@ -340,6 +393,7 @@ class ImportResult:
                 "to_eval_dataset()."
             )
         input_col = input_cols[0]
+        extra_input_cols = input_cols[1:]
 
         golden_cols = effective.columns_with_role(ColumnRole.GOLDEN)
         golden_col = golden_cols[0] if golden_cols else None
@@ -381,14 +435,19 @@ class ImportResult:
 
             if label_cols:
                 if len(label_cols) == 1:
-                    metadata["label"] = row.get(label_cols[0])
+                    label_value = _normalize(row.get(label_cols[0]))
+                    metadata["label"] = label_value
+                    metadata["category"] = label_value
                 else:
                     metadata["label"] = {
-                        c: row.get(c) for c in label_cols
+                        c: _normalize(row.get(c)) for c in label_cols
                     }
 
             for c in passthrough_cols:
-                metadata[c] = row.get(c)
+                metadata[c] = _normalize(row.get(c))
+
+            for c in extra_input_cols:
+                metadata[c] = _normalize(row.get(c))
 
             samples.append(
                 EvalSample(

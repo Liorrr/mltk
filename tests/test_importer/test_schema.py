@@ -8,8 +8,15 @@ from __future__ import annotations
 
 import pytest
 
-from mltk.eval.dataset import EvalDataset
-from mltk.importer.schema import ColumnMapping, ColumnRole, ImportResult
+from mltk.eval.dataset import EvalDataset, assert_dataset_quality
+from mltk.importer.mapping import auto_map_columns
+from mltk.importer.schema import (
+    ColumnMapping,
+    ColumnRole,
+    ImportResult,
+    _normalize,
+    _stringify,
+)
 
 # ---------------------------------------------------------------
 # Helpers
@@ -488,3 +495,286 @@ class TestImportResultToEvalDataset:
         )
         with pytest.raises(ValueError):  # noqa: PT011 -- message text not part of contract
             result.to_eval_dataset(name="no-input")
+
+
+# ===============================================================
+# Extra INPUT columns (multi-INPUT mapping) -- passthrough, never dropped
+# ===============================================================
+
+
+class TestExtraInputColumnsPassthrough:
+    """A mapping with more than one INPUT-role column is only reachable
+    via a hand-built ColumnMapping -- auto_map_columns() enforces the
+    single-INPUT invariant and never emits two INPUT roles itself."""
+
+    def _multi_input_result(self, prompt_value):
+        roles = {
+            "question": ColumnRole.INPUT,
+            "prompt": ColumnRole.INPUT,
+            "answer": ColumnRole.GOLDEN,
+        }
+        mapping = ColumnMapping(roles=roles, samples={})
+        return ImportResult(
+            source="x.csv",
+            columns=["question", "prompt", "answer"],
+            dtypes={
+                "question": "string",
+                "prompt": "string",
+                "answer": "string",
+            },
+            rows=[{"question": "Q1?", "prompt": prompt_value, "answer": "A1"}],
+            mapping=mapping,
+        )
+
+    def test_first_input_column_becomes_sample_input(self):
+        # SCENARIO: two INPUT-role columns in a hand-built mapping
+        # WHY: contract says the FIRST (by columns_with_role order,
+        #   which follows original column order) becomes the sample
+        #   input, mirroring the single-INPUT invariant in mapping.py
+        # EXPECTED: EvalSample.input == 'question' column's value
+        result = self._multi_input_result(prompt_value="P1?")
+        ds = result.to_eval_dataset(name="multi-input")
+        assert ds.samples[0].input == "Q1?"
+
+    def test_extra_input_column_passes_through_to_metadata_by_name(self):
+        # SCENARIO: same two-INPUT mapping as above
+        # WHY: P1 concern -- the second INPUT column's data must never
+        #   be silently dropped; it passes through to metadata keyed by
+        #   its own column name, exactly like an UNKNOWN column
+        # EXPECTED: metadata['prompt'] == the second column's raw value
+        result = self._multi_input_result(prompt_value="P1?")
+        ds = result.to_eval_dataset(name="multi-input")
+        assert ds.samples[0].metadata["prompt"] == "P1?"
+
+    def test_extra_input_column_missing_cell_becomes_none(self):
+        # SCENARIO: the second INPUT column's cell is missing
+        # WHY: passthrough missing-value normalization applies here too
+        #   -- None, never NaN, never the literal string "None"
+        # EXPECTED: metadata['prompt'] is None
+        result = self._multi_input_result(prompt_value=None)
+        ds = result.to_eval_dataset(name="multi-input")
+        assert ds.samples[0].metadata["prompt"] is None
+
+
+# ===============================================================
+# LABEL -> category mirroring (single LABEL column only)
+# ===============================================================
+
+
+class TestLabelCategoryMirroring:
+    """A single LABEL column mirrors into metadata['category'] so that
+    EvalDataset.categories / assert_dataset_quality(min_categories=...)
+    -- which both read metadata['category'] -- see the label values."""
+
+    def test_single_label_mirrors_into_category(self):
+        # SCENARIO: default tiny-fixture mapping, single LABEL column
+        #   ('category')
+        # WHY: core contract -- metadata['category'] must exist
+        #   alongside metadata['label'] with the same value
+        # EXPECTED: both keys present, both equal
+        result = _import_result()
+        ds = result.to_eval_dataset(name="tiny-qa")
+        assert ds.samples[0].metadata["label"] == "geography"
+        assert ds.samples[0].metadata["category"] == "geography"
+
+    def test_three_class_dataset_satisfies_min_categories(self):
+        # SCENARIO: a 3-row, 3-category dataset run through
+        #   to_eval_dataset() then assert_dataset_quality()
+        # WHY: end-to-end proof that the category mirror is what makes
+        #   EvalDataset.categories and the min_categories gate work --
+        #   before this fix, categories was always empty because the
+        #   importer wrote metadata['label'] but EvalDataset.categories
+        #   reads metadata['category']
+        # EXPECTED: 3 distinct categories; quality check passes
+        rows = [
+            {"question": "Q1?", "answer": "A1", "category": "geography"},
+            {"question": "Q2?", "answer": "A2", "category": "math"},
+            {"question": "Q3?", "answer": "A3", "category": "science"},
+        ]
+        dtypes = {"question": "string", "answer": "string", "category": "string"}
+        mapping = ColumnMapping(
+            roles={
+                "question": ColumnRole.INPUT,
+                "answer": ColumnRole.GOLDEN,
+                "category": ColumnRole.LABEL,
+            },
+            samples=rows[0],
+        )
+        result = ImportResult(
+            source="three_class.csv",
+            columns=list(dtypes.keys()),
+            dtypes=dtypes,
+            rows=rows,
+            mapping=mapping,
+        )
+        ds = result.to_eval_dataset(name="three-class")
+        assert ds.categories == {"geography": 1, "math": 1, "science": 1}
+
+        quality = assert_dataset_quality(
+            ds,
+            min_samples=3,
+            min_target_coverage=1.0,
+            max_duplicate_rate=0.0,
+            min_categories=2,
+        )
+        assert quality.passed
+
+    def test_multiple_label_columns_no_category_mirror(self):
+        # SCENARIO: two LABEL columns (category, id) -- ambiguous which
+        #   one is "the" category
+        # WHY: contract explicitly says NO mirror in the multi-LABEL
+        #   case, to avoid guessing which column represents category
+        # EXPECTED: metadata['label'] is a dict; 'category' key absent
+        mapping = _mapping(id=ColumnRole.LABEL)
+        result = _import_result(mapping=mapping)
+        ds = result.to_eval_dataset(name="tiny-qa")
+        assert isinstance(ds.samples[0].metadata["label"], dict)
+        assert "category" not in ds.samples[0].metadata
+
+    def test_label_int_value_is_not_stringified(self):
+        # SCENARIO: a LABEL column holding int values (e.g. numeric
+        #   class ids), distinct column name from any passthrough
+        #   column to avoid the (separately out-of-scope) mirror-vs-
+        #   passthrough key collision
+        # WHY: _normalize() must preserve the original type -- labels
+        #   may legitimately be ints, unlike INPUT/GOLDEN/CONTEXT which
+        #   are always stringified via _stringify()
+        # EXPECTED: metadata['label'] and metadata['category'] are the
+        #   int 3, not the string "3"
+        roles = {
+            "question": ColumnRole.INPUT,
+            "answer": ColumnRole.GOLDEN,
+            "cls": ColumnRole.LABEL,
+        }
+        mapping = ColumnMapping(roles=roles, samples={})
+        result = ImportResult(
+            source="x.csv",
+            columns=["question", "answer", "cls"],
+            dtypes={"question": "string", "answer": "string", "cls": "numeric"},
+            rows=[{"question": "Q1?", "answer": "A1", "cls": 3}],
+            mapping=mapping,
+        )
+        ds = result.to_eval_dataset(name="int-label")
+        assert ds.samples[0].metadata["label"] == 3
+        assert isinstance(ds.samples[0].metadata["label"], int)
+        assert ds.samples[0].metadata["category"] == 3
+
+
+# ===============================================================
+# Numeric GOLDEN end-to-end -- auto_map_columns -> to_eval_dataset
+# ===============================================================
+
+
+class TestNumericGoldenEndToEnd:
+    """The mapping-level numeric-answer exception (see test_mapping.py's
+    TestNumericAnswerGoldenException) only matters if the resulting
+    GOLDEN role actually produces a non-None EvalSample.target -- this
+    is the full pipeline proof, from auto-mapping through to the
+    target_coverage that assert_dataset_quality gates on."""
+
+    def test_numeric_answer_column_yields_full_target_coverage(self):
+        # SCENARIO: a math-QA-style dataset where pandas would infer a
+        #   numeric dtype for the 'answer' column (all-integer answers)
+        # WHY: P1 bug -- before this fix, the GOLDEN rule required
+        #   dtype == "string", so a numeric 'answer' column never became
+        #   GOLDEN, every sample's target was None, and
+        #   target_coverage was 0.0 regardless of row count
+        # EXPECTED: auto-mapping assigns GOLDEN to 'answer'; every
+        #   sample gets a non-None target; target_coverage == 1.0
+        columns = ["question", "answer"]
+        dtypes = {"question": "string", "answer": "numeric"}
+        rows = [
+            {"question": "What is 2+2?", "answer": 4},
+            {"question": "What is 3+5?", "answer": 8},
+        ]
+        mapping = auto_map_columns(columns, dtypes, rows)
+        assert mapping.roles["answer"] == ColumnRole.GOLDEN
+
+        result = ImportResult(
+            source="math_qa.csv",
+            columns=columns,
+            dtypes=dtypes,
+            rows=rows,
+            mapping=mapping,
+        )
+        ds = result.to_eval_dataset(name="math-qa")
+        assert all(s.target is not None for s in ds.samples)
+        assert ds.samples[0].target == "4"
+        assert ds.target_coverage == 1.0
+
+
+# ===============================================================
+# Missing-cell normalization -- LABEL / METADATA / UNKNOWN passthrough
+# ===============================================================
+
+
+class TestMissingCellNormalization:
+    """Blank/NaN/None cells in passthrough roles normalize to None --
+    never NaN, never the literal string "None"."""
+
+    def test_missing_metadata_cell_normalizes_to_none_not_nan(self):
+        # SCENARIO: a METADATA column's cell is NaN (as pandas would
+        #   produce for a missing numeric cell)
+        # WHY: the P2 finding -- raw pandas NaN is not JSON-serializable
+        #   and (post category-mirroring) would corrupt equality checks,
+        #   since NaN != NaN
+        # EXPECTED: metadata['id'] is None, not NaN
+        rows = _rows()
+        rows[0]["id"] = float("nan")
+        result = _import_result()
+        result.rows = rows
+        ds = result.to_eval_dataset(name="tiny-qa")
+        assert ds.samples[0].metadata["id"] is None
+
+    def test_missing_label_cell_normalizes_to_none_and_mirrors_to_category(self):
+        # SCENARIO: a blank LABEL cell (None, as a CSV blank cell would
+        #   decode to after DataFrame -> dict conversion for an object
+        #   column)
+        # WHY: both the primary label key and its category mirror must
+        #   see the same None, never "None"
+        # EXPECTED: both metadata['label'] and metadata['category'] are
+        #   None
+        rows = _rows()
+        rows[0]["category"] = None
+        result = _import_result()
+        result.rows = rows
+        ds = result.to_eval_dataset(name="tiny-qa")
+        assert ds.samples[0].metadata["label"] is None
+        assert ds.samples[0].metadata["category"] is None
+
+    def test_missing_unknown_cell_normalizes_to_none(self):
+        # SCENARIO: an UNKNOWN-role column's cell is blank
+        # WHY: same normalization contract as METADATA
+        # EXPECTED: metadata[col] is None
+        rows = _rows()
+        rows[0]["id"] = ""
+        mapping = _mapping(id=ColumnRole.UNKNOWN)
+        result = _import_result(mapping=mapping)
+        result.rows = rows
+        ds = result.to_eval_dataset(name="tiny-qa")
+        assert ds.samples[0].metadata["id"] is None
+
+
+class TestStringifyAndNormalizeUnit:
+    """Direct unit coverage for the two missing-value helpers."""
+
+    def test_stringify_nan_is_none(self):
+        assert _stringify(float("nan")) is None
+
+    def test_normalize_nan_is_none(self):
+        assert _normalize(float("nan")) is None
+
+    def test_normalize_none_is_none(self):
+        assert _normalize(None) is None
+
+    def test_normalize_blank_string_is_none(self):
+        assert _normalize("   ") is None
+
+    def test_normalize_keeps_original_value_and_type(self):
+        # SCENARIO: a present, non-missing value of a non-str type
+        # WHY: _normalize() must not stringify -- that's _stringify()'s
+        #   job, used only for INPUT/GOLDEN/CONTEXT/references
+        # EXPECTED: value and type both preserved
+        assert _normalize(42) == 42
+        assert isinstance(_normalize(42), int)
+        assert _normalize("geography") == "geography"

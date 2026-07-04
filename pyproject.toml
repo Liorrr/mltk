@@ -43,7 +43,7 @@ nlp = ["nltk>=3.8", "rouge-score>=0.1"]
 speech = ["jiwer>=3.0"]
 contracts = ["pyyaml>=6.0"]
 integrations = ["jira>=3.0"]
-importer = ["datasets>=2.0", "pyarrow>=14"]  # HuggingFace datasets + local Parquet support for Smart Dataset Importer
+importer = ["datasets>=4.0", "pyarrow>=14"]  # HuggingFace datasets (4.0+ drops script-based/remote-code dataset loading) + local Parquet support for Smart Dataset Importer
 pdf = ["weasyprint>=60"]  # PDF export for compliance reports
 llm = []  # lightweight (numpy only), future: detoxify
 embedding = ["sentence-transformers>=2.0"]  # embedding-based LLM similarity evaluation

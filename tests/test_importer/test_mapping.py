@@ -1,8 +1,10 @@
 """Tests for mltk.importer.mapping -- deterministic column auto-mapping.
 
-Exercises the name-based heuristic priority table documented in the
-Sprint 1 contract: INPUT > CONTEXT > GOLDEN (string-only) > LABEL >
-METADATA > UNKNOWN.
+Exercises the token-based heuristic priority table (heuristics v2):
+METADATA-suffix (last token) > INPUT (string-only) > CONTEXT > GOLDEN
+(string, or numeric when the column name IS the keyword) > LABEL >
+METADATA (any token) > UNKNOWN. Matching is WHOLE-TOKEN, never a raw
+substring check -- see ``mltk.importer.mapping._tokenize``.
 """
 
 from __future__ import annotations
@@ -53,9 +55,14 @@ class TestInputHeuristic:
         mapping = _map([name])
         assert mapping.roles[name] == ColumnRole.INPUT
 
-    def test_substring_match(self):
-        # SCENARIO: column name contains the keyword, not equal to it
-        # WHY: heuristics are documented as "contains", not "equals"
+    def test_compound_name_with_input_token_matches(self):
+        # SCENARIO: column name contains the keyword as one of several
+        #   underscore-separated tokens, not equal to the whole name
+        # WHY: heuristics v2 tokenizes on '_' boundaries, so 'question'
+        #   is matched as a whole token even inside a longer compound
+        #   name (NOT a raw substring check -- see TestUnknownFallback
+        #   for cases where a keyword appears as a substring but not a
+        #   whole token, e.g. 'candidate' containing 'id')
         # EXPECTED: still classified as INPUT
         mapping = _map(["user_question_text"])
         assert mapping.roles["user_question_text"] == ColumnRole.INPUT
@@ -132,20 +139,28 @@ class TestContextHeuristic:
         mapping = _map([name])
         assert mapping.roles[name] == ColumnRole.CONTEXT
 
-    def test_substring_match(self):
-        # SCENARIO: 'retrieved_passages' contains 'retrieved' and 'passage'
-        # WHY: contains-match, not exact
+    def test_compound_name_with_context_token_matches(self):
+        # SCENARIO: 'retrieved_passages' tokenizes to ['retrieved',
+        #   'passages'] -- 'retrieved' is an exact CONTEXT token even
+        #   though 'passages' (plural) is not
+        # WHY: whole-token match, not exact-column-name match
         # EXPECTED: CONTEXT
         mapping = _map(["retrieved_passages"])
         assert mapping.roles["retrieved_passages"] == ColumnRole.CONTEXT
 
-    def test_context_wins_over_metadata_when_both_match(self):
-        # SCENARIO: 'document_id' matches CONTEXT ('document') and
-        #   METADATA ('id')
-        # WHY: priority order puts CONTEXT (rule 2) before METADATA (rule 5)
-        # EXPECTED: CONTEXT wins
+    def test_metadata_suffix_wins_over_context_when_both_match(self):
+        # SCENARIO: 'document_id' matches CONTEXT ('document' token) and
+        #   the METADATA-suffix rule (last token 'id')
+        # WHY: CHANGED under heuristics v2 -- the METADATA-suffix rule
+        #   (rule a) is checked first, against the LAST token, before any
+        #   other rule runs for any column. Under v1 this column was
+        #   CONTEXT (substring match on 'document' won); v2 intentionally
+        #   flips this so 'document_id' (and similarly 'question_id',
+        #   'query_id') is treated as a bookkeeping id column, not the
+        #   semantic field its non-suffix token suggests
+        # EXPECTED: METADATA wins
         mapping = _map(["document_id"])
-        assert mapping.roles["document_id"] == ColumnRole.CONTEXT
+        assert mapping.roles["document_id"] == ColumnRole.METADATA
 
 
 # ===============================================================
@@ -258,9 +273,10 @@ class TestMetadataHeuristic:
         mapping = _map([name])
         assert mapping.roles[name] == ColumnRole.METADATA
 
-    def test_substring_match(self):
-        # SCENARIO: 'created_date' contains 'date'
-        # WHY: contains-match, not exact
+    def test_compound_name_with_metadata_suffix_matches(self):
+        # SCENARIO: 'created_date' tokenizes to ['created', 'date'] --
+        #   the LAST token 'date' hits the metadata-suffix rule (rule a)
+        # WHY: whole-token match, not exact-column-name match
         # EXPECTED: METADATA
         mapping = _map(["created_date"])
         assert mapping.roles["created_date"] == ColumnRole.METADATA
@@ -287,6 +303,136 @@ class TestUnknownFallback:
         # EXPECTED: UNKNOWN
         mapping = _map([""])
         assert mapping.roles[""] == ColumnRole.UNKNOWN
+
+    @pytest.mark.parametrize("name", ["confidence", "video", "candidate", "valid"])
+    def test_words_containing_id_as_substring_do_not_false_positive(self, name):
+        # SCENARIO: 'confidence'/'video'/'candidate'/'valid' each contain
+        #   the LETTERS 'id' as a raw substring but are single whole
+        #   tokens that are none of the recognized keywords
+        # WHY: heuristics v2 matches whole tokens (set membership), never
+        #   a substring scan -- this is the regression test for the P2
+        #   finding where the old substring-based METADATA rule would
+        #   have misclassified these as METADATA via a bogus 'id' hit
+        # EXPECTED: UNKNOWN
+        mapping = _map([name])
+        assert mapping.roles[name] == ColumnRole.UNKNOWN
+
+
+# ===============================================================
+# Heuristics v2 regressions -- METADATA-suffix rule, INPUT dtype gate,
+# single-INPUT invariant, numeric-answer GOLDEN exception
+# ===============================================================
+
+
+class TestMetadataSuffixRule:
+    """Rule (a): LAST token in the id/idx/index/uid/uuid/timestamp/date/
+    split suffix set -> METADATA, checked before every other rule."""
+
+    @pytest.mark.parametrize("name", ["question_id", "query_id"])
+    def test_input_keyword_plus_id_suffix_is_metadata_not_input(self, name):
+        # SCENARIO: P1 bug -- 'question_id'/'query_id' previously matched
+        #   INPUT via substring, silently stealing the role from the real
+        #   prompt column and dropping it to metadata
+        # WHY: rule (a) fires on the last token 'id' before the INPUT
+        #   rule is ever considered for this column
+        # EXPECTED: METADATA
+        mapping = _map([name], dtypes={name: "string"})
+        assert mapping.roles[name] == ColumnRole.METADATA
+
+
+class TestInputRequiresStringDtype:
+    """Rule (b): INPUT requires dtype == 'string', not just a name match."""
+
+    def test_numeric_input_tokens_is_not_input(self):
+        # SCENARIO: P1 bug -- a numeric 'input_tokens' column (token
+        #   count, not prompt text) previously matched INPUT via
+        #   substring on 'input'
+        # WHY: rule (b) now requires dtype == 'string'; numeric
+        #   'input_tokens' matches no other rule either (no context/
+        #   golden/label/metadata token) so it falls through to UNKNOWN
+        # EXPECTED: UNKNOWN, never INPUT
+        mapping = _map(["input_tokens"], dtypes={"input_tokens": "numeric"})
+        assert mapping.roles["input_tokens"] == ColumnRole.UNKNOWN
+
+
+class TestSingleInputInvariant:
+    """Only the first INPUT candidate (by column order) keeps INPUT."""
+
+    def test_multiple_input_candidates_first_wins_rest_unknown(self):
+        # SCENARIO: P1 bug -- with two string columns both matching an
+        #   INPUT keyword ('question' and 'prompt'), to_eval_dataset()
+        #   used to pick the first in COLUMN-DICT order arbitrarily and
+        #   silently drop the other's data
+        # WHY: the single-INPUT invariant demotes every candidate after
+        #   the first (in original column order) to UNKNOWN, so it is
+        #   surfaced via preview()/validate() and passed through to
+        #   metadata instead of silently vanishing
+        # EXPECTED: 'question' (first) -> INPUT, 'prompt' (second) ->
+        #   UNKNOWN
+        columns = ["question", "prompt", "answer"]
+        dtypes = {"question": "string", "prompt": "string", "answer": "string"}
+        mapping = _map(columns, dtypes=dtypes)
+        assert mapping.roles["question"] == ColumnRole.INPUT
+        assert mapping.roles["prompt"] == ColumnRole.UNKNOWN
+        assert mapping.roles["answer"] == ColumnRole.GOLDEN
+
+    def test_reversed_order_still_picks_first_column(self):
+        # SCENARIO: same ambiguity as above, but the INPUT-keyword
+        #   column that should win is now second in column order
+        # WHY: "first" must mean original column order, not name/dict
+        #   ordering, or any dtype-based tiebreak
+        # EXPECTED: 'prompt' (first) -> INPUT, 'question' (second) ->
+        #   UNKNOWN
+        columns = ["prompt", "question"]
+        dtypes = {"prompt": "string", "question": "string"}
+        mapping = _map(columns, dtypes=dtypes)
+        assert mapping.roles["prompt"] == ColumnRole.INPUT
+        assert mapping.roles["question"] == ColumnRole.UNKNOWN
+
+
+class TestNumericAnswerGoldenException:
+    """Rule (d): a numeric column named EXACTLY a golden keyword is
+    still GOLDEN; a numeric compound name (e.g. 'output_tokens') is not."""
+
+    def test_numeric_answer_column_maps_to_golden(self):
+        # SCENARIO: P1 bug -- a math-QA dataset where pandas infers a
+        #   numeric dtype for the 'answer' column (e.g. all-integer
+        #   answers); the old dtype=='string' gate excluded it entirely,
+        #   leaving target=None for every sample
+        # WHY: rule (d)'s numeric exception fires only when the WHOLE
+        #   lowered column name equals a golden keyword exactly
+        # EXPECTED: GOLDEN
+        mapping = _map(["answer"], dtypes={"answer": "numeric"})
+        assert mapping.roles["answer"] == ColumnRole.GOLDEN
+
+    def test_numeric_compound_golden_name_does_not_map_to_golden(self):
+        # SCENARIO: 'output_tokens' is numeric and contains the GOLDEN
+        #   token 'output', but the column name as a whole isn't the
+        #   literal keyword 'output'
+        # WHY: the numeric exception is deliberately narrow -- it must
+        #   not swallow every numeric column whose name happens to
+        #   contain a golden keyword as one of several tokens
+        # EXPECTED: UNKNOWN, not GOLDEN
+        mapping = _map(["output_tokens"], dtypes={"output_tokens": "numeric"})
+        assert mapping.roles["output_tokens"] == ColumnRole.UNKNOWN
+
+
+class TestTextFallbackNotBlockedByUnrelatedTextColumn:
+    """A numeric column that merely contains the 'text' token must not
+    prevent a lone string 'text' column from becoming INPUT."""
+
+    def test_numeric_text_length_does_not_block_lone_text_input(self):
+        # SCENARIO: 'text_length' (numeric, e.g. a precomputed character
+        #   count) sits alongside a lone string 'text' column
+        # WHY: the text-fallback candidate list requires dtype ==
+        #   'string'; 'text_length' is numeric so it's excluded from
+        #   consideration, leaving 'text' as the sole candidate
+        # EXPECTED: 'text' -> INPUT, 'text_length' -> UNKNOWN
+        columns = ["text", "text_length"]
+        dtypes = {"text": "string", "text_length": "numeric"}
+        mapping = _map(columns, dtypes=dtypes)
+        assert mapping.roles["text"] == ColumnRole.INPUT
+        assert mapping.roles["text_length"] == ColumnRole.UNKNOWN
 
 
 # ===============================================================

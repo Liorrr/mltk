@@ -42,9 +42,14 @@ class DatasetImporter:
             split: Dataset split to load when `source` is a HuggingFace Hub id.
                 Defaults to ``"train"``. Ignored for local files and URLs.
             input_column: Optional column name to force-assign the INPUT role,
-                applied after auto-mapping.
+                applied after auto-mapping via an exclusive override -- any
+                other column auto-mapped to INPUT is demoted to UNKNOWN, so
+                `input_column` is guaranteed to become the effective
+                ``EvalSample.input`` once ``to_eval_dataset()`` is called.
             target_column: Optional column name to force-assign the GOLDEN
-                role, applied after auto-mapping.
+                role, applied after auto-mapping via the same exclusive
+                override, guaranteeing `target_column` becomes the effective
+                ``EvalSample.target``.
 
         Returns:
             An ImportResult with normalized columns/dtypes/rows and a
@@ -65,8 +70,19 @@ class DatasetImporter:
         """
         path = Path(source)
         is_url = source.startswith("http://") or source.startswith("https://")
+        # A local candidate is either an existing regular file, or a path
+        # that doesn't exist yet but has a recognized local extension (so a
+        # typo'd .csv still raises FileNotFoundError instead of silently
+        # falling through to the HuggingFace branch). An EXISTING directory
+        # (e.g. a local dir that happens to share a name with a HF Hub id)
+        # is deliberately excluded here so it falls through to the HF branch
+        # below rather than raising a bogus "unrecognized extension" error.
+        is_local = not is_url and (
+            path.is_file()
+            or (not path.exists() and path.suffix.lower() in _LOCAL_EXTENSIONS)
+        )
 
-        if not is_url and (path.exists() or path.suffix.lower() in _LOCAL_EXTENSIONS):
+        if is_local:
             columns, dtypes, rows = _load_local_file(path)
         elif is_url:
             raise NotImplementedError(
@@ -86,9 +102,13 @@ class DatasetImporter:
         )
 
         if input_column is not None:
-            result.mapping = result.mapping.override(input_column, ColumnRole.INPUT)
+            result.mapping = result.mapping.override(
+                input_column, ColumnRole.INPUT, exclusive=True
+            )
         if target_column is not None:
-            result.mapping = result.mapping.override(target_column, ColumnRole.GOLDEN)
+            result.mapping = result.mapping.override(
+                target_column, ColumnRole.GOLDEN, exclusive=True
+            )
 
         return result
 
@@ -134,19 +154,19 @@ def _load_json_file(path: Path) -> _LoadedTable:
 
     Raises:
         ValueError: If the JSON content is neither a list nor an object with
-            a ``samples`` key.
+            a ``samples`` key whose value is itself a list.
     """
     with path.open(encoding="utf-8") as f:
         data = json.load(f)
 
     if isinstance(data, list):
         records = data
-    elif isinstance(data, dict) and "samples" in data:
+    elif isinstance(data, dict) and isinstance(data.get("samples"), list):
         records = data["samples"]
     else:
         raise ValueError(
             f"Unsupported JSON shape in {path}: expected a list or an object "
-            "with a 'samples' key"
+            "with a 'samples' key whose value is a list"
         )
 
     return _dataframe_to_table(pd.DataFrame(records))
