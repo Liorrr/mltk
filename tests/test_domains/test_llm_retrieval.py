@@ -1,6 +1,7 @@
 """Tests for mltk.domains.llm.retrieval -- retrieval ranking metrics."""
 
-import math
+
+import random
 
 import pytest
 
@@ -11,7 +12,6 @@ from mltk.domains.llm.retrieval import (
     assert_ndcg,
     assert_recall_at_k,
 )
-
 
 # ------------------------------------------------------------------
 # nDCG@K
@@ -336,8 +336,6 @@ class TestMAPAtK:
 # ------------------------------------------------------------------
 # Hardened edge-case and parametrized tests (S62 test hardening)
 # ------------------------------------------------------------------
-
-import random
 
 
 class TestNDCGParametrizedK:

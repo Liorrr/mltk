@@ -14,7 +14,6 @@ from mltk.domains.healthcare import (
     assert_specificity,
 )
 
-
 # ------------------------------------------------------------------
 # Sensitivity (True Positive Rate)
 # ------------------------------------------------------------------

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.config -- ScanConfig and ScanContext.
 
 ScanConfig holds scanner thresholds, timeouts, and sampling
@@ -9,7 +7,7 @@ ScanContext.available_fields accurately reports populated
 fields.
 """
 
-from unittest.mock import MagicMock
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
@@ -135,7 +133,6 @@ class TestScanContextAvailableFields:
         assert "y_train" not in fields
 
     def test_train_data_present(self) -> None:
-        rng = np.random.default_rng(42)
         ctx = self._make_context(
             X_train=pd.DataFrame({"a": [1, 2]}),
             y_train=np.array([0, 1]),

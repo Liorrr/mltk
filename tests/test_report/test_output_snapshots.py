@@ -14,15 +14,11 @@ Classes:
 
 from __future__ import annotations
 
-import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import pytest
-
 from mltk.core.result import Severity, TestResult, TestSuite
 from mltk.report.junit import export_junit_xml, format_result_to_junit
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -30,28 +26,28 @@ from mltk.report.junit import export_junit_xml, format_result_to_junit
 
 def _make_pass_result(**overrides) -> TestResult:
     """Create a passing TestResult with sensible defaults."""
-    kwargs = dict(
-        name="test.example",
-        passed=True,
-        message="All good",
-        severity=Severity.INFO,
-        details={"score": 0.95},
-        duration_ms=12.3,
-    )
+    kwargs = {
+        "name": "test.example",
+        "passed": True,
+        "message": "All good",
+        "severity": Severity.INFO,
+        "details": {"score": 0.95},
+        "duration_ms": 12.3,
+    }
     kwargs.update(overrides)
     return TestResult(**kwargs)
 
 
 def _make_fail_result(**overrides) -> TestResult:
     """Create a failing TestResult with sensible defaults."""
-    kwargs = dict(
-        name="model.accuracy.check",
-        passed=False,
-        message="accuracy 0.72 < 0.80 threshold",
-        severity=Severity.CRITICAL,
-        details={"actual": 0.72, "threshold": 0.80, "delta": -0.08},
-        duration_ms=45.7,
-    )
+    kwargs = {
+        "name": "model.accuracy.check",
+        "passed": False,
+        "message": "accuracy 0.72 < 0.80 threshold",
+        "severity": Severity.CRITICAL,
+        "details": {"actual": 0.72, "threshold": 0.80, "delta": -0.08},
+        "duration_ms": 45.7,
+    }
     kwargs.update(overrides)
     return TestResult(**kwargs)
 

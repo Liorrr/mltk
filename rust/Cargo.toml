@@ -10,7 +10,12 @@ name = "_mltk_rust"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = { version = "0.28", features = ["extension-module"] }
+# extension-module is injected by maturin at wheel-build time
+# (pyproject.toml [tool.maturin] features) -- keeping it out of the
+# default features lets `cargo test`/`cargo clippy` link libpython
+# normally, instead of producing test binaries that cannot resolve
+# Python symbols (STATUS_DLL_NOT_FOUND on Windows, link errors on Linux).
+pyo3 = { version = "0.29" }
 regex = "1"
 
 [dev-dependencies]

@@ -1215,7 +1215,10 @@ class TestPromptFaithfulnessHardening:
         self,
     ) -> None:
         """Missing both image and description raises."""
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match="Either 'image' or 'image_description' must be provided",
+        ):
             assert_prompt_faithfulness(
                 prompt="A test prompt",
                 image=None,

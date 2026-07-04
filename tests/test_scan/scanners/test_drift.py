@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.drift -- DriftScanner.
 
 DriftScanner detects distribution shifts by splitting each
@@ -9,13 +7,15 @@ numeric column into reference and current halves. Tests cover:
 - Respect for scanner config overrides
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
 
 try:
-    from mltk.scan.scanners.drift import DriftScanner
     from mltk.scan.config import ScanConfig, ScanContext
+    from mltk.scan.scanners.drift import DriftScanner
     _HAS_DRIFT = True
 except ImportError:
     _HAS_DRIFT = False

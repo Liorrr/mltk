@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.finding -- ScanFinding dataclass.
 
 ScanFinding carries both the evidence (TestResult) and the
@@ -7,6 +5,8 @@ reproduction recipe (assertion_fn + args).  These tests
 verify field storage and the to_pending() conversion used
 by MltkSuite.add().
 """
+
+from __future__ import annotations
 
 from dataclasses import fields
 from unittest.mock import MagicMock

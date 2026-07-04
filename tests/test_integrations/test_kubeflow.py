@@ -335,7 +335,7 @@ class TestKubeflowPipelineStatesParametrized:
     """Parametrize pipeline states."""
 
     @pytest.mark.parametrize(
-        "state,should_pass",
+        ("state", "should_pass"),
         [
             ("SUCCEEDED", True),
             ("RUNNING", False),

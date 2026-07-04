@@ -94,8 +94,8 @@ class TestGenerateReport:
         try:
             import plotly  # noqa: F401
         except ImportError:
-            import pytest as _pytest
-            _pytest.skip("plotly not installed")
+            import pytest
+            pytest.skip("plotly not installed")
 
         results = [
             {"nodeid": "test_a", "outcome": "passed", "duration": 0.05},

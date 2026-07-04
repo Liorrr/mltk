@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Tests for ScanReport.to_json() JSON export.
 
 Verifies wire format, field completeness, enum
 serialisation, numpy type handling, and file output.
 """
+
+from __future__ import annotations
 
 import json
 
@@ -15,7 +15,6 @@ from mltk.core.result import Severity, TestResult
 from mltk.scan.config import ScanConfig
 from mltk.scan.engine import ScanReport
 from mltk.scan.finding import ScanFinding
-
 
 # ---------------------------------------------------------------
 # Helpers

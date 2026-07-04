@@ -41,7 +41,7 @@ src/mltk/
 - Tests mirror src: `tests/test_scan/`, `tests/test_mcp/`, etc.
 - Lint: `ruff check src/ tests/` — fix with `ruff check --fix`
 - Run tests: `python -m pytest tests/ -x -q` (use `-x` to stop on first failure)
-- 2 known pre-existing failures in leakage scanner (KeyError: 0) — don't count as regressions
+- The suite is fully green — the historical leakage-scanner failures (KeyError: 0) were fixed in the S97 review cycle; any failure is a regression
 - `from __future__ import annotations` must be the first code line (after docstring above it) to avoid E402
 
 ## MCP Test Infrastructure

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.codegen -- test file generation.
 
 codegen.py takes ScanFindings and produces a self-contained
@@ -7,6 +5,8 @@ pytest file with fixtures, imports, and a test class.  These
 tests verify the generated code is syntactically valid Python
 and contains the expected structural elements.
 """
+
+from __future__ import annotations
 
 import ast
 from unittest.mock import MagicMock

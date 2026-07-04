@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Adversarial benchmark fixtures for mltk scan tests.
 
 Six fixtures covering the key failure modes that scanners
@@ -7,6 +5,8 @@ must detect: bias, leakage, overfitting, miscalibration,
 fragility, and a clean baseline.  All use sklearn models
 with fixed seed 42 for reproducibility.
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
@@ -16,10 +16,10 @@ sklearn = pytest.importorskip(
     "sklearn",
     reason="sklearn required for scan fixtures",
 )
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-
+linear_model = pytest.importorskip("sklearn.linear_model")
+tree = pytest.importorskip("sklearn.tree")
+LogisticRegression = linear_model.LogisticRegression
+DecisionTreeClassifier = tree.DecisionTreeClassifier
 
 # ---------------------------------------------------------------
 # Fixture 1: Biased model (gender correlates with outcome)

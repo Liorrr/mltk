@@ -72,7 +72,7 @@ def _ndcg_single(
     """
     # Sort documents by score descending; ties broken by original order
     paired = sorted(
-        zip(y_scores, y_true),
+        zip(y_scores, y_true, strict=False),
         key=lambda x: -x[0],
     )
     ranked_relevances = [rel for _, rel in paired]
@@ -146,7 +146,7 @@ def assert_ndcg(
 
     per_query = [
         _ndcg_single(yt, ys, k)
-        for yt, ys in zip(y_true, y_scores)
+        for yt, ys in zip(y_true, y_scores, strict=False)
     ]
     mean_ndcg = sum(per_query) / len(per_query)
     passed = mean_ndcg >= min_ndcg
@@ -296,7 +296,7 @@ def assert_recall_at_k(
         )
 
     per_query: list[float] = []
-    for rel_set, ret_list in zip(relevant, retrieved):
+    for rel_set, ret_list in zip(relevant, retrieved, strict=False):
         if not rel_set:
             per_query.append(1.0)  # no relevant docs -- trivial
             continue
@@ -378,7 +378,7 @@ def assert_map_at_k(
         )
 
     per_query: list[float] = []
-    for rel_set, ret_list in zip(relevant, retrieved):
+    for rel_set, ret_list in zip(relevant, retrieved, strict=False):
         if not rel_set:
             per_query.append(1.0)  # no relevant docs -- trivial
             continue

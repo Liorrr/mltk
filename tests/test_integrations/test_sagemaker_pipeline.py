@@ -376,7 +376,7 @@ class TestSagemakerPipelineStatusParametrized:
     """Parametrize execution status variants."""
 
     @pytest.mark.parametrize(
-        "status,should_pass",
+        ("status", "should_pass"),
         [
             ("Succeeded", True),
             ("Failed", False),

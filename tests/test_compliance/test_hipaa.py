@@ -270,7 +270,7 @@ def test_uncategorised_results():
 
 
 @pytest.mark.parametrize(
-    "prefix,rule_id",
+    ("prefix", "rule_id"),
     [
         ("data.pii", "privacy_rule"),
         ("model.bias", "security_rule_admin"),

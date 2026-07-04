@@ -8,7 +8,6 @@ lambdas; no external dependencies required.
 from __future__ import annotations
 
 import unicodedata
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,7 +16,6 @@ from mltk.core.result import Severity, TestResult
 from mltk.domains.llm.behavioral import (
     assert_retrieval_consistency,
 )
-
 
 # -- Shared helpers -----------------------------------------------
 
@@ -43,7 +41,8 @@ class TestRetrievalConsistency:
 
     def test_identical_retrievals_pass(self) -> None:
         """Same docs for all queries gives Jaccard=1.0."""
-        retriever = lambda q: ["doc1", "doc2", "doc3"]
+        def retriever(q: str) -> list[str]:
+            return ["doc1", "doc2", "doc3"]
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -112,7 +111,8 @@ class TestRetrievalConsistency:
 
     def test_single_query_fails(self) -> None:
         """Less than 2 paraphrases produces a fail."""
-        retriever = lambda q: ["doc1", "doc2"]
+        def retriever(q: str) -> list[str]:
+            return ["doc1", "doc2"]
         with pytest.raises(
             (MltkAssertionError, ValueError),
         ):
@@ -124,7 +124,8 @@ class TestRetrievalConsistency:
 
     def test_empty_retrieval(self) -> None:
         """Empty doc lists yield Jaccard=0."""
-        retriever = lambda q: []
+        def retriever(q: str) -> list[str]:
+            return []
         with pytest.raises(
             (MltkAssertionError, ValueError),
         ):
@@ -139,7 +140,8 @@ class TestRetrievalConsistency:
 
     def test_worst_pair_in_details(self) -> None:
         """Details include worst-pair info."""
-        retriever = lambda q: ["doc1", "doc2", "doc3"]
+        def retriever(q: str) -> list[str]:
+            return ["doc1", "doc2", "doc3"]
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -158,7 +160,8 @@ class TestRetrievalConsistency:
 
     def test_per_pair_in_details(self) -> None:
         """Details include per-pair breakdown."""
-        retriever = lambda q: ["doc1", "doc2"]
+        def retriever(q: str) -> list[str]:
+            return ["doc1", "doc2"]
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -239,7 +242,8 @@ class TestRetrievalConsistency:
 
     def test_result_name(self) -> None:
         """TestResult has the correct assertion name."""
-        retriever = lambda q: ["doc1"]
+        def retriever(q: str) -> list[str]:
+            return ["doc1"]
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -274,7 +278,8 @@ class TestRetrievalConsistency:
 
     def test_method_in_details(self) -> None:
         """Details include the method used."""
-        retriever = lambda q: ["doc1", "doc2"]
+        def retriever(q: str) -> list[str]:
+            return ["doc1", "doc2"]
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -292,7 +297,8 @@ class TestRetrievalConsistency:
 
     def test_three_queries_all_pairs(self) -> None:
         """Three queries produce 3 pairwise comparisons."""
-        retriever = lambda q: ["doc1", "doc2"]
+        def retriever(q: str) -> list[str]:
+            return ["doc1", "doc2"]
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -322,7 +328,8 @@ class TestRetrievalConsistency:
     def test_retrieval_identical_doc_sets(self) -> None:
         """Same docs from all queries => Jaccard 1.0."""
         docs = ["a1", "a2", "a3"]
-        retriever = lambda q: list(docs)
+        def retriever(q: str) -> list[str]:
+            return list(docs)
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -359,7 +366,8 @@ class TestRetrievalConsistency:
 
     def test_retrieval_single_doc(self) -> None:
         """1 doc each, same doc => Jaccard 1.0, pass."""
-        retriever = lambda q: ["only-doc"]
+        def retriever(q: str) -> list[str]:
+            return ["only-doc"]
         result = assert_retrieval_consistency(
             retriever_fn=retriever,
             paraphrases=[
@@ -372,7 +380,8 @@ class TestRetrievalConsistency:
 
     def test_retrieval_empty_doc_set(self) -> None:
         """Empty doc list => Jaccard 0.0, fails or errs."""
-        retriever = lambda q: []
+        def retriever(q: str) -> list[str]:
+            return []
         with pytest.raises(
             (MltkAssertionError, ValueError),
         ):

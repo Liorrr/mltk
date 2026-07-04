@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.slice -- SliceScanner.
 
 SliceScanner detects subgroups where model performance drops
@@ -9,6 +7,8 @@ significantly below the overall metric.  Tests cover:
 - Clean models producing no findings
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -17,11 +17,10 @@ sklearn = pytest.importorskip(
     "sklearn",
     reason="sklearn required for slice scanner tests",
 )
-from sklearn.tree import DecisionTreeClassifier
 
 try:
-    from mltk.scan.scanners.slice import SliceScanner
     from mltk.scan.config import ScanConfig, ScanContext
+    from mltk.scan.scanners.slice import SliceScanner
     _HAS_SLICE = True
 except ImportError:
     _HAS_SLICE = False

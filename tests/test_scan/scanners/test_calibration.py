@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.calibration -- CalibrationScanner.
 
 CalibrationScanner checks whether predicted probabilities match
@@ -9,15 +7,17 @@ observed frequencies. Tests cover:
 - Correct extraction of positive-class probabilities
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
 
 try:
+    from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.calibration import (
         CalibrationScanner,
     )
-    from mltk.scan.config import ScanConfig, ScanContext
     _HAS_CALIBRATION = True
 except ImportError:
     _HAS_CALIBRATION = False

@@ -35,9 +35,7 @@ fn bench_cosine_similarity(c: &mut Criterion) {
         let a: Vec<f64> = (0..size).map(|i| (i as f64 * 0.001).sin()).collect();
         let b: Vec<f64> = (0..size).map(|i| (i as f64 * 0.001).cos()).collect();
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b_iter, _| {
-            b_iter.iter(|| {
-                _mltk_rust::cosine_similarity_core(black_box(&a), black_box(&b))
-            });
+            b_iter.iter(|| _mltk_rust::cosine_similarity_core(black_box(&a), black_box(&b)));
         });
     }
     group.finish();

@@ -12,7 +12,6 @@ from pathlib import Path
 
 from mltk.report.junit import export_junit_xml, format_result_to_junit
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------

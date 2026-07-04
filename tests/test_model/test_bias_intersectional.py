@@ -56,7 +56,6 @@ class TestIntersectionalFairness:
         Scenario: Model discriminates against one specific
         intersection — not visible in marginal checks.
         """
-        rng = np.random.default_rng(42)
         n_per = 100
         y_true = np.ones(n_per * 4, dtype=int)
         y_pred_mw = np.ones(n_per, dtype=int)
@@ -154,7 +153,6 @@ class TestIntersectionalSubgroups:
         Scenario: Only 3 samples in one intersection —
         not enough for reliable fairness measurement.
         """
-        rng = np.random.default_rng(42)
         y_true = np.ones(203, dtype=int)
         y_pred = np.ones(203, dtype=int)
         y_pred[-3:] = 0
@@ -333,7 +331,6 @@ class TestIntersectionalDetails:
         Scenario: QA team needs to know which specific
         intersection failed — not just "bias detected."
         """
-        rng = np.random.default_rng(42)
         n_per = 100
         y_true = np.ones(4 * n_per, dtype=int)
         y_pred_mw = np.ones(n_per, dtype=int)
@@ -378,7 +375,6 @@ class TestIntersectionalDetails:
         Scenario: Audit trail showing which groups were
         too small to evaluate.
         """
-        rng = np.random.default_rng(42)
         y_true = np.ones(206, dtype=int)
         y_pred = np.ones(206, dtype=int)
         gender = np.array(
@@ -566,7 +562,6 @@ class TestIntersectionalHardenedEdges:
         Scenario: One intersection has only 5 samples;
         it must be skipped, not crash or distort results.
         """
-        rng = np.random.default_rng(42)
         n_big = 200
         n_tiny = 5
         total = 2 * n_big + n_tiny

@@ -202,14 +202,16 @@ class LeakageScanner(Scanner):
                 message=exc.result.message,
                 details=exc.result.details,
             )
+            # leaky_features is a dict[str, float] of feature -> |corr|
+            # (see assert_no_target_leakage) -- not a list.
             leaky = exc.result.details.get(
-                "leaky_features", [],
+                "leaky_features", {},
             )
-            first_feature = (
-                leaky[0] if leaky else "unknown"
+            first_feature = next(
+                iter(leaky), "unknown",
             )
-            first_corr = exc.result.details.get(
-                "correlation", 0.0,
+            first_corr = leaky.get(
+                first_feature, 0.0,
             )
             return ScanFinding(
                 result=result,

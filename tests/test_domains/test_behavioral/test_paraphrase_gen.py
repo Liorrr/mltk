@@ -15,7 +15,6 @@ from mltk.domains.llm.behavioral import (
     ParaphraseGenerator,
 )
 
-
 # -- Shared helpers -----------------------------------------------
 
 SEED = 42
@@ -234,7 +233,8 @@ class TestParaphraseGenerator:
         inputs = [
             "\u00bfQu\u00e9 es la gravedad?",
             "\u91cd\u529b\u3068\u306f\u4f55\u3067\u3059\u304b",
-            "\u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 \u0433\u0440\u0430\u0432\u0438\u0442\u0430\u0446\u0438\u044f?",
+            "\u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 "
+            "\u0433\u0440\u0430\u0432\u0438\u0442\u0430\u0446\u0438\u044f?",
         ]
         for text in inputs:
             results = gen.generate(
