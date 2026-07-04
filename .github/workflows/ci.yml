@@ -30,8 +30,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      # sklearn is required at collection time by tests/test_scan/conftest.py
-      - run: pip install -e ".[dev,scipy,sklearn,importer]"
+      # sklearn is required at collection time by tests/test_scan/conftest.py;
+      # cli (typer) and server (fastapi) are imported bare at module level by
+      # tests/test_cli/test_container.py, tests/test_server/*, and others.
+      - run: pip install -e ".[dev,scipy,sklearn,importer,cli,server]"
       # No coverage fail-under gate yet: the threshold has never been
       # calibrated against this (optional-deps-subset) CI environment.
       - run: pytest --cov=mltk --cov-report=xml -q
