@@ -7,3 +7,8 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-commit]
+      - id: no-internal-docs
+        name: block internal workflow docs in published docs tree
+        entry: "docs/ is published verbatim by mkdocs (docs_dir: docs) — specs/plans/workflow notes belong in the internal knowledge base, not the public site"
+        language: fail
+        files: ^docs/(superpowers/|.*/(specs|plans)/)

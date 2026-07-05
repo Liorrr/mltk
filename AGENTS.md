@@ -81,6 +81,9 @@ src/mltk/
    existing functionality unless your brief explicitly says so.
 6. **Don't touch `CHANGELOG.md` or `BACKLOG.md`** — the orchestrator
    maintains them.
+7. **`docs/` is published verbatim** to the public docs site by mkdocs —
+   never put internal notes, specs, plans, or workflow documentation
+   there. Product documentation only.
 
 ## Worker Report (required)
 
