@@ -198,9 +198,18 @@ class TestContainerScanCLI:
                 raise ImportError("fake missing module")
             return real_import(name, *args, **kwargs)
 
-        # Also ensure any cached module is removed so the
-        # lazy import inside the command hits our hook.
-        sys.modules.pop("mltk.container.assertions", None)
+        # Also ensure any cached module is removed so the lazy import
+        # inside the command hits our hook. monkeypatch.delitem restores
+        # the entry at teardown — a bare sys.modules.pop() left the module
+        # evicted while the mltk.container package still held an attribute
+        # reference to it, and Python 3.10's unittest.mock resolves dotted
+        # patch targets through parent-package attributes: every later
+        # patch of mltk.container.assertions silently targeted the orphan
+        # while the CLI's lazy import loaded a fresh module (real trivy
+        # lookup ran, exit 2).
+        monkeypatch.delitem(
+            sys.modules, "mltk.container.assertions", raising=False,
+        )
 
         monkeypatch.setattr("builtins.__import__", fake_import)
 

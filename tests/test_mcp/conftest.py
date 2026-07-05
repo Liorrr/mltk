@@ -5,7 +5,7 @@ before every test. No real ``mcp`` package needed.
 """
 from __future__ import annotations
 
-from unittest.mock import patch
+import sys
 
 import pytest
 
@@ -22,11 +22,27 @@ def mcp_server():
 
     Populates ``registered_tools`` with all 11 tool functions
     so that ``call_tool()`` works in every test.
+
+    Injects/restores ONLY the three mock ``mcp*`` keys — never
+    ``patch.dict("sys.modules", ...)``, whose teardown evicts every
+    module first imported during the test while parent packages keep
+    attribute references to the evicted objects. Python 3.10's
+    ``unittest.mock`` resolves dotted patch targets via getattr chains
+    through those parent attributes (3.11+ uses importlib), so later
+    tests would patch a stale evicted module while the code under test
+    imports a fresh one — making patches silently no-op.
     """
     modules = make_mcp_modules()
+    saved = {name: sys.modules.get(name) for name in modules}
+    sys.modules.update(modules)
     registered_tools.clear()
-    with patch.dict("sys.modules", modules):
+    try:
         server = import_server()
-        srv = server.create_server()
-        yield srv
-    registered_tools.clear()
+        yield server.create_server()
+    finally:
+        for name, orig in saved.items():
+            if orig is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = orig
+        registered_tools.clear()
