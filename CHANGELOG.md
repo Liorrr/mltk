@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`assert_pipeline_stages_compatible` dtype canonicalization** — dtype comparison was exact-string match, so equivalent spellings (`int64` vs `Int64` vs `int`, `float64` vs `float`) produced false FAILs. Now canonicalized via an alias map (platform-deterministic, checked before numpy) + `np.dtype(x).name` + lowercase fallback for pandas extension dtypes; mismatch reports keep the original spellings. Closes an S95 Opus-review deferred P2 item. First change implemented via the codex-worker dispatch loop.
+
 ### Added
 
 #### First-Mover Assertions (S95)

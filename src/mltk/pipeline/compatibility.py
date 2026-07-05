@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
@@ -24,6 +26,24 @@ class StageSpec:
     name: str
     produces: dict[str, str] = field(default_factory=dict)
     requires: dict[str, str] = field(default_factory=dict)
+
+
+def _canonical_dtype(dtype: str) -> str:
+    """Normalize common dtype spellings for compatibility checks."""
+    dtype_text = str(dtype).strip()
+    lowered = dtype_text.lower()
+    aliases = {
+        "int": "int64",
+        "integer": "int64",
+        "float": "float64",
+    }
+    if lowered in aliases:
+        return aliases[lowered]
+
+    try:
+        return np.dtype(dtype_text).name.lower()
+    except (TypeError, ValueError):
+        return lowered
 
 
 @timed_assertion
@@ -48,9 +68,9 @@ def assert_pipeline_stages_compatible(
 
     Args:
         stages: Ordered list of StageSpec objects from first to last stage.
-        check_dtypes: When True, the required dtype string must exactly match
-            the produced dtype string. When False, only column presence is
-            verified and dtype differences are silently ignored.
+        check_dtypes: When True, the required dtype must match the produced
+            dtype after canonicalizing equivalent spellings. When False, only
+            column presence is verified and dtype differences are silently ignored.
         severity: Severity level applied on failure. CRITICAL raises
             ``MltkAssertionError``; WARNING and INFO return a failed
             ``TestResult`` without raising.
@@ -94,14 +114,18 @@ def assert_pipeline_stages_compatible(
             for col, required_dtype in stage.requires.items():
                 if col not in cumulative:
                     missing.append(col)
-                elif check_dtypes and cumulative[col] != required_dtype:
-                    dtype_mismatch.append(
-                        {
-                            "column": col,
-                            "required": required_dtype,
-                            "available": cumulative[col],
-                        }
-                    )
+                elif check_dtypes:
+                    available_dtype = cumulative[col]
+                    if _canonical_dtype(available_dtype) != _canonical_dtype(
+                        required_dtype
+                    ):
+                        dtype_mismatch.append(
+                            {
+                                "column": col,
+                                "required": required_dtype,
+                                "available": available_dtype,
+                            }
+                        )
 
             if missing or dtype_mismatch:
                 incompatibilities.append(

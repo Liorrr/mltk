@@ -120,6 +120,32 @@ class TestMissingColumns:
 class TestDtypeMismatches:
     """Produced dtype differs from the required dtype."""
 
+    @pytest.mark.parametrize(
+        ("produced_dtype", "required_dtype"),
+        [
+            ("int64", "Int64"),
+            ("int64", "int"),
+            ("float64", "float"),
+        ],
+    )
+    def test_canonical_equivalent_dtypes_pass(
+        self, produced_dtype: str, required_dtype: str
+    ) -> None:
+        """PASS: Equivalent dtype spellings are treated as compatible."""
+        stage1 = StageSpec("stage1", produces={"x": produced_dtype})
+        stage2 = StageSpec("stage2", requires={"x": required_dtype})
+        result = assert_pipeline_stages_compatible(
+            [stage1, stage2], check_dtypes=True
+        )
+        assert result.passed is True
+
+    def test_canonical_dtypes_still_flag_real_mismatch(self) -> None:
+        """FAIL: Canonicalized dtype comparison still rejects real mismatches."""
+        stage1 = StageSpec("stage1", produces={"x": "int64"})
+        stage2 = StageSpec("stage2", requires={"x": "float64"})
+        with pytest.raises(MltkAssertionError):
+            assert_pipeline_stages_compatible([stage1, stage2], check_dtypes=True)
+
     def test_dtype_mismatch_flagged_when_check_dtypes_true(self) -> None:
         """FAIL: Produced dtype differs from required dtype → MltkAssertionError."""
         stage1 = StageSpec("stage1", produces={"x": "int32"})
