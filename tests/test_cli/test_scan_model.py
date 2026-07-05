@@ -43,8 +43,10 @@ def _run_cli(
         text=True,
         timeout=30,
         # Pin a wide terminal so rich/typer don't truncate --help option
-        # names in narrow non-TTY environments (e.g. CI runners).
-        env={**os.environ, "COLUMNS": "200"},
+        # names in narrow non-TTY environments, and disable ANSI styling —
+        # rich force-enables color when it detects GitHub Actions, splitting
+        # option names with escape codes; NO_COLOR overrides that detection.
+        env={**os.environ, "COLUMNS": "200", "NO_COLOR": "1"},
     )
 
 

@@ -82,21 +82,18 @@ class TestGenerateReport:
         path = generate_report([], output_dir=tmp_path)
         assert path.exists()
 
-    def test_report_contains_charts_with_plotly(self, tmp_path: Path) -> None:
-        """PASS: Report contains Plotly chart containers when plotly is installed.
+    def test_report_contains_charts(self, tmp_path: Path) -> None:
+        """PASS: Report embeds self-contained SVG charts.
 
-        WHY: Charts provide visual pass/fail and duration overview. When Plotly
-        is available, the report should embed interactive donut and histogram
-        charts. This verifies the chart generation path in the generator and
-        the template rendering.
-        Expected: HTML contains 'plotly' reference (CDN or inline).
+        WHY: Charts provide visual pass/fail and duration overview. They are
+        rendered as inline SVG with no external JS dependency (the generator
+        never uses plotly — see test_report_no_external_deps in
+        test_charts.py), so they must be present regardless of which optional
+        packages are installed. The previous version of this test asserted a
+        'plotly' reference and had only ever skipped: no environment that ran
+        it had plotly installed until CI did — and then it failed.
+        Expected: HTML contains the inline SVG donut chart markup.
         """
-        try:
-            import plotly  # noqa: F401
-        except ImportError:
-            import pytest
-            pytest.skip("plotly not installed")
-
         results = [
             {"nodeid": "test_a", "outcome": "passed", "duration": 0.05},
             {"nodeid": "test_b", "outcome": "failed", "duration": 0.12},
@@ -104,14 +101,15 @@ class TestGenerateReport:
         ]
         path = generate_report(results, output_dir=tmp_path)
         html = path.read_text(encoding="utf-8")
-        assert "plotly" in html.lower()
+        assert "<svg" in html.lower()
+        assert "<circle" in html or "donut" in html.lower()
 
-    def test_report_no_crash_without_plotly(self, tmp_path: Path) -> None:
-        """PASS: Report generates without crash even if Plotly import fails.
+    def test_report_no_crash_minimal_results(self, tmp_path: Path) -> None:
+        """PASS: Report generates a valid file from a minimal results list.
 
-        WHY: Plotly is an optional dependency (report extra). Users who install
-        only the core package should still get a valid HTML report with text-
-        only output. The generator catches ImportError and degrades gracefully.
+        WHY: Users who install only the report extra's jinja2 must get a
+        valid, self-contained HTML report — the generator has no optional
+        chart dependency to degrade around (charts are inline SVG).
         Expected: File exists and contains the test details section.
         """
         results = [{"nodeid": "test_x", "outcome": "passed", "duration": 0.01}]
