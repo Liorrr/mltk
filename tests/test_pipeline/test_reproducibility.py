@@ -1,5 +1,6 @@
 """Tests for mltk.pipeline.reproducibility -- deterministic training + artifact integrity."""
 
+import itertools
 from pathlib import Path
 
 import numpy as np
@@ -15,11 +16,17 @@ def _deterministic_func(x: int = 5) -> float:
     return float(rng.random() * x)
 
 
-def _nondeterministic_func(x: int = 5) -> float:
-    """Returns different values each call (ignores seed)."""
-    import time
+_nondeterministic_calls = itertools.count()
 
-    return float(hash(time.time_ns()) % 1000) / 1000.0
+
+def _nondeterministic_func(x: int = 5) -> float:
+    """Returns a different value on every call (ignores seed).
+
+    Uses a monotonic counter rather than a clock: on fast runners all
+    of assert_reproducible's runs can land inside one timer-resolution
+    tick, making clock-derived values collide and the test flake.
+    """
+    return float(next(_nondeterministic_calls))
 
 
 class TestAssertReproducible:
