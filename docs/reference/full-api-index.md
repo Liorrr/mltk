@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-07-02 by scripts/generate_skill_index.py
+> Generated 2026-07-05 by scripts/generate_skill_index.py
 
 **241** assertions | **12** MCP tools | **28** CLI commands | **8** scanners
 
@@ -661,7 +661,7 @@ def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str=
 ```
 > Assert LLM outputs are not toxic.
 
-**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:158)
+**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:201)
 ```python
 def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), severity: Severity=Severity.CRITICAL)
 ```
@@ -1265,7 +1265,7 @@ def assert_pipeline_resilient(pipeline_fn: Callable[[pd.DataFrame], Any], baseli
 ```
 > Assert that *pipeline_fn* degrades gracefully under fault injection.
 
-**`assert_pipeline_stages_compatible`** (pipeline/compatibility.py:30)
+**`assert_pipeline_stages_compatible`** (pipeline/compatibility.py:50)
 ```python
 def assert_pipeline_stages_compatible(stages: list[StageSpec], *, check_dtypes: bool=True, severity: Severity=Severity.CRITICAL)
 ```
