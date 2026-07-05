@@ -101,7 +101,11 @@ def test_format_pr_comment_footer():
     # EXPECTED: footer line references mltk and the version string
     comment = format_pr_comment(RESULTS_ALL_PASS)
     assert "mltk" in comment.split("---")[-1]
-    assert "v0.6.0" in comment
+    # Derive from the package version — hardcoding pins the test to
+    # whatever dist metadata the authoring machine happened to have.
+    from mltk import __version__
+
+    assert f"v{__version__}" in comment
 
 
 def test_format_pr_comment_empty_results_list():

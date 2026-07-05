@@ -7,9 +7,8 @@ no external dependencies required.
 
 from __future__ import annotations
 
-import random
 import unicodedata
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,7 +18,6 @@ from mltk.domains.llm.behavioral import (
     assert_format_invariance,
     assert_paraphrase_invariance,
 )
-
 
 # -- Shared helpers --------------------------------------------------
 

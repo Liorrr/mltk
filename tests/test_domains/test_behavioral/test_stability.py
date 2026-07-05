@@ -18,7 +18,6 @@ from mltk.domains.llm.behavioral import (
     assert_output_stability,
 )
 
-
 # -- Shared helpers --------------------------------------------------
 
 SEED = 42

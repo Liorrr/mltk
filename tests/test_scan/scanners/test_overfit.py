@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.overfit -- OverfitScanner.
 
 OverfitScanner compares train vs test accuracy to detect
@@ -9,6 +7,8 @@ memorisation. Tests cover:
 - Correct usage of conftest overfit_model fixture
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -17,13 +17,14 @@ sklearn = pytest.importorskip(
     "sklearn",
     reason="sklearn required for overfit scanner tests",
 )
-from sklearn.tree import DecisionTreeClassifier
+tree = pytest.importorskip("sklearn.tree")
+DecisionTreeClassifier = tree.DecisionTreeClassifier
 
 try:
+    from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.overfit import (
         OverfitScanner,
     )
-    from mltk.scan.config import ScanConfig, ScanContext
     _HAS_OVERFIT = True
 except ImportError:
     _HAS_OVERFIT = False

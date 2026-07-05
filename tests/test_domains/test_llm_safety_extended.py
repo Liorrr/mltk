@@ -319,7 +319,7 @@ class TestRefusalConsistencyParametrized:
     """Parametrized refusal tests with diverse refusal patterns."""
 
     @pytest.mark.parametrize(
-        "refusal_phrase,pattern",
+        ("refusal_phrase", "pattern"),
         [
             (
                 "I cannot assist with that request.",

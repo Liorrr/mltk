@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.bias -- BiasScanner.
 
 BiasScanner checks for demographic parity violations and
@@ -7,6 +5,8 @@ other fairness issues across sensitive groups.  Tests cover:
 - Detection of biased predictions
 - Clean model producing no bias findings
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
@@ -18,8 +18,8 @@ sklearn = pytest.importorskip(
 )
 
 try:
-    from mltk.scan.scanners.bias import BiasScanner
     from mltk.scan.config import ScanConfig, ScanContext
+    from mltk.scan.scanners.bias import BiasScanner
     _HAS_BIAS = True
 except ImportError:
     _HAS_BIAS = False

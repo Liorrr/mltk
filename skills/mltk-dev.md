@@ -216,4 +216,4 @@ into a pytest file or an `MltkSuite`.
 - Tests mirror src layout: `tests/test_data/`, `tests/test_scan/`, etc.
 - Lint: `ruff check src/ tests/` — auto-fix with `ruff check --fix`
 - Run tests: `python -m pytest tests/ -x -q`
-- Never commit directly — provide a commit message for the user
+- Agents may commit and open PRs directly (Conventional Commits style) — destructive git operations still require explicit confirmation; see CLAUDE.md HARD RULES.

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.engine -- ScanEngine integration tests.
 
 ScanEngine is the orchestrator that runs all enabled scanners
@@ -8,7 +6,7 @@ tests verify the full scan pipeline: discovery, execution,
 error handling, filtering, and report structure.
 """
 
-from unittest.mock import MagicMock, patch
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
@@ -20,9 +18,9 @@ sklearn = pytest.importorskip(
 )
 
 try:
-    from mltk.scan.engine import ScanEngine
     from mltk.scan.config import ScanConfig
-    from mltk.scan.finding import ScanFinding
+    from mltk.scan.engine import ScanEngine
+    from mltk.scan.finding import ScanFinding  # noqa: F401
     _HAS_SCAN = True
 except ImportError:
     _HAS_SCAN = False

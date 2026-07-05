@@ -148,7 +148,7 @@ def assert_prediction_latency(
     client = monitoring_v3.MetricServiceClient()
     project_name = f"projects/{resolved_project}"
 
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
     interval = monitoring_v3.TimeInterval(
         {
             "end_time": {"seconds": int(now.timestamp())},

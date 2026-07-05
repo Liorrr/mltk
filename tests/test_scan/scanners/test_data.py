@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.data -- DataScanner.
 
 DataScanner checks data quality before any model evaluation.
@@ -9,13 +7,15 @@ Tests cover:
 - Clean data producing no findings
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
 
 try:
-    from mltk.scan.scanners.data import DataScanner
     from mltk.scan.config import ScanConfig, ScanContext
+    from mltk.scan.scanners.data import DataScanner
     _HAS_DATA = True
 except ImportError:
     _HAS_DATA = False

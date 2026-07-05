@@ -93,7 +93,7 @@ def assert_hit_rate(
 
     n_users = len(recommended)
     n_hits = 0
-    for recs, rels in zip(recommended, relevant):
+    for recs, rels in zip(recommended, relevant, strict=False):
         rec_set = set(recs)
         if rec_set & rels:
             n_hits += 1
@@ -451,7 +451,7 @@ def assert_serendipity(
         )
 
     per_user: list[float] = []
-    for recs, exp, rels in zip(recommended, expected, relevant):
+    for recs, exp, rels in zip(recommended, expected, relevant, strict=False):
         if not recs:
             per_user.append(0.0)
             continue

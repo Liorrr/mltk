@@ -1,12 +1,20 @@
 """mltk — pytest for ML. Unified testing across the entire ML lifecycle."""
 
 try:
-    from importlib.metadata import version as _pkg_version, PackageNotFoundError
-    __version__ = _pkg_version("mltk")
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as _pkg_version
+    try:
+        __version__ = _pkg_version("mltk")  # dev installs; PEP 541 claim pending
+    except PackageNotFoundError:
+        __version__ = _pkg_version("mlspec")  # current PyPI distribution name
 except PackageNotFoundError:
-    __version__ = "0.12.5"  # fallback for uninstalled source tree
+    __version__ = "0.12.7"  # fallback for uninstalled source tree
 
 # Convenience imports for the most common assertions
+from mltk.container import (
+    assert_container_vulnerabilities,
+    assert_no_secrets_in_image,
+)
 from mltk.data import (
     assert_dtypes,
     assert_freshness,
@@ -20,15 +28,11 @@ from mltk.data import (
 )
 from mltk.model import (
     assert_calibration,
-    assert_metric,
     assert_intersectional_fairness,
+    assert_metric,
     assert_no_bias,
     assert_no_regression,
     assert_slice_performance,
-)
-from mltk.container import (
-    assert_container_vulnerabilities,
-    assert_no_secrets_in_image,
 )
 
 __all__ = [

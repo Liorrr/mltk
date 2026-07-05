@@ -371,6 +371,9 @@ fn upper_gamma_cf(a: f64, x: f64) -> f64 {
 /// Log-gamma via Lanczos approximation (g=7, n=9).
 fn ln_gamma(z: f64) -> f64 {
     const G: f64 = 7.0;
+    // Canonical Lanczos g=7 coefficients, kept verbatim at full f64
+    // precision; grouping/precision lints would alter the literals.
+    #[allow(clippy::excessive_precision, clippy::inconsistent_digit_grouping)]
     const C: [f64; 9] = [
         0.99999999999980993,
         676.5203681218851,
@@ -397,10 +400,7 @@ fn ln_gamma(z: f64) -> f64 {
     }
     let t = z + G + 0.5;
 
-    0.5 * (2.0 * std::f64::consts::PI).ln()
-        + (z + 0.5) * t.ln()
-        - t
-        + x.ln()
+    0.5 * (2.0 * std::f64::consts::PI).ln() + (z + 0.5) * t.ln() - t + x.ln()
 }
 
 // ─── Jensen-Shannon Divergence ───────────────────────────────────────────────
@@ -416,11 +416,23 @@ fn js_divergence(reference: Vec<f64>, current: Vec<f64>, bins: usize) -> f64 {
     let (p, q) = build_histograms(&reference, &current, bins);
 
     // M = (P + Q) / 2
-    let m: Vec<f64> = p.iter().zip(q.iter()).map(|(&pi, &qi)| (pi + qi) / 2.0).collect();
+    let m: Vec<f64> = p
+        .iter()
+        .zip(q.iter())
+        .map(|(&pi, &qi)| (pi + qi) / 2.0)
+        .collect();
 
     // KL(P || M) + KL(Q || M)
-    let kl_pm: f64 = p.iter().zip(m.iter()).map(|(&pi, &mi)| pi * (pi / mi).ln()).sum();
-    let kl_qm: f64 = q.iter().zip(m.iter()).map(|(&qi, &mi)| qi * (qi / mi).ln()).sum();
+    let kl_pm: f64 = p
+        .iter()
+        .zip(m.iter())
+        .map(|(&pi, &mi)| pi * (pi / mi).ln())
+        .sum();
+    let kl_qm: f64 = q
+        .iter()
+        .zip(m.iter())
+        .map(|(&qi, &mi)| qi * (qi / mi).ln())
+        .sum();
 
     let js_nats = 0.5 * kl_pm + 0.5 * kl_qm;
 
@@ -577,10 +589,7 @@ fn centroid_cosine_distance(ref_embs: Vec<Vec<f64>>, cur_embs: Vec<Vec<f64>>) ->
 ///            against all hypothesis token embeddings → mean over reference tokens.
 /// F1:        2 * P * R / (P + R), or 0 if P + R == 0.
 #[pyfunction]
-fn bertscore_precision_recall(
-    ref_embs: Vec<Vec<f64>>,
-    hyp_embs: Vec<Vec<f64>>,
-) -> (f64, f64, f64) {
+fn bertscore_precision_recall(ref_embs: Vec<Vec<f64>>, hyp_embs: Vec<Vec<f64>>) -> (f64, f64, f64) {
     if ref_embs.is_empty() || hyp_embs.is_empty() {
         return (0.0, 0.0, 0.0);
     }
@@ -652,7 +661,10 @@ mod tests {
     fn test_ks_identical_distributions() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let (stat, p) = ks_test(data.clone(), data);
-        assert!(stat < 0.3, "KS stat should be small for identical data: {stat}");
+        assert!(
+            stat < 0.3,
+            "KS stat should be small for identical data: {stat}"
+        );
         assert!(p > 0.5, "p-value should be high for identical data: {p}");
     }
 
@@ -661,7 +673,10 @@ mod tests {
         let ref_data: Vec<f64> = (0..100).map(|i| i as f64 * 0.1).collect();
         let cur_data: Vec<f64> = (50..150).map(|i| i as f64 * 0.1).collect();
         let (stat, p) = ks_test(ref_data, cur_data);
-        assert!(stat > 0.3, "KS stat should be high for shifted data: {stat}");
+        assert!(
+            stat > 0.3,
+            "KS stat should be high for shifted data: {stat}"
+        );
         assert!(p < 0.05, "p-value should be low for shifted data: {p}");
     }
 
@@ -669,7 +684,10 @@ mod tests {
     fn test_psi_identical() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
         let result = psi(data.clone(), data, 10);
-        assert!(result.abs() < 0.01, "PSI for identical data should be ~0: {result}");
+        assert!(
+            result.abs() < 0.01,
+            "PSI for identical data should be ~0: {result}"
+        );
     }
 
     #[test]
@@ -677,7 +695,10 @@ mod tests {
         let ref_data: Vec<f64> = (0..1000).map(|i| (i as f64) * 0.01).collect();
         let cur_data: Vec<f64> = (500..1500).map(|i| (i as f64) * 0.01).collect();
         let result = psi(ref_data, cur_data, 10);
-        assert!(result > 0.1, "PSI should be high for shifted data: {result}");
+        assert!(
+            result > 0.1,
+            "PSI should be high for shifted data: {result}"
+        );
     }
 
     #[test]
@@ -700,7 +721,10 @@ mod tests {
         let ref_data: Vec<f64> = (0..500).map(|i| i as f64 * 0.01).collect();
         let cur_data: Vec<f64> = (500..1000).map(|i| i as f64 * 0.01).collect();
         let result = kl_divergence(ref_data, cur_data, 10);
-        assert!(result > 0.0, "KL should be > 0 for different distributions: {result}");
+        assert!(
+            result > 0.0,
+            "KL should be > 0 for different distributions: {result}"
+        );
     }
 
     // ── Chi-squared ──────────────────────────────────────────────────────────
@@ -710,7 +734,10 @@ mod tests {
         // Equal observed and expected → statistic = 0, p-value = 1
         let counts = vec![10.0, 20.0, 30.0, 40.0];
         let (stat, p) = chi_squared(counts.clone(), counts);
-        assert!(stat.abs() < 1e-10, "Chi2 stat for identical should be 0, got {stat}");
+        assert!(
+            stat.abs() < 1e-10,
+            "Chi2 stat for identical should be 0, got {stat}"
+        );
         assert!(p > 0.99, "p-value for identical should be ~1, got {p}");
     }
 
@@ -720,7 +747,10 @@ mod tests {
         let observed = vec![100.0, 1.0, 1.0, 1.0];
         let expected = vec![25.0, 25.0, 25.0, 25.0];
         let (stat, p) = chi_squared(observed, expected);
-        assert!(stat > 100.0, "Chi2 stat should be high for different dists: {stat}");
+        assert!(
+            stat > 100.0,
+            "Chi2 stat should be high for different dists: {stat}"
+        );
         assert!(p < 0.001, "p-value should be low for different dists: {p}");
     }
 
@@ -749,7 +779,10 @@ mod tests {
     fn test_wasserstein_identical() {
         let data: Vec<f64> = (0..100).map(|i| i as f64).collect();
         let result = wasserstein(data.clone(), data);
-        assert!(result.abs() < 1e-10, "Wasserstein distance for identical should be 0, got {result}");
+        assert!(
+            result.abs() < 1e-10,
+            "Wasserstein distance for identical should be 0, got {result}"
+        );
     }
 
     #[test]
@@ -758,7 +791,10 @@ mod tests {
         let cur_data: Vec<f64> = (0..100).map(|i| i as f64 + 10.0).collect();
         let result = wasserstein(ref_data, cur_data);
         // W-1 for uniform shift of 10 units should be ~10
-        assert!(result > 5.0, "Wasserstein should be > 0 for shifted dists: {result}");
+        assert!(
+            result > 5.0,
+            "Wasserstein should be > 0 for shifted dists: {result}"
+        );
     }
 
     // ── Cosine Similarity ────────────────────────────────────────────────────
@@ -840,9 +876,17 @@ mod tests {
     #[test]
     fn test_scan_pii_basic_email() {
         let text = "Contact me at user@example.com for details.".to_string();
-        let patterns = vec![("email".to_string(), r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string())];
+        let patterns = vec![(
+            "email".to_string(),
+            r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string(),
+        )];
         let results = scan_pii_rust(text, patterns).unwrap();
-        assert_eq!(results.len(), 1, "Expected one email match, got {}", results.len());
+        assert_eq!(
+            results.len(),
+            1,
+            "Expected one email match, got {}",
+            results.len()
+        );
         assert_eq!(results[0].0, "email");
         assert_eq!(results[0].3, "user@example.com");
     }
@@ -855,7 +899,12 @@ mod tests {
             ("visa".to_string(), r"4\d{15}".to_string()),
         ];
         let results = scan_pii_rust(text, patterns).unwrap();
-        assert_eq!(results.len(), 2, "Expected two matches, got {}", results.len());
+        assert_eq!(
+            results.len(),
+            2,
+            "Expected two matches, got {}",
+            results.len()
+        );
         // Results sorted by start position — SSN comes first
         assert_eq!(results[0].0, "ssn");
         assert_eq!(results[1].0, "visa");
@@ -864,7 +913,10 @@ mod tests {
     #[test]
     fn test_scan_pii_no_matches() {
         let text = "No sensitive data here.".to_string();
-        let patterns = vec![("email".to_string(), r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string())];
+        let patterns = vec![(
+            "email".to_string(),
+            r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string(),
+        )];
         let results = scan_pii_rust(text, patterns).unwrap();
         assert!(results.is_empty(), "Expected no matches for clean text");
     }
@@ -872,7 +924,10 @@ mod tests {
     #[test]
     fn test_scan_pii_empty_text() {
         let text = "".to_string();
-        let patterns = vec![("email".to_string(), r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string())];
+        let patterns = vec![(
+            "email".to_string(),
+            r"[\w.+-]+@[\w-]+\.[a-z]{2,}".to_string(),
+        )];
         let results = scan_pii_rust(text, patterns).unwrap();
         assert!(results.is_empty(), "Expected no matches for empty text");
     }
@@ -913,7 +968,10 @@ mod tests {
     #[test]
     fn test_ks_empty_inputs() {
         let (stat, p) = ks_test(vec![], vec![1.0, 2.0]);
-        assert_eq!(stat, 0.0, "ks_test with empty reference should return stat=0");
+        assert_eq!(
+            stat, 0.0,
+            "ks_test with empty reference should return stat=0"
+        );
         assert_eq!(p, 1.0, "ks_test with empty reference should return p=1");
 
         let (stat, p) = ks_test(vec![1.0, 2.0], vec![]);
@@ -935,9 +993,21 @@ mod tests {
 
     #[test]
     fn test_psi_empty_inputs() {
-        assert_eq!(psi(vec![], vec![1.0], 10), 0.0, "psi with empty reference should be 0");
-        assert_eq!(psi(vec![1.0], vec![], 10), 0.0, "psi with empty current should be 0");
-        assert_eq!(psi(vec![1.0], vec![1.0], 0), 0.0, "psi with 0 bins should be 0");
+        assert_eq!(
+            psi(vec![], vec![1.0], 10),
+            0.0,
+            "psi with empty reference should be 0"
+        );
+        assert_eq!(
+            psi(vec![1.0], vec![], 10),
+            0.0,
+            "psi with empty current should be 0"
+        );
+        assert_eq!(
+            psi(vec![1.0], vec![1.0], 0),
+            0.0,
+            "psi with 0 bins should be 0"
+        );
     }
 
     #[test]
@@ -951,24 +1021,45 @@ mod tests {
     fn test_wasserstein_single_element() {
         // Single-element identical → distance = 0
         let result = wasserstein(vec![3.0], vec![3.0]);
-        assert!(result.abs() < 1e-10, "Wasserstein for identical single values should be ~0: {result}");
+        assert!(
+            result.abs() < 1e-10,
+            "Wasserstein for identical single values should be ~0: {result}"
+        );
 
         // Single-element shifted → distance = shift amount
         let result = wasserstein(vec![0.0], vec![5.0]);
-        assert!((result - 5.0).abs() < 1e-10, "Wasserstein for 0→5 should be 5.0, got {result}");
+        assert!(
+            (result - 5.0).abs() < 1e-10,
+            "Wasserstein for 0→5 should be 5.0, got {result}"
+        );
     }
 
     #[test]
     fn test_cosine_empty_inputs() {
-        assert_eq!(cosine_similarity(vec![], vec![]), 0.0, "cosine sim of empty vecs should be 0");
-        assert_eq!(cosine_similarity(vec![1.0], vec![]), 0.0, "cosine sim with one empty should be 0");
-        assert_eq!(cosine_similarity(vec![], vec![1.0]), 0.0, "cosine sim with one empty should be 0");
+        assert_eq!(
+            cosine_similarity(vec![], vec![]),
+            0.0,
+            "cosine sim of empty vecs should be 0"
+        );
+        assert_eq!(
+            cosine_similarity(vec![1.0], vec![]),
+            0.0,
+            "cosine sim with one empty should be 0"
+        );
+        assert_eq!(
+            cosine_similarity(vec![], vec![1.0]),
+            0.0,
+            "cosine sim with one empty should be 0"
+        );
     }
 
     #[test]
     fn test_cosine_mismatched_lengths() {
         let result = cosine_similarity(vec![1.0, 2.0], vec![1.0]);
-        assert_eq!(result, 0.0, "cosine sim with mismatched lengths should be 0");
+        assert_eq!(
+            result, 0.0,
+            "cosine sim with mismatched lengths should be 0"
+        );
     }
 
     #[test]
@@ -1009,8 +1100,16 @@ mod tests {
 
     #[test]
     fn test_wasserstein_empty_inputs() {
-        assert_eq!(wasserstein(vec![], vec![1.0]), 0.0, "wasserstein with empty ref should be 0");
-        assert_eq!(wasserstein(vec![1.0], vec![]), 0.0, "wasserstein with empty cur should be 0");
+        assert_eq!(
+            wasserstein(vec![], vec![1.0]),
+            0.0,
+            "wasserstein with empty ref should be 0"
+        );
+        assert_eq!(
+            wasserstein(vec![1.0], vec![]),
+            0.0,
+            "wasserstein with empty cur should be 0"
+        );
     }
 
     #[test]

@@ -17,7 +17,6 @@ import pytest
 
 from mltk.core.polars_bridge import coerce_dataframe, is_polars, to_pandas
 
-
 # ---------------------------------------------------------------------------
 # to_pandas tests
 # ---------------------------------------------------------------------------

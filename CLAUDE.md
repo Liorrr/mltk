@@ -1,12 +1,12 @@
 # mltk Repository Rules
 
 ## HARD RULES
-- **Never auto-commit** — provide commit messages for manual commit.
+- **Agents may commit and open PRs directly** — use clear, descriptive commit messages (Conventional Commits style, matching existing history). Still avoid destructive git operations (force-push, hard reset, history rewrite, branch deletion) without explicit per-instance confirmation — those remain governed by the general git safety protocol.
 
 ## Project Overview
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - Python 3.10+ with Rust acceleration (maturin build)
-- v0.12.7, 241 assertions, 4466+ tests, 8 scanners, 12 MCP tools
+- v0.12.7, 241 assertions, 4666+ tests, 8 scanners, 12 MCP tools
 - Phase F (Agent Integration): COMPLETE — building toward v1.0.0
 
 ## Architecture
@@ -41,7 +41,7 @@ src/mltk/
 - Tests mirror src: `tests/test_scan/`, `tests/test_mcp/`, etc.
 - Lint: `ruff check src/ tests/` — fix with `ruff check --fix`
 - Run tests: `python -m pytest tests/ -x -q` (use `-x` to stop on first failure)
-- 2 known pre-existing failures in leakage scanner (KeyError: 0) — don't count as regressions
+- The suite is fully green — the historical leakage-scanner failures (KeyError: 0) were fixed in the S97 review cycle; any failure is a regression
 - `from __future__ import annotations` must be the first code line (after docstring above it) to avoid E402
 
 ## MCP Test Infrastructure

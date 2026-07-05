@@ -135,12 +135,14 @@ def get_current_version() -> str:
 _cached_test_count: int | None = None
 
 
-def get_live_counts() -> LiveCounts:
+def get_live_counts(*, skip_tests: bool = False) -> LiveCounts:
     global _cached_test_count
     grouped, total_assertions = collect_assertions(SRC_ROOT)
     cli_cmds = collect_cli_commands(CLI_APP)
     mcp_tools = collect_mcp_tools(MCP_SERVER)
     scanners = collect_scanners(SCANNERS_DIR)
+    if skip_tests:
+        _cached_test_count = _cached_test_count or 0
     if _cached_test_count is None:
         _cached_test_count = get_test_count()
     return LiveCounts(
@@ -159,8 +161,16 @@ def _has_since_context(text: str, match_start: int) -> bool:
     return "Since" in prefix
 
 
-def _replace_counts_in_text(text: str, counts: LiveCounts) -> str:
-    """Apply all count replacements to text, skipping Since: context."""
+def _replace_counts_in_text(
+    text: str, counts: LiveCounts, *, skip_tests: bool = False
+) -> str:
+    """Apply all count replacements to text, skipping Since: context.
+
+    With ``skip_tests=True`` the test-count and test-badge patterns are
+    left untouched — the collected-test total depends on which optional
+    extras are installed, so CI verifies only the environment-independent
+    AST-based counts (assertions/CLI/MCP/scanners).
+    """
 
     # assertions: e.g. "224 assertions" or "224+ assertions"
     assertion_re = re.compile(r"\b(\d{3,4}\+?)\s+(assertions?)\b")
@@ -176,7 +186,8 @@ def _replace_counts_in_text(text: str, counts: LiveCounts) -> str:
         if _has_since_context(text, m.start()):
             return m.group(0)
         return f"tests-{counts.tests}%2B%20passed-"
-    text = badge_re.sub(_replace_badge, text)
+    if not skip_tests:
+        text = badge_re.sub(_replace_badge, text)
 
     # tests: e.g. "4225+ tests" or "3,388+ tests"
     # Use negative lookbehind for digit/comma to avoid matching inside comma-formatted numbers
@@ -192,7 +203,8 @@ def _replace_counts_in_text(text: str, counts: LiveCounts) -> str:
         if n < 100:
             return m.group(0)
         return f"{counts.tests}+ {m.group(2)}"
-    text = test_re.sub(_replace_tests, text)
+    if not skip_tests:
+        text = test_re.sub(_replace_tests, text)
 
     # scanners: e.g. "8 scanners"
     scanner_re = re.compile(r"\b(\d)\s+(scanners?)\b")
@@ -319,8 +331,8 @@ def cmd_refresh(dry_run: bool = False, counts: LiveCounts | None = None) -> list
     return modified
 
 
-def cmd_verify() -> int:
-    counts = get_live_counts()
+def cmd_verify(*, skip_tests: bool = False) -> int:
+    counts = get_live_counts(skip_tests=skip_tests)
     drift: list[tuple[str, str, str]] = []
 
     for rel in COUNT_TARGETS:
@@ -328,7 +340,7 @@ def cmd_verify() -> int:
         if not path.exists():
             continue
         original = path.read_text(encoding="utf-8")
-        updated = _replace_counts_in_text(original, counts)
+        updated = _replace_counts_in_text(original, counts, skip_tests=skip_tests)
         if updated != original:
             diff = _unified_diff(path, original, updated)
             drift.append((rel, "", diff))
@@ -428,7 +440,13 @@ def main() -> None:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("refresh", help="Recompute counts and rewrite stale docs.")
-    sub.add_parser("verify", help="Check for drift without writing (CI mode).")
+    ver_p = sub.add_parser("verify", help="Check for drift without writing (CI mode).")
+    ver_p.add_argument(
+        "--skip-test-count",
+        action="store_true",
+        help="Skip the collected-test-count check (env-dependent); "
+        "verify only AST-based counts.",
+    )
 
     rel_p = sub.add_parser("release", help="Bump version, roll CHANGELOG, refresh counts.")
     rel_p.add_argument("version", help="New version e.g. 1.0.0")
@@ -447,7 +465,7 @@ def main() -> None:
         sys.exit(0)
 
     elif args.cmd == "verify":
-        sys.exit(cmd_verify())
+        sys.exit(cmd_verify(skip_tests=args.skip_test_count))
 
     elif args.cmd == "release":
         sys.exit(cmd_release(args.version, args.dry_run))

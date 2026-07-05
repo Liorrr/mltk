@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.robustness -- RobustnessScanner.
 
 RobustnessScanner adds small gaussian noise to numeric features
@@ -9,15 +7,17 @@ and checks prediction stability. Tests cover:
 - Skipping when no numeric columns exist
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
 
 try:
+    from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.robustness import (
         RobustnessScanner,
     )
-    from mltk.scan.config import ScanConfig, ScanContext
     _HAS_ROBUSTNESS = True
 except ImportError:
     _HAS_ROBUSTNESS = False

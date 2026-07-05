@@ -12,9 +12,8 @@ import pytest
 from mltk.compliance.sr_11_7 import (
     COMPLIANCE_CLASSIFICATION,
     COMPLIANCE_LEVELS,
-    SR_11_7_SECTION_IDS,
-    SR_11_7_SECTIONS,
     SECTION_META,
+    SR_11_7_SECTION_IDS,
     assert_sr_11_7_coverage,
     classify_compliance,
     find_gaps,

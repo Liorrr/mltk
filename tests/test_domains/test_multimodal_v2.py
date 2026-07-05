@@ -372,7 +372,13 @@ class TestEditPreservation:
     def test_ssim_import_error(self) -> None:
         """Missing scikit-image raises ImportError for SSIM."""
         png = _make_png_bytes(8, 8)
-        with patch.dict(sys.modules, {"skimage": None}):
+        # Null the submodule too: `from skimage.metrics import ...` resolves
+        # from the sys.modules["skimage.metrics"] cache when a sibling test
+        # already imported it, bypassing the parent's None entry
+        # (order-dependent flake under pytest-randomly).
+        with patch.dict(
+            sys.modules, {"skimage": None, "skimage.metrics": None}
+        ):
             # Force the import to fail by removing the module
             with patch(
                 "mltk.domains.multimodal.metrics"

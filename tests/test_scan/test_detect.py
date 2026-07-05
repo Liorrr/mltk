@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.detect -- auto-detection utilities.
 
 detect.py identifies feature types (numeric vs categorical),
@@ -7,6 +5,8 @@ model types (classifier vs regressor), and sensitive columns
 (gender, age, race, etc.).  These tests verify the detection
 heuristics produce correct results on known inputs.
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
@@ -93,7 +93,8 @@ class TestDetectModelType:
     def test_binary_predictions(self) -> None:
         """Model returning {0, 1} => classifier."""
         X = pd.DataFrame({"a": range(10)})
-        model_fn = lambda x: np.array([0, 1] * (len(x) // 2))
+        def model_fn(x):
+            return np.array([0, 1] * (len(x) // 2))
         assert detect_model_type(model_fn, X) == "classifier"
 
     def test_continuous_predictions(self) -> None:
@@ -101,13 +102,15 @@ class TestDetectModelType:
         regressor."""
         X = pd.DataFrame({"a": range(50)})
         rng = np.random.default_rng(42)
-        model_fn = lambda x: rng.normal(100, 20, len(x))
+        def model_fn(x):
+            return rng.normal(100, 20, len(x))
         assert detect_model_type(model_fn, X) == "regressor"
 
     def test_multiclass_predictions(self) -> None:
         """Predictions of {0, 1, 2} => classifier."""
         X = pd.DataFrame({"a": range(12)})
-        model_fn = lambda x: np.array([0, 1, 2] * (len(x) // 3))
+        def model_fn(x):
+            return np.array([0, 1, 2] * (len(x) // 3))
         assert detect_model_type(model_fn, X) == "classifier"
 
 

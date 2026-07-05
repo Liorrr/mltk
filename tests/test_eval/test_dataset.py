@@ -8,11 +8,8 @@ Target: 80+ tests across 5 test classes.
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
-import os
 import warnings
-from unittest.mock import patch
 
 import pytest
 
@@ -339,7 +336,7 @@ class TestEvalDataset:
         # EXPECTED: same inputs and targets
         ds = _make_dataset(n=3)
         lst = ds.to_sample_list()
-        for orig, copy in zip(ds.samples, lst):
+        for orig, copy in zip(ds.samples, lst, strict=False):
             assert orig.input == copy.input
             assert orig.target == copy.target
 
@@ -378,7 +375,7 @@ class TestEvalDataset:
         assert restored.name == ds.name
         assert restored.version == ds.version
         for orig, rest in zip(
-            ds.samples, restored.samples
+            ds.samples, restored.samples, strict=False
         ):
             assert orig.input == rest.input
             assert orig.target == rest.target
@@ -765,7 +762,7 @@ class TestDatasetRegistry:
         ds = _make_dataset(n=3)
         saved_path = reg.save(ds)
         # Tamper with the saved file
-        with open(saved_path, "r") as f:
+        with open(saved_path) as f:
             data = json.load(f)
         data["fingerprint"] = "0" * 64
         with open(saved_path, "w") as f:
@@ -774,7 +771,7 @@ class TestDatasetRegistry:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             try:
-                loaded = reg.load("qa-test", "1.0.0")
+                reg.load("qa-test", "1.0.0")
                 # If no exception, check for warning
                 tamper_warns = [
                     x for x in w
@@ -868,7 +865,7 @@ class TestDatasetRegistry:
         assert loaded.sample_count == ds.sample_count
         assert loaded.fingerprint == ds.fingerprint
         for orig, rest in zip(
-            ds.samples, loaded.samples
+            ds.samples, loaded.samples, strict=False
         ):
             assert orig.input == rest.input
             assert orig.target == rest.target
@@ -1533,7 +1530,7 @@ class TestHardenedEvalDataset:
         d = ds.to_dict()
         restored = EvalDataset.from_dict(d)
         for orig, rest in zip(
-            ds.samples, restored.samples
+            ds.samples, restored.samples, strict=False
         ):
             assert orig.target == rest.target
 

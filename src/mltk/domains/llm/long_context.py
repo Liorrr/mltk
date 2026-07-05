@@ -319,7 +319,7 @@ def assert_no_lost_in_middle(
     correct_count = 0
     per_position_correct: dict[str, bool] = {}
 
-    for i, (fact, question) in enumerate(zip(facts, questions)):
+    for i, (fact, question) in enumerate(zip(facts, questions, strict=False)):
         # Label position for reporting
         if i == 0:
             pos_label = "beginning"

@@ -187,4 +187,12 @@ __all__ = [
     "assert_valid_json",
     "assert_json_schema",
     "assert_pydantic_schema",
+    # span tracing
+    "Span",
+    "SpanKind",
+    "SpanTrace",
+    "assert_span_budget",
+    "assert_span_latency",
+    "assert_span_quality",
+    "assert_span_sequence",
 ]

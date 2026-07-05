@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests for mltk.scan.scanners.leakage -- LeakageScanner.
 
 LeakageScanner detects features that have suspiciously high
@@ -9,13 +7,15 @@ cover:
 - Clean data with no leaky features
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
 
 try:
-    from mltk.scan.scanners.leakage import LeakageScanner
     from mltk.scan.config import ScanConfig, ScanContext
+    from mltk.scan.scanners.leakage import LeakageScanner
     _HAS_LEAKAGE = True
 except ImportError:
     _HAS_LEAKAGE = False

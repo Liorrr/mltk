@@ -43,6 +43,7 @@ nlp = ["nltk>=3.8", "rouge-score>=0.1"]
 speech = ["jiwer>=3.0"]
 contracts = ["pyyaml>=6.0"]
 integrations = ["jira>=3.0"]
+importer = ["datasets>=4.0", "pyarrow>=14"]  # HuggingFace datasets (4.0+ drops script-based/remote-code dataset loading) + local Parquet support for Smart Dataset Importer
 pdf = ["weasyprint>=60"]  # PDF export for compliance reports
 llm = []  # lightweight (numpy only), future: detoxify
 embedding = ["sentence-transformers>=2.0"]  # embedding-based LLM similarity evaluation
@@ -63,7 +64,7 @@ gcp = ["google-cloud-aiplatform>=1.40"]  # GCP Vertex AI monitoring
 azure = ["azure-ai-ml>=1.12"]  # Azure ML monitoring
 container = ["trivy-py>=0.70"]  # Container image security scanning via Trivy (v0.70.0 verified 2026-04-24)
 metrics = ["prometheus-client>=0.20"]  # Prometheus /metrics endpoint for mltk server
-all = ["mlspec[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,nli,ner,mcp,multimodal,clip,classifier,torch,mlflow,otel,server,aws,gcp,azure,container,metrics]"]
+all = ["mlspec[scipy,sklearn,cli,report,cv,nlp,speech,contracts,integrations,pdf,llm,embedding,nli,ner,mcp,multimodal,clip,classifier,torch,mlflow,otel,server,aws,gcp,azure,container,metrics,importer]"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",

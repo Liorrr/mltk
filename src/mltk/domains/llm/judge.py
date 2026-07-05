@@ -291,7 +291,7 @@ def assert_llm_judge_score(
     total_score = 0.0
     scores_below_min = 0
 
-    for prompt, response in zip(prompts, responses):
+    for prompt, response in zip(prompts, responses, strict=False):
         eval_prompt = format_judge_prompt(
             prompt=prompt,
             response=response,
@@ -446,7 +446,7 @@ def assert_llm_judge_pairwise(
     wins_b = 0
     ties = 0
 
-    for prompt, resp_a, resp_b in zip(prompts, responses_a, responses_b):
+    for prompt, resp_a, resp_b in zip(prompts, responses_a, responses_b, strict=False):
         comparison_prompt = _format_pairwise_prompt(
             prompt=prompt,
             response_a=resp_a,
