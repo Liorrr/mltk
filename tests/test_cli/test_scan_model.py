@@ -14,6 +14,7 @@ test_cli tests) to exercise the full Typer entry point.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 
@@ -41,6 +42,9 @@ def _run_cli(
         capture_output=True,
         text=True,
         timeout=30,
+        # Pin a wide terminal so rich/typer don't truncate --help option
+        # names in narrow non-TTY environments (e.g. CI runners).
+        env={**os.environ, "COLUMNS": "200"},
     )
 
 

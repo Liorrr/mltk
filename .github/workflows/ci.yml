@@ -32,8 +32,10 @@ jobs:
           python-version: ${{ matrix.python }}
       # sklearn is required at collection time by tests/test_scan/conftest.py;
       # cli (typer) and server (fastapi) are imported bare at module level by
-      # tests/test_cli/test_container.py, tests/test_server/*, and others.
-      - run: pip install -e ".[dev,scipy,sklearn,importer,cli,server]"
+      # tests/test_cli/test_container.py, tests/test_server/*, and others;
+      # report (jinja2/plotly) and multimodal (Pillow/scikit-image) back
+      # tests that hard-fail (not skip) when those deps are absent.
+      - run: pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal]"
       # No coverage fail-under gate yet: the threshold has never been
       # calibrated against this (optional-deps-subset) CI environment.
       - run: pytest --cov=mltk --cov-report=xml -q

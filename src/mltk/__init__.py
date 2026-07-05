@@ -4,7 +4,7 @@ try:
     from importlib.metadata import PackageNotFoundError
     from importlib.metadata import version as _pkg_version
     try:
-        __version__ = _pkg_version("mltk")  # editable/dev installs (pre-rename), PEP 541 claim pending
+        __version__ = _pkg_version("mltk")  # dev installs; PEP 541 claim pending
     except PackageNotFoundError:
         __version__ = _pkg_version("mlspec")  # current PyPI distribution name
 except PackageNotFoundError:
