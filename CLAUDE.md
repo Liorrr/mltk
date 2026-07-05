@@ -55,6 +55,11 @@ Uses sprint-executor skill: research → design plan → user approval → paral
 - Don't create module scaffolding manually — agents create their own files
 - Update CHANGELOG.md + BACKLOG.md at sprint end
 - Regenerate skill index after sprint: `python scripts/generate_skill_index.py`
+- **Implementation batches dispatch to Codex** via the `codex-worker` skill
+  (`~/.claude/skills/codex-worker/`): Claude keeps research/design/plan/
+  validation-gate/commit; Codex workers implement under file-ownership
+  briefs. Workers read `AGENTS.md` — keep it in sync when conventions
+  change (it holds no version/count facts by design).
 
 ## Skills for Subagents
 Two skills exist. The orchestrator MUST read and include them in agent prompts per the matrix below.
