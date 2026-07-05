@@ -15,6 +15,7 @@ test_cli tests) to exercise the full Typer entry point.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 
@@ -37,17 +38,21 @@ def _run_cli(
         f"sys.argv = ['mltk'] + {cli_args!r}; "
         "from mltk.cli.app import main; main()"
     )
-    return subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
         timeout=30,
         # Pin a wide terminal so rich/typer don't truncate --help option
-        # names in narrow non-TTY environments, and disable ANSI styling —
-        # rich force-enables color when it detects GitHub Actions, splitting
-        # option names with escape codes; NO_COLOR overrides that detection.
-        env={**os.environ, "COLUMNS": "200", "NO_COLOR": "1"},
+        # names in narrow non-TTY environments, and render as a dumb
+        # terminal — rich force-enables ANSI styling when it detects
+        # GitHub Actions (NO_COLOR alone still allows bold/dim attributes).
+        env={**os.environ, "COLUMNS": "200", "NO_COLOR": "1", "TERM": "dumb"},
     )
+    # Belt and braces: strip any ANSI escape sequences rich still emitted
+    # so substring assertions see plain text regardless of the environment.
+    result.stdout = re.sub(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\]8;[^\x1b]*\x1b\\", "", result.stdout)
+    return result
 
 
 # ---------------------------------------------------------------
@@ -65,12 +70,17 @@ class TestScanModelHelp:
         assert result.returncode == 0
 
         out = result.stdout
-        assert "--model" in out
-        assert "--data" in out
-        assert "--target" in out
-        assert "--sensitive" in out
-        assert "--output" in out
-        assert "--junit-xml" in out
+        # repr(out) in the message so a CI-only rendering difference is
+        # fully visible in the log (pytest's assert repr truncates).
+        for option in (
+            "--model",
+            "--data",
+            "--target",
+            "--sensitive",
+            "--output",
+            "--junit-xml",
+        ):
+            assert option in out, f"{option} missing from help: {out!r}"
 
     def test_help_shows_description(self) -> None:
         """The help output includes the command
