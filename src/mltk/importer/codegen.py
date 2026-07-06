@@ -239,14 +239,26 @@ def _build_imports(task: str, *, include_no_nulls: bool) -> str:
     return "\n\n" + "\n".join(imports)
 
 
-def _build_fixtures(source: str, dataset_name: str) -> str:
+def _build_fixtures(
+    source: str,
+    dataset_name: str,
+    *,
+    load_kwargs: dict[str, str] | None = None,
+) -> str:
     """Return importer/dataframe/dataset/predict_fn fixtures."""
+    load_kwargs_lines = ""
+    if load_kwargs:
+        load_kwargs_lines = "\n" + "\n".join(
+            f"                {key}={value!r},"
+            for key, value in sorted(load_kwargs.items())
+        )
+
     return textwrap.dedent(f'''\n
         @pytest.fixture(scope="module")
         def import_result():
             """Load the imported dataset."""
             return DatasetImporter.load(
-                {source!r},
+                {source!r},{load_kwargs_lines}
             )
 
 
@@ -270,6 +282,11 @@ def _build_fixtures(source: str, dataset_name: str) -> str:
             """Return a callable that maps prompt -> prediction."""
             spec = os.environ.get("MLTK_PREDICT_FN")
             if spec:
+                if ":" not in spec:
+                    raise ValueError(
+                        "MLTK_PREDICT_FN must be 'module:callable', "
+                        f"got {{spec!r}}"
+                    )
                 module_name, callable_name = spec.split(":", 1)
                 module = importlib.import_module(module_name)
                 fn = getattr(module, callable_name)
@@ -538,6 +555,7 @@ def generate_pytest(
     *,
     dataset_name: str | None = None,
     output_path: str | os.PathLike[str] | None = None,
+    load_kwargs: dict[str, str] | None = None,
 ) -> str:
     """Generate a self-contained pytest file for an imported dataset.
 
@@ -548,6 +566,8 @@ def generate_pytest(
             sanitized stem of ``import_result.source``.
         output_path: Optional path to write the generated file to.
             Parent directories are created automatically.
+        load_kwargs: Optional keyword arguments to preserve when the
+            generated fixture reloads ``import_result.source``.
 
     Returns:
         Generated Python source ending with a newline.
@@ -578,7 +598,11 @@ def generate_pytest(
     parts = [
         _build_header(import_result.source),
         _build_imports(task, include_no_nulls=include_no_nulls),
-        _build_fixtures(import_result.source, resolved_dataset_name),
+        _build_fixtures(
+            import_result.source,
+            resolved_dataset_name,
+            load_kwargs=load_kwargs,
+        ),
         _build_data_sanity_class(
             schema,
             no_null_columns,

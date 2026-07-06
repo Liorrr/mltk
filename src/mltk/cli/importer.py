@@ -135,6 +135,15 @@ def import_dataset(
         task_type,
         dataset_name=dataset_name,
         output_path=str(output_path),
+        load_kwargs={
+            k: v
+            for k, v in {
+                "split": split,
+                "input_column": input_column,
+                "target_column": target_column,
+            }.items()
+            if v is not None
+        },
     )
     print(f"pytest file written: {output_path}")  # noqa: T201
     print(  # noqa: T201

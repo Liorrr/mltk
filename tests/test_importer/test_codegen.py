@@ -109,6 +109,12 @@ def _dataset_name_from_content(content: str) -> str:
     return match.group(2)
 
 
+def _import_result_load_call(content: str) -> str:
+    start = content.index("return DatasetImporter.load(")
+    end = content.index("\n\n\n@pytest.fixture", start)
+    return content[start:end]
+
+
 class TestGeneratePytestTinyCsv:
     """End-to-end code emission from the tiny CSV fixture."""
 
@@ -155,6 +161,51 @@ class TestGeneratePytestTinyCsv:
         )
 
         assert output_path.read_text(encoding="utf-8") == content
+
+    def test_load_kwargs_are_threaded_into_import_fixture(self):
+        import_result = _basic_import_result(source="squad")
+
+        content = generate_pytest(
+            import_result,
+            TaskType.QA_RAG,
+            load_kwargs={"split": "validation", "input_column": "passage"},
+        )
+        load_call = _import_result_load_call(content)
+
+        ast.parse(content)
+        assert "input_column='passage'," in load_call
+        assert "split='validation'," in load_call
+        assert load_call.index("input_column='passage',") < load_call.index(
+            "split='validation',"
+        )
+
+    def test_empty_load_kwargs_preserve_default_output_bytes(self):
+        import_result = _basic_import_result(source="squad")
+
+        default = generate_pytest(import_result, TaskType.QA_RAG)
+
+        assert (
+            generate_pytest(
+                import_result,
+                TaskType.QA_RAG,
+                load_kwargs=None,
+            )
+            == default
+        )
+        assert (
+            generate_pytest(
+                import_result,
+                TaskType.QA_RAG,
+                load_kwargs={},
+            )
+            == default
+        )
+
+    def test_predict_fn_validates_environment_spec_shape(self):
+        content = generate_pytest(_basic_import_result(), TaskType.QA_RAG)
+
+        assert 'if ":" not in spec:' in content
+        assert "MLTK_PREDICT_FN must be 'module:callable'" in content
 
 
 class TestGeneratePytestTaskShapes:

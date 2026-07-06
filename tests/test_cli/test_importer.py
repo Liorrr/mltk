@@ -149,6 +149,24 @@ def test_import_input_column_override_is_forwarded() -> None:
     assert "passage | input |" in result.stdout
 
 
+def test_import_input_column_override_is_emitted(tmp_path: Path) -> None:
+    output_path = tmp_path / "test_tiny_import.py"
+
+    result = _run_cli(
+        "import",
+        TINY_CSV_REL,
+        "--input-column",
+        "passage",
+        "--output",
+        str(output_path),
+    )
+
+    assert result.returncode == 0, _combined_output(result)
+    content = output_path.read_text(encoding="utf-8")
+    ast.parse(content)
+    assert "input_column='passage'," in content
+
+
 def test_import_missing_file_exits_with_helpful_message(
     tmp_path: Path,
 ) -> None:
