@@ -120,11 +120,11 @@ Test Model Context Protocol tool use correctness — tool selection accuracy, ar
 *Research brief: `docs/research/` — MCP evaluation (24 sources)*
 
 #### Smart Dataset Importer / Test-Suite Mapper
-*Status: In Progress — S97 (sprint 1 of 3) done (see [Smart Dataset Importer docs](api/dataset-importer.md))*
+*Status: In Progress — S97 + S98 (sprints 1–2 of 3) done: loading, column auto-mapping, task-type classification, suite generation, pytest emission, and the `mltk import` CLI (see [Smart Dataset Importer docs](api/dataset-importer.md))*
 
 One-click onboarding: point mltk at a dataset (HuggingFace Hub or local CSV/Parquet/JSON) plus an optional golden set, and get a runnable mltk evaluation suite — no manual glue code.
 
-**The workflow:** `DatasetImporter` loads and normalizes the source to a common schema (**done, S97**). A column auto-mapper infers field roles (input/prompt, golden/expected, context, label) from name heuristics and dtypes, with a preview the user can override (**done, S97**). A task-type classifier (classification, QA/RAG, summarization, generation, retrieval) then generates the matching assertions as both a live suite and a committable pytest file (**S98**, second sprint of the epic), wired into the existing eval pipeline (solvers/scorers) and the versioned dataset registry (**S99**, third sprint of the epic).
+**The workflow:** `DatasetImporter` loads and normalizes the source to a common schema (**done, S97**). A column auto-mapper infers field roles (input/prompt, golden/expected, context, label) from name heuristics and dtypes, with a preview the user can override (**done, S97**). A task-type classifier (classification, QA/RAG, summarization, generation, retrieval) generates the matching assertions as both a live suite and a committable pytest file, behind a one-command `mltk import <source>` CLI (**done, S98**, second sprint of the epic). The remaining sprint wires an MCP tool, golden-set binding with an LLM-judge fallback, and the versioned dataset registry (**S99**, third sprint of the epic).
 
 **Differentiator:** competitors require you to hand-write test cases or adopt their dataset format. mltk would turn any public dataset into a runnable eval in one command (`mltk import <source>`) or one MCP call.
 

@@ -4,13 +4,16 @@ Point mltk at a dataset — a local CSV/JSON/Parquet file or a HuggingFace
 Hub id — and get back a normalized, column-role-mapped result ready to
 become a versioned [`EvalDataset`](eval-datasets.md).
 
-**Since:** Unreleased (S97, sprint 1 of a 3-sprint epic — see
+**Since:** Unreleased (S97 + S98, sprints 1–2 of a 3-sprint epic — see
 [Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper))
 
 **Modules:**
 
 - `mltk.importer` — `DatasetImporter`, `ColumnRole`, `ColumnMapping`,
-  `ImportResult`, `auto_map_columns`
+  `ImportResult`, `auto_map_columns`, `TaskType`, `classify_task`,
+  `build_suite`, `compute_baseline_thresholds`, `generate_pytest`
+- `mltk import <source>` — one-command CLI over the whole pipeline
+  (see [The mltk import CLI](#the-mltk-import-cli))
 
 **Install:** `pip install mltk[importer]` (adds `datasets>=4.0` for
 HuggingFace Hub loading — 4.0+ drops script-based/remote-code dataset
@@ -64,6 +67,22 @@ fixed = result.mapping.override("category", ColumnRole.METADATA)
 
 # 4. Materialize a versioned EvalDataset
 dataset = result.to_eval_dataset(name="my-qa", version="0.1.0")
+
+# 5. Classify the task type and build a runnable in-memory suite
+from mltk.importer import build_suite, classify_task, generate_pytest
+
+task_type = classify_task(result.mapping)          # TaskType.QA_RAG
+suite = build_suite(dataset, result.mapping, task_type)
+print(suite.run().passed)
+
+# 6. Or emit a committable pytest file
+generate_pytest(result, task_type, output_path="test_my_qa_qa_rag.py")
+```
+
+Or do all of the above in one command:
+
+```console
+$ mltk import qa.csv
 ```
 
 From here, `dataset` is a normal `EvalDataset` — save it with
@@ -230,15 +249,191 @@ in a plausible-looking value for a column it isn't sure about.
 
 ---
 
+## Task-Type Classification
+
+`classify_task(mapping, dataset=None)` classifies the imported dataset
+into a `TaskType` from the roles present in the mapping — deterministic
+and role-presence-based, like the column heuristics. First matching rule
+wins:
+
+| Rule | Roles present | `TaskType` |
+|---|---|---|
+| 1 | `CONTEXT` and `GOLDEN` | `QA_RAG` |
+| 2 | `CONTEXT`, no `GOLDEN` | `RETRIEVAL` |
+| 3 | `LABEL`, no `GOLDEN` | `CLASSIFICATION` |
+| 4 | `GOLDEN` whose column name has a whole-token summary keyword (`summary`/`summaries`/`highlights`/`tldr`/`abstract`) | `SUMMARIZATION` |
+| 5 | any other `GOLDEN` | `GENERATION` |
+| 6 | none of the above | `GENERATION` |
+
+Keyword matching reuses the importer's token semantics: `summary_text`
+matches (`summary` is a whole token), `summarylike` does not. The
+`dataset` argument is accepted but currently unused — it is reserved
+for future data-peek heuristics.
+
+The classifier drives which assertions the suite generator and pytest
+emitter bind:
+
+| Task type | Bound assertions |
+|---|---|
+| `QA_RAG` | `assert_faithfulness`, `assert_answer_relevancy`, `assert_context_relevancy` |
+| `RETRIEVAL` | `assert_context_relevancy` |
+| `CLASSIFICATION` | `assert_metric` (accuracy) |
+| `SUMMARIZATION` | `assert_summary_coverage`, `assert_summary_compression`, `assert_summary_faithfulness` |
+| `GENERATION` | `assert_output_format` |
+| every task type | `assert_schema`, `assert_no_nulls`, `assert_dataset_quality` (data sanity) |
+
+---
+
+## Two-Tier Test Semantics
+
+At import time there is no model yet, so both the in-memory suite and
+the emitted pytest file follow the same honest two-tier rule:
+
+- **Tier 1 — dataset sanity, runs immediately.** Schema, null checks on
+  the `INPUT`/`GOLDEN` columns, and `assert_dataset_quality` with
+  *baseline thresholds* computed from the imported data (see below).
+- **Tier 2 — model quality, ready but inert.** The task-type assertions
+  above are generated fully wired, but they need model predictions —
+  they stay skipped (pytest) or omitted (in-memory suite) until you
+  provide a predictor or judge. mltk never fabricates predictions or
+  lowers thresholds to force a green run.
+
+### Baseline thresholds
+
+`compute_baseline_thresholds(dataset)` snapshots quality gates the
+current dataset already satisfies, bucketed to readable 0.05 increments
+(never overfit exact floats):
+
+- `min_samples` — the current sample count
+- `min_target_coverage` — actual coverage, floored to a 0.05 multiple
+- `max_duplicate_rate` — `0.01` when there are no duplicate inputs,
+  else the actual rate ceiled to a 0.05 multiple
+- `min_categories` — the distinct category count, or omitted when the
+  dataset has no categories
+
+Treat these as a starting point to tighten over time — they gate
+*regressions* (the dataset shrinking, losing coverage, gaining
+duplicates), not absolute quality.
+
+---
+
+## Building a Runnable Suite
+
+`build_suite(eval_dataset, mapping, task_type, *, judge_fn=None)`
+returns an [`MltkSuite`](suite-api.md) named
+`import:<dataset-name>`:
+
+- Always adds Tier 1 `assert_dataset_quality` with the baseline
+  thresholds above.
+- With a `judge_fn` (`(text_a, text_b) -> float` in `[0, 1]`), adds
+  judge-scored **dataset-side** checks for `QA_RAG` (is the golden
+  answer faithful to the context? relevant to the question? is the
+  context relevant?) and `RETRIEVAL` (context relevancy only). Samples
+  missing a target or context are skipped for the checks that need
+  them — never filled in.
+- Without a `judge_fn`, the suite is Tier 1 only; the model-bound
+  assertions live in the emitted pytest file instead.
+
+```python
+suite = build_suite(dataset, result.mapping, task_type,
+                    judge_fn=my_llm_judge)
+report = suite.run()          # never raises; failures are results
+print(f"{report.passed_count}/{report.total} passed")
+```
+
+---
+
+## Emitting a Committable Pytest File
+
+`generate_pytest(import_result, task_type, *, dataset_name=None,
+output_path=None)` returns (and optionally writes) a self-contained
+pytest scaffold:
+
+- **Fixtures** — `import_result` (reloads the source through
+  `DatasetImporter`), `df` (pandas view for schema/null checks),
+  `dataset` (the `EvalDataset`), and `predict_fn`.
+- **`class TestDataSanity`** (Tier 1, runs now) — `test_schema` against
+  a dtype snapshot taken at emit time, `test_no_nulls` on the
+  `INPUT`/`GOLDEN` columns (omitted with an explanatory comment if the
+  imported data already has missing values there), and
+  `test_dataset_quality` with explicit baseline-threshold kwargs, each
+  marked `# baseline from import — tighten as needed`.
+- **`class TestModelQuality`** (Tier 2, skipped) — the task-type
+  assertions from the table above, iterating your dataset's samples
+  through `predict_fn`. Assertions that need information an import
+  cannot provide (protected attributes for `assert_no_bias`, a JSON
+  schema for `assert_json_schema`) are emitted as commented-out lines
+  with a `requires ...` note instead of tests that could never run.
+- The file is a scaffold — **edit it freely**. Generation is
+  deterministic: the same input produces byte-identical output (no
+  timestamps), and every emitted file is `ast.parse`-validated.
+
+### Wiring your model
+
+The `predict_fn` fixture un-skips all Tier-2 tests at once, two ways:
+
+```console
+$ MLTK_PREDICT_FN=myproject.model:predict pytest test_my_qa_qa_rag.py
+```
+
+or edit the fixture to return any `prompt -> prediction` callable.
+Until then, Tier-2 tests report as *skipped* — a freshly emitted file
+runs green out of the box:
+
+```console
+$ pytest test_tiny_qa_rag.py -q
+...sss                                                    [100%]
+3 passed, 3 skipped
+```
+
+---
+
+## The mltk import CLI
+
+`mltk import <source>` runs the whole pipeline — load, preview the
+mapping, classify, build the suite, and (by default) write the pytest
+scaffold to `./test_<stem>_<task_type>.py`:
+
+```console
+$ mltk import qa.csv
+column | role | sample
+question | input | What is the capital of France?
+answer | golden | Paris
+passage | context | France is a country in Western Europe. ...
+category | label | geography
+id | metadata | 1
+task type: qa_rag
+suite: import:qa (1 registered assertions)
+pytest file written: test_qa_qa_rag.py
+Tier-2 tests are skipped until predict_fn is wired. Set
+MLTK_PREDICT_FN=module:callable or edit the fixture.
+```
+
+| Option | Effect |
+|---|---|
+| `--split TEXT` | Dataset split for HuggingFace sources (default `train`) |
+| `--input-column TEXT` | Force-map a column as the eval input (exclusive override) |
+| `--target-column TEXT` | Force-map a column as the eval target (exclusive override) |
+| `--name TEXT` | Dataset name (default: sanitized source stem) |
+| `--output PATH` | Where to write the pytest file (default `./test_<stem>_<task_type>.py`) |
+| `--force` | Overwrite an existing output file. Without it, an existing file is never touched — it is a scaffold you may have edited |
+| `--no-emit` | Preview + classify + build the suite without writing a file |
+
+Mapping problems are printed as warnings; if no column maps to `INPUT`
+(so no `EvalDataset` can be built), the command exits non-zero instead
+of guessing. The command works without the `mltk[importer]` extra
+installed only for `--help`; actual imports need
+`pip install mltk[importer]` for HuggingFace sources.
+
+---
+
 ## What's Next
 
-S97 covers loading, normalization, and column auto-mapping. Not yet
-built (see [Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper)):
+S97 covered loading, normalization, and column auto-mapping; S98 added
+task-type classification, suite generation, the pytest emitter, and the
+`mltk import` CLI. Not yet built (see
+[Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper)):
 
-- **S98** (second sprint of the epic) — task-type classification
-  (classification / QA-RAG / summarization / generation / retrieval) and
-  generation of a matching `MltkSuite` + committable pytest file;
-  `mltk import <source>` CLI.
 - **S99** (third sprint of the epic) — an MCP tool, golden-set binding
   with an `LLMJudgeScorer` fallback when no exact golden exists, and
   `DatasetRegistry` integration.
