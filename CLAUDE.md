@@ -6,7 +6,7 @@
 ## Project Overview
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - Python 3.10+ with Rust acceleration (maturin build)
-- v0.12.7, 241 assertions, 4720+ tests, 8 scanners, 12 MCP tools
+- v0.12.7, 241 assertions, 4760+ tests, 8 scanners, 13 MCP tools
 - Phase F (Agent Integration): COMPLETE — building toward v1.0.0
 
 ## Architecture
@@ -66,7 +66,7 @@ Two skills exist. The orchestrator MUST read and include them in agent prompts p
 
 | Skill | Path | Content |
 |-------|------|---------|
-| **Index** | `~/.claude/skills/mltk-index.md` (generated) | 241 assertions, 12 MCP tools, 28 CLI, 8 scanners, 28 classes with file:line |
+| **Index** | `~/.claude/skills/mltk-index.md` (generated) | 241 assertions, 13 MCP tools, 28 CLI, 8 scanners, 28 classes with file:line |
 | **Templates** | `skills/mltk-templates.md` (repo) → `~/.claude/skills/` | Patterns for adding assertions, scanners, MCP tools, CLI commands |
 
 Regenerate index after each sprint: `python scripts/generate_skill_index.py`
@@ -97,7 +97,7 @@ Read both skill files and paste their content into the agent prompt:
 - **Repo**: `C:\Users\lior1\mltk-vscode` (GitHub: `Liorrr/mltk-vscode`)
 - **Version**: 0.3.0, 27 TypeScript files, esbuild + vitest
 - **Architecture**: subprocess-based — spawns `python -m pytest` and `python -m mltk` CLI commands, parses JSON output
-- **No MCP integration** — uses CLI only, not the 12 MCP tools
+- **No MCP integration** — uses CLI only, not the 13 MCP tools
 - **Features**: test runner, inline gutter/hover/CodeLens, dashboard webview, YAML validation, model scan, security scan, PII scan, red team CodeLens, native Test Explorer
 - **Key files**: `src/extension.ts` (entry), `src/testRunner.ts`, `src/scanRunner.ts`, `src/securityScanRunner.ts`
 - **Hard rule**: same no-company-name restriction as main repo

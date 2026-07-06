@@ -4,16 +4,20 @@ Point mltk at a dataset — a local CSV/JSON/Parquet file or a HuggingFace
 Hub id — and get back a normalized, column-role-mapped result ready to
 become a versioned [`EvalDataset`](eval-datasets.md).
 
-**Since:** Unreleased (S97 + S98, sprints 1–2 of a 3-sprint epic — see
+**Since:** Unreleased (S97–S99, a completed 3-sprint epic — see
 [Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper))
 
 **Modules:**
 
 - `mltk.importer` — `DatasetImporter`, `ColumnRole`, `ColumnMapping`,
   `ImportResult`, `auto_map_columns`, `TaskType`, `classify_task`,
-  `build_suite`, `compute_baseline_thresholds`, `generate_pytest`
+  `build_suite`, `compute_baseline_thresholds`, `generate_pytest`,
+  `load_golden`, `bind_golden`, `GoldenSpec`, `GoldenBindingReport`,
+  `register_dataset`, `RegistrationResult`
 - `mltk import <source>` — one-command CLI over the whole pipeline
   (see [The mltk import CLI](#the-mltk-import-cli))
+- `mltk_import` — the same pipeline exposed as an MCP tool for AI agents
+  (see [The mltk_import MCP tool](#the-mltk_import-mcp-tool))
 
 **Install:** `pip install mltk[importer]` (adds `datasets>=4.0` for
 HuggingFace Hub loading — 4.0+ drops script-based/remote-code dataset
@@ -346,8 +350,8 @@ print(f"{report.passed_count}/{report.total} passed")
 ## Emitting a Committable Pytest File
 
 `generate_pytest(import_result, task_type, *, dataset_name=None,
-output_path=None)` returns (and optionally writes) a self-contained
-pytest scaffold:
+output_path=None, load_kwargs=None, golden_spec=None)` returns (and
+optionally writes) a self-contained pytest scaffold:
 
 - **Fixtures** — `import_result` (reloads the source through
   `DatasetImporter`), `df` (pandas view for schema/null checks),
@@ -388,6 +392,155 @@ $ pytest test_tiny_qa_rag.py -q
 
 ---
 
+## Golden-Set Binding
+
+An imported dataset's `GOLDEN` column becomes `EvalSample.target`
+directly, but references often live in a **separate** file. Golden-set
+binding maps a user-provided golden/reference file onto an imported
+dataset, filling each sample's target.
+
+`bind_golden(dataset, golden, *, target_column, key=None,
+golden_key=None)` returns a **new** `EvalDataset` (the input is never
+mutated; the card/provenance is preserved and the fingerprint is
+recomputed) plus a `GoldenBindingReport`:
+
+```python
+from mltk.importer import DatasetImporter, bind_golden, load_golden
+
+result = DatasetImporter.load("qa.csv")
+dataset = result.to_eval_dataset(name="qa")
+
+golden = load_golden("answers.csv")          # CSV/TSV/JSON/JSONL -> list[dict]
+bound, report = bind_golden(
+    dataset, golden,
+    target_column="gold",   # column in the golden file with the answer
+    key="id",               # sample-side key: "input" or a metadata field
+    golden_key="row_id",    # golden-side key column (defaults to key)
+)
+print(report.summary())
+# golden binding (key='id'): 2/3 matched (67%), 1 judge-scored
+```
+
+**Join semantics.** With a `key`, mltk builds a lookup from the
+golden-side `golden_key` column and matches each sample's key — use
+`key="input"` to match on the sample input text, or any metadata field
+name. With `key=None`, binding is by **row order** (`golden[i]` supplies
+sample `i`). A golden value overrides a pre-existing target; when the
+golden file has no value for a sample, an existing target is kept.
+
+**Scoring partition.** Every bound sample is stamped with
+`metadata["scoring"]`:
+
+- `"exact"` — the sample ends up with a concrete target. Generated
+  Tier-2 tests score it against that reference.
+- `"judge"` — no reference is available. With `--judge` (opt-in), the
+  generated scaffold falls back to an LLM judge that scores the model
+  answer **reference-free**.
+
+Binding never scores anything itself — there is no model output at import
+time. It only selects *which* scorer the generated Tier-2 test uses per
+sample.
+
+### The judge fallback in generated tests
+
+Passing a `GoldenSpec` with `judge=True` to `generate_pytest` (or the
+CLI `--judge` flag) emits a golden-aware `dataset` fixture that re-binds
+the golden file at test time, a `judge_fn` fixture, and one extra Tier-2
+test:
+
+```python
+def test_judge_scored_samples(self, predict_fn, judge_fn, dataset):
+    prompts, responses = [], []
+    for sample in dataset.samples:
+        if sample.metadata.get("scoring") != "judge":
+            continue
+        prompts.append(sample.input)
+        responses.append(predict_fn(sample.input))
+    if not prompts:
+        return
+    result = assert_llm_judge_score(judge_fn, prompts, responses, min_score=3.0)
+    assert result.passed
+```
+
+The importer's golden judge contract is
+[`assert_llm_judge_score`](llm-judge.md)'s `judge_fn: (prompt) -> float`
+(one formatted prompt → score, default 3–5 scale) — **not** the two-text
+`(a, b) -> float` shape that `build_suite`'s RAG dataset-side checks use.
+The two are deliberately kept in separate lanes. Wire the judge the same
+way as `predict_fn`:
+
+```console
+$ MLTK_PREDICT_FN=myproject.model:predict \
+  MLTK_JUDGE_FN=myproject.judge:score \
+  pytest test_qa_generation.py
+```
+
+Until `MLTK_JUDGE_FN` is set, the judge test skips like the other Tier-2
+tests. A freshly emitted golden scaffold runs green out of the box (Tier 1
+passes, Tier 2 skips) — for example, `3 passed, 2 skipped`.
+
+!!! note "The golden file must travel with the scaffold"
+    Unlike a plain scaffold, a golden-bound one embeds the golden file
+    path in its `dataset` fixture and reloads it at test time. Commit the
+    golden file alongside the generated test (and prefer a repo-relative
+    path over an absolute one) so the suite runs on another machine.
+
+---
+
+## Registering an Imported Dataset
+
+`register_dataset(dataset, *, registry_dir=None, overwrite=False, ...)`
+runs a **blocking** `assert_dataset_quality` gate and, only if it passes,
+saves the dataset to the local [`DatasetRegistry`](eval-datasets.md)
+(`~/.mltk/datasets/` by default, or `MLTK_DATASET_DIR`). It returns a
+`RegistrationResult` — a failing gate is never saved:
+
+```python
+from mltk.importer import register_dataset
+
+result = register_dataset(bound)      # or any EvalDataset
+if result.saved:
+    print(f"registered -> {result.path}")
+else:
+    print(f"blocked: {result.reason}")  # e.g. "duplicate_rate=0.75 > 0.5"
+```
+
+Gate defaults are **import-oriented and lenient on shape** — small and
+unlabeled eval sets are legitimate, so `min_samples=1` and
+`min_target_coverage=0.0`. The load-bearing default guard is
+`max_duplicate_rate=0.5`: a mostly-duplicate dataset signals a broken
+import. Tighten any threshold via keyword (`min_samples=`,
+`min_target_coverage=`, `max_duplicate_rate=`, `min_categories=`).
+Provenance stamped in `DatasetCard.source` by `to_eval_dataset()` is
+preserved as-is. Registering an existing `name/version` is refused unless
+`overwrite=True` (non-destructive by default).
+
+---
+
+## The mltk_import MCP tool
+
+The whole pipeline is exposed to AI agents as the `mltk_import` MCP tool.
+It is **return-only by default** — it returns the mapping preview, task
+type, and generated pytest code as a string, and writes a file **only**
+when `output_path` is set:
+
+| Parameter | Effect |
+|---|---|
+| `source` | Local file path or HuggingFace dataset id |
+| `split`, `input_column`, `target_column`, `name` | Same as the CLI |
+| `golden_path`, `golden_target_column`, `golden_key`, `golden_key_column` | Bind a golden file (see [Golden-Set Binding](#golden-set-binding)) |
+| `judge` | Emit the judge fallback for unmatched samples |
+| `register` | Save to the registry behind the blocking quality gate |
+| `output_path` | If set, write the generated pytest file to disk |
+
+The response includes `mapping_preview`, `task_type`, `dataset_name`,
+`sample_count`, `assertion_count`, `generated_code`, and (when used)
+`golden_binding` and `registration` summaries, plus a `workflow_hint`
+pointing at `mltk_dataset`/`mltk_eval`/`mltk_test` as next steps. See the
+[MCP Server](mcp-server.md) page for configuration.
+
+---
+
 ## The mltk import CLI
 
 `mltk import <source>` runs the whole pipeline — load, preview the
@@ -417,6 +570,12 @@ MLTK_PREDICT_FN=module:callable or edit the fixture.
 | `--name TEXT` | Dataset name (default: sanitized source stem) |
 | `--output PATH` | Where to write the pytest file (default `./test_<stem>_<task_type>.py`) |
 | `--force` | Overwrite an existing output file. Without it, an existing file is never touched — it is a scaffold you may have edited |
+| `--golden PATH` | Golden/reference file (CSV/TSV/JSON/JSONL) to bind onto the imported dataset (see [Golden-Set Binding](#golden-set-binding)) |
+| `--golden-target-column TEXT` | Column in the golden file holding the reference answer (required with `--golden`) |
+| `--golden-key TEXT` | Sample-side join key: `input` or a metadata field name. Omit to bind by row order |
+| `--golden-key-column TEXT` | Golden-side key column, if it differs from `--golden-key` |
+| `--judge` | Emit an LLM-judge fallback test for samples with no exact golden (requires `--golden`) |
+| `--register` | Save the imported dataset to the local registry after a blocking quality gate (see [Registering an Imported Dataset](#registering-an-imported-dataset)) |
 | `--no-emit` | Preview + classify + build the suite without writing a file |
 
 Mapping problems are printed as warnings; if no column maps to `INPUT`
@@ -429,14 +588,17 @@ installed only for `--help`; actual imports need
 
 ## What's Next
 
-S97 covered loading, normalization, and column auto-mapping; S98 added
-task-type classification, suite generation, the pytest emitter, and the
-`mltk import` CLI. Not yet built (see
-[Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper)):
+The three-sprint epic is complete: S97 covered loading, normalization,
+and column auto-mapping; S98 added task-type classification, suite
+generation, the pytest emitter, and the `mltk import` CLI; S99 added
+[golden-set binding](#golden-set-binding) with an LLM-judge fallback,
+[registry integration](#registering-an-imported-dataset), and the
+[`mltk_import` MCP tool](#the-mltk_import-mcp-tool).
 
-- **S99** (third sprint of the epic) — an MCP tool, golden-set binding
-  with an `LLMJudgeScorer` fallback when no exact golden exists, and
-  `DatasetRegistry` integration.
+Deferred beyond the epic (see
+[Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper)):
+pluggable source adapters (Kaggle, OpenML, object storage), URL fetch,
+and HuggingFace streaming mode.
 
 ---
 

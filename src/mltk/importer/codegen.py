@@ -22,6 +22,7 @@ from mltk.importer.schema import ColumnRole
 
 if TYPE_CHECKING:
     from mltk.importer.classify import TaskType
+    from mltk.importer.golden import GoldenSpec
     from mltk.importer.schema import ImportResult
 
 __all__ = ["generate_pytest"]
@@ -194,7 +195,12 @@ def _build_header(source: str) -> str:
     ''')
 
 
-def _build_imports(task: str, *, include_no_nulls: bool) -> str:
+def _build_imports(
+    task: str,
+    *,
+    include_no_nulls: bool,
+    golden_spec: GoldenSpec | None = None,
+) -> str:
     """Return assertion imports for the emitted file."""
     data_import = (
         "from mltk.data import assert_no_nulls, assert_schema"
@@ -206,6 +212,15 @@ def _build_imports(task: str, *, include_no_nulls: bool) -> str:
         "from mltk.eval.dataset import assert_dataset_quality",
         "from mltk.importer import DatasetImporter",
     ]
+
+    if golden_spec is not None:
+        imports.append(
+            "from mltk.importer.golden import bind_golden, load_golden"
+        )
+        if golden_spec.judge:
+            imports.append(
+                "from mltk.domains.llm.judge import assert_llm_judge_score"
+            )
 
     if task in {"qa_rag", "retrieval"}:
         imports.append(
@@ -244,39 +259,77 @@ def _build_fixtures(
     dataset_name: str,
     *,
     load_kwargs: dict[str, str] | None = None,
+    golden_spec: GoldenSpec | None = None,
 ) -> str:
-    """Return importer/dataframe/dataset/predict_fn fixtures."""
+    """Return importer/dataframe/dataset/predict_fn (and judge) fixtures."""
     load_kwargs_lines = ""
     if load_kwargs:
         load_kwargs_lines = "\n" + "\n".join(
-            f"                {key}={value!r},"
+            f"            {key}={value!r},"
             for key, value in sorted(load_kwargs.items())
         )
 
-    return textwrap.dedent(f'''\n
+    loader_block = textwrap.dedent(f'''\
         @pytest.fixture(scope="module")
         def import_result():
             """Load the imported dataset."""
             return DatasetImporter.load(
                 {source!r},{load_kwargs_lines}
-            )
+            )''')
 
-
+    df_block = textwrap.dedent('''\
         @pytest.fixture(scope="module")
         def df(import_result):
             """Rebuild the imported rows as a pandas DataFrame."""
-            return pd.DataFrame(import_result.rows)
+            return pd.DataFrame(import_result.rows)''')
+
+    blocks = [
+        loader_block,
+        df_block,
+        _build_dataset_fixture(dataset_name, golden_spec),
+        _build_predict_fixture(),
+    ]
+    if golden_spec is not None and golden_spec.judge:
+        blocks.append(_build_judge_fixture())
+
+    return "\n\n" + "\n\n\n".join(block.rstrip() for block in blocks) + "\n"
 
 
+def _build_dataset_fixture(
+    dataset_name: str, golden_spec: GoldenSpec | None
+) -> str:
+    """Return the ``dataset`` fixture, golden-aware when a spec is given."""
+    if golden_spec is None:
+        return textwrap.dedent(f'''\
+            @pytest.fixture(scope="module")
+            def dataset(import_result):
+                """Materialize the imported rows as an EvalDataset."""
+                return import_result.to_eval_dataset(
+                    name={dataset_name!r},
+                    version="0.1.0",
+                )''')
+    return textwrap.dedent(f'''\
         @pytest.fixture(scope="module")
         def dataset(import_result):
-            """Materialize the imported rows as an EvalDataset."""
-            return import_result.to_eval_dataset(
+            """Materialize imported rows and bind the golden reference set."""
+            base = import_result.to_eval_dataset(
                 name={dataset_name!r},
                 version="0.1.0",
             )
+            golden = load_golden({golden_spec.path!r})
+            bound, _report = bind_golden(
+                base,
+                golden,
+                target_column={golden_spec.target_column!r},
+                key={golden_spec.key!r},
+                golden_key={golden_spec.golden_key!r},
+            )
+            return bound''')
 
 
+def _build_predict_fixture() -> str:
+    """Return the ``predict_fn`` fixture (skips until wired)."""
+    return textwrap.dedent('''\
         @pytest.fixture(scope="module")
         def predict_fn():
             """Return a callable that maps prompt -> prediction."""
@@ -285,7 +338,7 @@ def _build_fixtures(
                 if ":" not in spec:
                     raise ValueError(
                         "MLTK_PREDICT_FN must be 'module:callable', "
-                        f"got {{spec!r}}"
+                        f"got {spec!r}"
                     )
                 module_name, callable_name = spec.split(":", 1)
                 module = importlib.import_module(module_name)
@@ -299,8 +352,34 @@ def _build_fixtures(
                 "Set MLTK_PREDICT_FN=module:callable or edit this fixture "
                 "to return your model's predict function "
                 "(prompt -> prediction)."
-            )
-    ''')
+            )''')
+
+
+def _build_judge_fixture() -> str:
+    """Return the ``judge_fn`` fixture used by the golden judge fallback."""
+    return textwrap.dedent('''\
+        @pytest.fixture(scope="module")
+        def judge_fn():
+            """Return a callable that maps a prompt -> numeric score."""
+            spec = os.environ.get("MLTK_JUDGE_FN")
+            if spec:
+                if ":" not in spec:
+                    raise ValueError(
+                        "MLTK_JUDGE_FN must be 'module:callable', "
+                        f"got {spec!r}"
+                    )
+                module_name, callable_name = spec.split(":", 1)
+                module = importlib.import_module(module_name)
+                fn = getattr(module, callable_name)
+                if not callable(fn):
+                    raise TypeError(
+                        "MLTK_JUDGE_FN must point to a callable"
+                    )
+                return fn
+            pytest.skip(
+                "Set MLTK_JUDGE_FN=module:callable or edit this fixture "
+                "to return your LLM judge (prompt -> score)."
+            )''')
 
 
 def _build_data_sanity_class(
@@ -382,7 +461,7 @@ def _build_quality_kwargs(thresholds: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _build_model_quality_class(task: str) -> str:
+def _build_model_quality_class(task: str, *, judge: bool = False) -> str:
     """Return the Tier 2 task-specific test class."""
     body_builders = {
         "qa_rag": _build_qa_rag_tests,
@@ -396,12 +475,42 @@ def _build_model_quality_class(task: str) -> str:
     except KeyError as exc:
         raise ValueError(f"Unsupported task_type: {task!r}") from exc
 
+    if judge:
+        body = body.rstrip() + "\n\n" + _build_judge_test()
+
     indented_body = textwrap.indent(body.rstrip(), "    ")
     return (
         "\n\nclass TestModelQuality:\n"
         '    """Tier 2 tests skipped until predict_fn is wired."""\n\n'
         f"{indented_body}\n"
     )
+
+
+def _build_judge_test() -> str:
+    """Return the golden judge-fallback Tier 2 test method.
+
+    Scores model answers for samples that received no exact golden
+    reference (``metadata["scoring"] == "judge"``) via an LLM judge.
+    """
+    return textwrap.dedent('''\
+        def test_judge_scored_samples(self, predict_fn, judge_fn, dataset):
+            prompts = []
+            responses = []
+            for sample in dataset.samples:
+                if sample.metadata.get("scoring") != "judge":
+                    continue
+                prompts.append(sample.input)
+                responses.append(predict_fn(sample.input))
+            if not prompts:
+                return
+            result = assert_llm_judge_score(
+                judge_fn,
+                prompts,
+                responses,
+                min_score=3.0,
+            )
+            assert result.passed
+    ''')
 
 
 def _build_qa_rag_tests() -> str:
@@ -556,6 +665,7 @@ def generate_pytest(
     dataset_name: str | None = None,
     output_path: str | os.PathLike[str] | None = None,
     load_kwargs: dict[str, str] | None = None,
+    golden_spec: GoldenSpec | None = None,
 ) -> str:
     """Generate a self-contained pytest file for an imported dataset.
 
@@ -568,6 +678,10 @@ def generate_pytest(
             Parent directories are created automatically.
         load_kwargs: Optional keyword arguments to preserve when the
             generated fixture reloads ``import_result.source``.
+        golden_spec: Optional golden-binding spec. When set, the emitted
+            ``dataset`` fixture binds the golden reference set and, if
+            ``golden_spec.judge`` is set, a judge-fallback Tier 2 test and
+            ``judge_fn`` fixture are emitted for unmatched samples.
 
     Returns:
         Generated Python source ending with a newline.
@@ -597,11 +711,16 @@ def generate_pytest(
 
     parts = [
         _build_header(import_result.source),
-        _build_imports(task, include_no_nulls=include_no_nulls),
+        _build_imports(
+            task,
+            include_no_nulls=include_no_nulls,
+            golden_spec=golden_spec,
+        ),
         _build_fixtures(
             import_result.source,
             resolved_dataset_name,
             load_kwargs=load_kwargs,
+            golden_spec=golden_spec,
         ),
         _build_data_sanity_class(
             schema,
@@ -609,7 +728,10 @@ def generate_pytest(
             include_no_nulls,
             thresholds,
         ),
-        _build_model_quality_class(task),
+        _build_model_quality_class(
+            task,
+            judge=golden_spec is not None and golden_spec.judge,
+        ),
     ]
     code = "\n".join(part.rstrip() for part in parts).rstrip() + "\n"
 

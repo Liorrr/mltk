@@ -163,16 +163,17 @@ class TestIntegration:
     def test_all_tools_import_lazily(self):
         # SCENARIO: After server creation, no heavy deps are loaded BY the server.
         # WHY: MCP servers must start fast; heavy deps are only needed at call time.
-        # EXPECTED: registered_tools has 7 tools; server module itself does not
+        # EXPECTED: registered_tools has 13 tools; server module itself does not
         #   import torch/tensorflow (numpy/pandas may be present from the
         #   broader mltk package, so we verify the server module's own imports).
-        assert len(registered_tools) == 12
+        assert len(registered_tools) == 13
         expected = {
             "mltk_scan", "mltk_test", "mltk_list",
             "mltk_eval", "mltk_dataset", "mltk_report",
             "mltk_suggest", "mltk_experiment",
             "mltk_create_pr", "mltk_create_issue",
             "mltk_workflow", "mltk_container_scan",
+            "mltk_import",
         }
         assert set(registered_tools.keys()) == expected
 
@@ -213,7 +214,7 @@ class TestIntegration:
             "scan", "run", "list", "evaluate", "get", "generate",
             "retrieve", "check", "detect", "find", "compute",
             "fetch", "create", "build", "produce", "return",
-            "search", "validate", "execute", "rank",
+            "search", "validate", "execute", "rank", "import",
         }
         for name, fn in registered_tools.items():
             doc = (fn.__doc__ or "").strip()

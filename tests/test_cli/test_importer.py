@@ -208,9 +208,111 @@ def test_import_help_does_not_require_importer_extra() -> None:
         "--target-column",
         "--output",
         "--force",
+        "--golden",
+        "--golden-target-column",
+        "--golden-key",
+        "--judge",
+        "--register",
         "--no-emit",
     ):
         assert option in command_help.stdout
+
+
+def test_import_golden_binding_emits_bound_fixture(tmp_path: Path) -> None:
+    golden = tmp_path / "golden.csv"
+    golden.write_text("id,gold\n1,Paris\n3,Tokyo\n", encoding="utf-8")
+    output_path = tmp_path / "test_golden.py"
+
+    result = _run_cli(
+        "import",
+        TINY_CSV_REL,
+        "--golden",
+        str(golden),
+        "--golden-target-column",
+        "gold",
+        "--golden-key",
+        "id",
+        "--judge",
+        "--output",
+        str(output_path),
+    )
+
+    assert result.returncode == 0, _combined_output(result)
+    assert "golden binding" in result.stdout.lower()
+    content = output_path.read_text(encoding="utf-8")
+    ast.parse(content)
+    assert "bind_golden" in content
+    assert "test_judge_scored_samples" in content
+    assert "target_column='gold'" in content
+
+
+def test_import_golden_requires_target_column(tmp_path: Path) -> None:
+    golden = tmp_path / "golden.csv"
+    golden.write_text("id,gold\n1,Paris\n", encoding="utf-8")
+
+    result = _run_cli(
+        "import",
+        TINY_CSV_REL,
+        "--golden",
+        str(golden),
+        "--no-emit",
+    )
+
+    assert result.returncode == 1
+    assert "golden-target-column" in _combined_output(result).lower()
+
+
+def test_import_judge_without_golden_warns() -> None:
+    result = _run_cli("import", TINY_CSV_REL, "--judge", "--no-emit")
+
+    assert result.returncode == 0, _combined_output(result)
+    assert "no effect without --golden" in _combined_output(result).lower()
+
+
+def test_import_register_saves_to_dataset_dir(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("MLTK_DATASET_DIR", str(tmp_path))
+
+    result = _run_cli(
+        "import",
+        TINY_CSV_REL,
+        "--name",
+        "tiny-reg",
+        "--register",
+        "--no-emit",
+    )
+
+    assert result.returncode == 0, _combined_output(result)
+    assert "registered:" in result.stdout.lower()
+    assert (tmp_path / "tiny-reg" / "0.1.0" / "dataset.json").exists()
+
+
+def test_import_register_blocked_by_quality_gate(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("MLTK_DATASET_DIR", str(tmp_path))
+    # Four identical inputs -> duplicate_rate 0.75 > default 0.5 guard.
+    dupes = tmp_path / "dupes.csv"
+    dupes.write_text(
+        "question,answer\nsame?,a\nsame?,b\nsame?,c\nsame?,d\n",
+        encoding="utf-8",
+    )
+
+    result = _run_cli(
+        "import",
+        str(dupes),
+        "--name",
+        "dupes",
+        "--register",
+        "--no-emit",
+    )
+
+    combined = _combined_output(result).lower()
+    assert result.returncode == 1
+    assert "registration blocked" in combined
+    assert "duplicate_rate" in combined
+    assert not (tmp_path / "dupes").exists()
 
 
 def test_importing_cli_app_does_not_import_importer_package() -> None:

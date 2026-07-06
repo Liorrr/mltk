@@ -115,6 +115,10 @@ _WORKFLOW_HINTS: dict[str, dict[str, Any]] = {
         "position": "info",
         "next_tools": ["mltk_scan", "mltk_list"],
     },
+    "mltk_import": {
+        "position": "start",
+        "next_tools": ["mltk_dataset", "mltk_eval", "mltk_test"],
+    },
 }
 
 
@@ -990,6 +994,163 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "or add assert_container_vulnerabilities to your pytest suite."
                 ),
             })
+        except Exception as exc:  # noqa: BLE001
+            _log(traceback.format_exc())
+            return _error(str(exc))
+
+    @mcp.tool()
+    def mltk_import(
+        source: str,
+        split: str = "",
+        input_column: str = "",
+        target_column: str = "",
+        name: str = "",
+        golden_path: str = "",
+        golden_target_column: str = "",
+        golden_key: str = "",
+        golden_key_column: str = "",
+        judge: bool = False,
+        register: bool = False,
+        output_path: str = "",
+    ) -> str:
+        """Import a dataset into an mltk pytest suite and eval dataset.
+
+        Maps columns, classifies the task, builds a suite, and generates a
+        committable pytest scaffold.  Returns the mapping preview, task type,
+        and generated code as a string; writes the file to disk only when
+        ``output_path`` is set.  Optionally binds a golden reference file and
+        registers the dataset behind a blocking quality gate.
+
+        Args:
+            source: Local file path or HuggingFace dataset id.
+            split: Dataset split for HuggingFace sources.
+            input_column: Force-map this column as the eval input.
+            target_column: Force-map this column as the eval target.
+            name: Dataset name for the generated eval dataset.
+            golden_path: Golden/reference file to bind (CSV/TSV/JSON/JSONL).
+            golden_target_column: Golden column holding the reference answer
+                (required with ``golden_path``).
+            golden_key: Sample-side join key -- ``"input"`` or a metadata
+                field name; empty binds by row order.
+            golden_key_column: Golden-side key column if it differs from
+                ``golden_key``.
+            judge: Emit an LLM-judge fallback test for unmatched samples
+                (requires ``golden_path``).
+            register: Save the dataset to the local registry after a blocking
+                quality gate.
+            output_path: If set, write the generated pytest file to this path.
+        """
+        try:
+            from mltk.importer.classify import classify_task
+            from mltk.importer.codegen import generate_pytest
+            from mltk.importer.golden import (
+                GoldenSpec,
+                bind_golden,
+                load_golden,
+            )
+            from mltk.importer.loader import DatasetImporter
+            from mltk.importer.registry import register_dataset
+            from mltk.importer.schema import ColumnRole
+            from mltk.importer.suite_gen import build_suite
+        except ImportError as exc:
+            return _error(
+                str(exc),
+                recoverable=True,
+                suggested_action=(
+                    "Install the importer extra: pip install mltk[importer]"
+                ),
+            )
+
+        try:
+            load_kwargs = {
+                k: v
+                for k, v in {
+                    "split": split or None,
+                    "input_column": input_column or None,
+                    "target_column": target_column or None,
+                }.items()
+                if v is not None
+            }
+            result = DatasetImporter.load(source, **load_kwargs)
+            if not result.mapping.columns_with_role(ColumnRole.INPUT):
+                return _error(
+                    "No column could be mapped to the eval INPUT role.",
+                    suggested_action=(
+                        "Pass input_column=... to force a mapping."
+                    ),
+                )
+
+            task_type = classify_task(result.mapping)
+            task_value = getattr(task_type, "value", str(task_type))
+            dataset_name = name or (Path(source.rstrip("/\\")).stem or "dataset")
+            eval_dataset = result.to_eval_dataset(name=dataset_name)
+
+            golden_spec = None
+            golden_summary = None
+            if golden_path:
+                if not golden_target_column:
+                    return _error(
+                        "golden_path requires golden_target_column.",
+                    )
+                golden_rows = load_golden(golden_path)
+                eval_dataset, golden_report = bind_golden(
+                    eval_dataset,
+                    golden_rows,
+                    target_column=golden_target_column,
+                    key=golden_key or None,
+                    golden_key=golden_key_column or None,
+                )
+                golden_summary = golden_report.summary()
+                golden_spec = GoldenSpec(
+                    path=golden_path,
+                    target_column=golden_target_column,
+                    key=golden_key or None,
+                    golden_key=golden_key_column or None,
+                    judge=judge,
+                )
+
+            suite = build_suite(eval_dataset, result.mapping, task_type)
+            code = generate_pytest(
+                result,
+                task_type,
+                dataset_name=dataset_name,
+                output_path=output_path or None,
+                load_kwargs=load_kwargs or None,
+                golden_spec=golden_spec,
+            )
+
+            payload: dict[str, Any] = {
+                "mapping_preview": result.mapping.preview(),
+                "task_type": task_value,
+                "dataset_name": dataset_name,
+                "sample_count": eval_dataset.sample_count,
+                "assertion_count": len(suite),
+                "generated_code": code,
+                "file_written": output_path or None,
+                "suggested_next_step": (
+                    "Review the generated pytest. Set MLTK_PREDICT_FN to "
+                    "un-skip Tier 2 tests, or set register=true to save."
+                ),
+            }
+            if golden_summary is not None:
+                payload["golden_binding"] = golden_summary
+            if register:
+                reg = register_dataset(eval_dataset)
+                payload["registration"] = {
+                    "saved": reg.saved,
+                    "quality_passed": reg.quality_passed,
+                    "reason": reg.reason,
+                    "path": reg.path,
+                }
+
+            return _ok(_with_hint("mltk_import", payload))
+        except FileNotFoundError as exc:
+            return _error(
+                str(exc),
+                suggested_action="Check the source and golden file paths.",
+            )
+        except (ValueError, NotImplementedError) as exc:
+            return _error(str(exc))
         except Exception as exc:  # noqa: BLE001
             _log(traceback.format_exc())
             return _error(str(exc))
