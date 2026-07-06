@@ -213,6 +213,85 @@ _APP_PREFIX_MAP: dict[str, str] = {
 }
 
 
+def _imported_function_docstring(
+    app_py: Path, module: str | None, fn_name: str
+) -> str:
+    """First docstring line of *fn_name* defined in dotted *module*."""
+    if not module or not module.startswith("mltk."):
+        return ""
+    rel = Path(*module.split(".")[1:]).with_suffix(".py")
+    candidate = app_py.parent.parent / rel
+    try:
+        tree = ast.parse(candidate.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return ""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == fn_name:
+            doc = ast.get_docstring(node) or ""
+            return doc.split("\n")[0].strip() if doc else ""
+    return ""
+
+
+def _collect_call_registrations(
+    tree: ast.Module, app_py: Path
+) -> list[CliCommand]:
+    """Find call-style registrations like ``app.command(name="import")(fn)``.
+
+    Commands whose implementation lives in another module (e.g.
+    ``mltk.cli.importer``) are registered as an expression, not a
+    decorator, so the decorator scan cannot see them.
+    """
+    imports: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                imports[alias.asname or alias.name] = node.module
+
+    cmds: list[CliCommand] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Expr):
+            continue
+        call = node.value
+        if not (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Call)
+        ):
+            continue
+        inner = call.func
+        if not (
+            isinstance(inner.func, ast.Attribute)
+            and inner.func.attr == "command"
+            and isinstance(inner.func.value, ast.Name)
+        ):
+            continue
+        if not (call.args and isinstance(call.args[0], ast.Name)):
+            continue
+        fn_name = call.args[0].id
+
+        cmd_name: str | None = None
+        for kw in inner.keywords:
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                cmd_name = str(kw.value.value)
+        if (
+            cmd_name is None
+            and inner.args
+            and isinstance(inner.args[0], ast.Constant)
+        ):
+            cmd_name = str(inner.args[0].value)
+        if cmd_name is None:
+            cmd_name = fn_name.replace("_", "-")
+
+        prefix = _APP_PREFIX_MAP.get(inner.func.value.id, "")
+        cmds.append(CliCommand(
+            name=prefix + cmd_name,
+            line=node.lineno,
+            docstring=_imported_function_docstring(
+                app_py, imports.get(fn_name), fn_name
+            ),
+        ))
+    return cmds
+
+
 def collect_cli_commands(app_py: Path) -> list[CliCommand]:
     """Parse CLI commands from app.py using AST."""
     try:
@@ -255,6 +334,7 @@ def collect_cli_commands(app_py: Path) -> list[CliCommand]:
             docstring=first_line,
         ))
 
+    cmds.extend(_collect_call_registrations(tree, app_py))
     return sorted(cmds, key=lambda c: c.line)
 
 

@@ -14,23 +14,33 @@ Install it with ``pip install mltk[importer]``.
 
 Quick start::
 
-    from mltk.importer import DatasetImporter
+    from mltk.importer import DatasetImporter, build_suite, classify_task
 
     result = DatasetImporter.load("qa.csv")
     print(result.mapping.preview())
     dataset = result.to_eval_dataset(name="my-qa")
+    task_type = classify_task(result.mapping)
+    suite = build_suite(dataset, result.mapping, task_type)
 """
 
 from __future__ import annotations
 
+from mltk.importer.classify import TaskType, classify_task
+from mltk.importer.codegen import generate_pytest
 from mltk.importer.loader import DatasetImporter
 from mltk.importer.mapping import auto_map_columns
 from mltk.importer.schema import ColumnMapping, ColumnRole, ImportResult
+from mltk.importer.suite_gen import build_suite, compute_baseline_thresholds
 
 __all__ = [
     "DatasetImporter",
     "auto_map_columns",
+    "build_suite",
+    "classify_task",
+    "compute_baseline_thresholds",
+    "generate_pytest",
     "ColumnMapping",
     "ColumnRole",
     "ImportResult",
+    "TaskType",
 ]

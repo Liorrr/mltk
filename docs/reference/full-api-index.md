@@ -1,7 +1,7 @@
 # mltk Full API Index
-> Generated 2026-07-05 by scripts/generate_skill_index.py
+> Generated 2026-07-06 by scripts/generate_skill_index.py
 
-**241** assertions | **12** MCP tools | **28** CLI commands | **8** scanners
+**241** assertions | **12** MCP tools | **29** CLI commands | **8** scanners
 
 ---
 
@@ -1622,7 +1622,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ---
 
-## CLI Commands (28)
+## CLI Commands (29)
 
 | # | Command | Line | Description |
 |---|---------|------|-------------|
@@ -1645,15 +1645,16 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | 17 | `mltk registry pull` | 560 | Pull a named collection from the registry into a local directory. |
 | 18 | `mltk registry list` | 575 | List all collections in the registry. |
 | 19 | `mltk notify slack` | 597 | Send test results (or a custom message) to Slack. |
-| 20 | `mltk chat` | 670 | Interactive Q&A about test results. |
-| 21 | `mltk server` | 682 | Start the mltk server platform. |
-| 22 | `mltk server-create-key` | 703 | Generate an API key for the mltk server. |
-| 23 | `mltk fda-audit` | 730 | Generate FDA 21 CFR Part 11 audit trail. |
-| 24 | `mltk compliance-pdf` | 753 | Convert HTML compliance report to print-ready PDF. |
-| 25 | `mltk compliance-gap` | 769 | Run compliance gap analysis across frameworks. |
-| 26 | `mltk grafana-export` | 978 | Export a Grafana dashboard JSON for mltk metrics. |
-| 27 | `mltk scan-model` | 1003 | Scan a model for issues and generate tests. |
-| 28 | `mltk list` | 1185 | List all available mltk assertions. |
+| 20 | `mltk import` | 669 | Import a dataset, preview mapping, build a suite, and emit pytest. |
+| 21 | `mltk chat` | 672 | Interactive Q&A about test results. |
+| 22 | `mltk server` | 684 | Start the mltk server platform. |
+| 23 | `mltk server-create-key` | 705 | Generate an API key for the mltk server. |
+| 24 | `mltk fda-audit` | 732 | Generate FDA 21 CFR Part 11 audit trail. |
+| 25 | `mltk compliance-pdf` | 755 | Convert HTML compliance report to print-ready PDF. |
+| 26 | `mltk compliance-gap` | 771 | Run compliance gap analysis across frameworks. |
+| 27 | `mltk grafana-export` | 980 | Export a Grafana dashboard JSON for mltk metrics. |
+| 28 | `mltk scan-model` | 1005 | Scan a model for issues and generate tests. |
+| 29 | `mltk list` | 1187 | List all available mltk assertions. |
 
 ---
 

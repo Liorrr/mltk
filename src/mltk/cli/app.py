@@ -665,6 +665,8 @@ quality:
 
     from mltk.cli.container import app as container_app  # noqa: PLC0415
     app.add_typer(container_app)
+    from mltk.cli.importer import import_dataset  # noqa: PLC0415
+    app.command(name="import")(import_dataset)
 
     @app.command()
     def chat(

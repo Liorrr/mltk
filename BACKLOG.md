@@ -10,7 +10,13 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S96: 241 assertions, 4670+ tests, 38 Rust tests) — v0.12.7
+## DONE (S0-S98: 241 assertions, 4716+ tests, 38 Rust tests) — v0.12.7
+
+### S98 — Smart Importer Sprint 2: classifier + suite generator + pytest emitter + CLI
+- [x] `classify_task()` (5-type taxonomy from column roles), `build_suite()` (two-tier semantics + self-passing baseline thresholds), `generate_pytest()` (byte-deterministic committable scaffold; Tier-2 tests un-skip via `MLTK_PREDICT_FN` or one fixture edit), `mltk import <source>` CLI (emit-by-default, `--force` overwrite protection) — 46 new tests, no new deps; acceptance gate: emitted file runs green via subprocess. First multi-worker Codex dispatch batch (4 parallel workers + 1 fix round).
+
+### S97 — Smart Importer Sprint 1: loader + auto-mapper (+ CI bring-up)
+- [x] `mltk.importer` package: `DatasetImporter` (CSV/JSON/Parquet/HF Hub), token-based column-role heuristics v2, exclusive overrides, `to_eval_dataset()` conventions — 200 new tests, `mltk[importer]` extra. Review-hardened via 4-perspective PR review; CI brought up for real (15/15 green, first time ever). PR #3.
 
 ### S96 — Structured Output + Cost Tracking
 - [x] 5 net-new assertions: `assert_valid_json` / `assert_json_schema` / `assert_pydantic_schema` (llm), `assert_cost_within` / `assert_token_usage` (new `mltk.cost` package) — 76 new tests, jsonschema + pydantic optional deps
@@ -49,7 +55,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 241 assertions, 4670+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 241 assertions, 4716+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -57,7 +63,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S2: 4 drift methods, 14 PII patterns, Rust KS/PSI
 - [x] S3: 9 model metrics, regression, slicing, calibration
 - [x] S4: 5 bias methods, adversarial, --mltk-report
-- [x] S5: Inference (latency, throughput, contract), 28 CLI commands
+- [x] S5: Inference (latency, throughput, contract), 29 CLI commands
 - [x] S6: HTML reports, ML Test Score, pipeline reproducibility
 - [x] S7: CV (IoU, mAP, frame accuracy, temporal consistency, top-K)
 - [x] S8: NLP (BLEU, ROUGE, NER, prompt injection), Speech (WER, CER, RTF)
@@ -103,7 +109,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S38: FDA 21 CFR Part 11 audit trail, compliance PDF export, CLI commands (fda-audit, compliance-pdf)
 - [x] S39: Resource summarization (trend analysis, flaky detection, recommendations), visual diff reports
 - [x] S40: Linear adapter (GraphQL), Asana adapter (REST), data lineage tracking (assert_lineage_complete)
-- [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 28 CLI commands total
+- [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 29 CLI commands total
 
 ### Phase G: Audit & Research (S42-S46)
 - [x] S42-S46: Full audit (21 subagent review, 189 suggestions), P0/P1 fixes, 12-topic research offensive
@@ -227,12 +233,12 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Test impact analysis (dependency graph)
 - [ ] Anomaly detection on test result time series
 
-### Smart Dataset Importer / Test-Suite Mapper (IN PROGRESS — S97 done)
+### Smart Dataset Importer / Test-Suite Mapper (IN PROGRESS — S97 + S98 done)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4670+ tests, no network in tests.
-- [ ] Task-type detection → suite generation (S98) — classify the dataset (classification, QA/RAG, summarization, generation, retrieval) and emit the matching mltk assertions (e.g. `assert_faithfulness`/`assert_answer_relevancy` for QA, `assert_metric` for classification) as a runnable suite + committable pytest file
-- [ ] CLI entrypoint (S98) — `mltk import <source>` wired into the existing `eval` pipeline (solvers/scorers) to run the generated suite immediately
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4716+ tests, no network in tests.
+- [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
+- [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [ ] MCP tool + registry integration (S99) — an MCP tool returning a ready suite; versioned dataset registry (S84) integration
 - [ ] Golden-set binding — map a provided golden/reference set to expected outputs; fall back to LLM-judge scorers when no exact golden exists
 - [ ] Pluggable source adapters — HuggingFace first; design for Kaggle, OpenML, local files, and object storage later
