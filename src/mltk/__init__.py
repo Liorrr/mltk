@@ -8,7 +8,7 @@ try:
     except PackageNotFoundError:
         __version__ = _pkg_version("mlspec")  # current PyPI distribution name
 except PackageNotFoundError:
-    __version__ = "0.12.7"  # fallback for uninstalled source tree
+    __version__ = "0.13.0"  # fallback for uninstalled source tree
 
 # Convenience imports for the most common assertions
 from mltk.container import (

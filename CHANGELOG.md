@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [0.13.0] — 2026-07-07
+
+**S100 milestone release.** First tagged release since v0.12.7, bundling sprints S95–S99: the complete three-sprint **Smart Dataset Importer** epic (`mltk.importer` — HuggingFace Hub / CSV / JSON / Parquet → deterministic column-role mapping → committable pytest scaffold, with golden-set binding, an LLM-judge fallback, quality-gated registry save, and the `mltk_import` MCP tool #13), nine net-new assertions (First-Mover S95 + Structured Output & Cost Tracking S96), and the repo-wide CI bring-up (first fully-green CI, Python 3.10 support, `mlspec` dist-name resolution). No new required dependencies — `import mltk` stays numpy/pandas-only.
+
 ### Fixed
 - **`assert_pipeline_stages_compatible` dtype canonicalization** — dtype comparison was exact-string match, so equivalent spellings (`int64` vs `Int64` vs `int`, `float64` vs `float`) produced false FAILs. Now canonicalized via an alias map (platform-deterministic, checked before numpy) + `np.dtype(x).name` + lowercase fallback for pandas extension dtypes; mismatch reports keep the original spellings. Closes an S95 Opus-review deferred P2 item. First change implemented via the codex-worker dispatch loop.
 

@@ -10,7 +10,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S99: 241 assertions, 4761+ tests, 38 Rust tests) — v0.12.7
+## DONE (S0-S100: 241 assertions, 4761+ tests, 38 Rust tests) — v0.13.0
+
+### S100 — v0.13.0 milestone release (importer epic + S95–S99 → PyPI)
+- [x] Cut **v0.13.0** (first release since v0.12.7): rolled CHANGELOG (`[Unreleased]` → `[0.13.0]`, bundling S95–S99), bumped version (pyproject/Cargo/`__init__`), refreshed doc-counts + prose version, regenerated skill index. Fixed a `bump.py` history-clobber bug — `_update_backlog_header` rewrote *every* DONE bucket's version suffix; now `count=1` so historical buckets keep the version they shipped at. Ships the complete Smart Dataset Importer epic + 9 net-new assertions (S95/S96) to PyPI (`mlspec`) + Docker/GHCR via the tag-triggered Release workflow.
 
 ### S99 — Smart Importer Sprint 3: MCP tool + golden binding + registry (epic complete)
 - [x] `mltk_import` MCP tool (#13, return-only + opt-in file write + golden/register params; `EXPECTED_TOOLS` 12→13), `bind_golden()`/`load_golden()` golden-set binding (key-column or row-order join; `metadata["scoring"]` exact/judge partition), `--judge` codegen fallback (`assert_llm_judge_score` one-arg contract; `judge_fn` fixture via `MLTK_JUDGE_FN`), `register_dataset()` (blocking `assert_dataset_quality` gate → `DatasetRegistry`), CLI `--golden`/`--golden-target-column`/`--golden-key`/`--golden-key-column`/`--judge`/`--register` — 42 new tests, no new deps. Implemented directly (single-session, tight golden↔codegen contract coupling) rather than via Codex batch.
