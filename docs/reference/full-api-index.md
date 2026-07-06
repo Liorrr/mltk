@@ -1,7 +1,7 @@
 # mltk Full API Index
 > Generated 2026-07-06 by scripts/generate_skill_index.py
 
-**241** assertions | **12** MCP tools | **29** CLI commands | **8** scanners
+**241** assertions | **13** MCP tools | **29** CLI commands | **8** scanners
 
 ---
 
@@ -1500,9 +1500,9 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ---
 
-## MCP Tools (12)
+## MCP Tools (13)
 
-### `mltk_scan` (server.py:175)
+### `mltk_scan` (server.py:179)
 
 > Scan an ML project for quality issues, drift, bias, and security vulnerabilities.
 
@@ -1511,7 +1511,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | path | `str` | *required* |
 | scanners | `str` | `'all'` |
 
-### `mltk_test` (server.py:239)
+### `mltk_test` (server.py:243)
 
 > Run an mltk test suite and return pass/fail results.
 
@@ -1520,7 +1520,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | suite_path | `str` | *required* |
 | verbose | `bool` | `False` |
 
-### `mltk_list` (server.py:330)
+### `mltk_list` (server.py:334)
 
 > List available mltk assertions for ML testing.
 
@@ -1529,7 +1529,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | filter_text | `str` | `''` |
 | domain | `str` | `''` |
 
-### `mltk_eval` (server.py:375)
+### `mltk_eval` (server.py:379)
 
 > Run an evaluation pipeline on a dataset with configurable solvers and scorers.
 
@@ -1539,7 +1539,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | scorer | `str` | `'exact_match'` |
 | solver | `str` | `'generate'` |
 
-### `mltk_dataset` (server.py:454)
+### `mltk_dataset` (server.py:458)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1548,7 +1548,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:507)
+### `mltk_report` (server.py:511)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1558,7 +1558,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:580)
+### `mltk_suggest` (server.py:584)
 
 > Get fix suggestions for a scan finding.
 
@@ -1568,7 +1568,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:663)
+### `mltk_experiment` (server.py:667)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1579,13 +1579,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:812)
+### `mltk_workflow` (server.py:816)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:862)
+### `mltk_create_pr` (server.py:866)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1597,7 +1597,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:905)
+### `mltk_create_issue` (server.py:909)
 
 > Create an issue ticket from a scan finding.
 
@@ -1609,7 +1609,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:938)
+### `mltk_container_scan` (server.py:942)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1618,6 +1618,25 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | image | `str` | *required* |
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
+
+### `mltk_import` (server.py:1002)
+
+> Import a dataset into an mltk pytest suite and eval dataset.
+
+| Param | Type | Default |
+|-------|------|---------|
+| source | `str` | *required* |
+| split | `str` | `''` |
+| input_column | `str` | `''` |
+| target_column | `str` | `''` |
+| name | `str` | `''` |
+| golden_path | `str` | `''` |
+| golden_target_column | `str` | `''` |
+| golden_key | `str` | `''` |
+| golden_key_column | `str` | `''` |
+| judge | `bool` | `False` |
+| register | `bool` | `False` |
+| output_path | `str` | `''` |
 
 
 ---

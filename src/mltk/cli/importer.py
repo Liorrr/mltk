@@ -56,6 +56,54 @@ def import_dataset(
             help="Overwrite an existing generated pytest file.",
         ),
     ] = False,
+    golden: Annotated[
+        str | None,
+        typer.Option(
+            "--golden",
+            help="Path to a golden/reference file (CSV/TSV/JSON/JSONL) to "
+            "bind onto the imported dataset.",
+        ),
+    ] = None,
+    golden_target_column: Annotated[
+        str | None,
+        typer.Option(
+            "--golden-target-column",
+            help="Column in the golden file holding the reference answer "
+            "(required with --golden).",
+        ),
+    ] = None,
+    golden_key: Annotated[
+        str | None,
+        typer.Option(
+            "--golden-key",
+            help="Sample-side join key: 'input' or a metadata field name. "
+            "Omit to bind by row order. Golden-side column defaults to "
+            "the same name.",
+        ),
+    ] = None,
+    golden_key_column: Annotated[
+        str | None,
+        typer.Option(
+            "--golden-key-column",
+            help="Golden-side key column, if it differs from --golden-key.",
+        ),
+    ] = None,
+    judge: Annotated[
+        bool,
+        typer.Option(
+            "--judge",
+            help="Emit an LLM-judge fallback test for samples with no exact "
+            "golden (requires --golden).",
+        ),
+    ] = False,
+    register: Annotated[
+        bool,
+        typer.Option(
+            "--register",
+            help="Save the imported dataset to the local registry after a "
+            "blocking quality gate.",
+        ),
+    ] = False,
     no_emit: Annotated[
         bool,
         typer.Option(
@@ -68,7 +116,9 @@ def import_dataset(
     try:
         from mltk.importer.classify import classify_task
         from mltk.importer.codegen import generate_pytest
+        from mltk.importer.golden import GoldenSpec, bind_golden, load_golden
         from mltk.importer.loader import DatasetImporter
+        from mltk.importer.registry import register_dataset
         from mltk.importer.schema import ColumnRole
         from mltk.importer.suite_gen import build_suite
     except ImportError as err:
@@ -109,47 +159,87 @@ def import_dataset(
 
     dataset_name = name or _source_stem(source)
     eval_dataset = result.to_eval_dataset(name=dataset_name)
+
+    golden_spec = None
+    if golden is not None:
+        if golden_target_column is None:
+            print(  # noqa: T201
+                "--golden requires --golden-target-column."
+            )
+            raise typer.Exit(1)
+        try:
+            golden_rows = load_golden(golden)
+            eval_dataset, golden_report = bind_golden(
+                eval_dataset,
+                golden_rows,
+                target_column=golden_target_column,
+                key=golden_key,
+                golden_key=golden_key_column,
+            )
+        except (FileNotFoundError, ValueError) as err:
+            print(f"Golden binding failed: {err}")  # noqa: T201
+            raise typer.Exit(1) from err
+        print(golden_report.summary())  # noqa: T201
+        golden_spec = GoldenSpec(
+            path=golden,
+            target_column=golden_target_column,
+            key=golden_key,
+            golden_key=golden_key_column,
+            judge=judge,
+        )
+    elif judge:
+        print("warning: --judge has no effect without --golden.")  # noqa: T201
+
     suite = build_suite(eval_dataset, result.mapping, task_type)
     print(  # noqa: T201
         f"suite: {_suite_name(suite, dataset_name)} "
         f"({_suite_assertion_count(suite)} registered assertions)"
     )
 
-    if no_emit:
-        return
-
-    output_path = (
-        Path(output)
-        if output is not None
-        else _default_output_path(source, task_type_value)
-    )
-    if output_path.exists() and not force:
-        print(  # noqa: T201
-            f"Output file already exists: {output_path}. "
-            "Use --force to overwrite."
+    if not no_emit:
+        output_path = (
+            Path(output)
+            if output is not None
+            else _default_output_path(source, task_type_value)
         )
-        raise typer.Exit(1)
+        if output_path.exists() and not force:
+            print(  # noqa: T201
+                f"Output file already exists: {output_path}. "
+                "Use --force to overwrite."
+            )
+            raise typer.Exit(1)
 
-    generate_pytest(
-        result,
-        task_type,
-        dataset_name=dataset_name,
-        output_path=str(output_path),
-        load_kwargs={
-            k: v
-            for k, v in {
-                "split": split,
-                "input_column": input_column,
-                "target_column": target_column,
-            }.items()
-            if v is not None
-        },
-    )
-    print(f"pytest file written: {output_path}")  # noqa: T201
-    print(  # noqa: T201
-        "Tier-2 tests are skipped until predict_fn is wired. "
-        "Set MLTK_PREDICT_FN=module:callable or edit the fixture."
-    )
+        generate_pytest(
+            result,
+            task_type,
+            dataset_name=dataset_name,
+            output_path=str(output_path),
+            load_kwargs={
+                k: v
+                for k, v in {
+                    "split": split,
+                    "input_column": input_column,
+                    "target_column": target_column,
+                }.items()
+                if v is not None
+            },
+            golden_spec=golden_spec,
+        )
+        print(f"pytest file written: {output_path}")  # noqa: T201
+        print(  # noqa: T201
+            "Tier-2 tests are skipped until predict_fn is wired. "
+            "Set MLTK_PREDICT_FN=module:callable or edit the fixture."
+        )
+
+    if register:
+        reg = register_dataset(eval_dataset)
+        if reg.saved:
+            print(  # noqa: T201
+                f"registered: {reg.name} v{reg.version} -> {reg.path}"
+            )
+        else:
+            print(f"registration blocked: {reg.reason}")  # noqa: T201
+            raise typer.Exit(1)
 
 
 def _source_stem(source: str) -> str:

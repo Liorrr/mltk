@@ -27,20 +27,33 @@ from __future__ import annotations
 
 from mltk.importer.classify import TaskType, classify_task
 from mltk.importer.codegen import generate_pytest
+from mltk.importer.golden import (
+    GoldenBindingReport,
+    GoldenSpec,
+    bind_golden,
+    load_golden,
+)
 from mltk.importer.loader import DatasetImporter
 from mltk.importer.mapping import auto_map_columns
+from mltk.importer.registry import RegistrationResult, register_dataset
 from mltk.importer.schema import ColumnMapping, ColumnRole, ImportResult
 from mltk.importer.suite_gen import build_suite, compute_baseline_thresholds
 
 __all__ = [
     "DatasetImporter",
     "auto_map_columns",
+    "bind_golden",
     "build_suite",
     "classify_task",
     "compute_baseline_thresholds",
     "generate_pytest",
+    "load_golden",
+    "register_dataset",
     "ColumnMapping",
     "ColumnRole",
+    "GoldenBindingReport",
+    "GoldenSpec",
     "ImportResult",
+    "RegistrationResult",
     "TaskType",
 ]
