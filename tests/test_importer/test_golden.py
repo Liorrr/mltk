@@ -46,6 +46,15 @@ def test_load_golden_csv(tmp_path: Path) -> None:
     assert rows == [{"id": "1", "gold": "A"}, {"id": "2", "gold": "B"}]
 
 
+def test_load_golden_csv_strips_bom(tmp_path: Path) -> None:
+    # Excel exports a UTF-8 BOM; the first header must not carry it.
+    path = tmp_path / "g.csv"
+    path.write_text("id,gold\n1,A\n", encoding="utf-8-sig")
+    rows = load_golden(path)
+    assert list(rows[0]) == ["id", "gold"]
+    assert rows[0]["id"] == "1"
+
+
 def test_load_golden_tsv(tmp_path: Path) -> None:
     path = tmp_path / "g.tsv"
     path.write_text("id\tgold\n1\tA\n", encoding="utf-8")

@@ -147,7 +147,9 @@ def load_golden(path: str | Path) -> list[dict[str, Any]]:
         import csv
 
         delimiter = "\t" if suffix == ".tsv" else ","
-        with p.open(newline="", encoding="utf-8") as fh:
+        # utf-8-sig strips a leading BOM (Excel exports one) and reads
+        # plain UTF-8 unchanged, so the first header never carries ﻿.
+        with p.open(newline="", encoding="utf-8-sig") as fh:
             return [dict(row) for row in csv.DictReader(fh, delimiter=delimiter)]
 
     if suffix in {".jsonl", ".ndjson"}:
