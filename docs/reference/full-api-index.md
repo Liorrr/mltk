@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-07-06 by scripts/generate_skill_index.py
+> Generated 2026-07-07 by scripts/generate_skill_index.py
 
 **241** assertions | **13** MCP tools | **29** CLI commands | **8** scanners
 

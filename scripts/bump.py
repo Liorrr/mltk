@@ -257,8 +257,12 @@ _BACKLOG_HEADER_RE = re.compile(
 
 
 def _update_backlog_header(text: str, new_ver: str) -> str:
-    """Replace the DONE header's version suffix with the new release version."""
-    return _BACKLOG_HEADER_RE.sub(rf"\1 — v{new_ver}", text)
+    """Replace the current (topmost) DONE header's version suffix.
+
+    count=1 so only the most-recent ``## DONE (S0-SNN: ...) — vX.Y.Z`` bucket
+    is bumped; historical DONE buckets keep the version they shipped at.
+    """
+    return _BACKLOG_HEADER_RE.sub(rf"\1 — v{new_ver}", text, count=1)
 
 
 def _roll_changelog(text: str, new_ver: str) -> str:
