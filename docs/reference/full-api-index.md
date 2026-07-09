@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-07-07 by scripts/generate_skill_index.py
+> Generated 2026-07-09 by scripts/generate_skill_index.py
 
 **241** assertions | **13** MCP tools | **29** CLI commands | **8** scanners
 
@@ -231,7 +231,7 @@ def assert_no_outliers(series: pd.Series, method: str='iqr', threshold: float=1.
 ```
 > Assert no statistical outliers in a numeric Series.
 
-**`assert_no_pii`** (data/pii.py:621)
+**`assert_no_pii`** (data/pii.py:648)
 ```python
 def assert_no_pii(df: pd.DataFrame, columns: list[str] | None=None, patterns: list[str] | None=None, allowlist: list[str] | None=None, method: str='regex', entity_types: list[str] | None=None, score_threshold: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -547,13 +547,13 @@ def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:354)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:366)
 ```python
 def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None)
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:213)
+**`assert_llm_judge_score`** (domains/llm/judge.py:225)
 ```python
 def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None)
 ```
@@ -1071,7 +1071,7 @@ def assert_no_output_drift(ref_outputs: list[float] | np.ndarray, cur_outputs: l
 ```
 > Assert model output distribution hasn't drifted.
 
-**`assert_no_streaming_drift`** (monitor/streaming_drift.py:380)
+**`assert_no_streaming_drift`** (monitor/streaming_drift.py:367)
 ```python
 def assert_no_streaming_drift(observations: list[float] | np.ndarray, method: str='adwin', **kwargs: Any)
 ```
@@ -1109,37 +1109,37 @@ def assert_triton_healthy(url: str)
 
 ### multimodal
 
-**`assert_clip_score`** (domains/multimodal/metrics.py:191)
+**`assert_clip_score`** (domains/multimodal/metrics.py:176)
 ```python
 def assert_clip_score(image: ImageInput | None=None, text: str | None=None, image_embedding: np.ndarray | None=None, text_embedding: np.ndarray | None=None, min_score: float=0.25, model_name: str='ViT-B-32')
 ```
 > Assert that image-text CLIPScore meets a minimum threshold.
 
-**`assert_cross_modal_consistency`** (domains/multimodal/alignment.py:175)
+**`assert_cross_modal_consistency`** (domains/multimodal/alignment.py:139)
 ```python
 def assert_cross_modal_consistency(predictions_a: np.ndarray | list, predictions_b: np.ndarray | list, min_agreement: float=0.8)
 ```
 > Assert that predictions from two modalities agree on the same content.
 
-**`assert_edit_preservation`** (domains/multimodal/metrics.py:304)
+**`assert_edit_preservation`** (domains/multimodal/metrics.py:289)
 ```python
 def assert_edit_preservation(original: ImageInput, edited: ImageInput, method: str='ssim', threshold: float=0.8, max_image_size: int=512)
 ```
 > Assert that an edited image preserves enough of the original.
 
-**`assert_image_coherence`** (domains/multimodal/alignment.py:385)
+**`assert_image_coherence`** (domains/multimodal/alignment.py:349)
 ```python
 def assert_image_coherence(text: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None)
 ```
 > Assert that an image is coherent with surrounding text context.
 
-**`assert_image_helpfulness`** (domains/multimodal/vlm.py:68)
+**`assert_image_helpfulness`** (domains/multimodal/vlm.py:44)
 ```python
 def assert_image_helpfulness(question: str, image: ImageInput | None, answer: str, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None)
 ```
 > Assert that an image helps understand or answer a question.
 
-**`assert_image_text_alignment`** (domains/multimodal/alignment.py:89)
+**`assert_image_text_alignment`** (domains/multimodal/alignment.py:53)
 ```python
 def assert_image_text_alignment(image_embeddings: np.ndarray, text_embeddings: np.ndarray, min_cosine: float=0.5)
 ```
@@ -1151,19 +1151,19 @@ def assert_object_hallucination(vqa_fn: Callable[[str, ImageInput | None, str | 
 ```
 > Assert that a VLM does not hallucinate objects in an image.
 
-**`assert_ocr_accuracy`** (domains/multimodal/vlm.py:355)
+**`assert_ocr_accuracy`** (domains/multimodal/vlm.py:331)
 ```python
 def assert_ocr_accuracy(expected_text: str, actual_text: str, method: str='cer', threshold: float=0.1)
 ```
 > Assert that OCR output is accurate enough vs ground truth.
 
-**`assert_prompt_faithfulness`** (domains/multimodal/alignment.py:275)
+**`assert_prompt_faithfulness`** (domains/multimodal/alignment.py:239)
 ```python
 def assert_prompt_faithfulness(prompt: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None)
 ```
 > Assert that an image faithfully represents a text prompt.
 
-**`assert_vqa_accuracy`** (domains/multimodal/vlm.py:179)
+**`assert_vqa_accuracy`** (domains/multimodal/vlm.py:155)
 ```python
 def assert_vqa_accuracy(question: str, image: ImageInput | None, expected_answer: str, actual_answer: str, judge_fn: Callable[[str], str] | None=None, min_score: float=0.7, image_description: str | None=None)
 ```

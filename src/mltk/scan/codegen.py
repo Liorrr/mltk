@@ -65,12 +65,6 @@ def _sanitize_name(raw: str) -> str:
     return cleaned.lower()
 
 
-def _indent(text: str, spaces: int = 8) -> str:
-    """Indent every line of *text* by *spaces* spaces."""
-    prefix = " " * spaces
-    return textwrap.indent(text, prefix)
-
-
 def _build_header() -> str:
     """Return the file-level docstring and imports block."""
     return textwrap.dedent("""\

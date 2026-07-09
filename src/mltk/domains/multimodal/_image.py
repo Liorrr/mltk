@@ -20,7 +20,6 @@ with ``image.tobytes()`` or by saving to a BytesIO buffer.
 from __future__ import annotations
 
 import base64
-import io
 from pathlib import Path
 
 ImageInput = str | Path | bytes
@@ -39,8 +38,7 @@ def load_image(source: ImageInput) -> bytes:
     reads the file in binary mode.  For bytes, returns as-is.
 
     Pillow is NOT required for this function -- it performs raw I/O
-    only.  Pillow is only needed if you want to validate that the
-    bytes represent a valid image (use ``_validate_image_bytes``).
+    only.  The bytes are not validated as image data.
 
     Args:
         source: Image source -- file path or raw bytes.
@@ -88,41 +86,6 @@ def image_to_base64(source: ImageInput) -> str:
     """
     raw = load_image(source)
     return base64.b64encode(raw).decode("ascii")
-
-
-def _validate_image_pillow(source: ImageInput) -> dict:
-    """Validate image bytes using Pillow and return metadata.
-
-    This is the only function in _image.py that requires Pillow.
-    It is called lazily -- only when a user does NOT provide an
-    ``image_description`` and the assertion needs to inspect the
-    image to build a prompt.
-
-    Args:
-        source: Image source to validate.
-
-    Returns:
-        Dict with keys: format, mode, width, height.
-
-    Raises:
-        ImportError: If Pillow is not installed, with install hint.
-    """
-    try:
-        from PIL import Image
-    except ImportError:
-        raise ImportError(
-            "Pillow is required to inspect images. "
-            "Install with: pip install mltk[multimodal]"
-        ) from None
-
-    raw = load_image(source)
-    img = Image.open(io.BytesIO(raw))
-    return {
-        "format": img.format or "UNKNOWN",
-        "mode": img.mode,
-        "width": img.size[0],
-        "height": img.size[1],
-    }
 
 
 def _build_image_prompt(

@@ -143,11 +143,10 @@ class _Bucket:
     the count (how many observations) and their total sum.
     """
 
-    __slots__ = ("total", "variance", "count")
+    __slots__ = ("total", "count")
 
-    def __init__(self, total: float = 0.0, variance: float = 0.0, count: int = 0) -> None:
+    def __init__(self, total: float = 0.0, count: int = 0) -> None:
         self.total = total
-        self.variance = variance
         self.count = count
 
 
@@ -195,7 +194,6 @@ class ADWINDetector(BaseDriftDetector):
         # each covering 2^k observations.
         self._levels: list[list[_Bucket]] = []
         self._total: float = 0.0
-        self._variance: float = 0.0
         self._count: int = 0
         self._drift: bool = False
 
@@ -215,7 +213,6 @@ class ADWINDetector(BaseDriftDetector):
         """Reset detector state entirely."""
         self._levels.clear()
         self._total = 0.0
-        self._variance = 0.0
         self._count = 0
         self._drift = False
 
@@ -234,18 +231,15 @@ class ADWINDetector(BaseDriftDetector):
     def _insert(self, value: float) -> None:
         """Insert a single observation into the exponential histogram."""
         # Create a level-0 bucket for this observation.
-        bucket = _Bucket(total=value, variance=0.0, count=1)
+        bucket = _Bucket(total=value, count=1)
 
         if len(self._levels) == 0:
             self._levels.append([])
         self._levels[0].insert(0, bucket)
 
-        # Update global stats (Welford online variance).
+        # Update global stats.
         self._count += 1
-        old_mean = (self._total / (self._count - 1)) if self._count > 1 else 0.0
         self._total += value
-        new_mean = self._total / self._count
-        self._variance += (value - old_mean) * (value - new_mean)
 
         # Compress: if level k has more than max_buckets entries, merge the
         # two oldest (rightmost) into level k+1.
@@ -262,11 +256,6 @@ class ADWINDetector(BaseDriftDetector):
             b1 = level.pop()  # second oldest
             merged = _Bucket(
                 total=b1.total + b2.total,
-                variance=(
-                    b1.variance + b2.variance
-                    + (b1.total / b1.count - b2.total / b2.count) ** 2
-                    * b1.count * b2.count / (b1.count + b2.count)
-                ),
                 count=b1.count + b2.count,
             )
             # Push merged bucket to next level
@@ -357,12 +346,10 @@ class ADWINDetector(BaseDriftDetector):
         # Recompute global stats from remaining buckets
         self._total = 0.0
         self._count = 0
-        self._variance = 0.0
         for level in self._levels:
             for b in level:
                 self._total += b.total
                 self._count += b.count
-                self._variance += b.variance
 
 
 # ---------------------------------------------------------------------------

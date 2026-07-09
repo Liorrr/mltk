@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -41,7 +40,6 @@ from mltk.domains.multimodal import (
 )
 from mltk.domains.multimodal._image import (
     _build_image_prompt,
-    _validate_image_pillow,
 )
 
 # ===============================================================
@@ -301,24 +299,6 @@ class TestBuildImagePrompt:
             _build_image_prompt(
                 instruction="Evaluate this."
             )
-
-
-class TestValidateImagePillow:
-    """Tests for _validate_image_pillow() -- optional Pillow path."""
-
-    def test_pillow_import_error(self) -> None:
-        """FAIL: Missing Pillow raises ImportError with hint.
-
-        WHY: Users without Pillow should get a clear message
-        telling them how to install it, not a raw ImportError.
-        """
-        with patch.dict(
-            "sys.modules", {"PIL": None, "PIL.Image": None}
-        ):
-            with pytest.raises(
-                ImportError, match="mltk\\[multimodal\\]"
-            ):
-                _validate_image_pillow(b"fake image data")
 
 
 # ===============================================================
@@ -1346,3 +1326,30 @@ class TestMultimodalInitAllExports:
             assert hasattr(mm, name), (
                 f"Not importable: {name}"
             )
+
+
+class TestSharedParseScoreAuthoritative:
+    """_scoring._parse_score: an explicit score field is authoritative."""
+
+    def test_json_null_score_returns_none(self) -> None:
+        """PASS: null score means grading failed -- no number scraping.
+
+        WHY: a VLM judge that returns {"score": null, "objects_detected": 4}
+        must not be graded 4.0 from an unrelated field.
+        """
+        from mltk.domains.multimodal._scoring import _parse_score
+
+        assert _parse_score('{"score": null, "objects_detected": 4}') is None
+
+    def test_json_na_score_returns_none(self) -> None:
+        """PASS: "N/A" score returns None, not a number from the reasoning."""
+        from mltk.domains.multimodal._scoring import _parse_score
+
+        raw = '{"score": "N/A", "reasoning": "cannot evaluate 3 criteria"}'
+        assert _parse_score(raw) is None
+
+    def test_prose_fallback_still_works(self) -> None:
+        """PASS: non-JSON responses keep the first-number fallback."""
+        from mltk.domains.multimodal._scoring import _parse_score
+
+        assert _parse_score("Alignment score: 0.85") == 0.85
