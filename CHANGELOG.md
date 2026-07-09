@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Rust↔Python parity test suite** (`tests/test_rust/test_parity.py`) — all 10 dual-engine functions in `mltk._rust` (ks_test, psi, kl/js divergence, chi-squared, wasserstein, cosine, centroid distance, bertscore, scan_pii_fast) now run identical inputs through both engines and assert agreement. Statistics compared to 1e-9/1e-12; KS/chi² p-values loosely (the engines use different, bounded tail approximations). Previously only importability was tested, so a Rust/Python divergence silently changed assertion outcomes between machines with and without the compiled extension.
 
 ### Changed
 
 ### Fixed
+- **Rust `ks_test` inflated the KS statistic on tied values** — the two-pointer ECDF merge measured the CDF gap mid-jump whenever a value appeared in both samples, adding up to 1/n per tie: *identical* samples scored D=1/n instead of 0, and heavily tied data (integer/categorical-coded features) scored wildly high (e.g. 0.70 where scipy gives 0.20) → false drift positives. Both pointers now advance past each shared value before the gap is measured; the pure-Python/scipy path was always correct, so this was also a Rust-vs-Python divergence. The Rust unit test that asserted `stat < 0.3` for identical data (loose enough to hide the bug) now asserts exact zero, plus two tie-regression tests. Found by the new parity suite on its first run.
 
 ## [0.13.0] — 2026-07-07
 

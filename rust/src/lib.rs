@@ -17,47 +17,36 @@ pub fn ks_test_core(reference: &mut [f64], current: &mut [f64]) -> (f64, f64) {
     reference.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     current.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Merge and compute max CDF difference
+    // Walk the merged samples value-by-value. At each distinct value both
+    // counters must advance past every element <= v BEFORE the ECDF gap is
+    // measured: both ECDFs jump at a shared value, and measuring mid-jump
+    // (one side stepped, the other not) inflates D by up to 1/n at every
+    // tie — identical samples scored 1/n instead of 0.
     let mut i = 0usize;
     let mut j = 0usize;
     let mut d_max: f64 = 0.0;
 
     while i < reference.len() && j < current.len() {
-        let cdf1 = (i + 1) as f64 / n1;
-        let cdf2 = (j + 1) as f64 / n2;
-
-        if reference[i] <= current[j] {
-            let diff = (cdf1 - (j as f64 / n2)).abs();
-            if diff > d_max {
-                d_max = diff;
-            }
+        let v = reference[i].min(current[j]);
+        let (i0, j0) = (i, j);
+        while i < reference.len() && reference[i] <= v {
             i += 1;
-        } else {
-            let diff = ((i as f64 / n1) - cdf2).abs();
-            if diff > d_max {
-                d_max = diff;
-            }
+        }
+        while j < current.len() && current[j] <= v {
             j += 1;
         }
-    }
-
-    // Handle remaining elements
-    while i < reference.len() {
-        let cdf1 = (i + 1) as f64 / n1;
-        let diff = (cdf1 - 1.0).abs();
+        if i == i0 && j == j0 {
+            // NaN at both fronts: `<=` never holds, so bail rather than spin.
+            break;
+        }
+        let diff = (i as f64 / n1 - j as f64 / n2).abs();
         if diff > d_max {
             d_max = diff;
         }
-        i += 1;
     }
-    while j < current.len() {
-        let cdf2 = (j + 1) as f64 / n2;
-        let diff = (1.0 - cdf2).abs();
-        if diff > d_max {
-            d_max = diff;
-        }
-        j += 1;
-    }
+    // No tail pass needed: once one sample is exhausted its ECDF is 1.0 and
+    // the other only climbs toward 1.0, so the gap measured at the
+    // exhaustion step is already the maximum over the remaining range.
 
     // Approximate p-value using asymptotic formula
     let en = (n1 * n2 / (n1 + n2)).sqrt();
@@ -662,10 +651,34 @@ mod tests {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let (stat, p) = ks_test(data.clone(), data);
         assert!(
-            stat < 0.3,
-            "KS stat should be small for identical data: {stat}"
+            stat.abs() < 1e-12,
+            "KS stat must be exactly 0 for identical data: {stat}"
         );
-        assert!(p > 0.5, "p-value should be high for identical data: {p}");
+        assert!(p > 0.99, "p-value should be ~1 for identical data: {p}");
+    }
+
+    #[test]
+    fn test_ks_tied_values_across_samples() {
+        // Regression: shared values between samples must not inflate D.
+        // ECDFs: F1 jumps to 0.5 at 1.0, F2 to 0.3; both reach 1.0 at 2.0.
+        // True D = 0.2 (scipy-verified); the pre-fix merge reported 0.7.
+        let reference: Vec<f64> = [vec![1.0; 50], vec![2.0; 50]].concat();
+        let current: Vec<f64> = [vec![1.0; 30], vec![2.0; 70]].concat();
+        let (stat, _p) = ks_test(reference, current);
+        assert!(
+            (stat - 0.2).abs() < 1e-12,
+            "KS stat for tied samples should be 0.2: {stat}"
+        );
+    }
+
+    #[test]
+    fn test_ks_interleaved_no_ties() {
+        // ECDFs: F1 = 0.5 at 1.0 while F2 = 0.0 -> D = 0.5.
+        let (stat, _p) = ks_test(vec![1.0, 3.0], vec![2.0, 4.0]);
+        assert!(
+            (stat - 0.5).abs() < 1e-12,
+            "KS stat for interleaved samples should be 0.5: {stat}"
+        );
     }
 
     #[test]
