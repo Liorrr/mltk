@@ -1326,3 +1326,30 @@ class TestMultimodalInitAllExports:
             assert hasattr(mm, name), (
                 f"Not importable: {name}"
             )
+
+
+class TestSharedParseScoreAuthoritative:
+    """_scoring._parse_score: an explicit score field is authoritative."""
+
+    def test_json_null_score_returns_none(self) -> None:
+        """PASS: null score means grading failed -- no number scraping.
+
+        WHY: a VLM judge that returns {"score": null, "objects_detected": 4}
+        must not be graded 4.0 from an unrelated field.
+        """
+        from mltk.domains.multimodal._scoring import _parse_score
+
+        assert _parse_score('{"score": null, "objects_detected": 4}') is None
+
+    def test_json_na_score_returns_none(self) -> None:
+        """PASS: "N/A" score returns None, not a number from the reasoning."""
+        from mltk.domains.multimodal._scoring import _parse_score
+
+        raw = '{"score": "N/A", "reasoning": "cannot evaluate 3 criteria"}'
+        assert _parse_score(raw) is None
+
+    def test_prose_fallback_still_works(self) -> None:
+        """PASS: non-JSON responses keep the first-number fallback."""
+        from mltk.domains.multimodal._scoring import _parse_score
+
+        assert _parse_score("Alignment score: 0.85") == 0.85

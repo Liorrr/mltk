@@ -636,3 +636,16 @@ class TestParseScoreJson:
     def test_no_number_returns_none(self) -> None:
         """PASS: Response with no number returns None."""
         assert _parse_score("no digits here") is None
+
+    def test_json_null_score_returns_none(self) -> None:
+        """PASS: An explicit null score means grading failed -- never
+        fabricate a score from other numeric fields in the raw JSON.
+        """
+        assert _parse_score('{"reasoning_steps": 3, "score": null}') is None
+
+    def test_json_unconvertible_score_returns_none(self) -> None:
+        """PASS: A non-numeric score ("N/A") returns None, not a number
+        scraped from the reasoning text.
+        """
+        raw = '{"score": "N/A", "reasoning": "cannot evaluate 3 criteria"}'
+        assert _parse_score(raw) is None
