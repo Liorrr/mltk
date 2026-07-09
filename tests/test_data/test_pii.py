@@ -158,3 +158,30 @@ class TestAssertNoPii:
             assert_no_pii(df)
         result = exc.value.result
         assert result.details["total_matches"] >= 2
+
+
+class TestRustParity:
+    """scan_pii returns identical results on the Rust and Python engines."""
+
+    def test_engines_agree(self, monkeypatch) -> None:
+        """Rust-accelerated scan matches the pure-Python re loop.
+
+        Scenario: scan_pii dispatches to the Rust extension when built.
+        Both engines must produce the same matches (types, positions,
+        text) or results would differ across install types.
+        """
+        from mltk import _rust
+
+        if not _rust.RUST_AVAILABLE:
+            pytest.skip("Rust extension not built")
+
+        text = (
+            "Contact john@example.com or 555-123-4567. "
+            "Card 4111-1111-1111-1111, key sk-ant-abcdefghij0123456789, "
+            "server at 10.0.0.1, password: hunter2"
+        )
+        rust_matches = scan_pii(text)
+        monkeypatch.setattr(_rust, "RUST_AVAILABLE", False)
+        python_matches = scan_pii(text)
+        assert rust_matches == python_matches
+        assert len(rust_matches) > 0

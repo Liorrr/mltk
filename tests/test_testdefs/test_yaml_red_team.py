@@ -1019,9 +1019,9 @@ class TestCatalogUnification:
     def test_security_scan_has_categories(self) -> None:
         """security_scan has categorized payloads."""
         from mltk.cli.security_scan import (
-            _RED_TEAM_CATALOG,
+            _flatten_catalog,
         )
-        cats = {e["category"] for e in _RED_TEAM_CATALOG}
+        cats = {p.category for p in _flatten_catalog()}
         assert len(cats) >= 5
 
     # C-3 ----------------------------------------------------------
@@ -1048,37 +1048,46 @@ class TestCatalogUnification:
     def test_security_scan_category_filter(self) -> None:
         """security_scan --category filter logic works."""
         from mltk.cli.security_scan import (
-            _RED_TEAM_CATALOG,
+            _flatten_catalog,
         )
-        cat_set = {"prompt injection"}
-        filtered = [
-            e
-            for e in _RED_TEAM_CATALOG
-            if e["category"].lower() in cat_set
-        ]
+        from mltk.domains.llm.red_team.catalog import (
+            AttackCategory,
+        )
+        filtered = _flatten_catalog(
+            [AttackCategory.PROMPT_INJECTION]
+        )
         assert all(
-            e["category"].lower() == "prompt injection"
-            for e in filtered
+            p.category is AttackCategory.PROMPT_INJECTION
+            for p in filtered
         )
 
     # C-6 ----------------------------------------------------------
     def test_security_scan_payload_count(self) -> None:
         """security_scan catalog has at least 40 payloads."""
         from mltk.cli.security_scan import (
-            _RED_TEAM_CATALOG,
+            _flatten_catalog,
         )
-        assert len(_RED_TEAM_CATALOG) >= 40
+        assert len(_flatten_catalog()) >= 40
 
     # C-7 ----------------------------------------------------------
     def test_security_scan_mutations_double(self) -> None:
-        """Mutations double the payload count (2 per entry)."""
+        """Two techniques double the payload count."""
         from mltk.cli.security_scan import (
-            _RED_TEAM_CATALOG,
-            _generate_mutations,
+            _flatten_catalog,
         )
-        original_count = len(_RED_TEAM_CATALOG)
-        mutated = _generate_mutations(_RED_TEAM_CATALOG)
-        assert len(mutated) == original_count * 2
+        from mltk.domains.llm.red_team.mutations import (
+            MutationTechnique,
+            mutate_payloads,
+        )
+        originals = _flatten_catalog()
+        mutated = mutate_payloads(
+            originals,
+            techniques=[
+                MutationTechnique.LEETSPEAK,
+                MutationTechnique.ROT13,
+            ],
+        )
+        assert len(mutated) == len(originals) * 2
 
     # C-8 ----------------------------------------------------------
     def test_security_scan_verbose_details(self) -> None:

@@ -485,39 +485,66 @@ def scan_pii(
     else:
         active_names = set(_PII_PATTERNS.keys())
 
-    for name in sorted(active_names):
-        pattern = _PII_PATTERNS.get(name)
-        if pattern is None:
-            continue
+    names = sorted(n for n in active_names if n in _PII_PATTERNS)
+
+    for name, start, end, matched in _find_matches(text, names):
         validator = _VALIDATORS.get(name)
-        for match in pattern.finditer(text):
-            matched = match.group()
-            # Apply checksum validator when present; skip invalid matches to
-            # reduce false positives (e.g., random 9-digit numbers, malformed IBANs).
-            if validator is not None and not validator(matched):  # type: ignore[operator]
-                continue
+        # Apply checksum validator when present; skip invalid matches to
+        # reduce false positives (e.g., random 9-digit numbers, malformed IBANs).
+        if validator is not None and not validator(matched):  # type: ignore[operator]
+            continue
 
-            # Skip exact-match allowlisted values.
-            if matched in _allowlist_set:
-                continue
+        # Skip exact-match allowlisted values.
+        if matched in _allowlist_set:
+            continue
 
-            # Determine the user-facing type (collapse api_key subtypes)
-            display_type = name
-            for category, members in _PATTERN_CATEGORIES.items():
-                if name in members and category != name:
-                    display_type = category
-                    break
+        # Determine the user-facing type (collapse api_key subtypes)
+        display_type = name
+        for category, members in _PATTERN_CATEGORIES.items():
+            if name in members and category != name:
+                display_type = category
+                break
 
-            matches.append(
-                PiiMatch(
-                    type=display_type,
-                    start=match.start(),
-                    end=match.end(),
-                    matched_text=matched,
-                )
+        matches.append(
+            PiiMatch(
+                type=display_type,
+                start=start,
+                end=end,
+                matched_text=matched,
             )
+        )
 
     return matches
+
+
+def _find_matches(
+    text: str, names: list[str]
+) -> list[tuple[str, int, int, str]]:
+    """Run the regex engines over *names*, Rust-accelerated when available.
+
+    Returns (pattern_name, start, end, matched_text) tuples ordered by
+    (pattern_name, start) — the same order the pure-Python loop produces —
+    so both engines yield identical scan_pii results. Falls back to the
+    Python ``re`` loop if the Rust extension is missing or rejects a
+    pattern.
+    """
+    from mltk import _rust
+
+    if _rust.RUST_AVAILABLE:
+        try:
+            raw = _rust.scan_pii_fast(
+                text, [(n, _PII_PATTERNS[n].pattern) for n in names]
+            )
+        except Exception:
+            pass
+        else:
+            return sorted(raw, key=lambda h: (h[0], h[1]))
+
+    hits: list[tuple[str, int, int, str]] = []
+    for name in names:
+        for match in _PII_PATTERNS[name].finditer(text):
+            hits.append((name, match.start(), match.end(), match.group()))
+    return hits
 
 
 def scan_pii_dispatch(

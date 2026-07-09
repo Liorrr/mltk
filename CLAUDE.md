@@ -6,7 +6,7 @@
 ## Project Overview
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - Python 3.10+ with Rust acceleration (maturin build)
-- v0.13.0, 241 assertions, 4761+ tests, 8 scanners, 13 MCP tools
+- v0.13.0, 241 assertions, 4763+ tests, 8 scanners, 13 MCP tools
 - Phase F (Agent Integration): COMPLETE — building toward v1.0.0
 
 ## Architecture
@@ -15,7 +15,7 @@ src/mltk/
   scan/          # Scan engine: 8 scanners (data/drift/bias/overfit/calibration/robustness/leakage/slice)
   scan/finding.py  # ScanFinding + FixSuggestion dataclasses
   experiment/    # ExperimentRunner, Hypothesis, GitWorktree, sandboxed execution
-  mcp/           # FastMCP server (11 tools: scan/test/list/eval/dataset/report/suggest/experiment/workflow/create_pr/create_issue)
+  mcp/           # FastMCP server (13 tools: scan/test/list/eval/dataset/report/suggest/experiment/workflow/create_pr/create_issue/container_scan/import)
   core/          # Config, assertions registry
   testdefs/      # YAML test definitions
   eval/          # Evaluation pipeline (solvers, scorers, spans, datasets)

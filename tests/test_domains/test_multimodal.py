@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -41,7 +40,6 @@ from mltk.domains.multimodal import (
 )
 from mltk.domains.multimodal._image import (
     _build_image_prompt,
-    _validate_image_pillow,
 )
 
 # ===============================================================
@@ -301,24 +299,6 @@ class TestBuildImagePrompt:
             _build_image_prompt(
                 instruction="Evaluate this."
             )
-
-
-class TestValidateImagePillow:
-    """Tests for _validate_image_pillow() -- optional Pillow path."""
-
-    def test_pillow_import_error(self) -> None:
-        """FAIL: Missing Pillow raises ImportError with hint.
-
-        WHY: Users without Pillow should get a clear message
-        telling them how to install it, not a raw ImportError.
-        """
-        with patch.dict(
-            "sys.modules", {"PIL": None, "PIL.Image": None}
-        ):
-            with pytest.raises(
-                ImportError, match="mltk\\[multimodal\\]"
-            ):
-                _validate_image_pillow(b"fake image data")
 
 
 # ===============================================================

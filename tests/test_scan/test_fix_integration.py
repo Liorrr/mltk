@@ -448,7 +448,6 @@ class TestFixCategoryCoverage:
         ))
         all_fixes.extend(RobustnessScanner._gen_fix())
         all_fixes.extend(SliceScanner._gen_fix(
-            slice_col="region",
             slice_desc="region=West",
             metric_val=0.65,
             threshold=0.8,
@@ -486,7 +485,6 @@ class TestFixCategoryCoverage:
         ))
         all_fixes.extend(RobustnessScanner._gen_fix())
         all_fixes.extend(SliceScanner._gen_fix(
-            slice_col="region",
             slice_desc="region=West",
             metric_val=0.65,
             threshold=0.8,

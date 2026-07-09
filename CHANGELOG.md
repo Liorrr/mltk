@@ -10,8 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- **`scan_pii` now uses the Rust engine when built** — the Rust-accelerated `scan_pii_fast` existed since the Rust extension landed but was only ever called by benchmarks; `scan_pii` (and everything above it: `assert_no_pii`, the PII scanner, hybrid NER mode's regex half) now dispatches to it with a transparent pure-Python fallback. Output is byte-identical across engines (parity-tested); checksum validators and allowlists still run in Python.
+- **Multimodal judge helpers deduplicated** — `_parse_score` (3 copies) and `_cosine_similarity` (2 diverged copies) across `alignment`/`vlm`/`metrics` consolidated into `mltk.domains.multimodal._scoring`; the surviving `_cosine_similarity` is the `.ravel()` variant, so row vectors and 1-D arrays both work everywhere.
+- **ADWIN drops dead variance tracking** (`monitor/streaming_drift`) — window-level Welford variance and bucket-variance merge math were maintained on every observation but never read by the mean-based Hoeffding bound; removed (detection behavior unchanged). Revert this commit's hunk if a variance-based ADWIN2 bound is ever implemented.
 
 ### Fixed
+- **LLM-judge JSON score parsing** (`mltk.domains.llm.judge`) — `_parse_score` grabbed the first number in the raw response, so a judge returning `{"reasoning_steps": 3, "score": 8}` was scored 3, not 8. Now honors a JSON `"score"` key first (matching the multimodal parsers), with the first-number fallback for prose responses.
+
+### Removed
+- **Dead code from the S100 audit** — `scan/codegen._indent` (never called since introduction), `multimodal/_image._validate_image_pillow` (never wired into any assertion), the unused `slice_col` parameter of `SliceScanner._gen_fix`, and the private `_RED_TEAM_CATALOG`/`_generate_mutations` back-compat shims in `cli/security_scan` (only mltk's own tests imported them; tests migrated to the canonical catalog + `mutate_payloads`).
 
 ## [0.13.0] — 2026-07-07
 
