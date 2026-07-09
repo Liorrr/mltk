@@ -33,6 +33,7 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 from mltk.domains.multimodal._image import ImageInput, load_image
+from mltk.domains.multimodal._scoring import _cosine_similarity
 
 __all__ = [
     "assert_clip_score",
@@ -43,22 +44,6 @@ __all__ = [
 # ---------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------
-
-
-def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """Compute cosine similarity between two vectors.
-
-    Cosine similarity measures the angle between two vectors,
-    returning a value in [-1, 1].  Identical directions yield 1.0,
-    orthogonal vectors yield 0.0, and opposite directions yield -1.0.
-
-    Returns 0.0 if either vector has zero norm (degenerate case).
-    """
-    norm_a = float(np.linalg.norm(a))
-    norm_b = float(np.linalg.norm(b))
-    if norm_a == 0.0 or norm_b == 0.0:
-        return 0.0
-    return float(np.dot(a.ravel(), b.ravel()) / (norm_a * norm_b))
 
 
 def _load_and_resize(

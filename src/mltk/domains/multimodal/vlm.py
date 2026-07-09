@@ -19,8 +19,6 @@ mltk builds the evaluation prompt; the user owns the LLM call.
 
 from __future__ import annotations
 
-import json
-import re
 from collections.abc import Callable
 
 from mltk.core.assertion import assert_true, timed_assertion
@@ -29,35 +27,13 @@ from mltk.domains.multimodal._image import (
     ImageInput,
     _build_image_prompt,
 )
+from mltk.domains.multimodal._scoring import _parse_score
 
 __all__ = [
     "assert_image_helpfulness",
     "assert_vqa_accuracy",
     "assert_ocr_accuracy",
 ]
-
-# ---------------------------------------------------------------
-# Score parsing (reused from judge.py pattern)
-# ---------------------------------------------------------------
-
-_FLOAT_PATTERN = re.compile(r"(\d+(?:\.\d+)?)")
-
-
-def _parse_score(raw: str) -> float | None:
-    """Extract the first numeric value from a judge response."""
-    # Try JSON first
-    try:
-        data = json.loads(raw)
-        if isinstance(data, dict) and "score" in data:
-            return float(data["score"])
-    except (json.JSONDecodeError, ValueError, TypeError):
-        pass
-    # Fallback to regex
-    match = _FLOAT_PATTERN.search(raw.strip())
-    if match:
-        return float(match.group(1))
-    return None
-
 
 # ---------------------------------------------------------------
 # Assertions

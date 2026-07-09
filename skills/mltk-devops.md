@@ -117,7 +117,7 @@ Enables AI agents (Claude Code, Cursor, VS Code) to call mltk tools directly.
 
 Save as `.mcp.json` in the project root. Source: `src/mltk/mcp/`.
 
-11 tools: `mltk_scan` `mltk_test` `mltk_list` `mltk_eval` `mltk_dataset` `mltk_report` `mltk_suggest` `mltk_experiment` `mltk_workflow` `mltk_create_pr` `mltk_create_issue`.
+13 tools: `mltk_scan` `mltk_test` `mltk_list` `mltk_eval` `mltk_dataset` `mltk_report` `mltk_suggest` `mltk_experiment` `mltk_workflow` `mltk_create_pr` `mltk_create_issue` `mltk_container_scan` `mltk_import`.
 
 ---
 
