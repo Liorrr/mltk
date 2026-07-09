@@ -90,59 +90,6 @@ def _flatten_catalog(
 
 
 # -------------------------------------------------------------------
-# Backward-compatible aliases
-# -------------------------------------------------------------------
-
-# Legacy flat list of dicts (``{"category": ..., "payload": ...}``)
-# generated from the canonical catalog. Provided so that existing
-# tests and downstream code that imported ``_RED_TEAM_CATALOG`` or
-# ``_generate_mutations`` from this module continue to work.
-
-_RED_TEAM_CATALOG: list[dict[str, str]] = [
-    {
-        "category": _display_name(p.category),
-        "payload": p.payload_text,
-    }
-    for p in _flatten_catalog()
-]
-
-
-def _generate_mutations(
-    payloads: list[dict[str, str]],
-) -> list[dict[str, str]]:
-    """Generate encoding mutations (legacy dict format).
-
-    Produces two mutations per payload (leetspeak and
-    reversed), preserving the original behavior and
-    return type. The CLI path uses ``mutate_payloads``
-    from the canonical mutations module (8 techniques);
-    this wrapper exists solely for backward compatibility
-    with code that used the old ``_generate_mutations``
-    API.
-
-    New code should use ``mutate_payloads`` directly.
-    """
-    mutated: list[dict[str, str]] = []
-    for entry in payloads:
-        text = entry["payload"]
-        cat = entry["category"] + " (mutation)"
-        # leetspeak
-        leet = text.translate(
-            str.maketrans(
-                "aeiostAEIOST", "431057431057",
-            )
-        )
-        mutated.append(
-            {"category": cat, "payload": leet}
-        )
-        # reversed
-        mutated.append(
-            {"category": cat, "payload": text[::-1]}
-        )
-    return mutated
-
-
-# -------------------------------------------------------------------
 # Dynamic import helper
 # -------------------------------------------------------------------
 

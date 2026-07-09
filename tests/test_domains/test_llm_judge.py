@@ -5,6 +5,7 @@ import pytest
 from mltk.core.assertion import MltkAssertionError
 from mltk.domains.llm.judge import (
     DEFAULT_CRITERIA,
+    _parse_score,
     assert_llm_judge_pairwise,
     assert_llm_judge_score,
     format_judge_prompt,
@@ -606,3 +607,45 @@ class TestFormatJudgePromptLong:
         assert long_prompt in text
         assert "helpfulness" in text
         assert len(text) > 1000
+
+
+class TestParseScoreJson:
+    """_parse_score on structured (JSON) judge responses."""
+
+    def test_json_score_key_wins_over_first_number(self) -> None:
+        """PASS: JSON response returns the 'score' value, not the first number.
+
+        Scenario: A judge LLM returns '{"reasoning_steps": 3, "score": 8}'.
+        The score is 8 -- grabbing the first number in the raw string (3)
+        silently mis-grades every response.
+        """
+        assert _parse_score('{"reasoning_steps": 3, "score": 8}') == 8.0
+
+    def test_json_score_string_value(self) -> None:
+        """PASS: JSON with a stringified score parses to float."""
+        assert _parse_score('{"score": "4.5"}') == 4.5
+
+    def test_plain_number_still_parses(self) -> None:
+        """PASS: Bare numeric responses keep working."""
+        assert _parse_score("4.5") == 4.5
+
+    def test_prose_with_number_still_parses(self) -> None:
+        """PASS: Prose responses fall back to first-number extraction."""
+        assert _parse_score("I rate this 3 out of 5") == 3.0
+
+    def test_no_number_returns_none(self) -> None:
+        """PASS: Response with no number returns None."""
+        assert _parse_score("no digits here") is None
+
+    def test_json_null_score_returns_none(self) -> None:
+        """PASS: An explicit null score means grading failed -- never
+        fabricate a score from other numeric fields in the raw JSON.
+        """
+        assert _parse_score('{"reasoning_steps": 3, "score": null}') is None
+
+    def test_json_unconvertible_score_returns_none(self) -> None:
+        """PASS: A non-numeric score ("N/A") returns None, not a number
+        scraped from the reasoning text.
+        """
+        raw = '{"score": "N/A", "reasoning": "cannot evaluate 3 criteria"}'
+        assert _parse_score(raw) is None

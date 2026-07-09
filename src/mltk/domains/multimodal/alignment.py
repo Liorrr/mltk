@@ -27,8 +27,6 @@ assertions use the ``judge_fn`` pattern from ``mltk.domains.llm.judge``.
 
 from __future__ import annotations
 
-import json
-import re
 from collections.abc import Callable
 
 import numpy as np
@@ -39,6 +37,10 @@ from mltk.domains.multimodal._image import (
     ImageInput,
     _build_image_prompt,
 )
+from mltk.domains.multimodal._scoring import (
+    _cosine_similarity,
+    _parse_score,
+)
 
 __all__ = [
     "assert_image_text_alignment",
@@ -46,44 +48,6 @@ __all__ = [
     "assert_prompt_faithfulness",
     "assert_image_coherence",
 ]
-
-# ---------------------------------------------------------------
-# Score parsing (reused from judge.py pattern)
-# ---------------------------------------------------------------
-
-_FLOAT_PATTERN = re.compile(r"(\d+(?:\.\d+)?)")
-
-
-def _parse_score(raw: str) -> float | None:
-    """Extract the first numeric value from a judge response."""
-    # Try JSON first
-    try:
-        data = json.loads(raw)
-        if isinstance(data, dict) and "score" in data:
-            return float(data["score"])
-    except (json.JSONDecodeError, ValueError, TypeError):
-        pass
-    # Fallback to regex
-    match = _FLOAT_PATTERN.search(raw.strip())
-    if match:
-        return float(match.group(1))
-    return None
-
-
-def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """Compute cosine similarity between two vectors.
-
-    Cosine similarity measures the angle between two vectors in embedding
-    space, ignoring magnitude. It ranges from -1 (opposite) through 0
-    (orthogonal) to 1 (identical direction).
-
-    Returns 0.0 if either vector has zero norm (degenerate embedding).
-    """
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return float(np.dot(a, b) / (norm_a * norm_b))
 
 @timed_assertion
 def assert_image_text_alignment(

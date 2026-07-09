@@ -223,7 +223,6 @@ class SliceScanner(Scanner):
                 ),
                 scanner_name=self.name,
                 suggested_fixes=self._gen_fix(
-                    col,
                     description,
                     slice_acc,
                     threshold,
@@ -296,7 +295,6 @@ class SliceScanner(Scanner):
 
     @staticmethod
     def _gen_fix(
-        slice_col: str,
         slice_desc: str,
         metric_val: float,
         threshold: float,
@@ -304,7 +302,6 @@ class SliceScanner(Scanner):
         """Generate fix suggestions for a slice failure.
 
         Args:
-            slice_col: Column name used for slicing.
             slice_desc: Human-readable slice description
                 (e.g. "gender=F").
             metric_val: Actual metric value for the slice.
