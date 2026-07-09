@@ -340,8 +340,10 @@ class TestReflectedKernelSymmetry:
         """
         from mltk.model.slicing import _reflected_gaussian_kernel
 
+        # np.trapezoid is numpy>=2 only; the project floor is numpy>=1.24
+        trapezoid = getattr(np, "trapezoid", None) or np.trapz
         grid = np.linspace(0.0, 1.0, 2001)
         for q in (0.0, 0.5, 0.99, 1.0):
             k = _reflected_gaussian_kernel(grid, np.array([q]), 0.05)[:, 0]
-            mass = np.trapezoid(k, grid)
+            mass = float(trapezoid(k, grid))
             assert mass == pytest.approx(1.0, abs=1e-3)

@@ -14,6 +14,13 @@ pub fn ks_test_core(reference: &mut [f64], current: &mut [f64]) -> (f64, f64) {
         return (0.0, 1.0);
     }
 
+    // NaN cannot be ordered, so the merge below would silently freeze one
+    // pointer and report D over a prefix — a plausible-looking wrong answer.
+    // Propagate NaN instead, matching scipy's ks_2samp.
+    if reference.iter().chain(current.iter()).any(|x| x.is_nan()) {
+        return (f64::NAN, f64::NAN);
+    }
+
     reference.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     current.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -27,17 +34,14 @@ pub fn ks_test_core(reference: &mut [f64], current: &mut [f64]) -> (f64, f64) {
     let mut d_max: f64 = 0.0;
 
     while i < reference.len() && j < current.len() {
+        // v is the smaller front value; with NaN rejected above, at least
+        // one `<=` below always holds, so the loop always progresses.
         let v = reference[i].min(current[j]);
-        let (i0, j0) = (i, j);
         while i < reference.len() && reference[i] <= v {
             i += 1;
         }
         while j < current.len() && current[j] <= v {
             j += 1;
-        }
-        if i == i0 && j == j0 {
-            // NaN at both fronts: `<=` never holds, so bail rather than spin.
-            break;
         }
         let diff = (i as f64 / n1 - j as f64 / n2).abs();
         if diff > d_max {
@@ -679,6 +683,19 @@ mod tests {
             (stat - 0.5).abs() < 1e-12,
             "KS stat for interleaved samples should be 0.5: {stat}"
         );
+    }
+
+    #[test]
+    fn test_ks_nan_input_propagates() {
+        // NaN cannot be ordered; a silent partial-window D would look
+        // plausible. Match scipy: NaN in -> NaN out, on either side.
+        let (stat, p) = ks_test(vec![1.0, f64::NAN, 2.0], vec![1.0, 2.0, 3.0]);
+        assert!(stat.is_nan(), "stat must be NaN for NaN reference: {stat}");
+        assert!(p.is_nan(), "p must be NaN for NaN reference: {p}");
+
+        let (stat, p) = ks_test(vec![1.0, 2.0, 3.0], vec![f64::NAN]);
+        assert!(stat.is_nan(), "stat must be NaN for NaN current: {stat}");
+        assert!(p.is_nan(), "p must be NaN for NaN current: {p}");
     }
 
     #[test]

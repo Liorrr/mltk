@@ -237,3 +237,21 @@ class TestScanPiiFast:
             monkeypatch, _rust.scan_pii_fast, "nothing here", self.PATTERNS
         )
         assert rust_hits == py_hits == []
+
+
+class TestKsNanPropagation:
+    """NaN inputs must poison the result on both engines, matching scipy."""
+
+    def test_nan_propagates_like_scipy(self, monkeypatch) -> None:
+        """Regression: a single-sided NaN froze one merge pointer and
+        returned a plausible-looking D over a prefix of the data.
+        """
+        ref = [1.0, float("nan"), 2.0]
+        cur = [1.0, 2.0, 3.0]
+        (rust_stat, rust_p), (py_stat, py_p) = _both(
+            monkeypatch, _rust.ks_test, ref, cur
+        )
+        assert np.isnan(rust_stat)
+        assert np.isnan(rust_p)
+        assert np.isnan(py_stat)
+        assert np.isnan(py_p)
