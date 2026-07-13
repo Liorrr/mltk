@@ -1,6 +1,0 @@
-[mcp_servers.mltk]
-args = [
-    "-m",
-    "mltk.mcp",
-]
-command = "python"

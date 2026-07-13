@@ -270,7 +270,10 @@ def wasserstein(reference: list[float], current: list[float]) -> float:
         return float(wasserstein_distance(ref_list, cur_list))
     except ImportError:
         pass
-    # Pure numpy fallback: sorted CDF integral
+    # Pure numpy fallback: sorted CDF integral. Each CDF is constant on
+    # [v_k, v_{k+1}), so the integrand over that interval is the gap at
+    # the LEFT endpoint — weighting the gap at v_{k+1} instead dropped
+    # the first interval and returned 0.0 for disjoint point masses.
     import numpy as np
 
     ref = np.sort(np.array(ref_list, dtype=float))
@@ -278,9 +281,8 @@ def wasserstein(reference: list[float], current: list[float]) -> float:
     all_vals = np.union1d(ref, cur)
     cdf_ref = np.searchsorted(ref, all_vals, side="right") / len(ref)
     cdf_cur = np.searchsorted(cur, all_vals, side="right") / len(cur)
-    widths = np.diff(all_vals, prepend=all_vals[0])
-    widths[0] = 0.0
-    return float(np.sum(np.abs(cdf_ref - cdf_cur) * widths))
+    widths = np.diff(all_vals)
+    return float(np.sum(np.abs(cdf_ref[:-1] - cdf_cur[:-1]) * widths))
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:

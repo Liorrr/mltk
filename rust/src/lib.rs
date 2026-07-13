@@ -1101,19 +1101,8 @@ mod tests {
     }
 
     // ── NaN/Inf value handling ────────────────────────────────────────────────
-
-    #[test]
-    fn test_ks_with_nan_values() {
-        // NaN values get placed via partial_cmp fallback (Equal ordering).
-        // The test ensures no panic occurs — result values are allowed to be
-        // imprecise since NaN inputs are undefined behaviour for statistics.
-        let ref_data = vec![1.0, f64::NAN, 3.0];
-        let cur_data = vec![1.0, 2.0, 3.0];
-        let (stat, p) = ks_test(ref_data, cur_data);
-        assert!(!stat.is_nan(), "stat should not be NaN");
-        assert!(!p.is_nan(), "p should not be NaN");
-        assert!(p >= 0.0 && p <= 1.0, "p-value out of [0,1]: {p}");
-    }
+    // NaN input to ks_test now propagates (NaN, NaN) like scipy's ks_2samp;
+    // that contract is pinned by test_ks_nan_input_propagates above.
 
     #[test]
     fn test_cosine_with_inf_values() {

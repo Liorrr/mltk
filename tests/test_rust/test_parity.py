@@ -124,6 +124,36 @@ class TestWasserstein:
         assert rust_val == pytest.approx(py_val, rel=1e-9, abs=1e-12)
 
 
+class TestWassersteinNumpyFallback:
+    """The scipy-less numpy path must agree with the other two engines.
+
+    ``_both`` cannot reach this path: with RUST_AVAILABLE off the bridge
+    tries scipy first, and CI always has scipy — so the numpy integral
+    was never exercised. It weighted each interval by the CDF gap at the
+    RIGHT endpoint (where both CDFs already jumped) instead of the left,
+    returning 0.0 for disjoint point masses — a silent false 'no drift'
+    on installs with neither the extension nor scipy.
+    """
+
+    def _numpy_only(self, monkeypatch) -> None:
+        import sys
+
+        monkeypatch.setattr(_rust, "RUST_AVAILABLE", False)
+        monkeypatch.setitem(sys.modules, "scipy.stats", None)
+
+    @pytest.mark.parametrize(("ref", "cur"), DIST_PAIRS)
+    def test_numpy_matches_rust(self, monkeypatch, ref, cur) -> None:
+        rust_val = _rust.wasserstein(ref, cur)
+        self._numpy_only(monkeypatch)
+        numpy_val = _rust.wasserstein(ref, cur)
+        assert numpy_val == pytest.approx(rust_val, rel=1e-9, abs=1e-12)
+
+    def test_numpy_disjoint_point_masses(self, monkeypatch) -> None:
+        """Regression: the pre-fix integral scored this 0.0; true W1 = 1."""
+        self._numpy_only(monkeypatch)
+        assert _rust.wasserstein([0.0], [1.0]) == pytest.approx(1.0)
+
+
 class TestChiSquared:
     CASES = [
         pytest.param([10.0, 20.0, 30.0], [15.0, 20.0, 25.0], id="moderate"),
