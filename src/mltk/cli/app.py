@@ -159,6 +159,7 @@ def test_data_quality():
         ref_df = pd.read_csv(ref_path)
         cur_df = pd.read_csv(cur_path)
 
+        from mltk.core.assertion import MltkAssertionError
         from mltk.data.drift import assert_no_drift
 
         print(f"MLTK Drift Analysis: {reference} vs {current}")  # noqa: T201
@@ -179,9 +180,12 @@ def test_data_quality():
                 status = "OK" if result.passed else "DRIFT"
                 stat = result.details.get("statistic", 0)
                 print(f"  {col:20s} | {stat:.4f} | {status}")  # noqa: T201
-            except Exception:
-                # Drift detected (exception raised)
-                print(f"  {col:20s} | DRIFT DETECTED")  # noqa: T201
+            except MltkAssertionError as exc:
+                stat = exc.result.details.get("statistic", float("nan"))
+                print(f"  {col:20s} | {stat:.4f} | DRIFT")  # noqa: T201
+            except Exception as exc:  # noqa: BLE001
+                # A runtime error is not drift — say what actually broke.
+                print(f"  {col:20s} | ERROR: {exc}")  # noqa: T201
 
     @app.command()
     def score() -> None:

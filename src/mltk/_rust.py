@@ -190,21 +190,23 @@ def chi_squared(
     except ImportError:
         pass
     # Pure numpy fallback
+    import math
+
     import numpy as np
 
     obs = np.array(obs_list, dtype=float)
     exp = np.array(exp_list, dtype=float)
     mask = exp > 1e-12
     stat = float(np.sum(((obs[mask] - exp[mask]) ** 2) / exp[mask]))
-    # Very rough p-value via normal approximation (Wilson-Hilferty)
     df = len(observed) - 1
     if df <= 0:
         return (stat, 1.0)
-    # Wilson-Hilferty: (chi2/df)^(1/3) ~ Normal(1 - 2/(9df), 2/(9df))
+    # Wilson-Hilferty: (chi2/df)^(1/3) ~ Normal(1 - 2/(9df), 2/(9df)), with the
+    # exact normal tail via erfc. The previous exp(-0.7|z|) CDF approximation
+    # was off by up to ~0.09 in p — enough to flip borderline assertions.
     h = 2.0 / (9.0 * df)
-    z = ((stat / df) ** (1.0 / 3.0) - (1.0 - h)) / h**0.5
-    # Approximate 1 - Phi(z)
-    p_value = float(0.5 * (1.0 - float(np.sign(z)) * (1.0 - np.exp(-0.7 * abs(z)))))
+    z = ((stat / df) ** (1.0 / 3.0) - (1.0 - h)) / math.sqrt(h)
+    p_value = 0.5 * math.erfc(z / math.sqrt(2.0))
     return (stat, max(0.0, min(1.0, p_value)))
 
 

@@ -613,3 +613,91 @@ class TestLogMlflow:
                 sys.modules.pop("mlflow", None)
             else:
                 sys.modules["mlflow"] = original
+
+
+# ---------------------------------------------------------------------------
+# TestMakereportOutcomes — skip/setup-error recording (history-audit fix)
+# ---------------------------------------------------------------------------
+
+class _FakeConfig:
+    def __init__(self) -> None:
+        self._mltk_collector = MltkReportCollector()
+
+
+class _FakeItem:
+    def __init__(self, config: _FakeConfig) -> None:
+        self.config = config
+        self.nodeid = "tests/probe.py::test_x"
+
+
+class _FakeCall:
+    def __init__(self, when: str, excinfo: object = None) -> None:
+        self.when = when
+        self.excinfo = excinfo
+        self.duration = 0.01
+
+
+def _excinfo_for(exc: BaseException) -> pytest.ExceptionInfo:
+    try:
+        raise exc
+    except BaseException:  # noqa: BLE001
+        return pytest.ExceptionInfo.from_current()
+
+
+class TestMakereportOutcomes:
+    """pytest_runtest_makereport must not misclassify skips or drop errors.
+
+    Regression (history-audit hotspot pass): pytest.skip() inside a test
+    body raises Skipped during the call phase; the pre-fix hook recorded it
+    as outcome="failed", putting phantom failures into --mltk-export-json,
+    MLflow, and server-push payloads. Setup-phase errors (broken fixture)
+    never reached the call phase and were silently dropped, so the export
+    under-counted the session.
+    """
+
+    def _run_hook(self, call: _FakeCall) -> MltkReportCollector:
+        from mltk.pytest_plugin.plugin import pytest_runtest_makereport
+
+        config = _FakeConfig()
+        pytest_runtest_makereport(_FakeItem(config), call)
+        return config._mltk_collector
+
+    def test_call_pass_recorded(self) -> None:
+        collector = self._run_hook(_FakeCall("call", None))
+        assert collector.total == 1
+        assert collector.passed_count == 1
+
+    def test_call_failure_recorded(self) -> None:
+        excinfo = _excinfo_for(AssertionError("boom"))
+        collector = self._run_hook(_FakeCall("call", excinfo))
+        assert collector.failed_count == 1
+
+    def test_skip_in_body_not_recorded(self) -> None:
+        # SCENARIO: pytest.skip("...") inside the test body
+        # EXPECTED: not a result at all — neither passed nor failed
+        excinfo = _excinfo_for(pytest.skip.Exception("optional dep missing"))
+        collector = self._run_hook(_FakeCall("call", excinfo))
+        assert collector.total == 0
+
+    def test_skip_in_setup_not_recorded(self) -> None:
+        # SCENARIO: skipif marker / pytest.skip() in a fixture
+        excinfo = _excinfo_for(pytest.skip.Exception("skipif fired"))
+        collector = self._run_hook(_FakeCall("setup", excinfo))
+        assert collector.total == 0
+
+    def test_setup_error_recorded_as_failed(self) -> None:
+        # SCENARIO: a fixture raises — the test never reaches the call phase
+        # EXPECTED: recorded as failed (omitting it under-counts the session)
+        excinfo = _excinfo_for(RuntimeError("setup boom"))
+        collector = self._run_hook(_FakeCall("setup", excinfo))
+        assert collector.failed_count == 1
+
+    def test_clean_setup_not_recorded(self) -> None:
+        # Normal setup phase must wait for the call phase (no double count)
+        collector = self._run_hook(_FakeCall("setup", None))
+        assert collector.total == 0
+
+    def test_teardown_never_recorded(self) -> None:
+        excinfo = _excinfo_for(RuntimeError("teardown boom"))
+        collector = self._run_hook(_FakeCall("teardown", excinfo))
+        assert collector.total == 0
