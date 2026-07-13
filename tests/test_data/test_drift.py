@@ -132,3 +132,32 @@ class TestDriftEdgeCases:
         with pytest.raises(MltkAssertionError) as exc:
             assert_no_drift(reference_series, reference_series, method="invalid")
         assert "Unknown method" in str(exc.value)
+
+
+class TestAutoMethodThreshold:
+    """method='auto' must honor a user-supplied threshold."""
+
+    def test_auto_uses_custom_threshold(self) -> None:
+        """Regression: auto silently discarded the threshold argument.
+
+        Scenario: A user calls method='auto' with threshold=0.5. The
+        pre-fix dispatch passed the hardcoded default (0.05) to the
+        selected method, ignoring the user's value.
+        """
+        import numpy as np
+
+        rng = np.random.default_rng(3)
+        ref = pd.Series(rng.normal(0, 1, 200))
+        cur = pd.Series(rng.normal(0, 1, 200))
+        result = assert_no_drift(ref, cur, method="auto", threshold=0.5)
+        assert result.details["threshold"] == 0.5
+
+    def test_auto_default_threshold_unchanged(self) -> None:
+        """PASS: auto without a threshold keeps the method default."""
+        import numpy as np
+
+        rng = np.random.default_rng(3)
+        ref = pd.Series(rng.normal(0, 1, 200))
+        cur = pd.Series(rng.normal(0, 1, 200))
+        result = assert_no_drift(ref, cur, method="auto")
+        assert result.details["threshold"] == 0.05

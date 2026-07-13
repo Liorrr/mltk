@@ -40,11 +40,17 @@ def _reflected_gaussian_kernel(
     q = np.atleast_1d(q)[None, :]
     inv = 1.0 / (sigma * np.sqrt(2.0 * np.pi))
     half_inv_sq = -0.5 / (sigma * sigma)
+    # Method of images truncated at |k| <= 1: BOTH families are needed —
+    # (p - q + 2k) alone omits the boundary-1 mirror (p + q - 2), which
+    # loses up to half the kernel mass for q near 1 and biases smECE
+    # exactly where confident classifiers concentrate.
     return inv * (
         np.exp(half_inv_sq * (p - q) ** 2)
-        + np.exp(half_inv_sq * (p + q) ** 2)
         + np.exp(half_inv_sq * (p - q - 2) ** 2)
         + np.exp(half_inv_sq * (p - q + 2) ** 2)
+        + np.exp(half_inv_sq * (p + q) ** 2)
+        + np.exp(half_inv_sq * (p + q - 2) ** 2)
+        + np.exp(half_inv_sq * (p + q + 2) ** 2)
     )
 
 

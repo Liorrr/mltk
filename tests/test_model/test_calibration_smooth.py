@@ -306,3 +306,44 @@ class TestSmoothECEEdgeCases:
         )
         assert binned.passed is True
         assert smooth.passed is True
+
+
+class TestReflectedKernelSymmetry:
+    """The reflected kernel must treat boundaries 0 and 1 identically."""
+
+    def test_smece_invariant_under_label_flip(self) -> None:
+        """Regression: smECE(f, y) must equal smECE(1-f, 1-y).
+
+        Flipping predictions and labels mirrors the problem across
+        p=0.5, so the score must be unchanged. The pre-fix kernel
+        reflected only at boundary 0 (it used period-2 translations
+        instead of the boundary-1 mirror image), losing up to half the
+        kernel mass near p=1 and breaking this symmetry for confident
+        classifiers.
+        """
+        from mltk.model.slicing import _smooth_ece_sigma
+
+        rng = np.random.default_rng(7)
+        f = np.clip(rng.beta(8, 1, 500), 0.0, 1.0)
+        y = (rng.random(500) < f).astype(float)
+
+        for sigma in (0.02, 0.05, 0.1):
+            direct = _smooth_ece_sigma(f, y, sigma)
+            mirrored = _smooth_ece_sigma(1.0 - f, 1.0 - y, sigma)
+            assert direct == pytest.approx(mirrored, abs=1e-12)
+
+    def test_kernel_mass_preserved_at_upper_boundary(self) -> None:
+        """Regression: kernel mass over [0,1] must be ~1 for q near 1.
+
+        The pre-fix kernel integrated to 0.5 at q=1.0 (half the mass
+        leaked past the unmirrored boundary).
+        """
+        from mltk.model.slicing import _reflected_gaussian_kernel
+
+        # np.trapezoid is numpy>=2 only; the project floor is numpy>=1.24
+        trapezoid = getattr(np, "trapezoid", None) or np.trapz
+        grid = np.linspace(0.0, 1.0, 2001)
+        for q in (0.0, 0.5, 0.99, 1.0):
+            k = _reflected_gaussian_kernel(grid, np.array([q]), 0.05)[:, 0]
+            mass = float(trapezoid(k, grid))
+            assert mass == pytest.approx(1.0, abs=1e-3)

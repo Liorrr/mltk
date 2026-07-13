@@ -438,14 +438,16 @@ class TestEvalDataset:
         assert ds.card is not None
         assert ds.card.description == "Attached"
 
-    def test_card_default_none(self):
+    def test_card_default_auto_generated(self):
         # SCENARIO: no card provided
-        # WHY: card is optional
-        # EXPECTED: card is None or auto-generated
+        # WHY: card is optional at construction, but consumers rely on
+        #      ds.card always being usable without a None check
+        # EXPECTED: an empty auto-generated card with a created timestamp
         ds = _make_dataset(n=2)
-        # Card may be None or auto-generated
-        # Just verify no crash on access
-        _ = ds.card
+        assert ds.card is not None
+        assert ds.card.description == ""
+        assert ds.card.source == ""
+        assert ds.card.created != ""
 
     def test_large_dataset(self):
         # SCENARIO: dataset with 100+ samples

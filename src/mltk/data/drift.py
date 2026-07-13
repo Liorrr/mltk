@@ -47,7 +47,9 @@ def assert_no_drift(
     Args:
         reference: Baseline distribution (e.g., training data).
         current: Current distribution to compare against baseline.
-        method: Detection method -- "ks", "psi", "kl", or "chi2".
+        method: Detection method -- "ks", "psi", "kl", "js",
+            "wasserstein", "chi2", or "auto" (Wasserstein for n>1000,
+            KS otherwise).
         threshold: Custom threshold. If None, uses method-specific default.
         severity: Severity level for the assertion (default CRITICAL).
 
@@ -92,16 +94,21 @@ def assert_no_drift(
         )
 
     if method == "auto":
-        # Auto-select: Wasserstein for numeric n>1000, KS otherwise
+        # Auto-select: Wasserstein for numeric n>1000, KS otherwise.
+        # A user-supplied threshold applies to whichever method is chosen.
         if len(ref_arr) > 1000:
             return _drift_wasserstein(
                 ref_arr,
                 cur_arr,
-                _DEFAULT_THRESHOLDS["wasserstein"],
+                threshold if threshold is not None
+                else _DEFAULT_THRESHOLDS["wasserstein"],
                 severity,
             )
         return _drift_ks(
-            ref_arr, cur_arr, _DEFAULT_THRESHOLDS["ks"], severity
+            ref_arr,
+            cur_arr,
+            threshold if threshold is not None else _DEFAULT_THRESHOLDS["ks"],
+            severity,
         )
     elif method == "ks":
         return _drift_ks(ref_arr, cur_arr, thresh, severity)
@@ -206,19 +213,9 @@ def _drift_kl(
     Returns:
         TestResult with KL divergence value.
     """
-    bins = np.linspace(
-        min(ref.min(), cur.min()),
-        max(ref.max(), cur.max()),
-        11,
-    )
-    ref_hist = np.histogram(ref, bins=bins)[0].astype(float) / len(ref)
-    cur_hist = np.histogram(cur, bins=bins)[0].astype(float) / len(cur)
+    from mltk._rust import kl_divergence
 
-    # Clip to avoid log(0)
-    ref_hist = np.clip(ref_hist, 1e-6, None)
-    cur_hist = np.clip(cur_hist, 1e-6, None)
-
-    kl_value = float(np.sum(ref_hist * np.log(ref_hist / cur_hist)))
+    kl_value = kl_divergence(ref.tolist(), cur.tolist(), 10)
     passed = kl_value < threshold
 
     return assert_true(
@@ -297,12 +294,17 @@ def _drift_js(
     threshold: float,
     severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
-    """Jensen-Shannon divergence: symmetric, bounded [0,1].
+    """Jensen-Shannon divergence: symmetric, bounded [0, ln 2].
+
+    Reported in nats WITHOUT the log-2 normalization that
+    ``mltk._rust.js_divergence`` applies, so values here are ~1.44x the
+    normalized scale. Kept unnormalized because user thresholds were
+    calibrated against this scale.
 
     Args:
         ref: Reference distribution array.
         cur: Current distribution array.
-        threshold: JS threshold; pass if JS < threshold.
+        threshold: JS threshold (nats); pass if JS < threshold.
 
     Returns:
         TestResult with JS divergence value.
@@ -344,14 +346,9 @@ def _drift_wasserstein(
     Returns:
         TestResult with Wasserstein distance value.
     """
-    try:
-        from scipy.stats import wasserstein_distance
-    except ImportError as err:
-        raise ImportError(
-            "scipy is required for Wasserstein distance. "
-            "Install it with: pip install mltk[scipy]"
-        ) from err
-    w_value = float(wasserstein_distance(ref, cur))
+    from mltk._rust import wasserstein
+
+    w_value = wasserstein(ref.tolist(), cur.tolist())
     passed = w_value < threshold
     return assert_true(
         passed, name="data.drift.wasserstein",
