@@ -44,6 +44,10 @@ site/
 mltk.local.yaml
 .env
 .claude/
+.codex/
+
+# Model download caches (fetched at runtime)
+.fastembed_cache/
 
 # Graphify knowledge graph (generated, per-developer)
 graphify-out/
