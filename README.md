@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-4825%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4827%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 <!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->

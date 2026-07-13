@@ -294,31 +294,27 @@ def _drift_js(
     threshold: float,
     severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
-    """Jensen-Shannon divergence: symmetric, bounded [0, ln 2].
+    """Jensen-Shannon divergence: symmetric, normalized to [0, 1].
 
-    Reported in nats WITHOUT the log-2 normalization that
-    ``mltk._rust.js_divergence`` applies, so values here are ~1.44x the
-    normalized scale. Kept unnormalized because user thresholds were
-    calibrated against this scale.
+    Delegates to ``mltk._rust.js_divergence`` (Rust-accelerated with a
+    numpy fallback), which normalizes by ln 2 so the value is bounded
+    [0, 1] — 0 = identical, 1 = completely disjoint. Before v0.14 this
+    helper reported unnormalized nats (bounded [0, ln 2]); on the
+    normalized scale values are ~1.44x larger, so custom ``js``
+    thresholds calibrated against the old scale should be multiplied
+    by 1.4427.
 
     Args:
         ref: Reference distribution array.
         cur: Current distribution array.
-        threshold: JS threshold (nats); pass if JS < threshold.
+        threshold: Normalized JS threshold; pass if JS < threshold.
 
     Returns:
         TestResult with JS divergence value.
     """
-    bins = np.linspace(min(ref.min(), cur.min()), max(ref.max(), cur.max()), 11)
-    ref_hist = np.histogram(ref, bins=bins)[0].astype(float) / len(ref)
-    cur_hist = np.histogram(cur, bins=bins)[0].astype(float) / len(cur)
-    ref_hist = np.clip(ref_hist, 1e-10, None)
-    cur_hist = np.clip(cur_hist, 1e-10, None)
-    m = 0.5 * (ref_hist + cur_hist)
-    js_value = float(
-        0.5 * np.sum(ref_hist * np.log(ref_hist / m))
-        + 0.5 * np.sum(cur_hist * np.log(cur_hist / m))
-    )
+    from mltk._rust import js_divergence
+
+    js_value = js_divergence(ref.tolist(), cur.tolist(), 10)
     passed = js_value < threshold
     return assert_true(
         passed, name="data.drift.js",
