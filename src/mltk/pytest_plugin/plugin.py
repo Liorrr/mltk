@@ -180,15 +180,31 @@ def ml_report(request) -> MltkReportCollector:  # type: ignore[no-untyped-def]
 
 
 def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
-    """Capture test results for mltk report."""
-    if call.when != "call":
-        return
+    """Capture test results for mltk report.
 
+    Records the call phase (pass/fail) and setup-phase errors (a test whose
+    fixture raised never reaches the call phase — omitting it would make the
+    export under-count). Skips — ``pytest.skip()`` in the body or a skipif
+    marker firing in setup — raise ``Skipped`` and are NOT results: recording
+    them as failures put phantom failures in the JSON/MLflow/server exports.
+    """
     collector = getattr(item.config, "_mltk_collector", None)
     if collector is None:
         return
 
-    outcome = "passed" if call.excinfo is None else "failed"
+    if call.excinfo is not None and call.excinfo.errisinstance(
+        pytest.skip.Exception
+    ):
+        return  # skipped — neither passed nor failed
+    if call.when == "setup":
+        if call.excinfo is None:
+            return  # normal setup; the call phase will record the result
+        outcome = "failed"  # fixture/setup error: the test did not pass
+    elif call.when == "call":
+        outcome = "passed" if call.excinfo is None else "failed"
+    else:
+        return  # teardown: the call phase already recorded this test
+
     duration = call.duration if hasattr(call, "duration") else 0.0
 
     # Extract MltkAssertionError result if available

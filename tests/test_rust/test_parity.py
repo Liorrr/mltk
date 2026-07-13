@@ -173,6 +173,26 @@ class TestChiSquared:
         (_, rust_p), (_, py_p) = _both(monkeypatch, _rust.chi_squared, obs, exp)
         assert rust_p == pytest.approx(py_p, rel=1e-6, abs=1e-9)
 
+    @pytest.mark.parametrize(
+        ("obs", "exp"),
+        [*CASES, pytest.param([50.0, 60.0, 40.0], [50.0, 50.0, 50.0], id="mid-p")],
+    )
+    def test_numpy_fallback_p_value(self, monkeypatch, obs, exp) -> None:
+        """The scipy-less numpy path (Wilson-Hilferty + erfc) must track the
+        exact p-value closely. ``_both`` can't reach it — with RUST_AVAILABLE
+        off the bridge tries scipy first, and CI always has scipy. The
+        pre-fix exp(-0.7|z|) normal-CDF approximation deviated by up to
+        ~0.09 in p — enough to flip borderline assertions. Wilson-Hilferty
+        itself is approximation-bounded, hence abs=5e-3 (not 1e-9).
+        """
+        import sys
+
+        (_, rust_p) = _rust.chi_squared(obs, exp)
+        monkeypatch.setattr(_rust, "RUST_AVAILABLE", False)
+        monkeypatch.setitem(sys.modules, "scipy.stats", None)
+        (_, numpy_p) = _rust.chi_squared(obs, exp)
+        assert numpy_p == pytest.approx(rust_p, abs=5e-3)
+
 
 # ===================================================================
 # Vector functions
