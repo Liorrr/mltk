@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import threading
 from datetime import datetime, timezone
 
 from mltk.server.webhooks import WebhookConfig
@@ -85,9 +86,11 @@ class Storage:
 
     def __init__(self, db_path: str = "mltk_server.db") -> None:
         self.db_path = db_path
+        self._lock = threading.Lock()
         self._conn: sqlite3.Connection = sqlite3.connect(
             db_path, check_same_thread=False,
         )
+        self._conn.row_factory = sqlite3.Row
         self._init_db()
 
     # ------------------------------------------------------------------
@@ -140,16 +143,18 @@ class Storage:
         """Initialise the database — configure pragmas then run migrations."""
         conn = self._conn
 
-        # --- Pragmas (connection-level, not versioned) -------------------
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys = ON")
+        with self._lock:
+            # --- Pragmas (connection-level, not versioned) -------------------
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys = ON")
 
-        # --- Versioned migrations ----------------------------------------
-        self._migrate(conn)
+            # --- Versioned migrations ----------------------------------------
+            self._migrate(conn)
 
     def close(self) -> None:
         """Close the underlying database connection."""
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
     def save_run(self, project: str, results: list[dict]) -> int:  # type: ignore[type-arg]
         """Save a test run with all results. Returns run_id.
@@ -173,37 +178,38 @@ class Storage:
         timestamp = datetime.now(tz=timezone.utc).isoformat()
 
         conn = self._conn
-        cursor = conn.execute(
-            """
-            INSERT INTO runs (project, timestamp, total, passed, failed, score, duration_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (project, timestamp, total, passed, failed, score, duration_ms),
-        )
-        run_id = cursor.lastrowid
-
-        if results:
-            result_rows = [
-                (
-                    run_id,
-                    str(r.get("name", "")),
-                    1 if r.get("passed", False) else 0,
-                    str(r.get("severity", "info")),
-                    str(r.get("message", "")),
-                    json.dumps(r.get("details", {}), default=str),
-                    float(r.get("duration_ms", 0.0)),
-                )
-                for r in results
-            ]
-            conn.executemany(
+        with self._lock:
+            cursor = conn.execute(
                 """
-                INSERT INTO results
-                    (run_id, name, passed, severity, message, details_json, duration_ms)
+                INSERT INTO runs (project, timestamp, total, passed, failed, score, duration_ms)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                result_rows,
+                (project, timestamp, total, passed, failed, score, duration_ms),
             )
-        conn.commit()
+            run_id = cursor.lastrowid
+
+            if results:
+                result_rows = [
+                    (
+                        run_id,
+                        str(r.get("name", "")),
+                        1 if r.get("passed", False) else 0,
+                        str(r.get("severity", "info")),
+                        str(r.get("message", "")),
+                        json.dumps(r.get("details", {}), default=str),
+                        float(r.get("duration_ms", 0.0)),
+                    )
+                    for r in results
+                ]
+                conn.executemany(
+                    """
+                    INSERT INTO results
+                        (run_id, name, passed, severity, message, details_json, duration_ms)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    result_rows,
+                )
+            conn.commit()
 
         return run_id  # type: ignore[return-value]
 
@@ -222,29 +228,28 @@ class Storage:
             List of run summary dicts.
         """
         conn = self._conn
-        conn.row_factory = sqlite3.Row
-        if project is not None:
-            rows = conn.execute(
-                """
-                SELECT id, project, timestamp, total, passed, failed, score, duration_ms
-                FROM runs
-                WHERE project = ?
-                ORDER BY id DESC
-                LIMIT ?
-                """,
-                (project, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                """
-                SELECT id, project, timestamp, total, passed, failed, score, duration_ms
-                FROM runs
-                ORDER BY id DESC
-                LIMIT ?
-                """,
-                (limit,),
-            ).fetchall()
-        conn.row_factory = None
+        with self._lock:
+            if project is not None:
+                rows = conn.execute(
+                    """
+                    SELECT id, project, timestamp, total, passed, failed, score, duration_ms
+                    FROM runs
+                    WHERE project = ?
+                    ORDER BY id DESC
+                    LIMIT ?
+                    """,
+                    (project, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT id, project, timestamp, total, passed, failed, score, duration_ms
+                    FROM runs
+                    ORDER BY id DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                ).fetchall()
         return [dict(row) for row in rows]
 
     def get_run(self, run_id: int) -> dict | None:  # type: ignore[type-arg]
@@ -257,26 +262,23 @@ class Storage:
             Dict with run summary and 'results' list, or None if not found.
         """
         conn = self._conn
-        conn.row_factory = sqlite3.Row
+        with self._lock:
+            run_row = conn.execute(
+                "SELECT id, project, timestamp, total, passed, failed, score, duration_ms "
+                "FROM runs WHERE id = ?",
+                (run_id,),
+            ).fetchone()
 
-        run_row = conn.execute(
-            "SELECT id, project, timestamp, total, passed, failed, score, duration_ms "
-            "FROM runs WHERE id = ?",
-            (run_id,),
-        ).fetchone()
+            if run_row is None:
+                return None
 
-        if run_row is None:
-            conn.row_factory = None
-            return None
+            result_rows = conn.execute(
+                "SELECT id, name, passed, severity, message, details_json, duration_ms "
+                "FROM results WHERE run_id = ? ORDER BY id",
+                (run_id,),
+            ).fetchall()
 
         run = dict(run_row)
-
-        result_rows = conn.execute(
-            "SELECT id, name, passed, severity, message, details_json, duration_ms "
-            "FROM results WHERE run_id = ? ORDER BY id",
-            (run_id,),
-        ).fetchall()
-        conn.row_factory = None
 
         run_results = []
         for row in result_rows:
@@ -306,18 +308,17 @@ class Storage:
             List of dicts with keys: id, timestamp, score, passed, failed, total.
         """
         conn = self._conn
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            """
-            SELECT id, timestamp, score, passed, failed, total
-            FROM runs
-            WHERE project = ?
-            ORDER BY id DESC
-            LIMIT ?
-            """,
-            (project, limit),
-        ).fetchall()
-        conn.row_factory = None
+        with self._lock:
+            rows = conn.execute(
+                """
+                SELECT id, timestamp, score, passed, failed, total
+                FROM runs
+                WHERE project = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (project, limit),
+            ).fetchall()
 
         # Return in chronological order so charts render left-to-right
         return list(reversed([dict(row) for row in rows]))
@@ -335,11 +336,12 @@ class Storage:
         """
         timestamp = datetime.now(tz=timezone.utc).isoformat()
         conn = self._conn
-        conn.execute(
-            "INSERT INTO api_keys (key_hash, project, created_at) VALUES (?, ?, ?)",
-            (key_hash, project, timestamp),
-        )
-        conn.commit()
+        with self._lock:
+            conn.execute(
+                "INSERT INTO api_keys (key_hash, project, created_at) VALUES (?, ?, ?)",
+                (key_hash, project, timestamp),
+            )
+            conn.commit()
 
     def verify_api_key(self, key_hash: str) -> str | None:
         """Look up a key hash and return the associated project name.
@@ -351,10 +353,11 @@ class Storage:
             Project name if found, else None.
         """
         conn = self._conn
-        row = conn.execute(
-            "SELECT project FROM api_keys WHERE key_hash = ?",
-            (key_hash,),
-        ).fetchone()
+        with self._lock:
+            row = conn.execute(
+                "SELECT project FROM api_keys WHERE key_hash = ?",
+                (key_hash,),
+            ).fetchone()
         return row[0] if row else None
 
     # ------------------------------------------------------------------
@@ -375,11 +378,12 @@ class Storage:
         timestamp = datetime.now(tz=timezone.utc).isoformat()
         events_json = json.dumps(events)
         conn = self._conn
-        cursor = conn.execute(
-            "INSERT INTO webhooks (url, events_json, project, created_at) VALUES (?, ?, ?, ?)",
-            (url, events_json, project, timestamp),
-        )
-        conn.commit()
+        with self._lock:
+            cursor = conn.execute(
+                "INSERT INTO webhooks (url, events_json, project, created_at) VALUES (?, ?, ?, ?)",
+                (url, events_json, project, timestamp),
+            )
+            conn.commit()
         return cursor.lastrowid  # type: ignore[return-value]
 
     def get_webhooks(self, project: str | None = None) -> list[WebhookConfig]:
@@ -394,18 +398,17 @@ class Storage:
             List of WebhookConfig objects.
         """
         conn = self._conn
-        conn.row_factory = sqlite3.Row
-        if project is not None:
-            rows = conn.execute(
-                "SELECT id, url, events_json, project FROM webhooks "
-                "WHERE project = ? OR project IS NULL",
-                (project,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT id, url, events_json, project FROM webhooks"
-            ).fetchall()
-        conn.row_factory = None
+        with self._lock:
+            if project is not None:
+                rows = conn.execute(
+                    "SELECT id, url, events_json, project FROM webhooks "
+                    "WHERE project = ? OR project IS NULL",
+                    (project,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT id, url, events_json, project FROM webhooks"
+                ).fetchall()
 
         configs: list[WebhookConfig] = []
         for row in rows:
@@ -433,9 +436,10 @@ class Storage:
             True if a row was deleted, False if the id did not exist.
         """
         conn = self._conn
-        cursor = conn.execute(
-            "DELETE FROM webhooks WHERE id = ?",
-            (webhook_id,),
-        )
-        conn.commit()
+        with self._lock:
+            cursor = conn.execute(
+                "DELETE FROM webhooks WHERE id = ?",
+                (webhook_id,),
+            )
+            conn.commit()
         return cursor.rowcount > 0

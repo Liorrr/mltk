@@ -33,12 +33,42 @@ _DEFAULT_THRESHOLDS: dict[str, float] = {
     "auto": 0.05,       # Auto: uses method-specific threshold
 }
 
+def _resolve_default_drift_config(
+    method: str | None,
+    threshold: float | None,
+) -> tuple[str, float]:
+    """Resolve omitted drift options from config, safely."""
+    if method is not None and threshold is not None:
+        return method, threshold
+
+    try:
+        from mltk.core.config import MltkConfig
+
+        config = MltkConfig.load()
+    except Exception:  # noqa: BLE001
+        config = None
+
+    explicit_fields = getattr(config, "explicit_fields", set())
+
+    if method is None:
+        if config is not None and "drift_method" in explicit_fields:
+            method = config.drift_method
+        else:
+            method = "ks"
+    if threshold is None:
+        if config is not None and "drift_threshold" in explicit_fields:
+            threshold = config.drift_threshold
+        else:
+            threshold = _DEFAULT_THRESHOLDS[method]
+
+    return method, threshold
+
 
 @timed_assertion
 def assert_no_drift(
     reference: pd.Series,
     current: pd.Series,
-    method: str = "ks",
+    method: str | None = None,
     threshold: float | None = None,
     severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
@@ -49,8 +79,10 @@ def assert_no_drift(
         current: Current distribution to compare against baseline.
         method: Detection method -- "ks", "psi", "kl", "js",
             "wasserstein", "chi2", or "auto" (Wasserstein for n>1000,
-            KS otherwise).
-        threshold: Custom threshold. If None, uses method-specific default.
+            KS otherwise). Resolution order: explicit argument >
+            explicitly set mltk.yaml/env config > default "ks".
+        threshold: Custom threshold. Resolution order: explicit argument >
+            explicitly set mltk.yaml/env config > method-specific default.
         severity: Severity level for the assertion (default CRITICAL).
 
     Returns:
@@ -59,6 +91,8 @@ def assert_no_drift(
     Example:
         >>> assert_no_drift(train_df["income"], prod_df["income"], method="psi")
     """
+    method, threshold = _resolve_default_drift_config(method, threshold)
+
     if method not in _DEFAULT_THRESHOLDS:
         return assert_true(
             False,
@@ -67,7 +101,7 @@ def assert_no_drift(
             severity=severity,
         )
 
-    thresh = threshold if threshold is not None else _DEFAULT_THRESHOLDS[method]
+    thresh = threshold
 
     # Chi2 works on categorical data -- skip float conversion
     if method == "chi2":

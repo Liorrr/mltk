@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 _CATEGORY_LABELS: dict[str, str] = {
     "data": "Data Quality",
     "model": "Model Quality",
+    "container": "Container Security",
+    "cost": "Cost Tracking",
+    "eval": "Evaluation",
     "domains.llm": "LLM Evaluation",
     "domains.nlp": "NLP",
     "domains.cv": "Computer Vision",
@@ -33,12 +36,15 @@ _CATEGORY_LABELS: dict[str, str] = {
 }
 
 # Ordered list of subpackage dotted paths to scan, relative to ``mltk.``.
-# We use an explicit list instead of recursive walk so that heavy optional
-# dependencies (e.g., ``mltk.server``, ``mltk.integrations``) are never
-# imported.
+# We use an explicit target list instead of walking all of ``mltk`` so
+# heavy optional dependencies (e.g., ``mltk.server``, ``mltk.integrations``)
+# are never imported.
 _SCAN_TARGETS: list[str] = [
     "mltk.data",
     "mltk.model",
+    "mltk.container",
+    "mltk.cost",
+    "mltk.eval",
     "mltk.domains.llm",
     "mltk.domains.nlp",
     "mltk.domains.cv",
@@ -84,12 +90,13 @@ def _collect_from_package(
 
     If the package exposes ``__all__``, only names listed there are
     considered.  Otherwise every public ``assert_*`` callable is
-    included.  We then walk one level of child modules so that
-    functions defined directly in submodules (but not re-exported
-    in ``__init__``) are also discovered.
+    included.  We then recursively walk child modules and packages so
+    that functions defined directly in submodules, or re-exported by
+    nested subpackages, are also discovered.
     """
     entries: list[dict[str, str]] = []
     seen_names: set[str] = set()
+    seen_modules: set[str] = {pkg_name}
 
     try:
         pkg = importlib.import_module(pkg_name)
@@ -97,57 +104,71 @@ def _collect_from_package(
         logger.debug("Could not import %s", pkg_name)
         return entries
 
-    export_names: list[str] | None = getattr(pkg, "__all__", None)
+    def collect_package_exports(package: Any, package_name: str) -> None:
+        export_names: list[str] | None = getattr(package, "__all__", None)
+        candidates = export_names if export_names is not None else dir(package)
+        for name in candidates:
+            if not name.startswith("assert_"):
+                continue
+            if name in seen_names:
+                continue
+            obj = getattr(package, name, None)
+            if obj is None or not callable(obj):
+                continue
+            # Resolve the defining module for a nicer display path.
+            src_mod = getattr(
+                inspect.unwrap(obj), "__module__", package_name
+            )
+            entries.append({
+                "name": name,
+                "module": src_mod,
+                "doc": _first_doc_line(obj),
+            })
+            seen_names.add(name)
 
-    # --- pass 1: package-level names ---
-    candidates = export_names if export_names is not None else dir(pkg)
-    for name in candidates:
-        if not name.startswith("assert_"):
-            continue
-        obj = getattr(pkg, name, None)
-        if obj is None or not callable(obj):
-            continue
-        # Resolve the defining module for a nicer display path.
-        src_mod = getattr(
-            inspect.unwrap(obj), "__module__", pkg_name
-        )
-        entries.append({
-            "name": name,
-            "module": src_mod,
-            "doc": _first_doc_line(obj),
-        })
-        seen_names.add(name)
+    def collect_module_assertions(module: Any, module_name: str) -> None:
+        for attr in dir(module):
+            if not attr.startswith("assert_"):
+                continue
+            if attr in seen_names:
+                continue
+            obj = getattr(module, attr, None)
+            if obj is None or not callable(obj):
+                continue
+            # Skip imported names (e.g. assert_true) — only include
+            # functions defined in this module.
+            obj_mod = getattr(obj, "__module__", None)
+            if obj_mod and obj_mod != module_name:
+                continue
+            entries.append({
+                "name": attr,
+                "module": module_name,
+                "doc": _first_doc_line(obj),
+            })
+            seen_names.add(attr)
 
-    # --- pass 2: child modules (one level deep) ---
-    pkg_path = getattr(pkg, "__path__", None)
-    if pkg_path is not None:
-        for _importer, mod_name, _is_pkg in pkgutil.iter_modules(
-            pkg_path
-        ):
-            full = f"{pkg_name}.{mod_name}"
+    def walk_children(package: Any, package_name: str) -> None:
+        pkg_path = getattr(package, "__path__", None)
+        if pkg_path is None:
+            return
+
+        for _importer, mod_name, is_pkg in pkgutil.iter_modules(pkg_path):
+            full = f"{package_name}.{mod_name}"
+            if full in seen_modules:
+                continue
+            seen_modules.add(full)
             try:
                 child = importlib.import_module(full)
             except Exception:  # noqa: BLE001
                 continue
-            for attr in dir(child):
-                if not attr.startswith("assert_"):
-                    continue
-                if attr in seen_names:
-                    continue
-                obj = getattr(child, attr, None)
-                if obj is None or not callable(obj):
-                    continue
-                # Skip imported names (e.g. assert_true) —
-                # only include functions defined in this module
-                obj_mod = getattr(obj, "__module__", None)
-                if obj_mod and obj_mod != full:
-                    continue
-                entries.append({
-                    "name": attr,
-                    "module": full,
-                    "doc": _first_doc_line(obj),
-                })
-                seen_names.add(attr)
+            if is_pkg:
+                collect_package_exports(child, full)
+                walk_children(child, full)
+            else:
+                collect_module_assertions(child, full)
+
+    collect_package_exports(pkg, pkg_name)
+    walk_children(pkg, pkg_name)
 
     # Stable sort by function name.
     entries.sort(key=lambda e: e["name"])

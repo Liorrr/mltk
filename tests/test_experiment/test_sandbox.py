@@ -29,7 +29,9 @@ Tests:
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -154,6 +156,99 @@ def _patch_worktree(
         "mltk.experiment.worktree.GitWorktree",
         return_value=wt_mock,
     )
+
+
+def _load_temp_module(
+    tmp_path: Path,
+    module_name: str,
+    source: str,
+) -> object:
+    """Write and import a temporary module for subprocess replay."""
+    module_path = tmp_path / f"{module_name}.py"
+    module_path.write_text(source, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        module_path,
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _make_marker_finding(
+    tmp_path: Path,
+    module_name: str,
+) -> ScanFinding:
+    """Create a finding whose replay passes only after a marker file exists."""
+    module = _load_temp_module(
+        tmp_path,
+        module_name,
+        '''
+from __future__ import annotations
+
+from pathlib import Path
+
+from mltk.core.assertion import assert_true
+
+
+def assert_marker(*, marker_path: str) -> object:
+    return assert_true(
+        Path(marker_path).exists(),
+        name="sandbox.marker",
+        message=f"{marker_path} marker must exist",
+    )
+''',
+    )
+    return ScanFinding(
+        result=TestResult(
+            name="scan_result",
+            passed=False,
+            severity=Severity.CRITICAL,
+            message="Scan found issue",
+        ),
+        assertion_fn=module.assert_marker,
+        assertion_kwargs={"marker_path": "fixed.txt"},
+        scanner_name="sandbox",
+    )
+
+
+def _run_generated_assertion_script(
+    tmp_path: Path,
+    finding: ScanFinding,
+    fix_snippet: str | None = None,
+) -> TestResult:
+    """Execute _build_assertion_script output in a real subprocess."""
+    if fix_snippet is not None:
+        (tmp_path / "_mltk_fix.py").write_text(
+            fix_snippet,
+            encoding="utf-8",
+        )
+    (tmp_path / "_mltk_assert.py").write_text(
+        _build_assertion_script(finding),
+        encoding="utf-8",
+    )
+
+    env = os.environ.copy()
+    pythonpath = [
+        str(tmp_path),
+        str(Path(__file__).resolve().parents[2] / "src"),
+    ]
+    if env.get("PYTHONPATH"):
+        pythonpath.append(env["PYTHONPATH"])
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath)
+
+    proc = subprocess.run(
+        [sys.executable, "_mltk_assert.py"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return _parse_test_result(proc.stdout)
 
 
 # -------------------------------------------------------------------
@@ -535,6 +630,65 @@ class TestBuildAssertionScript:
         script = _build_assertion_script(finding)
         assert "json.dumps" in script
         assert "print(" in script
+
+    def test_noop_fix_reruns_original_assertion_and_fails(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """A no-op fix must not pass while the original assertion fails."""
+        finding = _make_marker_finding(
+            tmp_path,
+            "sandbox_assertions_noop",
+        )
+
+        result = _run_generated_assertion_script(
+            tmp_path,
+            finding,
+            fix_snippet="# no-op\n",
+        )
+
+        assert result.name == "sandbox.assertion"
+        assert result.passed is False
+        assert result.message == "fixed.txt marker must exist"
+
+    def test_real_fix_reruns_original_assertion_and_passes(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """A fix that satisfies the original assertion passes."""
+        finding = _make_marker_finding(
+            tmp_path,
+            "sandbox_assertions_pass",
+        )
+
+        result = _run_generated_assertion_script(
+            tmp_path,
+            finding,
+            fix_snippet=(
+                "from pathlib import Path\n"
+                "Path('fixed.txt').write_text('fixed', encoding='utf-8')\n"
+            ),
+        )
+
+        assert result.name == "sandbox.assertion"
+        assert result.passed is True
+
+    def test_unserializable_kwargs_emit_unsupported_failure(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Unserializable assertion kwargs must never fabricate a pass."""
+        finding = _make_marker_finding(
+            tmp_path,
+            "sandbox_assertions_unserializable",
+        )
+        finding.assertion_kwargs = {"marker_path": object()}
+
+        result = _run_generated_assertion_script(tmp_path, finding)
+
+        assert result.name == "sandbox.unsupported"
+        assert result.passed is False
+        assert "JSON-serializable" in result.message
 
 
 class TestIntegration:

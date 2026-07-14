@@ -33,9 +33,9 @@ class TestMltkScan:
     """Tests for the mltk_scan tool."""
 
     def test_scan_valid_file(self, tmp_path):
-        # SCENARIO: Scan a real .py file
-        # WHY: Core happy path -- single Python file scan
-        # EXPECTED: status=ok, python_files contains the filename
+        # SCENARIO: Request mltk_scan for a real .py file
+        # WHY: A Python path alone is only enough for static listing
+        # EXPECTED: status=ok, no scan performed, file is listed
         py_file = tmp_path / "model.py"
         py_file.write_text("x = 1\n")
 
@@ -43,8 +43,31 @@ class TestMltkScan:
             result = call_tool("mltk_scan", path=str(py_file))
 
         assert_ok(result)
+        assert result["scan_performed"] is False
+        assert "static file listing" in result["message"]
+        assert "model + data" in result["message"]
         assert "python_files" in result
         assert "model.py" in result["python_files"]
+
+    def test_scan_valid_file_does_not_construct_engine(self, tmp_path):
+        # SCENARIO: Request mltk_scan for a Python file
+        # WHY: The MCP tool cannot run ML/data scanners from path alone
+        # EXPECTED: ScanEngine is not constructed for static listing
+        py_file = tmp_path / "model.py"
+        py_file.write_text("x = 1\n")
+        mock_engine = MagicMock(name="ScanEngine")
+
+        with patch.multiple(
+            "mltk.scan",
+            ScanConfig=MagicMock(name="ScanConfig"),
+            ScanEngine=mock_engine,
+            create=True,
+        ):
+            result = call_tool("mltk_scan", path=str(py_file))
+
+        assert_ok(result)
+        assert result["scan_performed"] is False
+        mock_engine.assert_not_called()
 
     def test_scan_nonexistent_path(self):
         # SCENARIO: Scan a path that does not exist
@@ -94,9 +117,9 @@ class TestMltkScan:
         assert result["enabled"] == "all"
 
     def test_scan_directory(self, tmp_path):
-        # SCENARIO: Scan a directory with .py files
-        # WHY: Directory mode lists Python files in the tree
-        # EXPECTED: status=ok, file_count > 0
+        # SCENARIO: Request mltk_scan for a directory with .py files
+        # WHY: Directory mode lists Python files without running scanners
+        # EXPECTED: status=ok, no scan performed, file_count > 0
         (tmp_path / "a.py").write_text("pass\n")
         (tmp_path / "b.py").write_text("pass\n")
 
@@ -104,6 +127,8 @@ class TestMltkScan:
             result = call_tool("mltk_scan", path=str(tmp_path))
 
         assert_ok(result)
+        assert result["scan_performed"] is False
+        assert "static file listing" in result["message"]
         assert result["file_count"] > 0
         assert len(result["python_files"]) >= 2
 
@@ -122,6 +147,7 @@ class TestMltkScan:
             result = call_tool("mltk_scan", path=str(report))
 
         assert_ok(result)
+        assert result["scan_performed"] is True
         assert "findings" in result
         assert len(result["findings"]) == 1
         assert result["findings"][0]["type"] == "drift"

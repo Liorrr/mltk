@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.config import MltkConfig
 from mltk.data.drift import assert_no_drift
 
 
@@ -132,6 +133,110 @@ class TestDriftEdgeCases:
         with pytest.raises(MltkAssertionError) as exc:
             assert_no_drift(reference_series, reference_series, method="invalid")
         assert "Unknown method" in str(exc.value)
+
+
+class TestConfigBackedDefaults:
+    """assert_no_drift reads config only for omitted method/threshold args."""
+
+    def test_no_config_uses_legacy_ks_default(
+        self,
+        reference_series: pd.Series,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        """No explicit config keeps the historical method='ks' default."""
+        monkeypatch.chdir(tmp_path)
+
+        result = assert_no_drift(reference_series, reference_series)
+
+        assert result.details["method"] == "ks"
+        assert result.details["threshold"] == pytest.approx(0.05)
+
+    def test_explicit_method_uses_method_specific_threshold_without_config(
+        self,
+        reference_series: pd.Series,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        """method='psi' without threshold keeps the PSI table default."""
+        monkeypatch.chdir(tmp_path)
+
+        result = assert_no_drift(reference_series, reference_series, method="psi")
+
+        assert result.details["method"] == "psi"
+        assert result.details["threshold"] == pytest.approx(0.1)
+
+    def test_env_vars_change_default_method_and_threshold(
+        self,
+        reference_series: pd.Series,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """MLTK_DRIFT_METHOD/THRESHOLD are used when args are omitted."""
+        monkeypatch.setenv("MLTK_DRIFT_METHOD", "psi")
+        monkeypatch.setenv("MLTK_DRIFT_THRESHOLD", "0.2")
+
+        result = assert_no_drift(reference_series, reference_series)
+
+        assert result.details["method"] == "psi"
+        assert result.details["threshold"] == pytest.approx(0.2)
+
+    def test_yaml_config_changes_default_method_and_threshold(
+        self,
+        reference_series: pd.Series,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        """mltk.yaml fields are explicit defaults for omitted args."""
+        (tmp_path / "mltk.yaml").write_text(
+            "drift_method: psi\ndrift_threshold: 0.2\n",
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = assert_no_drift(reference_series, reference_series)
+
+        assert result.details["method"] == "psi"
+        assert result.details["threshold"] == pytest.approx(0.2)
+
+    def test_explicit_method_and_threshold_win_over_env(
+        self,
+        reference_series: pd.Series,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Explicit args keep the old direct-call behavior over config."""
+        monkeypatch.setenv("MLTK_DRIFT_METHOD", "psi")
+        monkeypatch.setenv("MLTK_DRIFT_THRESHOLD", "0.2")
+
+        result = assert_no_drift(
+            reference_series,
+            reference_series,
+            method="ks",
+            threshold=0.01,
+        )
+
+        assert result.details["method"] == "ks"
+        assert result.details["threshold"] == pytest.approx(0.01)
+
+    def test_config_load_failure_falls_back_to_hardcoded_defaults(
+        self,
+        reference_series: pd.Series,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A broken config must not crash implicit drift assertions."""
+        called = False
+
+        def raise_config_error() -> MltkConfig:
+            nonlocal called
+            called = True
+            raise ValueError("bad config")
+
+        monkeypatch.setattr(MltkConfig, "load", staticmethod(raise_config_error))
+
+        result = assert_no_drift(reference_series, reference_series)
+
+        assert called is True
+        assert result.details["method"] == "ks"
+        assert result.details["threshold"] == pytest.approx(0.05)
 
 
 class TestAutoMethodThreshold:

@@ -39,9 +39,18 @@ class MltkConfig:
     pii_patterns: list[str] = field(
         default_factory=lambda: ["email", "phone", "ssn", "credit_card"]
     )
+    explicit_fields: set[str] = field(
+        default_factory=set,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         """Validate configuration values after initialization."""
+        self._validate()
+
+    def _validate(self) -> None:
+        """Validate configuration values."""
         if self.drift_threshold < 0 or self.drift_threshold > 1:
             raise ValueError(f"drift_threshold must be 0-1, got {self.drift_threshold}")
         valid_methods = {"ks", "psi", "kl", "chi2", "js", "wasserstein", "auto"}
@@ -113,43 +122,58 @@ class MltkConfig:
         drift_method = os.environ.get("MLTK_DRIFT_METHOD")
         if drift_method is not None:
             config.drift_method = drift_method
+            config.explicit_fields.add("drift_method")
 
         drift_threshold = os.environ.get("MLTK_DRIFT_THRESHOLD")
         if drift_threshold is not None:
             config.drift_threshold = float(drift_threshold)
+            config.explicit_fields.add("drift_threshold")
 
         report_dir = os.environ.get("MLTK_REPORT_DIR")
         if report_dir is not None:
             config.report_dir = report_dir
+            config.explicit_fields.add("report_dir")
 
         report_format = os.environ.get("MLTK_REPORT_FORMAT")
         if report_format is not None:
             config.report_format = report_format
+            config.explicit_fields.add("report_format")
 
         baseline_dir = os.environ.get("MLTK_BASELINE_DIR")
         if baseline_dir is not None:
             config.baseline_dir = baseline_dir
+            config.explicit_fields.add("baseline_dir")
 
         seed = os.environ.get("MLTK_SEED")
         if seed is not None:
             config.seed = int(seed)
+            config.explicit_fields.add("seed")
 
         pii_patterns = os.environ.get("MLTK_PII_PATTERNS")
         if pii_patterns is not None:
             config.pii_patterns = [p.strip() for p in pii_patterns.split(",") if p.strip()]
+            config.explicit_fields.add("pii_patterns")
 
         api_key = os.environ.get("MLTK_API_KEY")
         if api_key is not None:
             config.api_key = api_key
+            config.explicit_fields.add("api_key")
 
+        config._validate()
         return config
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> MltkConfig:
         """Create config from a flat dict, ignoring unknown keys."""
-        known_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        known_fields = {
+            f.name
+            for f in cls.__dataclass_fields__.values()
+            if f.name != "explicit_fields"
+        }
         filtered = {k: v for k, v in data.items() if k in known_fields}
-        return cls(**filtered)
+        config = cls(**filtered)
+        config.explicit_fields = set(filtered)
+        return config
 
     @classmethod
     def _from_yaml(cls, path: Path) -> MltkConfig:

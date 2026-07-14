@@ -32,6 +32,29 @@ import pandas as pd
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+
+def _resolve_default_pii_patterns(patterns: list[str] | None) -> list[str] | None:
+    """Resolve omitted PII patterns from config, safely.
+
+    Config values apply only when the user actually set them
+    (mltk.yaml / pyproject / env); otherwise ``None`` keeps the
+    legacy all-patterns behavior.
+    """
+    if patterns is not None:
+        return patterns
+
+    try:
+        from mltk.core.config import MltkConfig
+
+        config = MltkConfig.load()
+    except Exception:  # noqa: BLE001
+        return None
+
+    if "pii_patterns" in getattr(config, "explicit_fields", set()):
+        return config.pii_patterns
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Checksum validators
 # ---------------------------------------------------------------------------
@@ -676,7 +699,8 @@ def assert_no_pii(
         df: DataFrame to scan.
         columns: Columns to scan. None = all object/string columns.
         patterns: Pattern categories to check (regex and hybrid only).
-            None = all patterns.
+            Resolution order: explicit argument > mltk.yaml/env config >
+            default all patterns if config loading fails.
         allowlist: Optional list of exact strings to suppress across
             all columns. Passed through to the scanner for each cell.
         method: Detection backend. One of ``"regex"``, ``"ner"``,
@@ -699,6 +723,8 @@ def assert_no_pii(
         >>> assert_no_pii(df, method="hybrid")
         >>> assert_no_pii(df, allowlist=["noreply@example.com"])
     """
+    patterns = _resolve_default_pii_patterns(patterns)
+
     if columns is None:
         columns = [
             col

@@ -10,7 +10,11 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S100: 241 assertions, 4838+ tests, 38 Rust tests) — v0.13.0
+## DONE (S0-S100: 241 assertions, 4891+ tests, 38 Rust tests) — v0.13.0
+
+### S101 — Adversarial-review fix batch 1 (7 high-severity findings)
+- [x] Cross-model adversarial review (3 Codex reviewers: Skeptic/Architect/Minimalist + Fable lead pass) of the 128 pre-PR-era direct-to-master commits produced ~30 deduped findings; batch 1 fixed all 7 confirmed highs via 7-worker Codex dispatch + 1 fix round: (1) experiment sandbox now replays the original assertion instead of hardcoding `passed=True`; (2) MCP `mltk_scan` reports `scan_performed` honestly; (3) **BREAKING** `on_empty="fail"` default across ~25 empty-input gates (rag/retrieval/conversation/recommendation/codegen/synthetic) + zero-IDCG query exclusion; (4) `assert_calibration` rejects out-of-range/NaN probs and non-binary labels; (5) recursive assertion discovery + container/cost/eval targets (229 discoverable, was 218); (6) env/yaml config actually consumed via new `MltkConfig.explicit_fields` provenance (explicit-only, legacy defaults preserved); (7) server storage serialized behind a lock with Row factory set once (fail-first concurrency test). Suite 4867 green.
+
 
 ### S100 — v0.13.0 milestone release (importer epic + S95–S99 → PyPI)
 - [x] Cut **v0.13.0** (first release since v0.12.7): rolled CHANGELOG (`[Unreleased]` → `[0.13.0]`, bundling S95–S99), bumped version (pyproject/Cargo/`__init__`), refreshed doc-counts + prose version, regenerated skill index. Fixed a `bump.py` history-clobber bug — `_update_backlog_header` rewrote *every* DONE bucket's version suffix; now `count=1` so historical buckets keep the version they shipped at. Ships the complete Smart Dataset Importer epic + 9 net-new assertions (S95/S96) to PyPI (`mlspec`) + Docker/GHCR via the tag-triggered Release workflow.
@@ -61,7 +65,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 241 assertions, 4838+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 241 assertions, 4891+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -172,6 +176,18 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## BACKLOG (not yet scheduled)
 
+### Adversarial-review batch 2 (confirmed mediums, 2026-07-14)
+- [ ] ~20 `zip(strict=False)` sites silently truncate mismatched inputs (cv/detection, cv/tracking, llm/judge, nlp/ner, training/distributed, testing/golden) — decide fail-vs-truncate contract
+- [ ] Fairness metrics coerce undefined per-group TPR/FPR/PPV to 0.0 → false bias alarms (`model/bias.py`) — skip-or-report-undefined like conformal's `min_group_size`
+- [ ] Scan→PR JSON schema mismatch: `ScanReport.to_json()` flat fields vs MCP `_create_pr/_issue` expecting nested `result` — findings lose name/message through the advertised chain
+- [ ] Overfit scanner broadcasts shape-mismatched predictions (`scan/scanners/overfit.py::_accuracy`) — add shape check
+- [ ] `embedding_drift`: swallow-all `except (ImportError, Exception)` on Rust path + MMD first-N subsampling (order bias) — narrow exception, seeded random sample
+- [ ] Env overrides: wire or delete remaining dead config fields `report_format`/`baseline_dir`/`seed`
+- [ ] Asana/Linear adapters exported but unreachable (MCP tracker allowlist is github/jira) — wire or deprecate
+- [ ] Scan engine: model probe runs before timeout protection (`_build_context`); timed-out scanner daemon threads keep running — bound the probe, document the leak
+- [ ] `server/routes.py::submit_run` (async) does blocking webhook I/O inline — offload to thread pool or background task
+- [ ] Dedup 6× `_empty_input_result`/`_unknown_on_empty_result` helper copies (batch-1 artifact) into a shared module; also the 6 cosine/jaccard/token-overlap reimplementations flagged by the Minimalist
+
 ### URGENT — Method Fixes (S66 Audit: 3 REJECT items) — ALL DONE
 *Audit report: `docs/research/project-audit-s66.md`*
 - [x] **R-1**: S67 — Multi-method dispatch for hallucination (lexical/embedding/nli/llm)
@@ -242,7 +258,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4838+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4891+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).

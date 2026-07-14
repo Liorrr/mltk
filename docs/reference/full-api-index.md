@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-07-09 by scripts/generate_skill_index.py
+> Generated 2026-07-14 by scripts/generate_skill_index.py
 
 **241** assertions | **13** MCP tools | **29** CLI commands | **8** scanners
 
@@ -129,7 +129,7 @@ def assert_column_stdev(df: pd.DataFrame, column: str, min_val: float | None=Non
 ```
 > Assert column standard deviation is within [min_val, max_val].
 
-**`assert_correlation_preserved`** (data/synthetic.py:141)
+**`assert_correlation_preserved`** (data/synthetic.py:196)
 ```python
 def assert_correlation_preserved(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, max_delta: float=0.1, columns: list[str] | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -147,7 +147,7 @@ def assert_datetime_format(df: pd.DataFrame, column: str, fmt: str='%Y-%m-%d')
 ```
 > Assert all values in column match the specified datetime format.
 
-**`assert_dcr_safe`** (data/synthetic.py:366)
+**`assert_dcr_safe`** (data/synthetic.py:430)
 ```python
 def assert_dcr_safe(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, min_dcr: float=0.05, sample_size: int=2000, columns: list[str] | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -189,7 +189,7 @@ def assert_lineage_complete(graph: LineageGraph, expected_steps: int, severity: 
 ```
 > Assert lineage graph has the expected number of transformation steps.
 
-**`assert_marginal_fidelity`** (data/synthetic.py:35)
+**`assert_marginal_fidelity`** (data/synthetic.py:90)
 ```python
 def assert_marginal_fidelity(real: pd.Series, synthetic: pd.Series, method: str='ks', max_divergence: float=0.1, severity: Severity=Severity.CRITICAL)
 ```
@@ -201,9 +201,9 @@ def assert_no_conflicting_labels(df: pd.DataFrame, feature_cols: list[str], labe
 ```
 > Assert no rows have identical features but different labels.
 
-**`assert_no_drift`** (data/drift.py:38)
+**`assert_no_drift`** (data/drift.py:68)
 ```python
-def assert_no_drift(reference: pd.Series, current: pd.Series, method: str='ks', threshold: float | None=None, severity: Severity=Severity.CRITICAL)
+def assert_no_drift(reference: pd.Series, current: pd.Series, method: str | None=None, threshold: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
 > Assert no significant distribution drift between reference and current data.
 
@@ -213,7 +213,7 @@ def assert_no_embedding_drift(reference: Any, current: Any, method: str='cosine'
 ```
 > Assert no significant drift in embedding space.
 
-**`assert_no_multivariate_drift`** (data/drift.py:514)
+**`assert_no_multivariate_drift`** (data/drift.py:541)
 ```python
 def assert_no_multivariate_drift(reference: np.ndarray | pd.DataFrame, current: np.ndarray | pd.DataFrame, threshold: float=0.05, n_permutations: int=200, max_samples: int=500, kernel: str='rbf', sigma: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -231,7 +231,7 @@ def assert_no_outliers(series: pd.Series, method: str='iqr', threshold: float=1.
 ```
 > Assert no statistical outliers in a numeric Series.
 
-**`assert_no_pii`** (data/pii.py:648)
+**`assert_no_pii`** (data/pii.py:671)
 ```python
 def assert_no_pii(df: pd.DataFrame, columns: list[str] | None=None, patterns: list[str] | None=None, allowlist: list[str] | None=None, method: str='regex', entity_types: list[str] | None=None, score_threshold: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -261,9 +261,9 @@ def assert_schema(df: pd.DataFrame, expected: dict[str, str], allow_extra_column
 ```
 > Assert DataFrame columns and dtypes match expected schema.
 
-**`assert_synthetic_novelty`** (data/synthetic.py:256)
+**`assert_synthetic_novelty`** (data/synthetic.py:311)
 ```python
-def assert_synthetic_novelty(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, max_copy_rate: float=0.05, columns: list[str] | None=None, severity: Severity=Severity.CRITICAL)
+def assert_synthetic_novelty(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, max_copy_rate: float=0.05, columns: list[str] | None=None, on_empty: str='fail', severity: Severity=Severity.CRITICAL)
 ```
 > Assert that synthetic data is not just a copy of the real data.
 
@@ -287,27 +287,27 @@ def assert_clinical_agreement(y_true: np.ndarray, y_pred: np.ndarray, min_kappa:
 ```
 > Assert that clinical agreement (Cohen's Kappa) meets a threshold.
 
-**`assert_code_complexity`** (domains/codegen.py:475)
+**`assert_code_complexity`** (domains/codegen.py:537)
 ```python
 def assert_code_complexity(code: str, max_cyclomatic: int=10, max_lines: int=200)
 ```
 > Assert that generated code complexity stays within bounds.
 
-**`assert_code_executes`** (domains/codegen.py:204)
+**`assert_code_executes`** (domains/codegen.py:254)
 ```python
-def assert_code_executes(code: str, timeout_seconds: float=10.0, language: str='python')
+def assert_code_executes(code: str, timeout_seconds: float=10.0, language: str='python', on_empty: str='fail')
 ```
 > Assert that generated code executes without errors.
 
-**`assert_code_passes_tests`** (domains/codegen.py:306)
+**`assert_code_passes_tests`** (domains/codegen.py:362)
 ```python
-def assert_code_passes_tests(code: str, test_code: str, timeout_seconds: float=30.0)
+def assert_code_passes_tests(code: str, test_code: str, timeout_seconds: float=30.0, on_empty: str='fail')
 ```
 > Assert that generated code passes a test suite.
 
-**`assert_coverage`** (domains/recommendation.py:319)
+**`assert_coverage`** (domains/recommendation.py:393)
 ```python
-def assert_coverage(recommended: list[list], catalog_size: int, min_coverage: float=0.1)
+def assert_coverage(recommended: list[list], catalog_size: int, min_coverage: float=0.1, on_empty: str='fail')
 ```
 > Assert that catalog coverage meets a minimum threshold.
 
@@ -317,27 +317,27 @@ def assert_cumulative_reward(rewards: np.ndarray | list, min_cumulative: float)
 ```
 > Assert that cumulative episode reward meets a minimum threshold.
 
-**`assert_diversity`** (domains/recommendation.py:124)
+**`assert_diversity`** (domains/recommendation.py:181)
 ```python
-def assert_diversity(recommended: list[list], item_categories: dict, min_diversity: float=0.5)
+def assert_diversity(recommended: list[list], item_categories: dict, min_diversity: float=0.5, on_empty: str='fail')
 ```
 > Assert that recommendation diversity meets a minimum threshold.
 
-**`assert_hit_rate`** (domains/recommendation.py:45)
+**`assert_hit_rate`** (domains/recommendation.py:95)
 ```python
-def assert_hit_rate(recommended: list[list], relevant: list[set], min_rate: float=0.5)
+def assert_hit_rate(recommended: list[list], relevant: list[set], min_rate: float=0.5, on_empty: str='fail')
 ```
 > Assert that hit rate meets a minimum threshold.
 
-**`assert_no_code_vulnerabilities`** (domains/codegen.py:391)
+**`assert_no_code_vulnerabilities`** (domains/codegen.py:453)
 ```python
 def assert_no_code_vulnerabilities(code: str, rules: list[str] | None=None)
 ```
 > Assert that generated code contains no security vulnerabilities.
 
-**`assert_novelty`** (domains/recommendation.py:225)
+**`assert_novelty`** (domains/recommendation.py:292)
 ```python
-def assert_novelty(recommended: list[list], popularity: dict, min_novelty: float=0.3)
+def assert_novelty(recommended: list[list], popularity: dict, min_novelty: float=0.3, on_empty: str='fail')
 ```
 > Assert that recommendation novelty meets a minimum threshold.
 
@@ -365,9 +365,9 @@ def assert_sensitivity(y_true: np.ndarray, y_pred: np.ndarray, min_sensitivity: 
 ```
 > Assert that model sensitivity meets a minimum threshold.
 
-**`assert_serendipity`** (domains/recommendation.py:393)
+**`assert_serendipity`** (domains/recommendation.py:474)
 ```python
-def assert_serendipity(recommended: list[list], expected: list[list], relevant: list[set], min_serendipity: float=0.1)
+def assert_serendipity(recommended: list[list], expected: list[list], relevant: list[set], min_serendipity: float=0.1, on_empty: str='fail')
 ```
 > Assert that recommendation serendipity meets a minimum threshold.
 
@@ -463,9 +463,9 @@ def assert_agent_handoff(agent_names: list[str], expected_flow: list[str], stric
 ```
 > Assert that agent handoffs follow an expected flow.
 
-**`assert_answer_relevancy`** (domains/llm/rag.py:277)
+**`assert_answer_relevancy`** (domains/llm/rag.py:339)
 ```python
-def assert_answer_relevancy(question: str, answer: str, min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_answer_relevancy(question: str, answer: str, min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
 ```
 > Assert answer addresses the question.
 
@@ -481,21 +481,21 @@ def assert_coherence(text: str, min_score: float=0.3)
 ```
 > Assert text is internally coherent.
 
-**`assert_context_precision`** (domains/llm/rag.py:405)
+**`assert_context_precision`** (domains/llm/rag.py:472)
 ```python
-def assert_context_precision(relevant_ids: list[str], retrieved_ids: list[str], min_precision: float=0.5)
+def assert_context_precision(relevant_ids: list[str], retrieved_ids: list[str], min_precision: float=0.5, on_empty: str='fail')
 ```
 > Assert precision of retrieval: |relevant ∩ retrieved| / |retrieved|.
 
-**`assert_context_recall`** (domains/llm/rag.py:465)
+**`assert_context_recall`** (domains/llm/rag.py:540)
 ```python
-def assert_context_recall(relevant_ids: list[str], retrieved_ids: list[str], min_recall: float=0.5)
+def assert_context_recall(relevant_ids: list[str], retrieved_ids: list[str], min_recall: float=0.5, on_empty: str='fail')
 ```
 > Assert recall of retrieval: |relevant ∩ retrieved| / |relevant|.
 
-**`assert_context_relevancy`** (domains/llm/rag.py:149)
+**`assert_context_relevancy`** (domains/llm/rag.py:206)
 ```python
-def assert_context_relevancy(question: str, context: str | list[str], min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_context_relevancy(question: str, context: str | list[str], min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
 ```
 > Assert retrieved context is relevant to the question.
 
@@ -505,9 +505,9 @@ def assert_context_utilization(model_fn: Callable[[str], str], facts: list[str],
 ```
 > Assert that an LLM uses facts from across its full context window.
 
-**`assert_conversation_completeness`** (domains/llm/conversation.py:192)
+**`assert_conversation_completeness`** (domains/llm/conversation.py:266)
 ```python
-def assert_conversation_completeness(turns: list[dict[str, str]], expected_topics: list[str], min_coverage: float=0.8)
+def assert_conversation_completeness(turns: list[dict[str, str]], expected_topics: list[str], min_coverage: float=0.8, on_empty: str='fail')
 ```
 > Assert conversation covers all expected topics.
 
@@ -523,9 +523,9 @@ def assert_error_recovery(trace: AgentTrace, max_consecutive_errors: int=3)
 ```
 > Assert the agent does not produce long streaks of consecutive errors.
 
-**`assert_faithfulness`** (domains/llm/rag.py:22)
+**`assert_faithfulness`** (domains/llm/rag.py:72)
 ```python
-def assert_faithfulness(answer: str, context: str | list[str], min_score: float=0.7, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_faithfulness(answer: str, context: str | list[str], min_score: float=0.7, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
 ```
 > Assert answer is grounded in the provided context.
 
@@ -541,27 +541,27 @@ def assert_json_schema(output: Any, schema: dict, *, severity: Severity=Severity
 ```
 > Assert that output conforms to a JSON Schema.
 
-**`assert_knowledge_retention`** (domains/llm/conversation.py:16)
+**`assert_knowledge_retention`** (domains/llm/conversation.py:66)
 ```python
-def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7)
+def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7, on_empty: str='fail')
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:366)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:372)
 ```python
 def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None)
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:225)
+**`assert_llm_judge_score`** (domains/llm/judge.py:231)
 ```python
 def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None)
 ```
 > Assert that LLM responses meet a minimum quality score via judge evaluation.
 
-**`assert_map_at_k`** (domains/llm/retrieval.py:331)
+**`assert_map_at_k`** (domains/llm/retrieval.py:455)
 ```python
-def assert_map_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_map: float=0.5)
+def assert_map_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_map: float=0.5, on_empty: str='fail')
 ```
 > Assert that Mean Average Precision@K meets a minimum threshold.
 
@@ -595,15 +595,15 @@ def assert_mcp_tool_selection(trace: McpTrace, expected_tools: Sequence[str], se
 ```
 > Assert that an MCP trace contains the expected tools.
 
-**`assert_mrr`** (domains/llm/retrieval.py:175)
+**`assert_mrr`** (domains/llm/retrieval.py:252)
 ```python
-def assert_mrr(queries_results: list[list[bool]], min_mrr: float=0.5)
+def assert_mrr(queries_results: list[list[bool]], min_mrr: float=0.5, on_empty: str='fail')
 ```
 > Assert that Mean Reciprocal Rank meets a minimum threshold.
 
-**`assert_ndcg`** (domains/llm/retrieval.py:95)
+**`assert_ndcg`** (domains/llm/retrieval.py:146)
 ```python
-def assert_ndcg(y_true: list[list[int]], y_scores: list[list[float]], k: int=10, min_ndcg: float=0.8)
+def assert_ndcg(y_true: list[list[int]], y_scores: list[list[float]], k: int=10, min_ndcg: float=0.8, on_empty: str='fail')
 ```
 > Assert that mean nDCG@k meets a minimum threshold.
 
@@ -691,9 +691,9 @@ def assert_readability(text: str, max_grade_level: float=12.0)
 ```
 > Assert text readability using Flesch-Kincaid grade level.
 
-**`assert_recall_at_k`** (domains/llm/retrieval.py:253)
+**`assert_recall_at_k`** (domains/llm/retrieval.py:354)
 ```python
-def assert_recall_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_recall: float=0.8)
+def assert_recall_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_recall: float=0.8, on_empty: str='fail')
 ```
 > Assert that mean Recall@K meets a minimum threshold.
 
@@ -799,9 +799,9 @@ def assert_ttft(func: Callable[..., Any], *args: Any, max_ms: float=1000.0, iter
 ```
 > Assert Time to First Token is within bounds.
 
-**`assert_turn_relevancy`** (domains/llm/conversation.py:105)
+**`assert_turn_relevancy`** (domains/llm/conversation.py:167)
 ```python
-def assert_turn_relevancy(turns: list[dict[str, str]], min_score: float=0.5)
+def assert_turn_relevancy(turns: list[dict[str, str]], min_score: float=0.5, on_empty: str='fail')
 ```
 > Assert each assistant turn is relevant to the preceding user turn.
 
@@ -901,7 +901,7 @@ def assert_attribution_cosine_stability(attributions_a: np.ndarray, attributions
 ```
 > Assert attribution vectors are directionally stable via cosine similarity.
 
-**`assert_calibration`** (model/slicing.py:196)
+**`assert_calibration`** (model/slicing.py:202)
 ```python
 def assert_calibration(y_true: Any, y_prob: Any, max_error: float=0.05, n_bins: int=10, method: str='ece')
 ```
@@ -985,7 +985,7 @@ def assert_robust(model_fn: Callable[..., Any], inputs: Any, perturbation: str='
 ```
 > Assert model predictions are stable under input perturbations.
 
-**`assert_slice_performance`** (model/slicing.py:124)
+**`assert_slice_performance`** (model/slicing.py:130)
 ```python
 def assert_slice_performance(y_true: Any, y_pred: Any, slices: dict[str, Any], metric: str='accuracy', min_threshold: float=0.7, average: str='weighted')
 ```
@@ -1504,14 +1504,14 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ### `mltk_scan` (server.py:179)
 
-> Scan an ML project for quality issues, drift, bias, and security vulnerabilities.
+> Return findings from a JSON scan report or a static Python file listing.
 
 | Param | Type | Default |
 |-------|------|---------|
 | path | `str` | *required* |
 | scanners | `str` | `'all'` |
 
-### `mltk_test` (server.py:243)
+### `mltk_test` (server.py:250)
 
 > Run an mltk test suite and return pass/fail results.
 
@@ -1520,7 +1520,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | suite_path | `str` | *required* |
 | verbose | `bool` | `False` |
 
-### `mltk_list` (server.py:334)
+### `mltk_list` (server.py:341)
 
 > List available mltk assertions for ML testing.
 
@@ -1529,7 +1529,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | filter_text | `str` | `''` |
 | domain | `str` | `''` |
 
-### `mltk_eval` (server.py:379)
+### `mltk_eval` (server.py:386)
 
 > Run an evaluation pipeline on a dataset with configurable solvers and scorers.
 
@@ -1539,7 +1539,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | scorer | `str` | `'exact_match'` |
 | solver | `str` | `'generate'` |
 
-### `mltk_dataset` (server.py:458)
+### `mltk_dataset` (server.py:465)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1548,7 +1548,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:511)
+### `mltk_report` (server.py:518)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1558,7 +1558,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:584)
+### `mltk_suggest` (server.py:591)
 
 > Get fix suggestions for a scan finding.
 
@@ -1568,7 +1568,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:667)
+### `mltk_experiment` (server.py:674)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1579,13 +1579,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:816)
+### `mltk_workflow` (server.py:823)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:866)
+### `mltk_create_pr` (server.py:873)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1597,7 +1597,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:909)
+### `mltk_create_issue` (server.py:916)
 
 > Create an issue ticket from a scan finding.
 
@@ -1609,7 +1609,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:942)
+### `mltk_container_scan` (server.py:949)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1619,7 +1619,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
 
-### `mltk_import` (server.py:1002)
+### `mltk_import` (server.py:1009)
 
 > Import a dataset into an mltk pytest suite and eval dataset.
 
@@ -1649,31 +1649,31 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | 2 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
 | 3 | `mltk scan` | 80 | Quick data quality scan on a CSV/Parquet file. |
 | 4 | `mltk drift` | 123 | Compare two datasets for distribution drift. |
-| 5 | `mltk score` | 187 | Show the ML Test Score rubric and how to generate scores. |
-| 6 | `mltk doctor` | 204 | Diagnose ML testing environment. |
-| 7 | `mltk test` | 245 | Run YAML-defined test suite. |
-| 8 | `mltk model-card` | 283 | Generate a Google Model Card from test results JSON. |
-| 9 | `mltk compliance` | 317 | Generate EU AI Act compliance report. |
-| 10 | `mltk contract init` | 352 | Scaffold an example data contract YAML file. |
-| 11 | `mltk contract validate` | 378 | Validate a data file against a contract. |
-| 12 | `mltk contract generate-tests` | 401 | Generate pytest test file from a data contract. |
-| 13 | `mltk docs serve` | 422 | Serve documentation locally with hot reload. |
-| 14 | `mltk docs build` | 451 | Build static HTML documentation. |
-| 15 | `mltk docs open` | 480 | Build docs, start a local server, and open in browser. |
-| 16 | `mltk registry push` | 539 | Push a directory of test files to the registry as a named collection. |
-| 17 | `mltk registry pull` | 560 | Pull a named collection from the registry into a local directory. |
-| 18 | `mltk registry list` | 575 | List all collections in the registry. |
-| 19 | `mltk notify slack` | 597 | Send test results (or a custom message) to Slack. |
-| 20 | `mltk import` | 669 | Import a dataset, preview mapping, build a suite, and emit pytest. |
-| 21 | `mltk chat` | 672 | Interactive Q&A about test results. |
-| 22 | `mltk server` | 684 | Start the mltk server platform. |
-| 23 | `mltk server-create-key` | 705 | Generate an API key for the mltk server. |
-| 24 | `mltk fda-audit` | 732 | Generate FDA 21 CFR Part 11 audit trail. |
-| 25 | `mltk compliance-pdf` | 755 | Convert HTML compliance report to print-ready PDF. |
-| 26 | `mltk compliance-gap` | 771 | Run compliance gap analysis across frameworks. |
-| 27 | `mltk grafana-export` | 980 | Export a Grafana dashboard JSON for mltk metrics. |
-| 28 | `mltk scan-model` | 1005 | Scan a model for issues and generate tests. |
-| 29 | `mltk list` | 1187 | List all available mltk assertions. |
+| 5 | `mltk score` | 191 | Show the ML Test Score rubric and how to generate scores. |
+| 6 | `mltk doctor` | 208 | Diagnose ML testing environment. |
+| 7 | `mltk test` | 249 | Run YAML-defined test suite. |
+| 8 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
+| 9 | `mltk compliance` | 321 | Generate EU AI Act compliance report. |
+| 10 | `mltk contract init` | 356 | Scaffold an example data contract YAML file. |
+| 11 | `mltk contract validate` | 382 | Validate a data file against a contract. |
+| 12 | `mltk contract generate-tests` | 405 | Generate pytest test file from a data contract. |
+| 13 | `mltk docs serve` | 426 | Serve documentation locally with hot reload. |
+| 14 | `mltk docs build` | 455 | Build static HTML documentation. |
+| 15 | `mltk docs open` | 484 | Build docs, start a local server, and open in browser. |
+| 16 | `mltk registry push` | 543 | Push a directory of test files to the registry as a named collection. |
+| 17 | `mltk registry pull` | 564 | Pull a named collection from the registry into a local directory. |
+| 18 | `mltk registry list` | 579 | List all collections in the registry. |
+| 19 | `mltk notify slack` | 601 | Send test results (or a custom message) to Slack. |
+| 20 | `mltk import` | 673 | Import a dataset, preview mapping, build a suite, and emit pytest. |
+| 21 | `mltk chat` | 676 | Interactive Q&A about test results. |
+| 22 | `mltk server` | 688 | Start the mltk server platform. |
+| 23 | `mltk server-create-key` | 709 | Generate an API key for the mltk server. |
+| 24 | `mltk fda-audit` | 736 | Generate FDA 21 CFR Part 11 audit trail. |
+| 25 | `mltk compliance-pdf` | 759 | Convert HTML compliance report to print-ready PDF. |
+| 26 | `mltk compliance-gap` | 775 | Run compliance gap analysis across frameworks. |
+| 27 | `mltk grafana-export` | 984 | Export a Grafana dashboard JSON for mltk metrics. |
+| 28 | `mltk scan-model` | 1009 | Scan a model for issues and generate tests. |
+| 29 | `mltk list` | 1191 | List all available mltk assertions. |
 
 ---
 

@@ -177,15 +177,18 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
 
     @mcp.tool()
     def mltk_scan(path: str, scanners: str = "all") -> str:
-        """Scan an ML project for quality issues, drift, bias, and security vulnerabilities.
+        """Return findings from a JSON scan report or a static Python file listing.
+
+        Python files and directories return a static file listing only;
+        no ML/data scan is performed because scans require model + data
+        inputs via the CLI.
 
         Args:
             path: Path to Python file, directory, or
-                JSON scan report to analyze.
+                JSON scan report to load.
             scanners: Comma-separated names or 'all'.
         """
         try:
-            from mltk.scan import ScanConfig, ScanEngine
             target = Path(path).resolve()
             if not target.exists():
                 return _error(
@@ -198,15 +201,13 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     s.strip() for s in scanners.split(",")
                     if s.strip()
                 ]
-            ScanEngine(config=ScanConfig(
-                enabled_scanners=enabled,
-            ))
             if target.suffix == ".json":
                 raw = json.loads(
                     target.read_text(encoding="utf-8")
                 )
                 findings = raw.get("findings", [])
                 return _ok(_with_hint("mltk_scan", {
+                    "scan_performed": True,
                     "findings": findings,
                     "scanners_run": raw.get("scanners_run", []),
                     "duration_ms": raw.get("duration_ms", 0),
@@ -226,6 +227,12 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 files = [target.name]
             return _ok(_with_hint("mltk_scan", {
                 "path": str(target),
+                "scan_performed": False,
+                "message": (
+                    "No ML/data scan was performed; returned a "
+                    "static file listing only. A real scan requires "
+                    "the mltk CLI with model + data."
+                ),
                 "scanners_available": _SCANNER_NAMES,
                 "enabled": enabled or "all",
                 "python_files": files,

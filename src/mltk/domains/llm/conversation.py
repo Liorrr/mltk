@@ -6,16 +6,67 @@ from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
 
+_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
+
 
 def _assistant_turns(turns: list[dict[str, str]]) -> list[str]:
     """Extract assistant message contents from a turn list."""
     return [t["content"] for t in turns if t.get("role") == "assistant"]
 
 
+def _unknown_on_empty_result(name: str, on_empty: str) -> TestResult:
+    """Return a failed result for an unsupported on_empty policy."""
+    return assert_true(
+        False,
+        name=name,
+        message=(
+            f"Unknown on_empty: '{on_empty}'. "
+            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
+        ),
+        severity=Severity.CRITICAL,
+        on_empty=on_empty,
+    )
+
+
+def _empty_input_result(
+    *,
+    name: str,
+    reason: str,
+    on_empty: str,
+    legacy_message: str,
+    **legacy_details: object,
+) -> TestResult:
+    """Apply the configured empty-input policy."""
+    if on_empty == "fail":
+        return assert_true(
+            False,
+            name=name,
+            message=f"{reason} -- empty input is not allowed",
+            severity=Severity.CRITICAL,
+        )
+    if on_empty == "skip":
+        return assert_true(
+            True,
+            name=name,
+            message=f"Skipped: {reason}",
+            severity=Severity.INFO,
+            skipped=True,
+            reason=reason,
+        )
+    return assert_true(
+        True,
+        name=name,
+        message=legacy_message,
+        severity=Severity.CRITICAL,
+        **legacy_details,
+    )
+
+
 @timed_assertion
 def assert_knowledge_retention(
     turns: list[dict[str, str]],
     min_score: float = 0.7,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert bot retains factual knowledge across conversation turns.
 
@@ -25,12 +76,16 @@ def assert_knowledge_retention(
     contradicting itself or ignoring prior context.
 
     Score = mean Jaccard overlap across all consecutive assistant-turn pairs.
-    If fewer than two assistant turns exist the score is defined as 1.0
-    (trivially retained).
+    If fewer than two assistant turns exist, ``on_empty`` controls the
+    result; the default is to fail, and ``"pass"`` preserves the legacy
+    score of 1.0.
 
     Args:
         turns: Conversation as [{"role": "user"|"assistant", "content": "..."}].
         min_score: Minimum mean overlap required (default 0.7).
+        on_empty: Policy for no evaluable assistant-turn pairs:
+            ``"fail"`` (default), ``"skip"``, or ``"pass"`` for
+            legacy behavior.
 
     Returns:
         TestResult with retention score.
@@ -44,12 +99,17 @@ def assert_knowledge_retention(
         ... ]
         >>> assert_knowledge_retention(turns, min_score=0.3)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result(
+            "llm.conversation.knowledge_retention", on_empty
+        )
+
     if not turns:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.conversation.knowledge_retention",
-            message="Empty turn list — trivially retained (score=1.0)",
-            severity=Severity.CRITICAL,
+            reason="Empty turn list",
+            on_empty=on_empty,
+            legacy_message="Empty turn list — trivially retained (score=1.0)",
             score=1.0,
             min_score=min_score,
             assistant_turns=0,
@@ -58,11 +118,13 @@ def assert_knowledge_retention(
     assistant_contents = _assistant_turns(turns)
 
     if len(assistant_contents) < 2:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.conversation.knowledge_retention",
-            message="Fewer than 2 assistant turns — trivially retained (score=1.0)",
-            severity=Severity.CRITICAL,
+            reason="Fewer than 2 assistant turns",
+            on_empty=on_empty,
+            legacy_message=(
+                "Fewer than 2 assistant turns — trivially retained (score=1.0)"
+            ),
             score=1.0,
             min_score=min_score,
             assistant_turns=len(assistant_contents),
@@ -105,6 +167,7 @@ def assert_knowledge_retention(
 def assert_turn_relevancy(
     turns: list[dict[str, str]],
     min_score: float = 0.5,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert each assistant turn is relevant to the preceding user turn.
 
@@ -115,6 +178,9 @@ def assert_turn_relevancy(
     Args:
         turns: Conversation as [{"role": "user"|"assistant", "content": "..."}].
         min_score: Minimum mean relevancy ratio required (default 0.5).
+        on_empty: Policy for no evaluable user/assistant pairs:
+            ``"fail"`` (default), ``"skip"``, or ``"pass"`` for
+            legacy behavior.
 
     Returns:
         TestResult with turn relevancy score.
@@ -126,12 +192,17 @@ def assert_turn_relevancy(
         ... ]
         >>> assert_turn_relevancy(turns, min_score=0.4)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result(
+            "llm.conversation.turn_relevancy", on_empty
+        )
+
     if not turns:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.conversation.turn_relevancy",
-            message="Empty turn list — trivially relevant (score=1.0)",
-            severity=Severity.CRITICAL,
+            reason="Empty turn list",
+            on_empty=on_empty,
+            legacy_message="Empty turn list — trivially relevant (score=1.0)",
             score=1.0,
             min_score=min_score,
             pairs_evaluated=0,
@@ -144,11 +215,14 @@ def assert_turn_relevancy(
             pairs.append((turns[i]["content"], turns[i + 1]["content"]))
 
     if not pairs:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.conversation.turn_relevancy",
-            message="No (user, assistant) adjacent pairs found — trivially relevant (score=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No (user, assistant) adjacent pairs found",
+            on_empty=on_empty,
+            legacy_message=(
+                "No (user, assistant) adjacent pairs found — "
+                "trivially relevant (score=1.0)"
+            ),
             score=1.0,
             min_score=min_score,
             pairs_evaluated=0,
@@ -193,6 +267,7 @@ def assert_conversation_completeness(
     turns: list[dict[str, str]],
     expected_topics: list[str],
     min_coverage: float = 0.8,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert conversation covers all expected topics.
 
@@ -207,6 +282,8 @@ def assert_conversation_completeness(
         turns: Conversation as [{"role": "user"|"assistant", "content": "..."}].
         expected_topics: List of topic keywords the assistant should address.
         min_coverage: Minimum fraction of topics that must be covered (default 0.8).
+        on_empty: Policy for empty expected topics: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with coverage score and list of missing topics.
@@ -218,12 +295,19 @@ def assert_conversation_completeness(
         ... ]
         >>> assert_conversation_completeness(turns, ["python", "django"], min_coverage=1.0)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result(
+            "llm.conversation.completeness", on_empty
+        )
+
     if not expected_topics:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.conversation.completeness",
-            message="No expected topics defined — trivially complete (score=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No expected topics defined",
+            on_empty=on_empty,
+            legacy_message=(
+                "No expected topics defined — trivially complete (score=1.0)"
+            ),
             score=1.0,
             min_coverage=min_coverage,
             topics_found=0,

@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.config import MltkConfig
 from mltk.data.pii import assert_no_pii, scan_pii
 
 
@@ -158,6 +159,85 @@ class TestAssertNoPii:
             assert_no_pii(df)
         result = exc.value.result
         assert result.details["total_matches"] >= 2
+
+    def test_no_config_scans_all_pattern_categories(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        """Default-only config must keep the legacy all-pattern scan."""
+        monkeypatch.chdir(tmp_path)
+        df = pd.DataFrame({"text": ["Server address is 10.0.0.1"]})
+
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_pii(df)
+
+        assert exc.value.result.details["matches_by_type"]["ipv4"] == 1
+
+    def test_env_var_pii_patterns_change_default_patterns(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """MLTK_PII_PATTERNS limits default scanning when patterns is omitted."""
+        monkeypatch.setenv("MLTK_PII_PATTERNS", "email")
+        df = pd.DataFrame({"text": ["Call 555-123-4567"]})
+
+        result = assert_no_pii(df)
+
+        assert result.passed is True
+        assert result.details["total_matches"] == 0
+
+    def test_yaml_pii_patterns_change_default_patterns(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        """mltk.yaml pii_patterns is explicit and limits omitted patterns."""
+        (tmp_path / "mltk.yaml").write_text(
+            '{"pii_patterns": ["email"]}',
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+        df = pd.DataFrame({"text": ["Call 555-123-4567"]})
+
+        result = assert_no_pii(df)
+
+        assert result.passed is True
+        assert result.details["total_matches"] == 0
+
+    def test_explicit_patterns_win_over_env(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Explicit patterns are not overridden by MLTK_PII_PATTERNS."""
+        monkeypatch.setenv("MLTK_PII_PATTERNS", "email")
+        df = pd.DataFrame({"text": ["Call 555-123-4567"]})
+
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_pii(df, patterns=["phone"])
+
+        assert exc.value.result.details["matches_by_type"]["phone"] == 1
+
+    def test_config_load_failure_falls_back_to_all_patterns(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A broken config keeps the old all-pattern default behavior."""
+        called = False
+
+        def raise_config_error() -> MltkConfig:
+            nonlocal called
+            called = True
+            raise ValueError("bad config")
+
+        monkeypatch.setattr(MltkConfig, "load", staticmethod(raise_config_error))
+        df = pd.DataFrame({"text": ["Call 555-123-4567"]})
+
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_pii(df)
+
+        assert called is True
+        assert exc.value.result.details["matches_by_type"]["phone"] == 1
 
 
 class TestRustParity:
