@@ -16,11 +16,15 @@ Supports 7 methods:
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+
+logger = logging.getLogger(__name__)
 
 # Default thresholds per method (pass if below/above these)
 _DEFAULT_THRESHOLDS: dict[str, float] = {
@@ -45,7 +49,11 @@ def _resolve_default_drift_config(
         from mltk.core.config import MltkConfig
 
         config = MltkConfig.load()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "MltkConfig.load() failed while resolving drift defaults "
+            "(falling back to built-ins): %s", exc,
+        )
         config = None
 
     explicit_fields = getattr(config, "explicit_fields", set())
@@ -59,7 +67,10 @@ def _resolve_default_drift_config(
         if config is not None and "drift_threshold" in explicit_fields:
             threshold = config.drift_threshold
         else:
-            threshold = _DEFAULT_THRESHOLDS[method]
+            # .get(): an unknown method must reach assert_no_drift's
+            # clean unknown-method failure, not KeyError here. The
+            # fallback value is never used for a valid method.
+            threshold = _DEFAULT_THRESHOLDS.get(method, 0.1)
 
     return method, threshold
 

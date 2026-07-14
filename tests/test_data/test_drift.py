@@ -134,6 +134,27 @@ class TestDriftEdgeCases:
             assert_no_drift(reference_series, reference_series, method="invalid")
         assert "Unknown method" in str(exc.value)
 
+    def test_unknown_method_without_config_or_threshold(
+        self,
+        reference_series: pd.Series,
+        tmp_path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """FAIL: Invalid method + omitted threshold must not KeyError.
+
+        Scenario: With no config present, the default-threshold resolver
+        looks up _DEFAULT_THRESHOLDS[method] before the unknown-method
+        guard runs. The repo's own pyproject [tool.mltk] normally masks
+        this path, so isolate to an empty cwd. Regression: pr-review
+        run 1 found this crashed with KeyError('bogus').
+        """
+        monkeypatch.chdir(tmp_path)
+        for var in ("MLTK_DRIFT_METHOD", "MLTK_DRIFT_THRESHOLD"):
+            monkeypatch.delenv(var, raising=False)
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_drift(reference_series, reference_series, method="bogus")
+        assert "Unknown method" in str(exc.value)
+
 
 class TestConfigBackedDefaults:
     """assert_no_drift reads config only for omitted method/threshold args."""

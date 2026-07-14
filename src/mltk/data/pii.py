@@ -24,6 +24,7 @@ known-safe exact matches.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 
@@ -31,6 +32,8 @@ import pandas as pd
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_default_pii_patterns(patterns: list[str] | None) -> list[str] | None:
@@ -47,7 +50,11 @@ def _resolve_default_pii_patterns(patterns: list[str] | None) -> list[str] | Non
         from mltk.core.config import MltkConfig
 
         config = MltkConfig.load()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "MltkConfig.load() failed while resolving PII pattern "
+            "defaults (falling back to all patterns): %s", exc,
+        )
         return None
 
     if "pii_patterns" in getattr(config, "explicit_fields", set()):
