@@ -9,6 +9,7 @@ from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _normalize, _tokenize
 
 _SUPPORTED_METHODS = ("lexical", "embedding", "nli", "llm")
+_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
 
 
 def _flatten_context(context: str | list[str]) -> str:
@@ -16,6 +17,55 @@ def _flatten_context(context: str | list[str]) -> str:
     if isinstance(context, list):
         return " ".join(context)
     return context
+
+
+def _unknown_on_empty_result(name: str, on_empty: str) -> TestResult:
+    """Return a failed result for an unsupported on_empty policy."""
+    return assert_true(
+        False,
+        name=name,
+        message=(
+            f"Unknown on_empty: '{on_empty}'. "
+            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
+        ),
+        severity=Severity.CRITICAL,
+        on_empty=on_empty,
+    )
+
+
+def _empty_input_result(
+    *,
+    name: str,
+    reason: str,
+    on_empty: str,
+    severity: Severity,
+    legacy_message: str,
+    **legacy_details: object,
+) -> TestResult:
+    """Apply the configured empty-input policy."""
+    if on_empty == "fail":
+        return assert_true(
+            False,
+            name=name,
+            message=f"{reason} -- empty input is not allowed",
+            severity=severity,
+        )
+    if on_empty == "skip":
+        return assert_true(
+            True,
+            name=name,
+            message=f"Skipped: {reason}",
+            severity=Severity.INFO,
+            skipped=True,
+            reason=reason,
+        )
+    return assert_true(
+        True,
+        name=name,
+        message=legacy_message,
+        severity=severity,
+        **legacy_details,
+    )
 
 
 @timed_assertion
@@ -27,6 +77,7 @@ def assert_faithfulness(
     embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert answer is grounded in the provided context.
 
@@ -46,6 +97,8 @@ def assert_faithfulness(
         nli_model: Model name for ``method="nli"``.
         judge_fn: Callable for ``method="llm"``; receives
             ``(answer, context_text)`` and returns a 0-1 float.
+        on_empty: Policy for empty answer input: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with faithfulness score.
@@ -67,16 +120,20 @@ def assert_faithfulness(
             severity=Severity.CRITICAL,
             method=method,
         )
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.rag.faithfulness", on_empty)
 
     context_text = _normalize(_flatten_context(context))
     answer = _normalize(answer)
 
     # -- edge cases (method-independent) ---------------------------------
     if not _tokenize(answer):
-        return assert_true(
-            True, name="llm.rag.faithfulness",
-            message="Empty answer -- trivially faithful (score=1.0)",
+        return _empty_input_result(
+            name="llm.rag.faithfulness",
+            reason="Empty answer",
+            on_empty=on_empty,
             severity=Severity.CRITICAL,
+            legacy_message="Empty answer -- trivially faithful (score=1.0)",
             score=1.0, min_score=min_score, method=method,
         )
 
@@ -154,6 +211,7 @@ def assert_context_relevancy(
     embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert retrieved context is relevant to the question.
 
@@ -173,6 +231,8 @@ def assert_context_relevancy(
         nli_model: Model name for ``method="nli"``.
         judge_fn: Callable for ``method="llm"``; receives
             ``(question, context_text)`` and returns a 0-1 float.
+        on_empty: Policy for empty question input: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with context relevancy score.
@@ -194,18 +254,20 @@ def assert_context_relevancy(
             severity=Severity.CRITICAL,
             method=method,
         )
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.rag.context_relevancy", on_empty)
 
     context_text = _normalize(_flatten_context(context))
     question = _normalize(question)
 
     # -- edge cases (method-independent) ---------------------------------
     if not _tokenize(question):
-        return assert_true(
-            True, name="llm.rag.context_relevancy",
-            message=(
-                "Empty question -- trivially relevant (score=1.0)"
-            ),
+        return _empty_input_result(
+            name="llm.rag.context_relevancy",
+            reason="Empty question",
+            on_empty=on_empty,
             severity=Severity.CRITICAL,
+            legacy_message="Empty question -- trivially relevant (score=1.0)",
             score=1.0, min_score=min_score, method=method,
         )
 
@@ -282,6 +344,7 @@ def assert_answer_relevancy(
     embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert answer addresses the question.
 
@@ -301,6 +364,8 @@ def assert_answer_relevancy(
         nli_model: Model name for ``method="nli"``.
         judge_fn: Callable for ``method="llm"``; receives
             ``(question, answer)`` and returns a 0-1 float.
+        on_empty: Policy for empty question input: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with answer relevancy score.
@@ -322,18 +387,20 @@ def assert_answer_relevancy(
             severity=Severity.CRITICAL,
             method=method,
         )
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.rag.answer_relevancy", on_empty)
 
     question = _normalize(question)
     answer = _normalize(answer)
 
     # -- edge cases (method-independent) ---------------------------------
     if not _tokenize(question):
-        return assert_true(
-            True, name="llm.rag.answer_relevancy",
-            message=(
-                "Empty question -- trivially relevant (score=1.0)"
-            ),
+        return _empty_input_result(
+            name="llm.rag.answer_relevancy",
+            reason="Empty question",
+            on_empty=on_empty,
             severity=Severity.CRITICAL,
+            legacy_message="Empty question -- trivially relevant (score=1.0)",
             score=1.0, min_score=min_score, method=method,
         )
 
@@ -406,6 +473,7 @@ def assert_context_precision(
     relevant_ids: list[str],
     retrieved_ids: list[str],
     min_precision: float = 0.5,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert precision of retrieval: |relevant ∩ retrieved| / |retrieved|.
 
@@ -417,6 +485,8 @@ def assert_context_precision(
         relevant_ids: Ground-truth set of relevant document IDs.
         retrieved_ids: IDs of documents actually retrieved by the retriever.
         min_precision: Minimum precision required (default 0.5).
+        on_empty: Policy for empty retrieved IDs: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with precision score and counts.
@@ -428,11 +498,16 @@ def assert_context_precision(
         ...     min_precision=0.5,
         ... )
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.rag.context_precision", on_empty)
+
     if not retrieved_ids:
-        return assert_true(
-            True, name="llm.rag.context_precision",
-            message="No documents retrieved — precision undefined (trivially 1.0)",
+        return _empty_input_result(
+            name="llm.rag.context_precision",
+            reason="No documents retrieved",
+            on_empty=on_empty,
             severity=Severity.CRITICAL,
+            legacy_message="No documents retrieved — precision undefined (trivially 1.0)",
             precision=1.0, min_precision=min_precision,
             true_positives=0, retrieved=0,
         )
@@ -466,6 +541,7 @@ def assert_context_recall(
     relevant_ids: list[str],
     retrieved_ids: list[str],
     min_recall: float = 0.5,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert recall of retrieval: |relevant ∩ retrieved| / |relevant|.
 
@@ -477,6 +553,8 @@ def assert_context_recall(
         relevant_ids: Ground-truth set of relevant document IDs.
         retrieved_ids: IDs of documents actually retrieved by the retriever.
         min_recall: Minimum recall required (default 0.5).
+        on_empty: Policy for empty relevant IDs: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with recall score and counts.
@@ -488,11 +566,16 @@ def assert_context_recall(
         ...     min_recall=0.75,
         ... )
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.rag.context_recall", on_empty)
+
     if not relevant_ids:
-        return assert_true(
-            True, name="llm.rag.context_recall",
-            message="No relevant documents defined — recall undefined (trivially 1.0)",
+        return _empty_input_result(
+            name="llm.rag.context_recall",
+            reason="No relevant documents defined",
+            on_empty=on_empty,
             severity=Severity.CRITICAL,
+            legacy_message="No relevant documents defined — recall undefined (trivially 1.0)",
             recall=1.0, min_recall=min_recall,
             true_positives=0, relevant=0,
         )

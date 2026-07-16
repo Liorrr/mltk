@@ -22,6 +22,8 @@ import math
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
+
 __all__ = [
     "assert_ndcg",
     "assert_mrr",
@@ -33,6 +35,54 @@ __all__ = [
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
+def _unknown_on_empty_result(name: str, on_empty: str) -> TestResult:
+    """Return a failed result for an unsupported on_empty policy."""
+    return assert_true(
+        False,
+        name=name,
+        message=(
+            f"Unknown on_empty: '{on_empty}'. "
+            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
+        ),
+        severity=Severity.CRITICAL,
+        on_empty=on_empty,
+    )
+
+
+def _empty_input_result(
+    *,
+    name: str,
+    reason: str,
+    on_empty: str,
+    legacy_message: str,
+    **legacy_details: object,
+) -> TestResult:
+    """Apply the configured empty-input policy."""
+    if on_empty == "fail":
+        return assert_true(
+            False,
+            name=name,
+            message=f"{reason} -- empty input is not allowed",
+            severity=Severity.CRITICAL,
+        )
+    if on_empty == "skip":
+        return assert_true(
+            True,
+            name=name,
+            message=f"Skipped: {reason}",
+            severity=Severity.INFO,
+            skipped=True,
+            reason=reason,
+        )
+    return assert_true(
+        True,
+        name=name,
+        message=legacy_message,
+        severity=Severity.CRITICAL,
+        **legacy_details,
+    )
+
 
 def _dcg_at_k(relevances: list[int], k: int) -> float:
     """Compute Discounted Cumulative Gain at position k.
@@ -55,7 +105,7 @@ def _ndcg_single(
     y_true: list[int],
     y_scores: list[float],
     k: int,
-) -> float:
+) -> float | None:
     """Compute nDCG@k for a single query.
 
     Sorts documents by predicted score (descending), then computes
@@ -67,8 +117,9 @@ def _ndcg_single(
         k: Cutoff position.
 
     Returns:
-        nDCG value in [0, 1]. Returns 1.0 when IDCG is zero
-        (no relevant documents).
+        nDCG value in [0, 1], or ``None`` when IDCG is zero
+        (no relevant documents) and the query should be excluded
+        from the mean.
     """
     # Sort documents by score descending; ties broken by original order
     paired = sorted(
@@ -84,7 +135,7 @@ def _ndcg_single(
     idcg = _dcg_at_k(ideal_relevances, k)
 
     if idcg == 0.0:
-        return 1.0  # no relevant docs -- trivially perfect
+        return None
     return dcg / idcg
 
 # ------------------------------------------------------------------
@@ -97,6 +148,7 @@ def assert_ndcg(
     y_scores: list[list[float]],
     k: int = 10,
     min_ndcg: float = 0.8,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that mean nDCG@k meets a minimum threshold.
 
@@ -111,7 +163,9 @@ def assert_ndcg(
         IDCG@k = DCG@k of the ideal (perfectly sorted) ranking
         nDCG@k = DCG@k / IDCG@k
 
-    The final score is the mean nDCG@k across all queries.
+    The final score is the mean nDCG@k across queries with non-zero
+    IDCG. Queries with no relevant documents are excluded; if no
+    evaluable queries remain, ``on_empty`` controls the result.
 
     Args:
         y_true: Relevance labels per query.  ``y_true[i]`` is a list
@@ -121,6 +175,8 @@ def assert_ndcg(
             has the same length as ``y_true[i]``.
         k: Cutoff position (default 10).
         min_ndcg: Minimum acceptable mean nDCG@k (default 0.8).
+        on_empty: Policy for no evaluable queries: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``ndcg``, ``min_ndcg``, ``k``,
@@ -131,23 +187,44 @@ def assert_ndcg(
         >>> y_scores = [[0.9, 0.8, 0.2, 0.5], [0.8, 0.1, 0.3, 0.7]]
         >>> assert_ndcg(y_true, y_scores, k=4, min_ndcg=0.5)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.retrieval.ndcg", on_empty)
+
     if not y_true:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.retrieval.ndcg",
-            message="No queries provided -- trivially passing "
-            "(ndcg=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No queries provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries provided -- trivially passing (ndcg=1.0)"
+            ),
             ndcg=1.0,
             min_ndcg=min_ndcg,
             k=k,
             num_queries=0,
         )
 
-    per_query = [
-        _ndcg_single(yt, ys, k)
-        for yt, ys in zip(y_true, y_scores, strict=False)
-    ]
+    per_query: list[float] = []
+    for yt, ys in zip(y_true, y_scores, strict=False):
+        score = _ndcg_single(yt, ys, k)
+        if score is not None:
+            per_query.append(score)
+
+    if not per_query:
+        return _empty_input_result(
+            name="llm.retrieval.ndcg",
+            reason="No queries with relevant documents",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries with relevant documents -- trivially passing "
+                "(ndcg=1.0)"
+            ),
+            ndcg=1.0,
+            min_ndcg=min_ndcg,
+            k=k,
+            num_queries=0,
+        )
+
     mean_ndcg = sum(per_query) / len(per_query)
     passed = mean_ndcg >= min_ndcg
 
@@ -175,6 +252,7 @@ def assert_ndcg(
 def assert_mrr(
     queries_results: list[list[bool]],
     min_mrr: float = 0.5,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that Mean Reciprocal Rank meets a minimum threshold.
 
@@ -186,14 +264,17 @@ def assert_mrr(
         MRR = (1 / |Q|) * sum_{i=1}^{|Q|} 1 / rank_i
 
     where rank_i is the position of the first ``True`` in
-    ``queries_results[i]``.  If no result is relevant for a query,
-    that query contributes 0.
+    ``queries_results[i]``. Queries with no relevant result are
+    excluded; if no evaluable queries remain, ``on_empty`` controls
+    the result.
 
     Args:
         queries_results: Boolean relevance per result per query.
             ``queries_results[i]`` is a list of booleans indicating
             whether each retrieved result is relevant for query *i*.
         min_mrr: Minimum acceptable MRR (default 0.5).
+        on_empty: Policy for no evaluable queries: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``mrr``, ``min_mrr``, ``num_queries``,
@@ -206,13 +287,17 @@ def assert_mrr(
         ... ]
         >>> assert_mrr(results, min_mrr=0.5)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.retrieval.mrr", on_empty)
+
     if not queries_results:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.retrieval.mrr",
-            message="No queries provided -- trivially passing "
-            "(mrr=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No queries provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries provided -- trivially passing (mrr=1.0)"
+            ),
             mrr=1.0,
             min_mrr=min_mrr,
             num_queries=0,
@@ -220,12 +305,28 @@ def assert_mrr(
 
     reciprocals: list[float] = []
     for results in queries_results:
+        if not any(results):
+            continue
         rr = 0.0
         for rank, is_relevant in enumerate(results, start=1):
             if is_relevant:
                 rr = 1.0 / rank
                 break
         reciprocals.append(rr)
+
+    if not reciprocals:
+        return _empty_input_result(
+            name="llm.retrieval.mrr",
+            reason="No queries with relevant documents",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries with relevant documents -- trivially passing "
+                "(mrr=1.0)"
+            ),
+            mrr=1.0,
+            min_mrr=min_mrr,
+            num_queries=0,
+        )
 
     mrr = sum(reciprocals) / len(reciprocals)
     passed = mrr >= min_mrr
@@ -255,12 +356,15 @@ def assert_recall_at_k(
     retrieved: list[list],
     k: int = 10,
     min_recall: float = 0.8,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that mean Recall@K meets a minimum threshold.
 
     For each query, Recall@K is the fraction of all relevant
     documents that appear in the top K retrieved results.  Low
     recall means the retriever is *missing* important documents.
+    Queries with no relevant documents are excluded from the mean;
+    if no evaluable queries remain, ``on_empty`` controls the result.
 
     Formula per query:
         Recall@k = |relevant intersect retrieved[:k]| / |relevant|
@@ -272,6 +376,8 @@ def assert_recall_at_k(
             ``retrieved[i]`` is an ordered list of IDs for query *i*.
         k: Cutoff position (default 10).
         min_recall: Minimum acceptable mean Recall@K (default 0.8).
+        on_empty: Policy for no evaluable queries: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``recall``, ``min_recall``, ``k``,
@@ -282,13 +388,17 @@ def assert_recall_at_k(
         >>> retrieved = [["d1", "d3", "d6", "d2"], ["d5", "d7"]]
         >>> assert_recall_at_k(relevant, retrieved, k=3, min_recall=0.5)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.retrieval.recall_at_k", on_empty)
+
     if not relevant:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.retrieval.recall_at_k",
-            message="No queries provided -- trivially passing "
-            "(recall=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No queries provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries provided -- trivially passing (recall=1.0)"
+            ),
             recall=1.0,
             min_recall=min_recall,
             k=k,
@@ -298,11 +408,25 @@ def assert_recall_at_k(
     per_query: list[float] = []
     for rel_set, ret_list in zip(relevant, retrieved, strict=False):
         if not rel_set:
-            per_query.append(1.0)  # no relevant docs -- trivial
             continue
         top_k = set(ret_list[:k])
         hits = len(rel_set & top_k)
         per_query.append(hits / len(rel_set))
+
+    if not per_query:
+        return _empty_input_result(
+            name="llm.retrieval.recall_at_k",
+            reason="No queries with relevant documents",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries with relevant documents -- trivially passing "
+                "(recall=1.0)"
+            ),
+            recall=1.0,
+            min_recall=min_recall,
+            k=k,
+            num_queries=0,
+        )
 
     mean_recall = sum(per_query) / len(per_query)
     passed = mean_recall >= min_recall
@@ -333,6 +457,7 @@ def assert_map_at_k(
     retrieved: list[list],
     k: int = 10,
     min_map: float = 0.5,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that Mean Average Precision@K meets a minimum threshold.
 
@@ -340,6 +465,8 @@ def assert_map_at_k(
     position where a relevant document is found, then averages those
     precision values.  This rewards systems that rank relevant
     documents *higher*, not just retrieve them somewhere in the list.
+    Queries with no relevant documents are excluded from the mean;
+    if no evaluable queries remain, ``on_empty`` controls the result.
 
     Formula per query:
         AP@k = (1 / |relevant|)
@@ -354,6 +481,8 @@ def assert_map_at_k(
             ``retrieved[i]`` is an ordered list of IDs for query *i*.
         k: Cutoff position (default 10).
         min_map: Minimum acceptable MAP@K (default 0.5).
+        on_empty: Policy for no evaluable queries: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``map_score``, ``min_map``, ``k``,
@@ -364,13 +493,17 @@ def assert_map_at_k(
         >>> retrieved = [["d1", "d2", "d3"], ["d1", "d2", "d3"]]
         >>> assert_map_at_k(relevant, retrieved, k=3, min_map=0.5)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("llm.retrieval.map_at_k", on_empty)
+
     if not relevant:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="llm.retrieval.map_at_k",
-            message="No queries provided -- trivially passing "
-            "(map=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No queries provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries provided -- trivially passing (map=1.0)"
+            ),
             map_score=1.0,
             min_map=min_map,
             k=k,
@@ -380,7 +513,6 @@ def assert_map_at_k(
     per_query: list[float] = []
     for rel_set, ret_list in zip(relevant, retrieved, strict=False):
         if not rel_set:
-            per_query.append(1.0)  # no relevant docs -- trivial
             continue
 
         hits = 0
@@ -392,6 +524,21 @@ def assert_map_at_k(
 
         ap = sum_precision / len(rel_set)
         per_query.append(ap)
+
+    if not per_query:
+        return _empty_input_result(
+            name="llm.retrieval.map_at_k",
+            reason="No queries with relevant documents",
+            on_empty=on_empty,
+            legacy_message=(
+                "No queries with relevant documents -- trivially passing "
+                "(map=1.0)"
+            ),
+            map_score=1.0,
+            min_map=min_map,
+            k=k,
+            num_queries=0,
+        )
 
     mean_ap = sum(per_query) / len(per_query)
     passed = mean_ap >= min_map

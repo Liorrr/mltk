@@ -140,25 +140,16 @@ class TestIntegration:
         assert_valid_json(raw_report)
 
     def test_error_does_not_crash_server(self, tmp_path):
-        # SCENARIO: mltk_scan's lazy import raises RuntimeError.
+        # SCENARIO: mltk_scan receives an invalid JSON report.
         # WHY: Tool errors must be caught and returned as JSON, not exceptions.
         # EXPECTED: status=error with an error message, no unhandled exception.
-        py_file = tmp_path / "boom.py"
-        py_file.write_text("pass\n")
+        report = tmp_path / "boom.json"
+        report.write_text("{", encoding="utf-8")
 
-        with patch(
-            "mltk.scan.ScanConfig",
-            side_effect=RuntimeError("boom"),
-            create=True,
-        ), patch(
-            "mltk.scan.ScanEngine",
-            MagicMock(),
-            create=True,
-        ):
-            result = call_tool("mltk_scan", path=str(py_file))
+        result = call_tool("mltk_scan", path=str(report))
 
-        assert result["status"] == "error"
-        assert "boom" in result["error"]
+        assert_error(result)
+        assert result["error"]
 
     def test_all_tools_import_lazily(self):
         # SCENARIO: After server creation, no heavy deps are loaded BY the server.

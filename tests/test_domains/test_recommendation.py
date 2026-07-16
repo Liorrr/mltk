@@ -5,6 +5,7 @@ import math
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.result import Severity
 from mltk.domains.recommendation import (
     assert_coverage,
     assert_diversity,
@@ -63,14 +64,36 @@ class TestHitRate:
         with pytest.raises(MltkAssertionError):
             assert_hit_rate(recs, rels, min_rate=0.5)
 
-    def test_empty_users_trivially_passes(self) -> None:
+    def test_empty_users_fail_by_default(self) -> None:
         # SCENARIO: No users at all.
         # WHY: Edge case -- nothing to evaluate.
-        # EXPECTED: Trivially passes with hit_rate=1.0.
-        result = assert_hit_rate([], [], min_rate=0.9)
+        # EXPECTED: Default on_empty="fail" rejects empty user sets.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_hit_rate([], [], min_rate=0.9)
+        assert "no users provided" in exc_info.value.result.message.lower()
+
+    def test_empty_users_skip(self) -> None:
+        # SCENARIO: Caller explicitly chooses to skip empty-user checks.
+        # EXPECTED: Passes as INFO with skip metadata.
+        result = assert_hit_rate([], [], min_rate=0.9, on_empty="skip")
+        assert result.passed is True
+        assert result.severity == Severity.INFO
+        assert result.message.startswith("Skipped:")
+        assert result.details == {
+            "skipped": True,
+            "reason": "No users provided",
+        }
+
+    def test_empty_users_pass_legacy(self) -> None:
+        # SCENARIO: Caller explicitly chooses legacy empty-user behavior.
+        # EXPECTED: Empty user set passes with the original score/message.
+        result = assert_hit_rate([], [], min_rate=0.9, on_empty="pass")
         assert result.passed is True
         assert result.details["hit_rate"] == 1.0
         assert result.details["n_users"] == 0
+        assert result.message == (
+            "No users provided -- trivially passing (hit_rate=1.0)"
+        )
 
     def test_single_user_hit(self) -> None:
         # SCENARIO: One user with a relevant item.
@@ -143,13 +166,20 @@ class TestDiversity:
         assert abs(per_user[0] - 1.0) < 1e-9
         assert abs(per_user[1] - 1.0 / 3.0) < 1e-9
 
-    def test_empty_users_trivially_passes(self) -> None:
+    def test_empty_users_fail_by_default(self) -> None:
         # SCENARIO: No users at all.
         # WHY: Edge case -- nothing to evaluate.
-        # EXPECTED: Trivially passes.
-        result = assert_diversity([], {}, min_diversity=0.5)
-        assert result.passed is True
-        assert result.details["avg_diversity"] == 1.0
+        # EXPECTED: Default on_empty="fail" rejects empty user sets.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_diversity([], {}, min_diversity=0.5)
+        assert "no users provided" in exc_info.value.result.message.lower()
+
+    def test_no_categories_fail_by_default(self) -> None:
+        # SCENARIO: Users exist but category metadata is empty.
+        # EXPECTED: Default on_empty="fail" rejects undefined diversity.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_diversity([["m1"]], {}, min_diversity=0.5)
+        assert "no categories defined" in exc_info.value.result.message.lower()
 
     def test_missing_items_in_category_dict(self) -> None:
         # SCENARIO: Some recommended items not in category dict.
@@ -213,13 +243,13 @@ class TestNovelty:
             result.details["avg_novelty"] - expected
         ) < 1e-9
 
-    def test_empty_users_trivially_passes(self) -> None:
+    def test_empty_users_fail_by_default(self) -> None:
         # SCENARIO: No users at all.
         # WHY: Edge case -- nothing to evaluate.
-        # EXPECTED: Trivially passes.
-        result = assert_novelty([], {}, min_novelty=0.5)
-        assert result.passed is True
-        assert result.details["avg_novelty"] == 1.0
+        # EXPECTED: Default on_empty="fail" rejects empty user sets.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_novelty([], {}, min_novelty=0.5)
+        assert "no users provided" in exc_info.value.result.message.lower()
 
     def test_missing_items_in_popularity_dict(self) -> None:
         # SCENARIO: Some recommended items not in popularity dict.
@@ -296,15 +326,15 @@ class TestCoverage:
                 recs, catalog_size=100, min_coverage=0.01,
             )
 
-    def test_zero_catalog_trivially_passes(self) -> None:
+    def test_zero_catalog_fails_by_default(self) -> None:
         # SCENARIO: Catalog size is zero.
         # WHY: Edge case -- no items to cover.
-        # EXPECTED: Trivially passes.
-        result = assert_coverage(
-            [["a"]], catalog_size=0, min_coverage=0.5,
-        )
-        assert result.passed is True
-        assert result.details["coverage"] == 1.0
+        # EXPECTED: Default on_empty="fail" rejects empty catalogs.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_coverage(
+                [["a"]], catalog_size=0, min_coverage=0.5,
+            )
+        assert "empty catalog" in exc_info.value.result.message.lower()
 
     def test_single_user_single_item(self) -> None:
         # SCENARIO: One user gets one item from a 5-item catalog.
@@ -369,15 +399,15 @@ class TestSerendipity:
                 recs, expected, rels, min_serendipity=0.1,
             )
 
-    def test_empty_users_trivially_passes(self) -> None:
+    def test_empty_users_fail_by_default(self) -> None:
         # SCENARIO: No users at all.
         # WHY: Edge case -- nothing to evaluate.
-        # EXPECTED: Trivially passes.
-        result = assert_serendipity(
-            [], [], [], min_serendipity=0.5,
-        )
-        assert result.passed is True
-        assert result.details["avg_serendipity"] == 1.0
+        # EXPECTED: Default on_empty="fail" rejects empty user sets.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_serendipity(
+                [], [], [], min_serendipity=0.5,
+            )
+        assert "no users provided" in exc_info.value.result.message.lower()
 
     def test_empty_recommendation_list(self) -> None:
         # SCENARIO: User has an empty recommendation list.

@@ -118,6 +118,57 @@ class TestAssertCalibration:
         assert "bin_data" in result.details
         assert isinstance(result.details["bin_data"], list)
 
+    @pytest.mark.parametrize("method", ["ece", "smooth_ece"])
+    def test_rejects_logits(self, method: str) -> None:
+        """FAIL: Logits are rejected before calibration math."""
+        y_true = np.array([0, 1, 0, 1])
+        y_prob = np.array([-100.0, -1.0, 1.0, 100.0])
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_calibration(y_true, y_prob, method=method)
+        message = str(exc.value)
+        assert "y_prob contains values outside [0,1]" in message
+        assert "min=-100.0" in message
+        assert "max=100.0" in message
+        assert "pass probabilities, not logits" in message
+
+    @pytest.mark.parametrize("method", ["ece", "smooth_ece"])
+    def test_rejects_percentages(self, method: str) -> None:
+        """FAIL: 0-100 percentages are rejected as probabilities."""
+        y_true = np.array([0, 1, 0, 1])
+        y_prob = np.array([10.0, 20.0, 80.0, 90.0])
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_calibration(y_true, y_prob, method=method)
+        assert "y_prob contains values outside [0,1]" in str(exc.value)
+        assert "max=90.0" in str(exc.value)
+
+    @pytest.mark.parametrize("method", ["ece", "smooth_ece"])
+    def test_rejects_nan_probabilities(self, method: str) -> None:
+        """FAIL: NaN probabilities are rejected before dispatch."""
+        y_true = np.array([0, 1, 0, 1])
+        y_prob = np.array([0.1, 0.8, np.nan, 0.9])
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_calibration(y_true, y_prob, method=method)
+        assert "y_prob contains values outside [0,1]" in str(exc.value)
+        assert "min=nan" in str(exc.value)
+        assert "max=nan" in str(exc.value)
+
+    @pytest.mark.parametrize("method", ["ece", "smooth_ece"])
+    def test_rejects_non_binary_y_true(self, method: str) -> None:
+        """FAIL: Calibration labels must be binary 0/1."""
+        y_true = np.array([0, 1, 2, 1])
+        y_prob = np.array([0.1, 0.8, 0.2, 0.9])
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_calibration(y_true, y_prob, method=method)
+        assert "y_true must contain only binary values {0,1}" in str(exc.value)
+
+    def test_valid_fixed_example_preserves_ece(self) -> None:
+        """PASS: Valid probabilities keep the established ECE value."""
+        y_true = np.array([0, 0, 1, 1])
+        y_prob = np.array([0.1, 0.2, 0.8, 0.9])
+        result = assert_calibration(y_true, y_prob, max_error=0.2)
+        assert result.passed is True
+        assert result.details["ece"] == pytest.approx(0.15)
+
     def test_empty_arrays(self) -> None:
         """FAIL: Empty input handled gracefully."""
         with pytest.raises(MltkAssertionError):

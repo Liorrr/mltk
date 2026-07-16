@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.result import Severity
 from mltk.data.synthetic import (
     assert_correlation_preserved,
     assert_dcr_safe,
@@ -286,13 +287,35 @@ class TestSyntheticNovelty:
         with pytest.raises(MltkAssertionError):
             assert_synthetic_novelty(real, synth, columns=["a", "b"], max_copy_rate=0.0)
 
-    def test_empty_synthetic_passes(self) -> None:
-        """Empty synthetic DataFrame trivially has zero copies."""
+    def test_empty_synthetic_fails_by_default(self) -> None:
+        """Empty synthetic DataFrame is rejected by default."""
         real = pd.DataFrame({"a": [1, 2, 3]})
         synth = pd.DataFrame({"a": pd.Series(dtype=int)})
-        result = assert_synthetic_novelty(real, synth)
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_synthetic_novelty(real, synth)
+        assert "synthetic dataframe is empty" in exc.value.result.message.lower()
+
+    def test_empty_synthetic_skip(self) -> None:
+        """Empty synthetic DataFrame can be explicitly skipped."""
+        real = pd.DataFrame({"a": [1, 2, 3]})
+        synth = pd.DataFrame({"a": pd.Series(dtype=int)})
+        result = assert_synthetic_novelty(real, synth, on_empty="skip")
+        assert result.passed is True
+        assert result.severity == Severity.INFO
+        assert result.message.startswith("Skipped:")
+        assert result.details == {
+            "skipped": True,
+            "reason": "Synthetic DataFrame is empty",
+        }
+
+    def test_empty_synthetic_pass_legacy(self) -> None:
+        """Empty synthetic DataFrame can explicitly use legacy behavior."""
+        real = pd.DataFrame({"a": [1, 2, 3]})
+        synth = pd.DataFrame({"a": pd.Series(dtype=int)})
+        result = assert_synthetic_novelty(real, synth, on_empty="pass")
         assert result.passed is True
         assert result.details["n_synthetic"] == 0
+        assert result.message == "Synthetic DataFrame is empty -- trivially novel"
 
 
 # ===========================================================================

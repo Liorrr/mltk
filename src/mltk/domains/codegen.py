@@ -50,6 +50,8 @@ from typing import Any
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
+
 __all__ = [
     "assert_code_executes",
     "assert_code_passes_tests",
@@ -81,6 +83,54 @@ _PASSWORD_RE = re.compile(
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
+def _unknown_on_empty_result(name: str, on_empty: str) -> TestResult:
+    """Return a failed result for an unsupported on_empty policy."""
+    return assert_true(
+        False,
+        name=name,
+        message=(
+            f"Unknown on_empty: '{on_empty}'. "
+            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
+        ),
+        severity=Severity.CRITICAL,
+        on_empty=on_empty,
+    )
+
+
+def _empty_input_result(
+    *,
+    name: str,
+    reason: str,
+    on_empty: str,
+    legacy_message: str,
+    **legacy_details: object,
+) -> TestResult:
+    """Apply the configured empty-input policy."""
+    if on_empty == "fail":
+        return assert_true(
+            False,
+            name=name,
+            message=f"{reason} -- empty input is not allowed",
+            severity=Severity.CRITICAL,
+        )
+    if on_empty == "skip":
+        return assert_true(
+            True,
+            name=name,
+            message=f"Skipped: {reason}",
+            severity=Severity.INFO,
+            skipped=True,
+            reason=reason,
+        )
+    return assert_true(
+        True,
+        name=name,
+        message=legacy_message,
+        severity=Severity.CRITICAL,
+        **legacy_details,
+    )
+
 
 def _python_executable() -> str:
     """Return the path to the current Python interpreter."""
@@ -205,6 +255,7 @@ def assert_code_executes(
     code: str,
     timeout_seconds: float = 10.0,
     language: str = "python",
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that generated code executes without errors.
 
@@ -224,6 +275,8 @@ def assert_code_executes(
             (default 10.0).
         language: Programming language (currently only "python"
             is supported).
+        on_empty: Policy for empty code: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with details: ``returncode``, ``stdout``,
@@ -255,12 +308,15 @@ def assert_code_executes(
             language=language,
         )
 
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("codegen.executes", on_empty)
+
     if not code.strip():
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="codegen.executes",
-            message="Empty code executes trivially",
-            severity=Severity.CRITICAL,
+            reason="Empty code",
+            on_empty=on_empty,
+            legacy_message="Empty code executes trivially",
             returncode=0,
             stdout="",
             stderr="",
@@ -307,6 +363,7 @@ def assert_code_passes_tests(
     code: str,
     test_code: str,
     timeout_seconds: float = 30.0,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that generated code passes a test suite.
 
@@ -327,6 +384,8 @@ def assert_code_passes_tests(
             failure.
         timeout_seconds: Max seconds before killing the subprocess
             (default 30.0).
+        on_empty: Policy for empty code and tests: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with details: ``returncode``, ``stdout``,
@@ -342,12 +401,15 @@ def assert_code_passes_tests(
         >>> result.passed
         True
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("codegen.passes_tests", on_empty)
+
     if not code.strip() and not test_code.strip():
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="codegen.passes_tests",
-            message="Empty code and tests -- trivially passing",
-            severity=Severity.CRITICAL,
+            reason="Empty code and tests",
+            on_empty=on_empty,
+            legacy_message="Empty code and tests -- trivially passing",
             returncode=0,
             stdout="",
             stderr="",

@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -35,6 +38,17 @@ def storage(tmp_path):
     # EXPECTED: each test gets a clean database
     db_file = str(tmp_path / "test.db")
     return Storage(db_path=db_file)
+
+
+def _sample_result(name: str) -> dict:
+    return {
+        "name": name,
+        "passed": True,
+        "severity": "info",
+        "message": "ok",
+        "details": {},
+        "duration_ms": 1.0,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +94,75 @@ def test_list_runs(storage):
     ids = [r["id"] for r in runs]
     # most recent first
     assert ids.index(id3) < ids.index(id2) < ids.index(id1)
+
+
+def test_storage_shared_connection_is_safe_under_concurrent_requests(tmp_path, monkeypatch):
+    # SCENARIO: multiple request threads share one Storage instance while reading
+    #           run summaries, writing new runs, and reading webhook configs
+    # WHY: FastAPI may dispatch requests concurrently; the shared SQLite
+    #      connection must not expose tuple rows or interleave writes unsafely
+    # EXPECTED: all operations complete without exceptions and read APIs keep
+    #           returning their public dict/object shapes
+    thread_count = 8
+    iterations = 50
+    start = threading.Barrier(thread_count)
+
+    class YieldingConnection(sqlite3.Connection):
+        def execute(self, *args, **kwargs):
+            time.sleep(0.0001)
+            return super().execute(*args, **kwargs)
+
+        def executemany(self, *args, **kwargs):
+            time.sleep(0.0001)
+            return super().executemany(*args, **kwargs)
+
+        def commit(self) -> None:
+            time.sleep(0.0001)
+            return super().commit()
+
+    real_connect = sqlite3.connect
+
+    def yielding_connect(*args, **kwargs):
+        kwargs["factory"] = YieldingConnection
+        return real_connect(*args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", yielding_connect)
+
+    storage = Storage(db_path=str(tmp_path / "concurrent.db"))
+    storage.save_webhook("https://global.example.com/hook", ["on_failure"], None)
+    storage.save_webhook("https://specific.example.com/hook", ["on_success"], "proj-1")
+
+    def worker(thread_index: int) -> int:
+        start.wait()
+        project = f"proj-{thread_index % 2}"
+        for iteration in range(iterations):
+            storage.save_run(
+                project,
+                [_sample_result(f"thread-{thread_index}-iter-{iteration}")],
+            )
+
+            runs = storage.get_runs(project=project, limit=25)
+            assert runs
+            assert all(isinstance(row, dict) for row in runs)
+            assert all({"id", "project", "timestamp"} <= row.keys() for row in runs)
+
+            hooks = storage.get_webhooks(project)
+            assert hooks
+            assert all(isinstance(hook.events, list) for hook in hooks)
+            assert all(isinstance(hook.url, str) for hook in hooks)
+        return iterations
+
+    try:
+        with ThreadPoolExecutor(max_workers=thread_count) as executor:
+            futures = [executor.submit(worker, i) for i in range(thread_count)]
+            total_writes = sum(future.result() for future in futures)
+
+        assert total_writes == thread_count * iterations
+        runs = storage.get_runs(limit=thread_count * iterations)
+        assert len(runs) == thread_count * iterations
+        assert all(isinstance(row, dict) for row in runs)
+    finally:
+        storage.close()
 
 
 def test_trends(storage):

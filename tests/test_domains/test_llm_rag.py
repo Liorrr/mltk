@@ -3,6 +3,7 @@
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.result import Severity
 from mltk.domains.llm.rag import (
     assert_answer_relevancy,
     assert_context_precision,
@@ -51,14 +52,38 @@ class TestFaithfulness:
         result = assert_faithfulness(answer, context, min_score=0.6)
         assert result.passed is True
 
-    def test_faithfulness_empty_answer(self) -> None:
+    def test_faithfulness_empty_answer_fails_by_default(self) -> None:
         # SCENARIO: Agent returns an empty string as the answer.
         # WHY: Edge case — an empty answer has no tokens to check against context.
-        # EXPECTED: Trivially faithful (score=1.0) and passes.
+        # EXPECTED: Default on_empty="fail" rejects empty answers.
         context = "Some relevant context about the topic."
-        result = assert_faithfulness("", context, min_score=0.7)
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_faithfulness("", context, min_score=0.7)
+        assert "empty answer" in exc_info.value.result.message.lower()
+
+    def test_faithfulness_empty_answer_skip(self) -> None:
+        # SCENARIO: Caller explicitly chooses to skip empty-answer checks.
+        # EXPECTED: Passes as INFO with skip metadata.
+        result = assert_faithfulness(
+            "", "Some relevant context.", min_score=0.7, on_empty="skip"
+        )
+        assert result.passed is True
+        assert result.severity == Severity.INFO
+        assert result.message.startswith("Skipped:")
+        assert result.details == {
+            "skipped": True,
+            "reason": "Empty answer",
+        }
+
+    def test_faithfulness_empty_answer_pass_legacy(self) -> None:
+        # SCENARIO: Caller explicitly chooses legacy empty-answer behavior.
+        # EXPECTED: Empty answer passes with the original score/message.
+        result = assert_faithfulness(
+            "", "Some relevant context.", min_score=0.7, on_empty="pass"
+        )
         assert result.passed is True
         assert result.details["score"] == 1.0
+        assert result.message == "Empty answer -- trivially faithful (score=1.0)"
 
     def test_faithfulness_result_has_timing(self) -> None:
         # SCENARIO: Every assertion is wrapped with @timed_assertion.
@@ -104,6 +129,13 @@ class TestContextRelevancy:
         result = assert_context_relevancy(question, context, min_score=0.2)
         assert result.passed is True
 
+    def test_context_relevancy_empty_question_fails_by_default(self) -> None:
+        # SCENARIO: The question string is empty.
+        # EXPECTED: Default on_empty="fail" rejects the degenerate input.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_context_relevancy("", "Paris is in France.", min_score=0.5)
+        assert "empty question" in exc_info.value.result.message.lower()
+
 
 class TestAnswerRelevancy:
     """Answer relevancy — answer addresses the question."""
@@ -126,6 +158,13 @@ class TestAnswerRelevancy:
         answer = "The weather today is sunny with a high of 25 degrees."
         with pytest.raises(MltkAssertionError):
             assert_answer_relevancy(question, answer, min_score=0.5)
+
+    def test_answer_relevancy_empty_question_fails_by_default(self) -> None:
+        # SCENARIO: The question string is empty.
+        # EXPECTED: Default on_empty="fail" rejects the degenerate input.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_answer_relevancy("", "Machine learning uses data.", min_score=0.5)
+        assert "empty question" in exc_info.value.result.message.lower()
 
 
 class TestContextPrecision:
@@ -161,6 +200,13 @@ class TestContextPrecision:
         assert result.passed is True
         assert abs(result.details["precision"] - 1.0) < 1e-9
 
+    def test_context_precision_no_retrieved_fails_by_default(self) -> None:
+        # SCENARIO: Retriever returns no documents.
+        # EXPECTED: Default on_empty="fail" rejects undefined precision.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_context_precision(["doc1"], [], min_precision=0.5)
+        assert "no documents retrieved" in exc_info.value.result.message.lower()
+
 
 class TestContextRecall:
     """Context recall — |relevant ∩ retrieved| / |relevant|."""
@@ -194,3 +240,10 @@ class TestContextRecall:
         result = assert_context_recall(relevant, retrieved, min_recall=1.0)
         assert result.passed is True
         assert abs(result.details["recall"] - 1.0) < 1e-9
+
+    def test_context_recall_no_relevant_fails_by_default(self) -> None:
+        # SCENARIO: No relevant documents are defined.
+        # EXPECTED: Default on_empty="fail" rejects undefined recall.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_context_recall([], ["doc1"], min_recall=0.5)
+        assert "no relevant documents defined" in exc_info.value.result.message.lower()

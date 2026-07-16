@@ -26,9 +26,64 @@ import pandas as pd
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
+
 # ---------------------------------------------------------------------------
 # 1. Marginal Fidelity
 # ---------------------------------------------------------------------------
+
+
+def _unknown_on_empty_result(
+    name: str,
+    on_empty: str,
+    severity: Severity,
+) -> TestResult:
+    """Return a failed result for an unsupported on_empty policy."""
+    return assert_true(
+        False,
+        name=name,
+        message=(
+            f"Unknown on_empty: '{on_empty}'. "
+            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
+        ),
+        severity=severity,
+        on_empty=on_empty,
+    )
+
+
+def _empty_input_result(
+    *,
+    name: str,
+    reason: str,
+    on_empty: str,
+    severity: Severity,
+    legacy_message: str,
+    **legacy_details: object,
+) -> TestResult:
+    """Apply the configured empty-input policy."""
+    if on_empty == "fail":
+        return assert_true(
+            False,
+            name=name,
+            message=f"{reason} -- empty input is not allowed",
+            severity=severity,
+        )
+    if on_empty == "skip":
+        return assert_true(
+            True,
+            name=name,
+            message=f"Skipped: {reason}",
+            severity=Severity.INFO,
+            skipped=True,
+            reason=reason,
+        )
+    return assert_true(
+        True,
+        name=name,
+        message=legacy_message,
+        severity=severity,
+        **legacy_details,
+    )
 
 
 @timed_assertion
@@ -258,6 +313,7 @@ def assert_synthetic_novelty(
     synthetic_df: pd.DataFrame,
     max_copy_rate: float = 0.05,
     columns: list[str] | None = None,
+    on_empty: str = "fail",
     severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert that synthetic data is not just a copy of the real data.
@@ -286,6 +342,8 @@ def assert_synthetic_novelty(
             exact copies of real rows. Default 0.05 (5%).
         columns: Subset of columns to consider when comparing rows.
             If None, uses all columns present in both DataFrames.
+        on_empty: Policy for empty synthetic data: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
         severity: Severity level for the assertion.
 
     Returns:
@@ -296,6 +354,11 @@ def assert_synthetic_novelty(
         >>> result = assert_synthetic_novelty(real_df, synth_df, max_copy_rate=0.01)
         >>> assert result.details["copy_rate"] < 0.01
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result(
+            "data.synthetic.novelty", on_empty, severity
+        )
+
     if columns is not None:
         cols = [c for c in columns if c in real_df.columns and c in synthetic_df.columns]
     else:
@@ -311,11 +374,12 @@ def assert_synthetic_novelty(
 
     n_synthetic = len(synthetic_df)
     if n_synthetic == 0:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="data.synthetic.novelty",
-            message="Synthetic DataFrame is empty -- trivially novel",
+            reason="Synthetic DataFrame is empty",
+            on_empty=on_empty,
             severity=severity,
+            legacy_message="Synthetic DataFrame is empty -- trivially novel",
             copy_rate=0.0,
             n_copies=0,
             n_synthetic=0,

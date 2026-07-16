@@ -261,6 +261,28 @@ def assert_calibration(
             severity=Severity.CRITICAL,
         )
 
+    if np.isnan(y_p).any() or (y_p < 0.0).any() or (y_p > 1.0).any():
+        return assert_true(
+            False,
+            name="model.calibration",
+            message=(
+                "y_prob contains values outside [0,1]: "
+                f"min={float(np.min(y_p))}, max={float(np.max(y_p))} "
+                "- pass probabilities, not logits"
+            ),
+            severity=Severity.CRITICAL,
+            y_prob_min=float(np.min(y_p)),
+            y_prob_max=float(np.max(y_p)),
+        )
+
+    if not np.isin(y_t, [0.0, 1.0]).all():
+        return assert_true(
+            False,
+            name="model.calibration",
+            message="y_true must contain only binary values {0,1}",
+            severity=Severity.CRITICAL,
+        )
+
     if method == "smooth_ece":
         return _calibration_smooth_ece(y_t, y_p, max_error)
 

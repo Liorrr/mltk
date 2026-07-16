@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from types import ModuleType
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -211,6 +212,103 @@ class TestDiscoveryUnit:
             for entry in items:
                 assert set(entry.keys()) == {"name", "module", "doc"}
                 assert entry["name"].startswith("assert_")
+
+    def test_discover_includes_nested_behavioral_assertions(self) -> None:
+        """Nested LLM behavioral assertion package is discovered."""
+        from mltk.cli._discovery import discover_assertions
+
+        expected_names = {
+            "assert_paraphrase_invariance",
+            "assert_format_invariance",
+            "assert_semantic_equivalence",
+            "assert_output_stability",
+            "assert_retrieval_consistency",
+            "assert_directional_expectation",
+        }
+        discovered_names = {
+            entry["name"]
+            for items in discover_assertions().values()
+            for entry in items
+        }
+
+        assert expected_names <= discovered_names
+
+    def test_discover_includes_container_cost_eval_assertions(self) -> None:
+        """Additional shipped assertion packages are scanned."""
+        from mltk.cli._discovery import discover_assertions
+
+        expected_names = {
+            "assert_container_vulnerabilities",
+            "assert_no_secrets_in_image",
+            "assert_cost_within",
+            "assert_token_usage",
+            "assert_dataset_quality",
+        }
+        discovered_names = {
+            entry["name"]
+            for items in discover_assertions().values()
+            for entry in items
+        }
+
+        assert expected_names <= discovered_names
+
+    def test_collect_recurses_without_duplicate_package_imports(
+        self,
+        monkeypatch,
+    ) -> None:
+        """Nested package traversal imports each package at most once."""
+        from mltk.cli import _discovery
+
+        root = ModuleType("fakepkg")
+        root.__path__ = ["root-path"]  # type: ignore[attr-defined]
+        child = ModuleType("fakepkg.child")
+        child.__path__ = ["child-path"]  # type: ignore[attr-defined]
+        leaf = ModuleType("fakepkg.child.leaf")
+
+        def assert_leaf() -> None:
+            return None
+
+        assert_leaf.__module__ = "fakepkg.child.leaf"
+        leaf.assert_leaf = assert_leaf  # type: ignore[attr-defined]
+
+        modules = {
+            "fakepkg": root,
+            "fakepkg.child": child,
+            "fakepkg.child.leaf": leaf,
+        }
+        import_calls: list[str] = []
+
+        def fake_import_module(name: str) -> ModuleType:
+            import_calls.append(name)
+            return modules[name]
+
+        def fake_iter_modules(path: list[str]) -> list[tuple[None, str, bool]]:
+            if path == ["root-path"]:
+                return [(None, "child", True)]
+            if path == ["child-path"]:
+                return [(None, "leaf", False)]
+            return []
+
+        monkeypatch.setattr(
+            _discovery.importlib,
+            "import_module",
+            fake_import_module,
+        )
+        monkeypatch.setattr(
+            _discovery.pkgutil,
+            "iter_modules",
+            fake_iter_modules,
+        )
+
+        entries = _discovery._collect_from_package("fakepkg")
+
+        assert {entry["name"] for entry in entries} == {"assert_leaf"}
+        package_imports = [
+            name
+            for name in import_calls
+            if getattr(modules[name], "__path__", None) is not None
+        ]
+        assert package_imports == list(dict.fromkeys(package_imports))
 
 
 # -------------------------------------------------------------------

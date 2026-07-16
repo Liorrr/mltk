@@ -219,6 +219,30 @@ class SandboxedExperimentRunner(ExperimentRunner):
 # ------------------------------------------------------------------
 
 
+def _build_unsupported_script(
+    message: str,
+    scanner_name: str,
+) -> str:
+    """Build a script that emits an explicit unsupported failure."""
+    message_safe = json.dumps(message)
+    details_json = json.dumps({
+        "scanner_name": scanner_name,
+        "unsupported": True,
+    })
+    details_json_safe = json.dumps(details_json)
+    return (
+        "import json\n"
+        "result = {"
+        "'name': 'sandbox.unsupported', "
+        "'passed': False, "
+        "'severity': 'critical', "
+        f"'message': {message_safe}, "
+        f"'details': json.loads({details_json_safe})"
+        "}\n"
+        "print(json.dumps(result))\n"
+    )
+
+
 def _build_assertion_script(finding: ScanFinding) -> str:
     """Build a minimal Python script that runs the assertion.
 
@@ -232,22 +256,74 @@ def _build_assertion_script(finding: ScanFinding) -> str:
     Returns:
         A string of valid Python code.
     """
+    assertion_fn = finding.assertion_fn
+    if assertion_fn is None:
+        return _build_unsupported_script(
+            "Sandbox replay unsupported: finding has no assertion_fn",
+            finding.scanner_name,
+        )
+
+    assertion_module = getattr(assertion_fn, "__module__", "")
+    assertion_qualname = getattr(assertion_fn, "__qualname__", "")
+    if not assertion_module or not assertion_qualname:
+        return _build_unsupported_script(
+            "Sandbox replay unsupported: assertion_fn is not importable",
+            finding.scanner_name,
+        )
+
+    try:
+        args_json = json.dumps(finding.assertion_args)
+        kwargs_json = json.dumps(finding.assertion_kwargs)
+    except (TypeError, ValueError) as exc:
+        return _build_unsupported_script(
+            "Sandbox replay unsupported: assertion arguments are not "
+            f"JSON-serializable: {exc}",
+            finding.scanner_name,
+        )
+
     scanner_safe = json.dumps(finding.scanner_name)
+    module_safe = json.dumps(assertion_module)
+    qualname_safe = json.dumps(assertion_qualname)
+    args_json_safe = json.dumps(args_json)
+    kwargs_json_safe = json.dumps(kwargs_json)
     return (
-        "import json, sys, os, importlib.util\n"
+        "import importlib, importlib.util, json, os\n"
+        "from mltk.core.assertion import MltkAssertionError\n"
+        f"ASSERTION_MODULE = {module_safe}\n"
+        f"ASSERTION_QUALNAME = {qualname_safe}\n"
+        f"ASSERTION_ARGS = json.loads({args_json_safe})\n"
+        f"ASSERTION_KWARGS = json.loads({kwargs_json_safe})\n"
+        f"SCANNER_NAME = {scanner_safe}\n"
         "try:\n"
         "    fix_path = os.path.join("
         "os.getcwd(), '_mltk_fix.py')\n"
         "    if os.path.exists(fix_path):\n"
         "        spec = importlib.util.spec_from_file_location("
         "'_fix', fix_path)\n"
+        "        if spec is None or spec.loader is None:\n"
+        "            raise RuntimeError('Could not load fix module')\n"
         "        mod = importlib.util.module_from_spec(spec)\n"
         "        spec.loader.exec_module(mod)\n"
+        "    assertion_module = importlib.import_module("
+        "ASSERTION_MODULE)\n"
+        "    assertion_fn = assertion_module\n"
+        "    for attr in ASSERTION_QUALNAME.split('.'):\n"
+        "        assertion_fn = getattr(assertion_fn, attr)\n"
+        "    assertion_fn(*ASSERTION_ARGS, **ASSERTION_KWARGS)\n"
         "    result = {"
         "'name': 'sandbox.assertion', "
         "'passed': True, "
         "'severity': 'info', "
-        f"'message': 'Fix applied for ' + {scanner_safe}"
+        "'message': 'Assertion passed for ' + SCANNER_NAME"
+        "}\n"
+        "except MltkAssertionError as exc:\n"
+        "    exc_result = getattr(exc, 'result', None)\n"
+        "    message = getattr(exc_result, 'message', str(exc))\n"
+        "    result = {"
+        "'name': 'sandbox.assertion', "
+        "'passed': False, "
+        "'severity': 'critical', "
+        "'message': str(message)"
         "}\n"
         "except Exception as exc:\n"
         "    result = {"

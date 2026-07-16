@@ -28,6 +28,8 @@ import math
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
+
 __all__ = [
     "assert_hit_rate",
     "assert_diversity",
@@ -41,11 +43,60 @@ __all__ = [
 # Public assertions
 # ------------------------------------------------------------------
 
+def _unknown_on_empty_result(name: str, on_empty: str) -> TestResult:
+    """Return a failed result for an unsupported on_empty policy."""
+    return assert_true(
+        False,
+        name=name,
+        message=(
+            f"Unknown on_empty: '{on_empty}'. "
+            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
+        ),
+        severity=Severity.CRITICAL,
+        on_empty=on_empty,
+    )
+
+
+def _empty_input_result(
+    *,
+    name: str,
+    reason: str,
+    on_empty: str,
+    legacy_message: str,
+    **legacy_details: object,
+) -> TestResult:
+    """Apply the configured empty-input policy."""
+    if on_empty == "fail":
+        return assert_true(
+            False,
+            name=name,
+            message=f"{reason} -- empty input is not allowed",
+            severity=Severity.CRITICAL,
+        )
+    if on_empty == "skip":
+        return assert_true(
+            True,
+            name=name,
+            message=f"Skipped: {reason}",
+            severity=Severity.INFO,
+            skipped=True,
+            reason=reason,
+        )
+    return assert_true(
+        True,
+        name=name,
+        message=legacy_message,
+        severity=Severity.CRITICAL,
+        **legacy_details,
+    )
+
+
 @timed_assertion
 def assert_hit_rate(
     recommended: list[list],
     relevant: list[set],
     min_rate: float = 0.5,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that hit rate meets a minimum threshold.
 
@@ -68,6 +119,8 @@ def assert_hit_rate(
         relevant: Relevant item sets per user.  ``relevant[i]``
             is the set of item IDs that are relevant for user *i*.
         min_rate: Minimum acceptable hit rate (default 0.5).
+        on_empty: Policy for no users: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``hit_rate``, ``min_rate``, ``n_hits``,
@@ -78,13 +131,17 @@ def assert_hit_rate(
         >>> rels = [{"a", "x"}, {"y", "z"}, {"f"}]
         >>> assert_hit_rate(recs, rels, min_rate=0.5)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("recommendation.hit_rate", on_empty)
+
     if not recommended:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="recommendation.hit_rate",
-            message="No users provided -- trivially passing "
-            "(hit_rate=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No users provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No users provided -- trivially passing (hit_rate=1.0)"
+            ),
             hit_rate=1.0,
             min_rate=min_rate,
             n_hits=0,
@@ -125,6 +182,7 @@ def assert_diversity(
     recommended: list[list],
     item_categories: dict,
     min_diversity: float = 0.5,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that recommendation diversity meets a minimum threshold.
 
@@ -150,6 +208,9 @@ def assert_diversity(
         item_categories: Mapping from item ID to category string.
             Items not present in this dict are silently skipped.
         min_diversity: Minimum acceptable mean diversity (default 0.5).
+        on_empty: Policy for no users or no categories:
+            ``"fail"`` (default), ``"skip"``, or ``"pass"`` for
+            legacy behavior.
 
     Returns:
         TestResult with ``avg_diversity``, ``min_diversity``, and
@@ -163,13 +224,17 @@ def assert_diversity(
         ... }
         >>> assert_diversity(recs, cats, min_diversity=0.3)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("recommendation.diversity", on_empty)
+
     if not recommended:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="recommendation.diversity",
-            message="No users provided -- trivially passing "
-            "(avg_diversity=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No users provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No users provided -- trivially passing (avg_diversity=1.0)"
+            ),
             avg_diversity=1.0,
             min_diversity=min_diversity,
             per_user_diversity=[],
@@ -179,12 +244,14 @@ def assert_diversity(
     n_categories = len(all_categories)
 
     if n_categories == 0:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="recommendation.diversity",
-            message="No categories defined -- trivially passing "
-            "(avg_diversity=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No categories defined",
+            on_empty=on_empty,
+            legacy_message=(
+                "No categories defined -- trivially passing "
+                "(avg_diversity=1.0)"
+            ),
             avg_diversity=1.0,
             min_diversity=min_diversity,
             per_user_diversity=[1.0] * len(recommended),
@@ -226,6 +293,7 @@ def assert_novelty(
     recommended: list[list],
     popularity: dict,
     min_novelty: float = 0.3,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that recommendation novelty meets a minimum threshold.
 
@@ -254,6 +322,8 @@ def assert_novelty(
             interacted with the item (e.g. 0.8 means 80% of users
             have seen it).
         min_novelty: Minimum acceptable mean novelty (default 0.3).
+        on_empty: Policy for no users: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``avg_novelty``, ``min_novelty``, and
@@ -267,13 +337,17 @@ def assert_novelty(
         ... }
         >>> assert_novelty(recs, pop, min_novelty=1.0)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("recommendation.novelty", on_empty)
+
     if not recommended:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="recommendation.novelty",
-            message="No users provided -- trivially passing "
-            "(avg_novelty=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No users provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No users provided -- trivially passing (avg_novelty=1.0)"
+            ),
             avg_novelty=1.0,
             min_novelty=min_novelty,
             per_user_novelty=[],
@@ -320,6 +394,7 @@ def assert_coverage(
     recommended: list[list],
     catalog_size: int,
     min_coverage: float = 0.1,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that catalog coverage meets a minimum threshold.
 
@@ -340,6 +415,8 @@ def assert_coverage(
             to user *i*.
         catalog_size: Total number of items in the catalog.
         min_coverage: Minimum acceptable coverage (default 0.1).
+        on_empty: Policy for empty catalogs: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``coverage``, ``min_coverage``,
@@ -349,13 +426,17 @@ def assert_coverage(
         >>> recs = [["a", "b"], ["b", "c"], ["c", "d"]]
         >>> assert_coverage(recs, catalog_size=10, min_coverage=0.3)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("recommendation.coverage", on_empty)
+
     if catalog_size <= 0:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="recommendation.coverage",
-            message="Empty catalog -- trivially passing "
-            "(coverage=1.0)",
-            severity=Severity.CRITICAL,
+            reason="Empty catalog",
+            on_empty=on_empty,
+            legacy_message=(
+                "Empty catalog -- trivially passing (coverage=1.0)"
+            ),
             coverage=1.0,
             min_coverage=min_coverage,
             unique_items=0,
@@ -395,6 +476,7 @@ def assert_serendipity(
     expected: list[list],
     relevant: list[set],
     min_serendipity: float = 0.1,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that recommendation serendipity meets a minimum threshold.
 
@@ -426,6 +508,8 @@ def assert_serendipity(
             is the set of item IDs that are relevant for user *i*.
         min_serendipity: Minimum acceptable mean serendipity
             (default 0.1).
+        on_empty: Policy for no users: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` for legacy behavior.
 
     Returns:
         TestResult with ``avg_serendipity``, ``min_serendipity``,
@@ -438,13 +522,18 @@ def assert_serendipity(
         >>> # "c" and "d" are relevant + recommended + NOT expected
         >>> assert_serendipity(recs, baseline, rels, min_serendipity=0.3)
     """
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result("recommendation.serendipity", on_empty)
+
     if not recommended:
-        return assert_true(
-            True,
+        return _empty_input_result(
             name="recommendation.serendipity",
-            message="No users provided -- trivially passing "
-            "(avg_serendipity=1.0)",
-            severity=Severity.CRITICAL,
+            reason="No users provided",
+            on_empty=on_empty,
+            legacy_message=(
+                "No users provided -- trivially passing "
+                "(avg_serendipity=1.0)"
+            ),
             avg_serendipity=1.0,
             min_serendipity=min_serendipity,
             per_user_serendipity=[],

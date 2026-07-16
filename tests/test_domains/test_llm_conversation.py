@@ -3,6 +3,7 @@
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.result import Severity
 from mltk.domains.llm.conversation import (
     assert_conversation_completeness,
     assert_knowledge_retention,
@@ -74,25 +75,47 @@ class TestKnowledgeRetention:
         result = assert_knowledge_retention(turns, min_score=0.1)
         assert result.duration_ms > 0
 
-    def test_knowledge_retention_empty_turns(self) -> None:
+    def test_knowledge_retention_empty_turns_fails_by_default(self) -> None:
         # SCENARIO: Caller passes an empty turn list.
-        # WHY: Edge case — no turns means nothing to forget; should be trivially OK.
-        # EXPECTED: passes with score=1.0.
-        result = assert_knowledge_retention([], min_score=0.7)
+        # WHY: Empty conversations should not make the gate green.
+        # EXPECTED: Default on_empty="fail" rejects empty turn lists.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_knowledge_retention([], min_score=0.7)
+        assert "empty turn list" in exc_info.value.result.message.lower()
+
+    def test_knowledge_retention_empty_turns_skip(self) -> None:
+        # SCENARIO: Caller explicitly chooses to skip empty conversation checks.
+        # EXPECTED: Passes as INFO with skip metadata.
+        result = assert_knowledge_retention([], min_score=0.7, on_empty="skip")
+        assert result.passed is True
+        assert result.severity == Severity.INFO
+        assert result.message.startswith("Skipped:")
+        assert result.details == {
+            "skipped": True,
+            "reason": "Empty turn list",
+        }
+
+    def test_knowledge_retention_empty_turns_pass_legacy(self) -> None:
+        # SCENARIO: Caller explicitly chooses legacy empty-turn behavior.
+        # EXPECTED: Empty turn list passes with the original score/message.
+        result = assert_knowledge_retention([], min_score=0.7, on_empty="pass")
         assert result.passed is True
         assert result.details["score"] == 1.0
+        assert result.message == "Empty turn list — trivially retained (score=1.0)"
 
-    def test_knowledge_retention_single_assistant_turn(self) -> None:
+    def test_knowledge_retention_single_assistant_turn_fails_by_default(self) -> None:
         # SCENARIO: Conversation has only one assistant response.
-        # WHY: No consecutive pair exists — nothing to measure.
-        # EXPECTED: trivially passes with score=1.0.
+        # WHY: No consecutive pair exists, so the metric is undefined.
+        # EXPECTED: Default on_empty="fail" rejects the degenerate input.
         turns = [
             {"role": "user", "content": "Hello!"},
             {"role": "assistant", "content": "Hi there!"},
         ]
-        result = assert_knowledge_retention(turns, min_score=0.7)
-        assert result.passed is True
-        assert result.details["score"] == 1.0
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_knowledge_retention(turns, min_score=0.7)
+        assert "fewer than 2 assistant turns" in (
+            exc_info.value.result.message.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -144,22 +167,24 @@ class TestTurnRelevancy:
         assert result.passed is True
         assert result.details["pairs_evaluated"] == 3
 
-    def test_turn_relevancy_empty_turns(self) -> None:
+    def test_turn_relevancy_empty_turns_fails_by_default(self) -> None:
         # SCENARIO: Empty conversation list.
-        # WHY: Nothing to evaluate; trivially relevant.
-        # EXPECTED: passes with score=1.0.
-        result = assert_turn_relevancy([], min_score=0.5)
-        assert result.passed is True
-        assert result.details["score"] == 1.0
+        # WHY: Empty conversations should not make the gate green.
+        # EXPECTED: Default on_empty="fail" rejects empty turn lists.
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_turn_relevancy([], min_score=0.5)
+        assert "empty turn list" in exc_info.value.result.message.lower()
 
-    def test_turn_relevancy_single_turn(self) -> None:
+    def test_turn_relevancy_single_turn_fails_by_default(self) -> None:
         # SCENARIO: Only a single user message, no assistant response follows.
-        # WHY: No adjacent (user, assistant) pair to evaluate.
-        # EXPECTED: trivially passes with score=1.0.
+        # WHY: No adjacent (user, assistant) pair exists to evaluate.
+        # EXPECTED: Default on_empty="fail" rejects the degenerate input.
         turns = [{"role": "user", "content": "Hello world."}]
-        result = assert_turn_relevancy(turns, min_score=0.5)
-        assert result.passed is True
-        assert result.details["pairs_evaluated"] == 0
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_turn_relevancy(turns, min_score=0.5)
+        assert "no (user, assistant) adjacent pairs found" in (
+            exc_info.value.result.message.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -227,14 +252,18 @@ class TestConversationCompleteness:
             )
         assert exc_info.value.result.details["score"] == 0.0
 
-    def test_completeness_no_expected_topics(self) -> None:
+    def test_completeness_no_expected_topics_fails_by_default(self) -> None:
         # SCENARIO: Caller provides an empty expected_topics list.
-        # WHY: Nothing required → trivially complete.
-        # EXPECTED: passes with score=1.0.
+        # WHY: Empty requirements should not make the gate green by default.
+        # EXPECTED: Default on_empty="fail" rejects empty expected topics.
         turns = _make_turns(("Hi.", "Hello!"))
-        result = assert_conversation_completeness(turns, expected_topics=[], min_coverage=1.0)
-        assert result.passed is True
-        assert result.details["score"] == 1.0
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_conversation_completeness(
+                turns, expected_topics=[], min_coverage=1.0
+            )
+        assert "no expected topics defined" in (
+            exc_info.value.result.message.lower()
+        )
 
     def test_completeness_result_details(self) -> None:
         # SCENARIO: Normal multi-topic conversation.

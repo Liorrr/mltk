@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.result import Severity
 from mltk.domains.codegen import (
     assert_code_complexity,
     assert_code_executes,
@@ -99,26 +100,43 @@ class TestCodeExecutes:
         assert result.details["returncode"] == -1
         assert "timed out" in result.message.lower()
 
-    def test_empty_code_passes(self) -> None:
-        """PASS: Empty code executes trivially.
+    def test_empty_code_fails_by_default(self) -> None:
+        """FAIL: Empty code is rejected by default.
 
-        WHY: An empty string is valid Python (does nothing).
-        The assertion should not crash on empty input.
-        Expected: passed=True without invoking subprocess.
+        WHY: Empty generated code should not make the execution gate green.
+        Expected: MltkAssertionError without invoking subprocess.
         """
-        result = assert_code_executes("")
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_code_executes("")
+        assert "empty code" in exc.value.result.message.lower()
+
+    def test_empty_code_skip(self) -> None:
+        """PASS: Empty code can be explicitly skipped."""
+        result = assert_code_executes("", on_empty="skip")
+        assert result.passed is True
+        assert result.severity == Severity.INFO
+        assert result.message.startswith("Skipped:")
+        assert result.details == {
+            "skipped": True,
+            "reason": "Empty code",
+        }
+
+    def test_empty_code_pass_legacy(self) -> None:
+        """PASS: Empty code can explicitly use legacy behavior."""
+        result = assert_code_executes("", on_empty="pass")
         assert result.passed is True
         assert result.details["returncode"] == 0
+        assert result.message == "Empty code executes trivially"
 
-    def test_whitespace_only_passes(self) -> None:
-        """PASS: Whitespace-only code executes trivially.
+    def test_whitespace_only_fails_by_default(self) -> None:
+        """FAIL: Whitespace-only code is rejected by default.
 
-        WHY: Code that is only spaces/newlines should be treated
-        the same as empty code.
-        Expected: passed=True.
+        WHY: Whitespace-only code is degenerate generated code.
+        Expected: MltkAssertionError.
         """
-        result = assert_code_executes("   \n\n  ")
-        assert result.passed is True
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_code_executes("   \n\n  ")
+        assert "empty code" in exc.value.result.message.lower()
 
     def test_unsupported_language_fails(self) -> None:
         """FAIL: Non-Python language is not supported.
@@ -228,14 +246,15 @@ class TestCodePassesTests:
                 timeout_seconds=30.0,
             )
 
-    def test_empty_code_and_tests_passes(self) -> None:
-        """PASS: Empty code and empty tests -- trivially passing.
+    def test_empty_code_and_tests_fail_by_default(self) -> None:
+        """FAIL: Empty code and empty tests are rejected by default.
 
-        WHY: Edge case -- nothing to test means nothing to fail.
-        Expected: passed=True.
+        WHY: Empty generated code and empty tests should not make the gate green.
+        Expected: MltkAssertionError.
         """
-        result = assert_code_passes_tests("", "")
-        assert result.passed is True
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_code_passes_tests("", "")
+        assert "empty code and tests" in exc.value.result.message.lower()
 
 
 # ------------------------------------------------------------------

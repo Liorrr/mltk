@@ -539,6 +539,126 @@ class TestExportJson:
         assert parsed[0]["severity"] == "critical"
 
 
+class _FakeTerminalWriter:
+    def sep(self, marker: str, title: str | None = None) -> None:
+        pass
+
+    def line(self, text: str = "") -> None:
+        pass
+
+
+class _FakeTerminalReporter:
+    def __init__(self) -> None:
+        self._tw = _FakeTerminalWriter()
+
+
+class _FakePluginManager:
+    def get_plugin(self, name: str) -> object | None:
+        if name == "terminalreporter":
+            return _FakeTerminalReporter()
+        return None
+
+
+class _FakeSessionConfig:
+    def __init__(
+        self,
+        collector: MltkReportCollector,
+        *,
+        report_enabled: bool,
+    ) -> None:
+        self._mltk_collector = collector
+        self.pluginmanager = _FakePluginManager()
+        self._options = {
+            "--mltk-export-json": None,
+            "--mltk-mlflow": None,
+            "--mltk-server": None,
+            "--mltk-report": report_enabled,
+        }
+
+    def getoption(self, name: str, default: object = None) -> object:
+        return self._options.get(name, default)
+
+
+class _FakeSession:
+    def __init__(
+        self,
+        collector: MltkReportCollector,
+        *,
+        report_enabled: bool,
+    ) -> None:
+        self.config = _FakeSessionConfig(
+            collector,
+            report_enabled=report_enabled,
+        )
+
+
+class TestHtmlReportOutputDir:
+    """Tests for --mltk-report HTML output directory resolution."""
+
+    def test_report_dir_env_var_passed_to_generate_report(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        """MLTK_REPORT_DIR becomes the default HTML report output_dir."""
+        from mltk.pytest_plugin.plugin import pytest_sessionfinish
+
+        captured: dict[str, object] = {}
+
+        def fake_generate_report(
+            results,
+            output_dir="./mltk-reports",
+            title="MLTK Test Report",
+        ):
+            captured["results"] = results
+            captured["output_dir"] = output_dir
+            captured["title"] = title
+            return tmp_path / "report.html"
+
+        monkeypatch.setenv("MLTK_REPORT_DIR", str(tmp_path / "configured"))
+        monkeypatch.setattr(
+            "mltk.report.generator.generate_report",
+            fake_generate_report,
+        )
+        collector = MltkReportCollector()
+        collector.add("tests::t", "passed", 0.1)
+
+        pytest_sessionfinish(_FakeSession(collector, report_enabled=True), 0)
+
+        assert captured["results"] is collector.results
+        assert captured["output_dir"] == str(tmp_path / "configured")
+
+    def test_report_dir_config_failure_falls_back_to_report_default(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        """Invalid config must not abort terminal report generation."""
+        from mltk.pytest_plugin.plugin import pytest_sessionfinish
+
+        captured: dict[str, object] = {}
+
+        def fake_generate_report(
+            results,
+            output_dir="./mltk-reports",
+            title="MLTK Test Report",
+        ):
+            captured["output_dir"] = output_dir
+            return tmp_path / "report.html"
+
+        monkeypatch.setenv("MLTK_DRIFT_THRESHOLD", "2")
+        monkeypatch.setattr(
+            "mltk.report.generator.generate_report",
+            fake_generate_report,
+        )
+        collector = MltkReportCollector()
+        collector.add("tests::t", "passed", 0.1)
+
+        pytest_sessionfinish(_FakeSession(collector, report_enabled=True), 0)
+
+        assert captured["output_dir"] == "./mltk-reports"
+
+
 # ---------------------------------------------------------------------------
 # TestPushToServer
 # ---------------------------------------------------------------------------

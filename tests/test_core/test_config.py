@@ -5,6 +5,7 @@ This ensures users can configure mltk via their preferred method
 and that missing/invalid configs fall back gracefully.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,7 @@ def test_default_config() -> None:
     assert config.drift_method == "ks"
     assert config.drift_threshold == 0.05
     assert config.seed == 42
+    assert config.explicit_fields == set()
 
 
 def test_config_to_dict() -> None:
@@ -37,13 +39,22 @@ def test_config_to_dict() -> None:
     assert isinstance(d["pii_patterns"], list)
 
 
-def test_config_load_defaults() -> None:
+def test_config_load_defaults(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """load() returns defaults when no config files are present.
 
-    WHY: Fresh projects without any config should still work.
+    WHY: Fresh projects without any config should still work, and
+    nothing should be marked user-set. Run from an empty directory so
+    the repo's own pyproject.toml [tool.mltk] section is not picked up.
     """
+    monkeypatch.chdir(tmp_path)
+    for var in list(os.environ):
+        if var.startswith("MLTK_"):
+            monkeypatch.delenv(var)
     config = MltkConfig.load()
     assert config.drift_method == "ks"
+    assert config.explicit_fields == set()
 
 
 # --- Sprint 1: TOML/YAML loading tests ---
@@ -68,6 +79,7 @@ seed = 123
     assert config.drift_method == "psi"
     assert config.drift_threshold == 0.1
     assert config.seed == 123
+    assert config.explicit_fields == {"drift_method", "drift_threshold", "seed"}
     # Unset values should keep defaults
     assert config.report_format == "html"
 
@@ -92,6 +104,12 @@ report_dir: ./custom-reports
     assert config.drift_threshold == 0.15
     assert config.seed == 99
     assert config.report_dir == "./custom-reports"
+    assert config.explicit_fields == {
+        "drift_method",
+        "drift_threshold",
+        "seed",
+        "report_dir",
+    }
 
 
 def test_config_from_yaml_nested(tmp_path: Path) -> None:
@@ -106,6 +124,7 @@ def test_config_from_yaml_nested(tmp_path: Path) -> None:
     config = MltkConfig._from_yaml(yaml_file)
     assert config.drift_method == "kl"
     assert config.seed == 7
+    assert config.explicit_fields == {"drift_method", "seed"}
 
 
 def test_config_load_missing_path() -> None:
@@ -116,6 +135,7 @@ def test_config_load_missing_path() -> None:
     config = MltkConfig.load(path="/nonexistent/mltk.yaml")
     assert config.drift_method == "ks"
     assert config.seed == 42
+    assert config.explicit_fields == set()
 
 
 def test_config_from_dict_ignores_unknown_keys() -> None:
@@ -126,6 +146,7 @@ def test_config_from_dict_ignores_unknown_keys() -> None:
     """
     config = MltkConfig._from_dict({"drift_method": "chi2", "unknown_future_key": True})
     assert config.drift_method == "chi2"
+    assert config.explicit_fields == {"drift_method"}
 
 
 def test_config_from_pyproject_no_mltk_section(tmp_path: Path) -> None:
@@ -139,6 +160,7 @@ def test_config_from_pyproject_no_mltk_section(tmp_path: Path) -> None:
     config = MltkConfig._from_pyproject(toml_file)
     assert config.drift_method == "ks"
     assert config.seed == 42
+    assert config.explicit_fields == set()
 
 
 # --- Sprint 17: Environment variable override tests ---
@@ -154,6 +176,7 @@ def test_env_var_drift_method(monkeypatch: pytest.MonkeyPatch) -> None:
 
     config = MltkConfig.load()
     assert config.drift_method == "psi"
+    assert "drift_method" in config.explicit_fields
 
 
 def test_env_var_drift_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -167,6 +190,35 @@ def test_env_var_drift_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
     config = MltkConfig.load()
     assert config.drift_threshold == pytest.approx(0.01)
     assert isinstance(config.drift_threshold, float)
+    assert "drift_threshold" in config.explicit_fields
+
+
+def test_env_var_invalid_drift_threshold_validated_after_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SCENARIO: MLTK_DRIFT_THRESHOLD is outside the valid 0-1 range.
+    WHY: Env overrides are applied after dataclass construction, so they
+         must be validated explicitly instead of bypassing __post_init__.
+    EXPECTED: MltkConfig.load() raises a clear ValueError immediately.
+    """
+    monkeypatch.setenv("MLTK_DRIFT_THRESHOLD", "2")
+
+    with pytest.raises(ValueError, match="drift_threshold must be 0-1"):
+        MltkConfig.load()
+
+
+def test_env_var_invalid_drift_method_validated_after_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SCENARIO: MLTK_DRIFT_METHOD is an unknown method name.
+    WHY: Typos in env vars should fail at config load, not deep inside
+         a later drift assertion.
+    EXPECTED: MltkConfig.load() raises a clear ValueError immediately.
+    """
+    monkeypatch.setenv("MLTK_DRIFT_METHOD", "not_a_method")
+
+    with pytest.raises(ValueError, match="drift_method must be one of"):
+        MltkConfig.load()
 
 
 def test_env_var_pii_patterns(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -179,6 +231,7 @@ def test_env_var_pii_patterns(monkeypatch: pytest.MonkeyPatch) -> None:
 
     config = MltkConfig.load()
     assert config.pii_patterns == ["email", "iban", "npi"]
+    assert "pii_patterns" in config.explicit_fields
 
 
 def test_env_var_pii_patterns_trims_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -216,6 +269,7 @@ def test_env_var_report_dir(monkeypatch: pytest.MonkeyPatch) -> None:
 
     config = MltkConfig.load()
     assert config.report_dir == "/tmp/ci-reports"
+    assert "report_dir" in config.explicit_fields
 
 
 def test_env_var_highest_priority(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -278,6 +332,7 @@ def test_env_var_apply_env_overrides_direct(monkeypatch: pytest.MonkeyPatch) -> 
     assert result.drift_method == "wasserstein"
     assert result.drift_threshold == pytest.approx(0.10)  # unchanged
     assert result.seed == 99  # unchanged
+    assert result.explicit_fields == {"drift_method"}
 
 
 # --- P1-36: __post_init__ validation tests ---

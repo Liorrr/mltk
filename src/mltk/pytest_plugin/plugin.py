@@ -295,7 +295,19 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
     try:
         from mltk.report.generator import generate_report
 
-        report_path = generate_report(collector.results)
+        output_dir = "./mltk-reports"
+        try:
+            config = MltkConfig.load()
+            if "report_dir" in getattr(config, "explicit_fields", set()):
+                output_dir = config.report_dir
+        except Exception as exc:  # noqa: BLE001
+            output_dir = "./mltk-reports"
+            writer.line(
+                f"mltk: config load failed ({exc}); "
+                f"writing HTML report to {output_dir}"
+            )
+
+        report_path = generate_report(collector.results, output_dir=output_dir)
         writer.line(f"HTML report: {report_path}")
     except ImportError:
         pass  # plotly/jinja2 not installed — skip HTML report
