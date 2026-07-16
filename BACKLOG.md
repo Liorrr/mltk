@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S100: 241 assertions, 4913+ tests, 38 Rust tests) — v0.13.0
+## DONE (S0-S100: 241 assertions, 4918+ tests, 38 Rust tests) — v0.13.0
 
 ### S101 — Adversarial-review fix batch 1 (7 high-severity findings)
 - [x] Cross-model adversarial review (3 Codex reviewers: Skeptic/Architect/Minimalist + Fable lead pass) of the 128 pre-PR-era direct-to-master commits produced ~30 deduped findings; batch 1 fixed all 7 confirmed highs via 7-worker Codex dispatch + 1 fix round: (1) experiment sandbox now replays the original assertion instead of hardcoding `passed=True`; (2) MCP `mltk_scan` reports `scan_performed` honestly; (3) **BREAKING** `on_empty="fail"` default across ~25 empty-input gates (rag/retrieval/conversation/recommendation/codegen/synthetic) + zero-IDCG query exclusion; (4) `assert_calibration` rejects out-of-range/NaN probs and non-binary labels; (5) recursive assertion discovery + container/cost/eval targets (229 discoverable, was 218); (6) env/yaml config actually consumed via new `MltkConfig.explicit_fields` provenance (explicit-only, legacy defaults preserved); (7) server storage serialized behind a lock with Row factory set once (fail-first concurrency test). Suite 4867 green.
@@ -65,7 +65,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 241 assertions, 4913+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 241 assertions, 4918+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -258,7 +258,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4913+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 4918+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).

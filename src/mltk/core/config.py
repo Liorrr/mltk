@@ -22,8 +22,6 @@ class MltkConfig:
     - ``MLTK_DRIFT_METHOD``    — drift_method (str)
     - ``MLTK_DRIFT_THRESHOLD`` — drift_threshold (float)
     - ``MLTK_REPORT_DIR``      — report_dir (str)
-    - ``MLTK_REPORT_FORMAT``   — report_format (str)
-    - ``MLTK_BASELINE_DIR``    — baseline_dir (str)
     - ``MLTK_SEED``            — seed (int)
     - ``MLTK_PII_PATTERNS``    — pii_patterns (comma-separated list)
     - ``MLTK_API_KEY``         — api_key (str, for server auth)
@@ -32,8 +30,6 @@ class MltkConfig:
     drift_method: str = "ks"
     drift_threshold: float = 0.05
     report_dir: str = "./mltk-reports"
-    report_format: str = "html"
-    baseline_dir: str = "./mltk-baselines"
     seed: int = 42
     api_key: str = ""
     pii_patterns: list[str] = field(
@@ -107,8 +103,6 @@ class MltkConfig:
         - ``MLTK_DRIFT_METHOD``    → drift_method (str)
         - ``MLTK_DRIFT_THRESHOLD`` → drift_threshold (float)
         - ``MLTK_REPORT_DIR``      → report_dir (str)
-        - ``MLTK_REPORT_FORMAT``   → report_format (str)
-        - ``MLTK_BASELINE_DIR``    → baseline_dir (str)
         - ``MLTK_SEED``            → seed (int)
         - ``MLTK_PII_PATTERNS``    → pii_patterns (comma-separated, e.g. "email,phone")
         - ``MLTK_API_KEY``         → api_key (str, for server auth)
@@ -133,16 +127,6 @@ class MltkConfig:
         if report_dir is not None:
             config.report_dir = report_dir
             config.explicit_fields.add("report_dir")
-
-        report_format = os.environ.get("MLTK_REPORT_FORMAT")
-        if report_format is not None:
-            config.report_format = report_format
-            config.explicit_fields.add("report_format")
-
-        baseline_dir = os.environ.get("MLTK_BASELINE_DIR")
-        if baseline_dir is not None:
-            config.baseline_dir = baseline_dir
-            config.explicit_fields.add("baseline_dir")
 
         seed = os.environ.get("MLTK_SEED")
         if seed is not None:
@@ -245,8 +229,6 @@ class MltkConfig:
             "drift_method": self.drift_method,
             "drift_threshold": self.drift_threshold,
             "report_dir": self.report_dir,
-            "report_format": self.report_format,
-            "baseline_dir": self.baseline_dir,
             "seed": self.seed,
             "api_key": self.api_key,
             "pii_patterns": self.pii_patterns,

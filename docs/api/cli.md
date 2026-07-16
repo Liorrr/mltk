@@ -592,9 +592,7 @@ These override values from `mltk.yaml` and `pyproject.toml`:
 | `MLTK_DRIFT_METHOD` | `ks` | Drift detection method (`ks`, `psi`, `kl`, `chi2`) |
 | `MLTK_DRIFT_THRESHOLD` | `0.05` | Drift detection threshold |
 | `MLTK_REPORT_DIR` | `./mltk-reports` | Directory for generated reports |
-| `MLTK_REPORT_FORMAT` | `html` | Report output format |
-| `MLTK_BASELINE_DIR` | — | Directory for baseline metrics |
-| `MLTK_SEED` | `42` | Random seed for reproducibility |
+| `MLTK_SEED` | `42` | Default seed for `assert_reproducible` when its `seed` argument is omitted |
 | `MLTK_PII_PATTERNS` | — | Comma-separated PII pattern list (e.g., `email,phone,ssn`) |
 
 ### Server & integration

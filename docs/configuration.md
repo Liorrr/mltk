@@ -40,8 +40,6 @@ Add a `[tool.mltk]` section to your existing `pyproject.toml`:
 drift_method = "ks"
 drift_threshold = 0.05
 report_dir = "./mltk-reports"
-report_format = "html"
-baseline_dir = "./mltk-baselines"
 seed = 42
 pii_patterns = ["email", "phone", "ssn", "credit_card"]
 ```
@@ -64,8 +62,6 @@ For teams that prefer a standalone config file, create `mltk.yaml` in your proje
 drift_method: psi
 drift_threshold: 0.1
 report_dir: ./custom-reports
-report_format: html
-baseline_dir: ./baselines
 seed: 123
 pii_patterns:
   - email
@@ -104,8 +100,6 @@ All environment variables are prefixed with `MLTK_` and take the **highest prior
 | `MLTK_DRIFT_METHOD` | `drift_method` | `str` | `export MLTK_DRIFT_METHOD=psi` |
 | `MLTK_DRIFT_THRESHOLD` | `drift_threshold` | `float` | `export MLTK_DRIFT_THRESHOLD=0.1` |
 | `MLTK_REPORT_DIR` | `report_dir` | `str` | `export MLTK_REPORT_DIR=./ci-reports` |
-| `MLTK_REPORT_FORMAT` | `report_format` | `str` | `export MLTK_REPORT_FORMAT=html` |
-| `MLTK_BASELINE_DIR` | `baseline_dir` | `str` | `export MLTK_BASELINE_DIR=./baselines` |
 | `MLTK_SEED` | `seed` | `int` | `export MLTK_SEED=99` |
 | `MLTK_PII_PATTERNS` | `pii_patterns` | `str` (comma-separated) | `export MLTK_PII_PATTERNS=email,phone,ssn` |
 
@@ -140,9 +134,7 @@ All environment variables are prefixed with `MLTK_` and take the **highest prior
 | `drift_method` | `str` | `"ks"` | `"ks"`, `"psi"`, `"kl"`, `"chi2"`, `"js"`, `"wasserstein"`, `"auto"` | Statistical test for drift detection. |
 | `drift_threshold` | `float` | `0.05` | `0.0` to `1.0` | P-value or score threshold for drift detection. Values below this trigger a drift alert. |
 | `report_dir` | `str` | `"./mltk-reports"` | Any valid path | Directory for generated HTML test reports. Created automatically if it does not exist. |
-| `report_format` | `str` | `"html"` | `"html"` | Report output format. |
-| `baseline_dir` | `str` | `"./mltk-baselines"` | Any valid path | Directory for storing distribution baselines used in drift detection. |
-| `seed` | `int` | `42` | `>= 0` (non-negative) | Random seed for reproducible tests. Used by nondeterministic assertions and the `ml_nondeterministic` marker. |
+| `seed` | `int` | `42` | `>= 0` (non-negative) | Default seed for `assert_reproducible` when its `seed` argument is omitted. Honoured only when set explicitly (env/yaml/pyproject); otherwise the built-in default of 42 applies. |
 | `pii_patterns` | `list[str]` | `["email", "phone", "ssn", "credit_card"]` | See PII pattern names | PII pattern names for `assert_no_pii`. Determines which patterns are scanned. |
 
 ### Validation

@@ -142,8 +142,6 @@ Supported environment variables:
 | `MLTK_DRIFT_METHOD` | `str` | `"ks"` |
 | `MLTK_DRIFT_THRESHOLD` | `float` | `0.05` |
 | `MLTK_REPORT_DIR` | `str` | `"./mltk-reports"` |
-| `MLTK_REPORT_FORMAT` | `str` | `"html"` |
-| `MLTK_BASELINE_DIR` | `str` | `"./mltk-baselines"` |
 | `MLTK_SEED` | `int` | `42` |
 | `MLTK_PII_PATTERNS` | `str` (comma-separated) | `"email,phone,ssn,credit_card"` |
 

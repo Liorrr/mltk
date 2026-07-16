@@ -7,7 +7,50 @@ import numpy as np
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
-from mltk.pipeline.reproducibility import assert_checksum, assert_reproducible
+from mltk.pipeline.reproducibility import (
+    _resolve_default_seed,
+    assert_checksum,
+    assert_reproducible,
+)
+
+
+class TestResolveDefaultSeed:
+    """S102: config.seed was dead — MLTK_SEED/yaml never reached any consumer.
+
+    Wiring follows the S101 explicit_fields provenance rule: an explicit arg
+    wins, config is honoured only when the user explicitly set seed, and the
+    legacy built-in default (42) is preserved otherwise.
+    """
+
+    def test_explicit_seed_wins_over_config(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("MLTK_SEED", "7")
+        assert _resolve_default_seed(99) == 99
+
+    def test_explicit_zero_is_honoured_not_treated_as_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        # 0 is falsy — the guard must test `is not None`, not truthiness.
+        monkeypatch.setenv("MLTK_SEED", "7")
+        assert _resolve_default_seed(0) == 0
+
+    def test_explicitly_configured_seed_is_used(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("MLTK_SEED", "7")
+        assert _resolve_default_seed(None) == 7
+
+    def test_unconfigured_seed_falls_back_to_legacy_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.delenv("MLTK_SEED", raising=False)
+        assert _resolve_default_seed(None) == 42
+
+    def test_config_load_failure_falls_back_to_legacy_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        def _boom(*_args, **_kwargs):
+            raise RuntimeError("config exploded")
+
+        monkeypatch.setattr("mltk.core.config.MltkConfig.load", _boom)
+        assert _resolve_default_seed(None) == 42
 
 
 def _deterministic_func(x: int = 5) -> float:

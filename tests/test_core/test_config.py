@@ -81,7 +81,7 @@ seed = 123
     assert config.seed == 123
     assert config.explicit_fields == {"drift_method", "drift_threshold", "seed"}
     # Unset values should keep defaults
-    assert config.report_format == "html"
+    assert config.report_dir == "./mltk-reports"
 
 
 def test_config_from_yaml(tmp_path: Path) -> None:
@@ -302,7 +302,7 @@ def test_env_var_unset_leaves_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     # Ensure no MLTK_* vars bleed in from the test environment
     for key in [
         "MLTK_DRIFT_METHOD", "MLTK_DRIFT_THRESHOLD", "MLTK_REPORT_DIR",
-        "MLTK_REPORT_FORMAT", "MLTK_BASELINE_DIR", "MLTK_SEED", "MLTK_PII_PATTERNS",
+        "MLTK_SEED", "MLTK_PII_PATTERNS",
     ]:
         monkeypatch.delenv(key, raising=False)
 
@@ -321,8 +321,7 @@ def test_env_var_apply_env_overrides_direct(monkeypatch: pytest.MonkeyPatch) -> 
     """
     monkeypatch.setenv("MLTK_DRIFT_METHOD", "wasserstein")
     for key in [
-        "MLTK_DRIFT_THRESHOLD", "MLTK_REPORT_DIR", "MLTK_REPORT_FORMAT",
-        "MLTK_BASELINE_DIR", "MLTK_SEED", "MLTK_PII_PATTERNS",
+        "MLTK_DRIFT_THRESHOLD", "MLTK_REPORT_DIR", "MLTK_SEED", "MLTK_PII_PATTERNS",
     ]:
         monkeypatch.delenv(key, raising=False)
 

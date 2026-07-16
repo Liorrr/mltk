@@ -14,8 +14,6 @@ class MltkConfig:
     drift_method: str = "ks"
     drift_threshold: float = 0.05
     report_dir: str = "./mltk-reports"
-    report_format: str = "html"
-    baseline_dir: str = "./mltk-baselines"
     seed: int = 42
     pii_patterns: list[str] = field(
         default_factory=lambda: ["email", "phone", "ssn", "credit_card"]
