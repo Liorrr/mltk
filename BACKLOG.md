@@ -180,7 +180,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ## BACKLOG (not yet scheduled)
 
 ### Adversarial-review follow-ups
-- [ ] Dedup the ~6 cosine/jaccard/token-overlap similarity reimplementations flagged by the Minimalist (residual half of S102 finding #10 — the `on_empty` helper dedup shipped in S102; these string/vector-similarity copies did not)
+- [x] ~~Dedup the ~6 cosine/jaccard/token-overlap similarity reimplementations flagged by the Minimalist (residual half of S102 finding #10).~~ **WON'T-FIX (2026-07-21):** on inspection these are similar-looking but semantically distinct, not copies — `agentic._token_overlap` returns 1.0 for two-empty vs `behavioral/retrieval._jaccard` 0.0 (documented "two empty retrievals share nothing") vs `coherence` 0.0 for either-empty; `judge_defaults` is an asymmetric overlap ratio `|A∩B|/|A|`, a different formula; the cosines differ in zero-norm handling (`== 0.0` vs `< 1e-10`) and input type (list vs ndarray), and `bertscore._cosine` runs in an O(n·m) hot loop where routing through a shared/`_rust` helper risks a perf regression. No shared helper preserves all behavior as a net win, so the sites stay separate by design.
 
 *(All other adversarial-review batch 2 mediums shipped in S102 — see DONE.)*
 
