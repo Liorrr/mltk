@@ -12,7 +12,7 @@ We believe transparency builds trust. Here's what we have, what we don't, and wh
 
 | Capability | mltk | Nearest Competitor | Gap |
 |-----------|:----:|-------------------|:---:|
-| Behavioral consistency testing | **7 assertions** | Nobody | Only provider |
+| Behavioral consistency testing | **6 assertions + ParaphraseGenerator** | Nobody | Only provider |
 | Multi-method dispatch (lexical→NLI→LLM) | **Unified API** | Promptfoo (partial) | Major |
 | Full ML lifecycle coverage | **241 assertions** | Evidently (monitoring) + DeepEval (LLM) | Nobody covers all stages |
 | Compliance test frameworks | **8 frameworks** | Giskard (platform certs) | Major |
@@ -27,13 +27,13 @@ We believe transparency builds trust. Here's what we have, what we don't, and wh
 
 | Capability | mltk Status | Who Leads | Their Approach | Gap Size | Feasibility |
 |-----------|-------------|-----------|---------------|:--------:|:-----------:|
-| **Synthetic test data generation** | Not implemented | RAGAS, DeepEval, Giskard | Evolutionary Q/A generation from documents | Large | 2-3 sprints |
-| **Dynamic red teaming** | 50 static payloads | Giskard (autonomous agents), Promptfoo (135 plugins) | Multi-turn adversarial attack chains that adapt mid-conversation | Very Large | 3-4 sprints |
-| **MCP evaluation metrics** | Agentic assertions exist, no MCP-specific | DeepEval (first mover) | MCPUseMetric, MCPTaskCompletionMetric | Medium | 1 sprint |
+| **Synthetic test data generation** | `SyntheticQAGenerator` (template + optional `llm_fn`); residual gap vs RAGAS KG / Evol-Instruct product depth | RAGAS, DeepEval, Giskard | Evolutionary Q/A generation from documents | Medium | residual polish |
+| **Dynamic red teaming** | `RedTeamSession` + 55 catalog payloads + mutations + optional `llm_attacker`; not full adaptive agent parity | Giskard (autonomous agents), Promptfoo (135 plugins) | Multi-turn adversarial attack chains that adapt mid-conversation | Large | residual vs GOAT/plugin scale |
+| **MCP evaluation metrics** | **5** MCP-specific assertions shipped (`assert_mcp_*`) | DeepEval (first mover) | MCPUseMetric, MCPTaskCompletionMetric | Small | residual metrics only |
 | **Multimodal evaluation** | Image-text alignment only | DeepEval (5 metrics), Kolena | Text-to-image quality, editing, coherence, helpfulness | Medium | 2 sprints |
-| **LLM observability** | Basic OTLP export | Arize Phoenix (13K stars), Langfuse (19K stars) | Real-time trace visualization, span debugging | Large | Integrate, not build |
-| **JSON schema validation** | Regex-based format check | DeepEval, Promptfoo | JSON Schema, Pydantic model validation | Small | 1 sprint |
-| **Cost/token tracking** | Duration only | Promptfoo, Arize Phoenix | Token counts, dollar costs, budget alerts | Small | 1 sprint |
+| **LLM observability** | Basic OTLP export | Arize Phoenix, Langfuse (star counts: re-measure before citing) | Real-time trace visualization, span debugging | Large | Integrate, not build |
+| **JSON schema validation** | **Shipped (S96):** `assert_valid_json`, `assert_json_schema`, `assert_pydantic_schema` (regex `assert_output_format` remains complementary) | DeepEval, Promptfoo | JSON Schema, Pydantic model validation | Closed | — |
+| **Cost/token tracking** | **Shipped (S96):** `mltk.cost` + `assert_cost_within` / `assert_token_usage` | Promptfoo, Arize Phoenix | Token counts, dollar costs, budget alerts | Closed | — |
 | **Data quality (standalone)** | ML-focused assertions | Great Expectations | ExpectAI, data profiling, 300+ expectations | N/A | Different market |
 
 ### Neutral Comparisons
@@ -55,67 +55,55 @@ These items are researched but **not committed**. Each includes an honest effort
 ### Tier 1: Closing Critical Gaps
 
 #### Synthetic Test Data Generation
-*Status: Researched, not started*
+*Status: Shipped (S76+) — residual depth vs RAGAS/DeepEval*
 
 Auto-generate Q/A evaluation datasets from document corpora. Teams evaluating RAG systems need labeled test data — today they build it manually or use RAGAS/DeepEval.
 
-**What competitors do:** RAGAS builds a knowledge graph from documents and evolves questions through 4 depth levels (simple → reasoning → conditioning → multi-context). DeepEval's Synthesizer runs a 4-stage pipeline (input → filtration → evolution → styling) with multi-turn conversation support. Giskard's RAGET generates 6 question types each targeting a specific RAG component (retriever, generator, router, rewriter).
+**What ships today:** `SyntheticQAGenerator` in `mltk.domains.llm.synthetic` with template mode (zero-dep, deterministic) and optional `llm_fn: Callable[[str], str]` (provider-agnostic). Multiple question types (factual, reasoning, multi-hop, counterfactual, out-of-scope, conversational, distracting). Output feeds existing RAG assertions (`assert_faithfulness`, `assert_answer_relevancy`, etc.).
 
-**Our approach:** `TestsetGenerator` class with `llm_fn: Callable | None` interface (matches our `judge_fn` pattern). `None` = template-based (zero-dep, deterministic). Provided = LLM-based evolution. Output feeds directly into existing `assert_faithfulness`, `assert_ragas_score`, `assert_answer_relevancy` — no glue code.
+**What competitors still lead on:** RAGAS knowledge-graph evolution (simple → multi-context), DeepEval multi-stage Synthesizer styling, Giskard RAGET component-targeted question types at product depth. mltk residual work is polish/coverage, not a greenfield build.
 
-**Differentiator:** All three competitors require their own LLM client configuration. mltk would be the only provider-agnostic generator that works with any LLM the user already has.
-
-**Sprint breakdown:**
-- Sprint 1: `TestsetGenerator` + template backend (5 question types), `SyntheticTestCase` dataclass
-- Sprint 2: LLM backend + Evol-Instruct evolution loop + filtration + CLI `mltk synthesize`
-- Sprint 3: Knowledge graph for multi-hop + quality assertions (`assert_testset_coverage`)
-
-**Effort:** 3 sprints | **Dependencies:** None (template) or user LLM (advanced) | **Priority:** High — unblocks RAG evaluation workflows
+**Differentiator:** Provider-agnostic `llm_fn` / template base case without locking users into a vendor LLM client.
 
 *Research brief: `docs/research/` — synthetic data generation (9 sources)*
 
 #### Dynamic Red Teaming Framework
-*Status: Researched, architecture designed*
+*Status: Shipped base (S77+) — residual vs autonomous GOAT / plugin-scale attackers*
 
-Automated adversarial attack generation that goes beyond static payload lists. Multi-turn attack chains, OWASP LLM Top 10 coverage, YAML-driven attack configuration.
+Automated adversarial testing with static catalog + multi-turn sessions + encoding mutations. OWASP-oriented categories and YAML-driven suites.
 
-**Honest gap:** The gap is **architectural**, not quantitative. Our 50 static payloads are sent in isolation and never adapt. Giskard's GOAT framework reads the target's response and decides what to try next. Promptfoo's 135 plugins are fine-tuned models that generate payloads, not hardcoded strings. PyRIT's Crescendo outperforms static jailbreaks by 29-61% on GPT-4. We are a generation behind.
+**What ships today:**
+- Attack catalog (~**55** static payloads across injection, jailbreak, data extraction, harmful content, agency, system-prompt theft, encoding bypass)
+- `RedTeamSession` multi-turn chains with conversation state
+- Encoding mutation techniques + `assert_encoding_mutation_resilience`
+- Optional `llm_attacker` on `assert_red_team_resilient` (opt-in; base case needs no external API)
+- Assertions: `assert_red_team_resilient`, `assert_no_session_jailbreak`, OWASP coverage helpers
 
-**5 specific capability gaps:**
-1. No multi-turn attacks (no conversation state between payloads)
-2. No LLM-as-attacker (no dynamic generation based on target response)
-3. No indirect prompt injection (via RAG, tools, external data)
-4. No embedding/vector attacks (OWASP LLM08, new in 2025)
-5. No encoding mutation automation (8 manual vs Garak's 3,000+ auto-generated)
-
-**Our approach (4-sprint roadmap):**
-- Sprint A: `RedTeamSession` (multi-turn state) + encoding mutation engine (8→100+ payloads) + `mltk security-scan` CLI
-- Sprint B: `assert_no_indirect_injection` (via RAG/tools) + `assert_embedding_privacy` (OWASP LLM08)
-- Sprint C: `AttackerLLM` (optional LLM-as-attacker, falls back to static) + simplified PAIR/Crescendo
-- Sprint D: OWASP ASI 2026 agentic coverage (tool injection, privilege escalation)
+**Honest residual gaps (still trails Giskard GOAT / Promptfoo plugin scale):**
+1. Fully autonomous adaptive attacker agents (response-conditioned attack graphs at GOAT depth)
+2. Plugin-scale payload generation (Promptfoo-class volume)
+3. Indirect prompt injection via RAG/tools as a first-class product surface
+4. Embedding/vector attacks (OWASP LLM08) as a dedicated suite
+5. Mutation automation at Garak-scale (thousands of auto-generated variants)
 
 **Design constraint:** Never require an external API for the base case. Multi-turn and encoding work with `model_fn` alone. LLM-as-attacker is opt-in.
-
-**Effort:** 4 sprints | **Dependencies:** None (base), optional LLM (advanced) | **Priority:** High — enterprise security requirement
 
 *Research brief: `docs/research/` — dynamic red teaming (18 sources including Garak, PyRIT, DeepTeam, OWASP)*
 
 #### MCP Evaluation Metrics
-*Status: Researched, spec ready*
+*Status: Shipped (S75) — 5 assertions; residual depth vs DeepEval metric suite*
 
-Test Model Context Protocol tool use correctness — tool selection accuracy, argument validation, resource access control, context window utilization.
+Test Model Context Protocol tool use correctness — tool selection, argument schema conformance, resource access, context window utilization, error recovery.
 
-**What we have vs what's needed:** Our `AgentTrace` only captures `tool_calls: list[ToolCall]` — no field for MCP Resources (read-only URIs), Sampling (server-initiated LLM calls), or server namespaces. MCP introduces 8 concepts with no equivalent in generic function-calling: tool namespacing (`server::tool`), Resources, Prompts, Sampling, context window management, multi-server routing, typed tool results, and OAuth scopes.
+**What ships today** (`mltk.domains.llm.mcp`):
+- `assert_mcp_tool_schema_conformance`
+- `assert_mcp_tool_selection`
+- `assert_mcp_resource_access`
+- `assert_mcp_context_window`
+- `assert_mcp_error_recovery`
+- Supporting types: `McpToolCall`, `McpResourceAccess`, `McpTrace`
 
-**Approach:** Extend `AgentTrace` dataclass (additive, backward-compat) + new `mcp.py` module with 8 assertions:
-- `assert_mcp_tool_schema_conformance` — JSON Schema validation of tool arguments (biggest gap vs DeepEval)
-- `assert_mcp_resource_access` — validate correct URIs accessed (completely unmodeled today)
-- `assert_mcp_no_hallucinated_tools` — manifest-aware variant of existing assertion
-- `assert_mcp_tool_namespace` — validate `server::tool` routing
-- `assert_mcp_session_completion` — LLM-as-Judge wired to existing `judge.py`
-- Plus: sampling params, server routing, resource over-fetch assertions
-
-**Effort:** 1 sprint | **Dependencies:** jsonschema (lightweight) | **Priority:** High — agentic AI is mainstream
+**Residual vs DeepEval / full MCP surface:** sampling params, multi-server namespace routing depth, session-completion judges, OAuth scope modeling, and additional first-mover metrics. Generic agentic assertions remain complementary, not a substitute for the MCP-specific set above.
 
 *Research brief: `docs/research/` — MCP evaluation (24 sources)*
 
@@ -236,4 +224,4 @@ Want to influence priorities? Open an issue on GitHub or reach out directly.
 
 ---
 
-*Last updated: March 30, 2026 — based on 5 dedicated research briefs with 50+ sources*
+*Last updated: 2026-07-22 — TRAILS/body honesty pass after claim audit (S75/S76/S77/S96 shipped surfaces reconciled with code); original research briefs remain under `docs/research/`*

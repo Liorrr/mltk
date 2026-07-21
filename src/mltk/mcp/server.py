@@ -1,8 +1,9 @@
 """mltk MCP server -- expose ML testing tools to AI agents.
 
-Tools: mltk_scan, mltk_test, mltk_list, mltk_eval,
+Tools (13): mltk_scan, mltk_test, mltk_list, mltk_eval,
 mltk_dataset, mltk_report, mltk_suggest, mltk_experiment,
-mltk_create_pr, mltk_create_issue, mltk_workflow.
+mltk_workflow, mltk_create_pr, mltk_create_issue,
+mltk_container_scan, mltk_import.
 
 Usage: ``python -m mltk.mcp``
 """
