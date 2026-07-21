@@ -45,6 +45,9 @@ mltk.local.yaml
 .env
 .claude/
 .codex/
+# Grok Build project dir — ignored during soak; harness lives in ~/.grok/
+# (mltk-harness). Revisit before publishing any shared project .grok/.
+.grok/
 
 # Model download caches (fetched at runtime)
 .fastembed_cache/
