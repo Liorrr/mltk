@@ -255,11 +255,16 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
     def mltk_test(
         suite_path: str, verbose: bool = False,
     ) -> str:
-        """Run an mltk test suite and return pass/fail results.
+        """Run .py tests via pytest, or parse a YAML suite (no execution).
+
+        YAML/.yml paths are parse-only: tests are loaded and returned with
+        status ``parsed``, ``passed=0``, ``failed=0``. They are not executed.
+        ``.py`` paths run ``python -m pytest`` as a subprocess and return
+        real pass/fail counts from pytest output.
 
         Args:
-            suite_path: Path to .yaml suite or .py file.
-            verbose: Include detailed per-test output.
+            suite_path: Path to .yaml suite (parse only) or .py file (pytest).
+            verbose: Include detailed per-test output / full pytest log.
         """
         try:
             target = Path(suite_path).resolve()
@@ -290,6 +295,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "suite": raw.get("name", target.stem),
                     "total": len(tests),
                     "passed": 0, "failed": 0,
+                    "mode": "parse_only",
                     "results": results if verbose else [],
                     "suggested_next_step": (
                         "Run with pytest: pytest "
@@ -323,6 +329,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 return _ok(_with_hint("mltk_test", {
                     "total": passed + failed,
                     "passed": passed, "failed": failed,
+                    "mode": "pytest",
                     "exit_code": proc.returncode,
                     "output": (
                         output if verbose else lines[-5:]
@@ -393,7 +400,12 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         scorer: str = "exact_match",
         solver: str = "generate",
     ) -> str:
-        """Run an evaluation pipeline on a dataset with configurable solvers and scorers.
+        """Run a scorer-pipeline smoke eval with an identity passthrough model.
+
+        Loads the dataset and runs the chosen solver/scorer chain, but the
+        model_fn is identity passthrough (prompt is echoed unchanged). Metrics
+        reflect scorer behavior against that passthrough only — not real model
+        quality. Integrate a real model via the Python API for true eval.
 
         Args:
             dataset_path: Path to CSV/JSON with 'input'
@@ -457,6 +469,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 "sample_count": result.total_samples,
                 "duration_ms": result.duration_ms,
                 "solver": sk, "scorer": rk,
+                "model": "identity_passthrough",
                 "suggested_next_step": (
                     "Review metrics. Integrate a real "
                     "model via the Python API."
@@ -598,7 +611,11 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         category: str = "",
         max_results: int = 5,
     ) -> str:
-        """Get fix suggestions for a scan finding.
+        """Get fix suggestions already attached to a finding JSON.
+
+        Re-exports and optionally filters the ``suggested_fixes`` list on the
+        input finding. Does not generate new fixes — if the finding has none,
+        the result is empty. Fixes originate from scanners or prior reports.
 
         Args:
             finding_json: JSON string of a single scan finding

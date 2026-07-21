@@ -31,8 +31,10 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from generate_skill_index import (  # noqa: E402
     collect_assertions,
     collect_cli_commands,
+    collect_cli_groups,
     collect_mcp_tools,
     collect_scanners,
+    format_cli_summary,
 )
 
 # Files where the prose "v0.9.0" release claim should be updated.
@@ -90,7 +92,8 @@ _CHANGELOG_STUB = """\
 @dataclass
 class LiveCounts:
     assertions: int
-    cli: int
+    cli: int  # invocable leaf-path count (debug/legacy)
+    cli_summary: str  # honest header, e.g. "19 top-level + 5 groups"
     mcp: int
     scanners: int
     tests: int
@@ -139,6 +142,7 @@ def get_live_counts(*, skip_tests: bool = False) -> LiveCounts:
     global _cached_test_count
     grouped, total_assertions = collect_assertions(SRC_ROOT)
     cli_cmds = collect_cli_commands(CLI_APP)
+    cli_groups = collect_cli_groups(CLI_APP)
     mcp_tools = collect_mcp_tools(MCP_SERVER)
     scanners = collect_scanners(SCANNERS_DIR)
     if skip_tests:
@@ -148,6 +152,7 @@ def get_live_counts(*, skip_tests: bool = False) -> LiveCounts:
     return LiveCounts(
         assertions=total_assertions,
         cli=len(cli_cmds),
+        cli_summary=format_cli_summary(cli_cmds, cli_groups),
         mcp=len(mcp_tools),
         scanners=len(scanners),
         tests=_cached_test_count,
@@ -222,13 +227,27 @@ def _replace_counts_in_text(
         return f"{counts.mcp} {m.group(2)}"
     text = mcp_re.sub(_replace_mcp, text)
 
-    # CLI commands: e.g. "24 CLI commands" or "24+ CLI commands"
-    cli_re = re.compile(r"\b(\d{1,3}\+?)\s+(CLI\s+commands?)\b")
-    def _replace_cli(m: re.Match[str]) -> str:
+    # CLI: legacy "24 CLI commands" OR honest "19 top-level + 5 groups" forms
+    cli_legacy_re = re.compile(r"\b(\d{1,3}\+?)\s+(CLI\s+commands?)\b")
+    def _replace_cli_legacy(m: re.Match[str]) -> str:
         if _has_since_context(text, m.start()):
             return m.group(0)
-        return f"{counts.cli} {m.group(2)}"
-    text = cli_re.sub(_replace_cli, text)
+        return f"{counts.cli_summary} CLI"
+    text = cli_legacy_re.sub(_replace_cli_legacy, text)
+
+    cli_honest_re = re.compile(
+        r"\b\d{1,3}\s+top-level\s+\+\s+\d+\s+groups(?:\s+CLI)?\b"
+    )
+    def _replace_cli_honest(m: re.Match[str]) -> str:
+        if _has_since_context(text, m.start()):
+            return m.group(0)
+        # Preserve trailing " CLI" when present in match
+        return (
+            f"{counts.cli_summary} CLI"
+            if m.group(0).rstrip().endswith("CLI")
+            else counts.cli_summary
+        )
+    text = cli_honest_re.sub(_replace_cli_honest, text)
 
     return text
 

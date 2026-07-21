@@ -30,6 +30,34 @@ class TestNoTrainTestOverlap:
             assert_no_train_test_overlap(train, test, key_cols=["id"])
         assert "leakage" in str(exc.value).lower()
 
+    def test_both_empty_fails(self) -> None:
+        """FAIL: Empty train and test have empty key sets (vacuous no-overlap).
+
+        Scenario: Split produced zero rows on both sides. Silent pass would
+        green-pass a no-leakage claim without checking any pairs.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        train = pd.DataFrame({"id": pd.Series(dtype="int64")})
+        test = pd.DataFrame({"id": pd.Series(dtype="int64")})
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_train_test_overlap(train, test, key_cols=["id"])
+        assert "empty" in str(exc.value).lower()
+        assert exc.value.result.passed is False
+
+    def test_either_side_empty_fails(self) -> None:
+        """FAIL: One side empty still yields vacuous empty intersection.
+
+        Scenario: Test set is empty after a bad filter. Must not pass as
+        'no overlap' when there is no test set to compare.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        train = pd.DataFrame({"id": [1, 2, 3]})
+        test = pd.DataFrame({"id": pd.Series(dtype="int64")})
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_train_test_overlap(train, test, key_cols=["id"])
+        assert "empty" in str(exc.value).lower()
+        assert exc.value.result.passed is False
+
 
 class TestTemporalSplit:
     """Temporal split validation."""
@@ -76,3 +104,19 @@ class TestNoTargetLeakage:
         with pytest.raises(MltkAssertionError) as exc:
             assert_no_target_leakage(df, target_col="target", corr_threshold=0.95)
         assert "leakage" in str(exc.value).lower()
+
+    def test_empty_dataframe_fails(self) -> None:
+        """FAIL: Empty frame yields no leaky features (vacuous truth).
+
+        Scenario: Upstream extract returned 0 rows. Correlation is undefined;
+        silent pass would green-pass a no-leakage claim.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        df = pd.DataFrame({
+            "feature_a": pd.Series(dtype=float),
+            "target": pd.Series(dtype=float),
+        })
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_target_leakage(df, target_col="target", feature_cols=["feature_a"])
+        assert "empty" in str(exc.value).lower()
+        assert exc.value.result.passed is False
