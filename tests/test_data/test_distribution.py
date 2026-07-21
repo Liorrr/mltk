@@ -132,3 +132,15 @@ class TestAssertNoOutliers:
         s = pd.Series([1, 2, 3])
         with pytest.raises(MltkAssertionError):
             assert_no_outliers(s, method="invalid")
+
+    def test_empty_series_fails(self) -> None:
+        """FAIL: Empty series cannot compute IQR percentiles.
+
+        Scenario: Upstream extract returned zero rows. Must not raise
+        IndexError from numpy percentile; fail closed instead.
+        EXPECTED: passed=False (WARNING severity, no exception).
+        """
+        s = pd.Series(dtype=float, name="salary")
+        result = assert_no_outliers(s)
+        assert result.passed is False
+        assert "empty" in result.message.lower()

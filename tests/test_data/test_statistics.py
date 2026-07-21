@@ -94,6 +94,17 @@ class TestAssertColumnMean:
         result = assert_column_mean(df, "v", min_val=0.0, max_val=10.0)
         assert result.duration_ms > 0
 
+    def test_mean_empty_dataframe_fails(self) -> None:
+        """SCENARIO: Empty extract produces 0 rows — mean is NaN, not a real value.
+        WHY: NaN bound comparisons are false, so empty would silently pass without
+             an explicit empty guard. Fail closed like assert_quantiles.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        df = pd.DataFrame({"age": pd.Series(dtype=float)})
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_column_mean(df, "age", min_val=0.0, max_val=100.0)
+        assert "empty" in str(exc.value).lower()
+
 
 # ---------------------------------------------------------------------------
 # assert_column_median
@@ -131,6 +142,16 @@ class TestAssertColumnMedian:
         df = pd.DataFrame({"x": [1, 2, 3]})
         with pytest.raises(ValueError, match="at least one bound"):
             assert_column_median(df, "x")
+
+    def test_median_empty_dataframe_fails(self) -> None:
+        """SCENARIO: Empty column — median is NaN.
+        WHY: Vacuous NaN-in-bounds must not green-pass empty extracts.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        df = pd.DataFrame({"income": pd.Series(dtype=float)})
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_column_median(df, "income", min_val=0.0)
+        assert "empty" in str(exc.value).lower()
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +201,16 @@ class TestAssertColumnStdev:
         df = pd.DataFrame({"x": [1, 2, 3]})
         with pytest.raises(ValueError, match="at least one bound"):
             assert_column_stdev(df, "x")
+
+    def test_stdev_empty_dataframe_fails(self) -> None:
+        """SCENARIO: Empty column — stdev is NaN.
+        WHY: NaN bound checks would vacuous-pass; fail closed instead.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        df = pd.DataFrame({"x": pd.Series(dtype=float)})
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_column_stdev(df, "x", min_val=0.1)
+        assert "empty" in str(exc.value).lower()
 
 
 # ---------------------------------------------------------------------------

@@ -134,6 +134,7 @@ markers = [
     "ml_inference: inference performance tests",
     "ml_slow: tests that take >30 seconds",
     "ml_nondeterministic: tests with inherent randomness",
+    "regression: slim claim-integrity canary (run: pytest tests/regression -q)",
 ]
 
 [tool.ruff]

@@ -145,14 +145,14 @@ class TestMltkWorkflow:
         assert isinstance(result["decision_tree"], str)
         assert len(result["decision_tree"]) > 0
 
-    def test_workflow_tool_count_is_eleven(self):
-        # SCENARIO: Check tool_count matches the 11-tool suite
+    def test_workflow_tool_count_is_thirteen(self):
+        # SCENARIO: Check tool_count matches the 13-tool suite
         # WHY: Agents use tool_count to verify they have the
         #      complete tool set before starting a pipeline
-        # EXPECTED: tool_count == 11
+        # EXPECTED: tool_count == 13
         result = call_tool("mltk_workflow")
         assert_ok(result)
-        assert result["tool_count"] == 11
+        assert result["tool_count"] == 13
 
     def test_workflow_suggested_next_step(self):
         # SCENARIO: Check suggested_next_step guidance

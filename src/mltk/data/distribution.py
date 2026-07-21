@@ -136,8 +136,22 @@ def assert_no_outliers(
             severity=Severity.CRITICAL,
         )
 
-    q1 = float(np.percentile(series.dropna(), 25))
-    q3 = float(np.percentile(series.dropna(), 75))
+    clean = series.dropna()
+    name = f"data.no_outliers[{series.name}]" if series.name else "data.no_outliers"
+    if len(clean) == 0:
+        return assert_true(
+            False,
+            name=name,
+            message="Cannot check outliers on empty series",
+            severity=Severity.WARNING,
+            method=method,
+            threshold=threshold,
+            outlier_count=0,
+            row_count=len(series),
+        )
+
+    q1 = float(np.percentile(clean, 25))
+    q3 = float(np.percentile(clean, 75))
     iqr = q3 - q1
     lower_bound = q1 - threshold * iqr
     upper_bound = q3 + threshold * iqr
@@ -146,7 +160,6 @@ def assert_no_outliers(
     outlier_count = int(outliers)
 
     passed = outlier_count == 0
-    name = f"data.no_outliers[{series.name}]" if series.name else "data.no_outliers"
     message = (
         f"No outliers (IQR bounds: [{lower_bound:.2f}, {upper_bound:.2f}])"
         if passed

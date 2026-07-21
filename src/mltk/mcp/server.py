@@ -116,6 +116,10 @@ _WORKFLOW_HINTS: dict[str, dict[str, Any]] = {
         "position": "info",
         "next_tools": ["mltk_scan", "mltk_list"],
     },
+    "mltk_container_scan": {
+        "position": "start",
+        "next_tools": ["mltk_report", "mltk_create_issue"],
+    },
     "mltk_import": {
         "position": "start",
         "next_tools": ["mltk_dataset", "mltk_eval", "mltk_test"],
@@ -864,7 +868,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 "5. For evaluation workflows: "
                 "mltk_list -> mltk_eval -> mltk_report."
             ),
-            "tool_count": 11,
+            "tool_count": 13,
             "suggested_next_step": (
                 "Call mltk_scan to begin."
             ),
@@ -990,7 +994,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 secret = assert_no_secrets_in_image(image)
             except MltkAssertionError as exc:
                 secret = exc.result
-            return _ok({
+            return _ok(_with_hint("mltk_container_scan", {
                 "image": image,
                 "passed": vuln.passed and secret.passed,
                 "vulnerabilities": {
@@ -1007,7 +1011,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "Run mltk_report to export results to HTML, "
                     "or add assert_container_vulnerabilities to your pytest suite."
                 ),
-            })
+            }))
         except Exception as exc:  # noqa: BLE001
             _log(traceback.format_exc())
             return _error(str(exc))

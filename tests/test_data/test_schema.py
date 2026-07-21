@@ -118,6 +118,19 @@ class TestAssertNoNulls:
         result = assert_no_nulls(df, columns=["id", "label"])
         assert result.passed is True
 
+    def test_empty_dataframe_fails(self) -> None:
+        """FAIL: Empty DataFrame has zero nulls (vacuous truth) but no rows checked.
+
+        Scenario: Upstream extract returned 0 rows. Silent pass would hide a
+        broken pipeline while looking like 'no nulls found'.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        df = pd.DataFrame({"id": pd.Series(dtype="int64"), "label": pd.Series(dtype="int64")})
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_nulls(df)
+        assert "empty" in str(exc.value).lower()
+        assert exc.value.result.passed is False
+
 
 # --- assert_dtypes tests ---
 

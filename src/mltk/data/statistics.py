@@ -48,8 +48,22 @@ def assert_column_mean(
             "assert_column_mean requires at least one bound (min_val or max_val)"
         )
 
-    actual_mean = float(df[column].mean())
     name = f"data.column_mean[{column}]"
+    series = df[column]
+    if len(df) == 0 or series.dropna().empty:
+        return assert_true(
+            False,
+            name=name,
+            message=f"Cannot compute mean on empty column '{column}'",
+            severity=Severity.CRITICAL,
+            column=column,
+            actual_mean=float("nan"),
+            min_val=min_val,
+            max_val=max_val,
+            row_count=len(df),
+        )
+
+    actual_mean = float(series.mean())
 
     too_low = min_val is not None and actual_mean < min_val
     too_high = max_val is not None and actual_mean > max_val
@@ -106,8 +120,22 @@ def assert_column_median(
             "assert_column_median requires at least one bound (min_val or max_val)"
         )
 
-    actual_median = float(df[column].median())
     name = f"data.column_median[{column}]"
+    series = df[column]
+    if len(df) == 0 or series.dropna().empty:
+        return assert_true(
+            False,
+            name=name,
+            message=f"Cannot compute median on empty column '{column}'",
+            severity=Severity.CRITICAL,
+            column=column,
+            actual_median=float("nan"),
+            min_val=min_val,
+            max_val=max_val,
+            row_count=len(df),
+        )
+
+    actual_median = float(series.median())
 
     too_low = min_val is not None and actual_median < min_val
     too_high = max_val is not None and actual_median > max_val
@@ -169,8 +197,22 @@ def assert_column_stdev(
             "assert_column_stdev requires at least one bound (min_val or max_val)"
         )
 
-    actual_stdev = float(df[column].std())
     name = f"data.column_stdev[{column}]"
+    series = df[column]
+    if len(df) == 0 or series.dropna().empty:
+        return assert_true(
+            False,
+            name=name,
+            message=f"Cannot compute stdev on empty column '{column}'",
+            severity=Severity.CRITICAL,
+            column=column,
+            actual_stdev=float("nan"),
+            min_val=min_val,
+            max_val=max_val,
+            row_count=len(df),
+        )
+
+    actual_stdev = float(series.std())
 
     too_low = min_val is not None and actual_stdev < min_val
     too_high = max_val is not None and actual_stdev > max_val
