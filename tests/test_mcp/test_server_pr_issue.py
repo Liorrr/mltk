@@ -85,7 +85,7 @@ def _flat_scan_report_finding_json() -> str:
     result = TestResult(
         name="slice_accuracy_drop",
         passed=False,
-        severity=Severity.WARNING,
+        severity=Severity.CRITICAL,
         message="Slice accuracy dropped below threshold",
     )
     finding = ScanFinding(
@@ -329,6 +329,8 @@ class TestMltkCreatePr:
         finding = mock_gen_inst.create_pr.call_args.kwargs["finding"]
         assert finding.result.name == "slice_accuracy_drop"
         assert finding.result.message == "Slice accuracy dropped below threshold"
+        # Severity must survive the flat round-trip, not silently default to WARNING.
+        assert finding.result.severity == Severity.CRITICAL
 
 
 # ---------------------------------------------------------------------------
@@ -549,6 +551,8 @@ class TestMltkCreateIssue:
         finding = mock_linker_inst.create_from_finding.call_args.args[0]
         assert finding.result.name == "slice_accuracy_drop"
         assert finding.result.message == "Slice accuracy dropped below threshold"
+        # Severity must survive the flat round-trip, not silently default to WARNING.
+        assert finding.result.severity == Severity.CRITICAL
 
     @patch("mltk.integrations.issue_linker.IssueLinker")
     @patch("mltk.integrations.github_adapter.GitHubIssuesAdapter")
