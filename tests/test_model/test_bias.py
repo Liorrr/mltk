@@ -4,10 +4,13 @@ Each test simulates a real-world bias scenario: fair models, biased models,
 edge cases. Covers EU AI Act compliance and US four-fifths rule.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.result import Severity
 from mltk.model.bias import assert_no_bias
 
 
@@ -62,13 +65,34 @@ class TestEqualizedOdds:
         Scenario: Face recognition works well for group A (90% TPR)
         but poorly for group B (30% TPR). Classic bias.
         """
-        y_true = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
-        y_pred_a = np.array([1, 1, 1, 1, 1])  # 100% TPR for A
-        y_pred_b = np.array([0, 0, 0, 0, 1])  # 20% TPR for B
+        y_true = np.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+                           1, 1, 1, 1, 1, 0, 0, 0, 0, 0])
+        y_pred_a = np.array([1, 1, 1, 1, 1, 0, 0, 0, 0, 0])  # 100% TPR for A
+        y_pred_b = np.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 0])  # 20% TPR for B
         y_pred = np.concatenate([y_pred_a, y_pred_b])
-        groups = np.array(["A"] * 5 + ["B"] * 5)
+        groups = np.array(["A"] * 10 + ["B"] * 10)
         with pytest.raises(MltkAssertionError):
             assert_no_bias(y_true, y_pred, groups, method="equalized_odds", threshold=0.10)
+
+    def test_zero_positive_group_is_excluded_from_tpr_disparity(self) -> None:
+        """Undefined TPR must not be coerced to zero and reported as bias."""
+        y_true = np.array([1, 1, 0, 0, 0, 0])
+        y_pred = np.array([1, 1, 0, 0, 0, 0])
+        groups = np.array(["A", "A", "A", "B", "B", "B"])
+
+        result = assert_no_bias(
+            y_true,
+            y_pred,
+            groups,
+            method="equalized_odds",
+            threshold=0.10,
+        )
+
+        assert result.passed is True
+        assert result.severity is Severity.INFO
+        assert "not applicable" in result.message
+        assert result.details["group_rates"]["B"]["tpr"] is None
+        assert result.details["undefined_groups"]["tpr"] == ["B"]
 
 
 class TestDisparateImpact:
@@ -111,6 +135,50 @@ class TestPredictiveParity:
         groups = np.array(["A", "A", "A", "B", "B", "B"])
         result = assert_no_bias(y_true, y_pred, groups, method="predictive_parity")
         assert result.passed is True
+
+    def test_no_predicted_positive_group_is_excluded_from_ppv_disparity(self) -> None:
+        """Undefined PPV must not be coerced to zero and reported as bias."""
+        y_true = np.array([1, 1, 0, 1, 0, 0])
+        y_pred = np.array([1, 1, 0, 0, 0, 0])
+        groups = np.array(["A", "A", "A", "B", "B", "B"])
+
+        result = assert_no_bias(
+            y_true,
+            y_pred,
+            groups,
+            method="predictive_parity",
+            threshold=0.10,
+        )
+
+        assert result.passed is True
+        assert result.severity is Severity.INFO
+        assert "not applicable" in result.message
+        assert result.details["group_rates"]["B"]["ppv"] is None
+        assert result.details["undefined_groups"] == ["B"]
+
+
+class TestEqualOpportunity:
+    """Equal opportunity: equal TPR across groups."""
+
+    def test_zero_positive_group_is_excluded_from_tpr_disparity(self) -> None:
+        """Undefined TPR must not be coerced to zero and reported as bias."""
+        y_true = np.array([1, 1, 0, 0, 0, 0])
+        y_pred = np.array([1, 1, 0, 0, 0, 0])
+        groups = np.array(["A", "A", "A", "B", "B", "B"])
+
+        result = assert_no_bias(
+            y_true,
+            y_pred,
+            groups,
+            method="equal_opportunity",
+            threshold=0.10,
+        )
+
+        assert result.passed is True
+        assert result.severity is Severity.INFO
+        assert "not applicable" in result.message
+        assert result.details["group_rates"]["B"]["tpr"] is None
+        assert result.details["undefined_groups"] == ["B"]
 
 
 class TestEdgeCases:

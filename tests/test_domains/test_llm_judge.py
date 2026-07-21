@@ -188,17 +188,17 @@ class TestAssertLlmJudgeScore:
         assert result.details["n_items"] == 1
 
     def test_mismatched_lengths_fail(self) -> None:
-        """FAIL: Different length prompts and responses."""
-        with pytest.raises(MltkAssertionError) as exc:
+        """USAGE ERROR: Different length prompts and responses."""
+        with pytest.raises(
+            ValueError,
+            match="assert_llm_judge_score: length mismatch",
+        ):
             assert_llm_judge_score(
                 judge_fn=_high_scorer,
                 prompts=["Q1", "Q2"],
                 responses=["A1"],
                 min_score=3.0,
             )
-        result = exc.value.result
-        assert result.passed is False
-        assert "equal length" in result.message
 
     def test_exact_threshold_passes(self) -> None:
         """PASS: Score exactly equal to min_score passes."""
@@ -363,8 +363,11 @@ class TestAssertLlmJudgePairwise:
         assert result.details["n_comparisons"] == 1
 
     def test_mismatched_lengths_fail(self) -> None:
-        """FAIL: Mismatched list lengths."""
-        with pytest.raises(MltkAssertionError) as exc:
+        """USAGE ERROR: Mismatched list lengths."""
+        with pytest.raises(
+            ValueError,
+            match="assert_llm_judge_pairwise: length mismatch",
+        ):
             assert_llm_judge_pairwise(
                 judge_fn=_winner_a,
                 prompts=["Q1", "Q2"],
@@ -373,9 +376,6 @@ class TestAssertLlmJudgePairwise:
                 expected_winner="a",
                 min_win_rate=0.5,
             )
-        result = exc.value.result
-        assert result.passed is False
-        assert "equal length" in result.message
 
     def test_result_name(self) -> None:
         """Verify assertion name follows package.module.name convention."""

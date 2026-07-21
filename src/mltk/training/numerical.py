@@ -11,6 +11,7 @@ import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 
 @timed_assertion
@@ -38,10 +39,11 @@ def assert_no_nan_inf(
     """
     if names is None:
         names = [f"array_{i}" for i in range(len(arrays))]
+    require_same_length("assert_no_nan_inf", arrays=arrays, names=names)
 
     problematic_arrays: dict[str, str] = {}
 
-    for name, arr in zip(names, arrays, strict=False):
+    for name, arr in zip(names, arrays, strict=True):
         data = np.asarray(arr, dtype=float)
         nan_count = int(np.sum(np.isnan(data)))
         inf_count = int(np.sum(np.isinf(data)))

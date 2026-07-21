@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 from collections.abc import Callable
 from pathlib import Path
@@ -13,12 +14,43 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 
+logger = logging.getLogger(__name__)
+
+_DEFAULT_SEED = 42
+
+
+def _resolve_default_seed(seed: int | None) -> int:
+    """Resolve an omitted seed from config, safely.
+
+    Mirrors ``mltk.data.drift._resolve_default_drift_config``: an explicit
+    argument always wins, config is consulted only when the user *explicitly*
+    set ``seed`` (via ``MLTK_SEED`` / mltk.yaml / pyproject), and the legacy
+    built-in default is preserved otherwise.
+    """
+    if seed is not None:
+        return seed
+
+    try:
+        from mltk.core.config import MltkConfig
+
+        config = MltkConfig.load()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "MltkConfig.load() failed while resolving the default seed "
+            "(falling back to %d): %s", _DEFAULT_SEED, exc,
+        )
+        return _DEFAULT_SEED
+
+    if "seed" in getattr(config, "explicit_fields", set()):
+        return config.seed
+    return _DEFAULT_SEED
+
 
 @timed_assertion
 def assert_reproducible(
     func: Callable[..., Any],
     *args: Any,
-    seed: int = 42,
+    seed: int | None = None,
     runs: int = 3,
     tolerance: float = 0.001,
 ) -> TestResult:
@@ -27,7 +59,9 @@ def assert_reproducible(
     Args:
         func: Function to test (e.g., train_model).
         *args: Arguments to pass to func.
-        seed: Random seed to set before each run.
+        seed: Random seed to set before each run. When omitted, resolves from
+            an explicitly-configured ``MLTK_SEED`` / ``seed`` config value,
+            falling back to 42.
         runs: Number of runs to compare.
         tolerance: Max allowed difference between outputs (for numeric).
 
@@ -39,6 +73,7 @@ def assert_reproducible(
         >>> def train(data): return np.mean(data)
         >>> assert_reproducible(train, [1.0, 2.0, 3.0], seed=42, runs=3)
     """
+    seed = _resolve_default_seed(seed)
     outputs = []
     for _run in range(runs):
         random.seed(seed)

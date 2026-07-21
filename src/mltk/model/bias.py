@@ -30,7 +30,7 @@ _DEFAULT_THRESHOLDS: dict[str, float] = {
 
 def _group_rates(
     y_true: np.ndarray, y_pred: np.ndarray, groups: np.ndarray
-) -> dict[str, dict[str, float]]:
+) -> dict[str, dict[str, Any]]:
     """Compute per-group confusion matrix rates.
 
     Args:
@@ -40,10 +40,11 @@ def _group_rates(
 
     Returns:
         Dict mapping group name to rates dict with keys:
-        selection_rate, tpr, fpr, ppv, count.
+        selection_rate, tpr, fpr, ppv, count. Undefined tpr/fpr/ppv
+        rates are represented as None.
     """
     unique_groups = np.unique(groups)
-    result: dict[str, dict[str, float]] = {}
+    result: dict[str, dict[str, Any]] = {}
 
     for g in unique_groups:
         mask = groups == g
@@ -60,9 +61,9 @@ def _group_rates(
         fn = int(((g_true == 1) & (g_pred == 0)).sum())
 
         selection_rate = (tp + fp) / n if n > 0 else 0.0
-        tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
-        ppv = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        tpr = tp / (tp + fn) if (tp + fn) > 0 else None
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else None
+        ppv = tp / (tp + fp) if (tp + fp) > 0 else None
 
         result[str(g)] = {
             "selection_rate": selection_rate,
@@ -73,6 +74,47 @@ def _group_rates(
         }
 
     return result
+
+
+def _defined_rate_values(
+    rates: dict[str, dict[str, Any]],
+    metric: str,
+) -> tuple[list[float], list[str], list[str]]:
+    """Return defined values and group labels for a possibly undefined rate."""
+    values: list[float] = []
+    defined_groups: list[str] = []
+    undefined_groups: list[str] = []
+
+    for group, group_rates in rates.items():
+        value = group_rates[metric]
+        if value is None:
+            undefined_groups.append(group)
+            continue
+        values.append(float(value))
+        defined_groups.append(group)
+
+    return values, defined_groups, undefined_groups
+
+
+def _not_applicable_result(
+    method: str,
+    message: str,
+    rates: dict[str, dict[str, Any]],
+    defined_groups: Any,
+    undefined_groups: Any,
+) -> TestResult:
+    """Return the existing INFO-style not-applicable bias result."""
+    return assert_true(
+        True,
+        name=f"model.bias.{method}",
+        message=message,
+        severity=Severity.INFO,
+        method=method,
+        group_rates=rates,
+        defined_groups=defined_groups,
+        undefined_groups=undefined_groups,
+        excluded_groups=undefined_groups,
+    )
 
 
 @timed_assertion
@@ -201,8 +243,24 @@ def _check_equalized_odds(
     Returns:
         TestResult with equalized odds statistic.
     """
-    tprs = [r["tpr"] for r in rates.values()]
-    fprs = [r["fpr"] for r in rates.values()]
+    tprs, tpr_defined_groups, tpr_undefined_groups = _defined_rate_values(rates, "tpr")
+    fprs, fpr_defined_groups, fpr_undefined_groups = _defined_rate_values(rates, "fpr")
+    defined_groups = {"tpr": tpr_defined_groups, "fpr": fpr_defined_groups}
+    undefined_groups = {"tpr": tpr_undefined_groups, "fpr": fpr_undefined_groups}
+    if len(tprs) < 2 or len(fprs) < 2:
+        missing = []
+        if len(tprs) < 2:
+            missing.append(f"{len(tprs)} group(s) with defined TPR")
+        if len(fprs) < 2:
+            missing.append(f"{len(fprs)} group(s) with defined FPR")
+        return _not_applicable_result(
+            method,
+            f"Only {' and '.join(missing)} -- equalized odds check not applicable",
+            rates,
+            defined_groups,
+            undefined_groups,
+        )
+
     tpr_diff = max(tprs) - min(tprs)
     fpr_diff = max(fprs) - min(fprs)
     diff = max(tpr_diff, fpr_diff)
@@ -223,6 +281,9 @@ def _check_equalized_odds(
         fpr_diff=fpr_diff,
         threshold=threshold,
         group_rates=rates,
+        defined_groups=defined_groups,
+        undefined_groups=undefined_groups,
+        excluded_groups=undefined_groups,
     )
 
 
@@ -242,7 +303,16 @@ def _check_predictive_parity(
     Returns:
         TestResult with predictive parity statistic.
     """
-    ppvs = [r["ppv"] for r in rates.values()]
+    ppvs, defined_groups, undefined_groups = _defined_rate_values(rates, "ppv")
+    if len(ppvs) < 2:
+        return _not_applicable_result(
+            method,
+            f"Only {len(ppvs)} group(s) with defined PPV -- bias check not applicable",
+            rates,
+            defined_groups,
+            undefined_groups,
+        )
+
     diff = max(ppvs) - min(ppvs)
     passed = diff <= threshold
 
@@ -259,6 +329,9 @@ def _check_predictive_parity(
         statistic=diff,
         threshold=threshold,
         group_rates=rates,
+        defined_groups=defined_groups,
+        undefined_groups=undefined_groups,
+        excluded_groups=undefined_groups,
     )
 
 
@@ -317,7 +390,16 @@ def _check_equal_opportunity(
     Returns:
         TestResult with equal opportunity statistic.
     """
-    tprs = [r["tpr"] for r in rates.values()]
+    tprs, defined_groups, undefined_groups = _defined_rate_values(rates, "tpr")
+    if len(tprs) < 2:
+        return _not_applicable_result(
+            method,
+            f"Only {len(tprs)} group(s) with defined TPR -- bias check not applicable",
+            rates,
+            defined_groups,
+            undefined_groups,
+        )
+
     diff = max(tprs) - min(tprs)
     passed = diff <= threshold
 
@@ -337,6 +419,9 @@ def _check_equal_opportunity(
         statistic=diff,
         threshold=threshold,
         group_rates=rates,
+        defined_groups=defined_groups,
+        undefined_groups=undefined_groups,
+        excluded_groups=undefined_groups,
     )
 
 

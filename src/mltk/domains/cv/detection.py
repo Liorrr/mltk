@@ -12,6 +12,7 @@ import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 
 def compute_iou(boxes_a: np.ndarray, boxes_b: np.ndarray) -> np.ndarray:
@@ -129,12 +130,14 @@ def assert_map(
         >>> gts = [{"boxes": [[1,1,11,11]], "labels": [1]}]
         >>> assert_map(preds, gts, iou_threshold=0.5, min_map=0.3)
     """
+    require_same_length("assert_map", predictions=predictions, ground_truth=ground_truth)
+
     # Collect all predictions and ground truths
     all_pred_boxes, all_pred_labels, all_pred_scores = [], [], []
     all_gt_boxes, all_gt_labels = [], []
     all_pred_img, all_gt_img = [], []
 
-    for i, (pred, gt) in enumerate(zip(predictions, ground_truth, strict=False)):
+    for i, (pred, gt) in enumerate(zip(predictions, ground_truth, strict=True)):
         pb = np.asarray(pred["boxes"]).reshape(-1, 4)
         pl = np.asarray(pred["labels"]).flatten()
         ps = np.asarray(pred["scores"]).flatten()

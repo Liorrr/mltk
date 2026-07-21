@@ -922,18 +922,24 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
     ) -> str:
         """Create an issue ticket from a scan finding.
 
-        Supports GitHub Issues and Jira backends.  Applies deduplication
-        to avoid creating duplicate tickets for the same finding.
+        Supports GitHub Issues, Jira, Asana, and Linear backends.
+        Applies deduplication to avoid creating duplicate tickets
+        for the same finding.
         Optionally links an existing PR to the created issue.
 
         Args:
             finding_json: JSON string of a scan finding
                 (from mltk_scan output).
-            tracker: Backend tracker: ``"github"`` or ``"jira"``.
-            project: Project key (required for Jira, ignored for GitHub).
+            tracker: Backend tracker: ``"github"``, ``"jira"``,
+                ``"asana"``, or ``"linear"``.
+            project: Project key or ID (required for Jira and Asana;
+                used by Linear when ``team_id`` is omitted; ignored
+                for GitHub).
             config_json: JSON with adapter credentials.
                 GitHub: ``{"repo": "owner/name", "token": "ghp_..."}``
                 Jira: ``{"url": "https://...", "email": "...", "token": "..."}``
+                Asana: ``{"token": "...", "workspace_gid": "..."}``
+                Linear: ``{"api_key": "...", "team_id": "..."}``
             pr_url: Optional PR URL to link to the created issue.
         """
         try:
@@ -1337,12 +1343,21 @@ def _finding_from_json(
     from mltk.core.result import Severity, TestResult
     from mltk.scan.finding import ScanFinding
 
-    result_data = finding_data.get("result", {})
+    result_data = finding_data.get("result")
+    if not isinstance(result_data, dict):
+        result_data = finding_data
     _sev_map = {
         "critical": Severity.CRITICAL,
         "warning": Severity.WARNING,
         "info": Severity.INFO,
     }
+    details = result_data.get("details", {})
+    if not isinstance(details, dict):
+        details = {}
+    try:
+        duration_ms = float(result_data.get("duration_ms", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        duration_ms = 0.0
     _baseline = TestResult(
         name=result_data.get("name", ""),
         passed=bool(result_data.get("passed", False)),
@@ -1351,6 +1366,8 @@ def _finding_from_json(
             Severity.WARNING,
         ),
         message=str(result_data.get("message", "")),
+        details=details,
+        duration_ms=duration_ms,
     )
     return ScanFinding(
         result=_baseline,
@@ -1500,11 +1517,14 @@ def _create_issue_impl(
         )
 
     tracker_lower = tracker.strip().lower()
-    if tracker_lower not in ("github", "jira"):
+    supported_trackers = ("github", "jira", "asana", "linear")
+    if tracker_lower not in supported_trackers:
         return _error(
             f"Unsupported tracker: {tracker!r}. "
-            f"Use 'github' or 'jira'.",
-            suggested_action="Set tracker to 'github' or 'jira'.",
+            "Use 'github', 'jira', 'asana', or 'linear'.",
+            suggested_action=(
+                "Set tracker to 'github', 'jira', 'asana', or 'linear'."
+            ),
         )
 
     from mltk.integrations.issue_linker import IssueLinker
@@ -1518,12 +1538,24 @@ def _create_issue_impl(
             repo=config.get("repo", ""),
             token=config.get("token"),
         )
-    else:
+    elif tracker_lower == "jira":
         from mltk.integrations.jira_adapter import JiraAdapter
         adapter = JiraAdapter(
             instance_url=config.get("url", ""),
             email=config.get("email", ""),
             api_token=config.get("token", ""),
+        )
+    elif tracker_lower == "asana":
+        from mltk.integrations.asana_adapter import AsanaAdapter
+        adapter = AsanaAdapter(
+            token=config.get("token"),
+            workspace_gid=config.get("workspace_gid"),
+        )
+    else:
+        from mltk.integrations.linear_adapter import LinearAdapter
+        adapter = LinearAdapter(
+            api_key=config.get("api_key"),
+            team_id=config.get("team_id"),
         )
 
     finding_obj = _finding_from_json(finding_data)

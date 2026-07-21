@@ -168,38 +168,6 @@ def _check_report_dir() -> DiagnosticResult:
         )
 
 
-def _check_baseline_dir() -> DiagnosticResult:
-    """Check baseline_dir exists."""
-    import pathlib
-
-    from mltk.core.config import MltkConfig
-
-    try:
-        config = MltkConfig.load()
-        baseline_dir = pathlib.Path(config.baseline_dir)
-        if baseline_dir.exists():
-            return DiagnosticResult(
-                name="Baseline directory",
-                status="OK",
-                message=f"baseline_dir '{baseline_dir}' exists",
-            )
-        return DiagnosticResult(
-            name="Baseline directory",
-            status="WARN",
-            message=f"baseline_dir '{baseline_dir}' does not exist",
-            fix_hint=(
-                f"Run: mkdir -p {baseline_dir}  — needed for drift baseline comparisons"
-            ),
-        )
-    except Exception as exc:  # noqa: BLE001
-        return DiagnosticResult(
-            name="Baseline directory",
-            status="WARN",
-            message=f"Could not check baseline_dir: {exc}",
-            fix_hint="Verify baseline_dir in your mltk.yaml",
-        )
-
-
 def _check_rust_extension() -> DiagnosticResult:
     """Check if the compiled Rust extension is available."""
     try:
@@ -294,13 +262,6 @@ def _check_config_values() -> DiagnosticResult:
             f"(valid: {', '.join(sorted(valid_drift_methods))})"
         )
 
-    valid_report_formats = {"html", "json", "markdown", "none"}
-    if config.report_format not in valid_report_formats:
-        issues.append(
-            f"report_format='{config.report_format}' is not recognized "
-            f"(valid: {', '.join(sorted(valid_report_formats))})"
-        )
-
     if config.seed < 0:
         issues.append(f"seed={config.seed} is negative (use a non-negative integer)")
 
@@ -354,16 +315,13 @@ def diagnose() -> list[DiagnosticResult]:
     # 5. Report directory
     results.append(_check_report_dir())
 
-    # 6. Baseline directory
-    results.append(_check_baseline_dir())
-
-    # 7. Rust extension
+    # 6. Rust extension
     results.append(_check_rust_extension())
 
-    # 8. pytest plugin registration
+    # 7. pytest plugin registration
     results.append(_check_pytest_plugin())
 
-    # 9. Config value validation
+    # 8. Config value validation
     results.append(_check_config_values())
 
     return results

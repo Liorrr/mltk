@@ -20,6 +20,7 @@ def assert_no_embedding_drift(
     current: Any,
     method: str = "cosine",
     threshold: float = 0.1,
+    seed: int = 0,
 ) -> TestResult:
     """Assert no significant drift in embedding space.
 
@@ -28,6 +29,7 @@ def assert_no_embedding_drift(
         current: Current embeddings (M, D) array.
         method: Detection method -- "cosine", "euclidean", or "mmd".
         threshold: Maximum allowed distance/divergence.
+        seed: Random seed for deterministic MMD subsampling.
 
     Returns:
         TestResult with drift statistics.
@@ -52,7 +54,7 @@ def assert_no_embedding_drift(
     elif method == "euclidean":
         distance = _euclidean_centroid_distance(ref, cur)
     elif method == "mmd":
-        distance = _mmd(ref, cur)
+        distance = _mmd(ref, cur, seed=seed)
     else:
         return assert_true(
             False, name="data.embedding_drift",
@@ -81,7 +83,7 @@ def _cosine_centroid_distance(ref: np.ndarray, cur: np.ndarray) -> float:
         from mltk._rust import centroid_cosine_distance as _rust_centroid
 
         return _rust_centroid(ref.tolist(), cur.tolist())
-    except (ImportError, Exception):
+    except ImportError:
         pass
 
     # numpy fallback
@@ -98,14 +100,36 @@ def _euclidean_centroid_distance(ref: np.ndarray, cur: np.ndarray) -> float:
     return float(np.linalg.norm(ref.mean(axis=0) - cur.mean(axis=0)))
 
 
-def _mmd(ref: np.ndarray, cur: np.ndarray, gamma: float | None = None) -> float:
+def _sample_rows(
+    values: np.ndarray,
+    max_rows: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Return a deterministic random row sample, or the full array when smaller."""
+    if len(values) <= max_rows:
+        return values
+    indices = rng.choice(len(values), size=max_rows, replace=False)
+    return values[indices]
+
+
+def _mmd(
+    ref: np.ndarray,
+    cur: np.ndarray,
+    gamma: float | None = None,
+    seed: int = 0,
+) -> float:
     """Maximum Mean Discrepancy with RBF kernel.
 
     Uses the median heuristic for kernel bandwidth if gamma is not specified.
     """
+    rng = np.random.default_rng(seed)
+
     if gamma is None:
         # Median heuristic
-        combined = np.vstack([ref[:100], cur[:100]])
+        combined = np.vstack([
+            _sample_rows(ref, 100, rng),
+            _sample_rows(cur, 100, rng),
+        ])
         dists = np.sqrt(((combined[:, None] - combined[None, :]) ** 2).sum(axis=2))
         median_dist = float(np.median(dists[dists > 0]))
         gamma = 1.0 / (2.0 * median_dist ** 2) if median_dist > 0 else 1.0
@@ -117,8 +141,8 @@ def _mmd(ref: np.ndarray, cur: np.ndarray, gamma: float | None = None) -> float:
     # Subsample for efficiency
     n = min(len(ref), 200)
     m = min(len(cur), 200)
-    ref_sub = ref[:n]
-    cur_sub = cur[:m]
+    ref_sub = _sample_rows(ref, n, rng)
+    cur_sub = _sample_rows(cur, m, rng)
 
     mmd_val = (
         rbf_kernel(ref_sub, ref_sub)

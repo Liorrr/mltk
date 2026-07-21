@@ -419,7 +419,10 @@ class TestNoLostInMiddle:
 
     def test_mismatched_lengths_raises(self) -> None:
         """EDGE: Different-length facts/questions raises ValueError."""
-        with pytest.raises(ValueError, match="same length"):
+        with pytest.raises(
+            ValueError,
+            match="assert_no_lost_in_middle: length mismatch",
+        ):
             assert_no_lost_in_middle(
                 model_fn=_uniform_accuracy_model,
                 facts=["Fact 1.", "Fact 2."],

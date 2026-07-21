@@ -59,6 +59,8 @@ __all__ = ["ScanEngine", "ScanReport"]
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_MODEL_PROBE_TIMEOUT = 5.0
+
 # Sensitive column name keywords for auto-detection.
 
 
@@ -649,7 +651,10 @@ class ScanEngine:
 
         # Detect model type
         model_type = self._detect_model_type(
-            model_fn, X_sampled, y_sampled,
+            model_fn,
+            X_sampled,
+            y_sampled,
+            probe_timeout=self._model_probe_timeout(),
         )
 
         # Detect predict_proba
@@ -798,11 +803,30 @@ class ScanEngine:
                     break
         return found
 
+    def _model_probe_timeout(self) -> float:
+        """Return the timeout used for model-type probing."""
+        timeout = getattr(
+            self._config,
+            "per_scanner_timeout",
+            None,
+        )
+        if timeout is None:
+            return _DEFAULT_MODEL_PROBE_TIMEOUT
+        try:
+            timeout_value = float(timeout)
+        except (TypeError, ValueError):
+            return _DEFAULT_MODEL_PROBE_TIMEOUT
+        if timeout_value <= 0:
+            return _DEFAULT_MODEL_PROBE_TIMEOUT
+        return timeout_value
+
     @staticmethod
     def _detect_model_type(
         model_fn: Callable[..., Any] | None,
         X: pd.DataFrame,
         y: np.ndarray | None,
+        *,
+        probe_timeout: float | None = None,
     ) -> str:
         """Detect whether the model is a classifier or regressor.
 
@@ -825,7 +849,13 @@ class ScanEngine:
         # Probe model output on a small sample
         try:
             sample = X.head(min(10, len(X)))
-            preds = np.asarray(model_fn(sample))
+            preds = ScanEngine._run_model_probe(
+                model_fn,
+                sample,
+                probe_timeout,
+            )
+            if preds is None:
+                return "unknown"
             if preds.ndim == 1:
                 unique_preds = np.unique(preds)
                 if len(unique_preds) <= 20:
@@ -835,6 +865,44 @@ class ScanEngine:
             pass
 
         return "unknown"
+
+    @staticmethod
+    def _run_model_probe(
+        model_fn: Callable[..., Any],
+        sample: pd.DataFrame,
+        timeout: float | None,
+    ) -> np.ndarray | None:
+        """Run model output probing under an optional timeout."""
+        if timeout is None:
+            return np.asarray(model_fn(sample))
+
+        result_holder: list[np.ndarray | None] = [None]
+        error_holder: list[Exception | None] = [None]
+
+        def _target() -> None:
+            try:
+                result_holder[0] = np.asarray(model_fn(sample))
+            except Exception as exc:
+                error_holder[0] = exc
+
+        thread = threading.Thread(
+            target=_target,
+            daemon=True,
+        )
+        thread.start()
+        thread.join(timeout=timeout)
+
+        if thread.is_alive():
+            logger.warning(
+                "Model type probe timed out after %.1fs",
+                timeout,
+            )
+            return None
+
+        if error_holder[0] is not None:
+            raise error_holder[0]
+
+        return result_holder[0]
 
     @staticmethod
     def _detect_proba(
@@ -914,6 +982,8 @@ class ScanEngine:
         thread.join(timeout=timeout)
 
         if thread.is_alive():
+            # Python has no safe thread kill. A timed-out daemon scanner
+            # may keep running best-effort after this timeout is recorded.
             logger.warning(
                 "Scanner %s timed out after %.1fs",
                 scanner.name,

@@ -6,6 +6,8 @@ records?). Each test class targets one assertion and covers pass, fail, edge
 cases, and configuration options.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -316,6 +318,18 @@ class TestSyntheticNovelty:
         assert result.passed is True
         assert result.details["n_synthetic"] == 0
         assert result.message == "Synthetic DataFrame is empty -- trivially novel"
+
+    def test_empty_synthetic_pass_preserves_custom_severity(self) -> None:
+        """Empty synthetic novelty keeps the caller-provided severity."""
+        real = pd.DataFrame({"a": [1, 2, 3]})
+        synth = pd.DataFrame({"a": pd.Series(dtype=int)})
+        result = assert_synthetic_novelty(
+            real,
+            synth,
+            on_empty="pass",
+            severity=Severity.WARNING,
+        )
+        assert result.severity == Severity.WARNING
 
 
 # ===========================================================================

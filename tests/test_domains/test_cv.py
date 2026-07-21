@@ -129,6 +129,19 @@ class TestAssertMAP:
         result = assert_map(predictions, ground_truth, min_map=0.5)
         assert result.passed is True
 
+    def test_mismatched_image_counts_raise_value_error(self) -> None:
+        """USAGE ERROR: predictions and ground_truth must be parallel lists."""
+        predictions = [
+            {"boxes": [[10, 10, 50, 50]], "labels": [1], "scores": [0.99]},
+            {"boxes": [[0, 0, 5, 5]], "labels": [2], "scores": [0.75]},
+        ]
+        ground_truth = [
+            {"boxes": [[10, 10, 50, 50]], "labels": [1]},
+        ]
+
+        with pytest.raises(ValueError, match="assert_map: length mismatch"):
+            assert_map(predictions, ground_truth, min_map=0.5)
+
     def test_no_detections_fails(self) -> None:
         """FAIL: Zero detections against one ground truth gives mAP = 0.
 

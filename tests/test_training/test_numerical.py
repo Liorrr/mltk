@@ -29,6 +29,14 @@ class TestNoNanInf:
         assert result.details["problematic_arrays"] == {}
         assert result.details["arrays_checked"] == 3
 
+    def test_no_nan_inf_names_length_mismatch_raises_value_error(self) -> None:
+        # SCENARIO: Caller provides fewer display names than arrays.
+        # EXPECTED: usage error, not silent skipping of unnamed arrays.
+        arrays = [np.array([1.0]), np.array([2.0])]
+
+        with pytest.raises(ValueError, match="assert_no_nan_inf: length mismatch"):
+            assert_no_nan_inf(arrays, names=["w1"])
+
     def test_no_nan_inf_with_nan(self) -> None:
         # SCENARIO: Second weight matrix contains a single NaN value
         # WHY: A NaN in weights will silently corrupt all downstream outputs

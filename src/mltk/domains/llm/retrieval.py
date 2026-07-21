@@ -20,9 +20,17 @@ from __future__ import annotations
 import math
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.empty import (
+    ON_EMPTY_OPTIONS as _ON_EMPTY_OPTIONS,
+)
+from mltk.core.empty import (
+    empty_input_result as _empty_input_result,
+)
+from mltk.core.empty import (
+    unknown_on_empty_result as _unknown_on_empty_result,
+)
 from mltk.core.result import Severity, TestResult
-
-_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
+from mltk.core.validation import require_same_length
 
 __all__ = [
     "assert_ndcg",
@@ -35,53 +43,6 @@ __all__ = [
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
-
-def _unknown_on_empty_result(name: str, on_empty: str) -> TestResult:
-    """Return a failed result for an unsupported on_empty policy."""
-    return assert_true(
-        False,
-        name=name,
-        message=(
-            f"Unknown on_empty: '{on_empty}'. "
-            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
-        ),
-        severity=Severity.CRITICAL,
-        on_empty=on_empty,
-    )
-
-
-def _empty_input_result(
-    *,
-    name: str,
-    reason: str,
-    on_empty: str,
-    legacy_message: str,
-    **legacy_details: object,
-) -> TestResult:
-    """Apply the configured empty-input policy."""
-    if on_empty == "fail":
-        return assert_true(
-            False,
-            name=name,
-            message=f"{reason} -- empty input is not allowed",
-            severity=Severity.CRITICAL,
-        )
-    if on_empty == "skip":
-        return assert_true(
-            True,
-            name=name,
-            message=f"Skipped: {reason}",
-            severity=Severity.INFO,
-            skipped=True,
-            reason=reason,
-        )
-    return assert_true(
-        True,
-        name=name,
-        message=legacy_message,
-        severity=Severity.CRITICAL,
-        **legacy_details,
-    )
 
 
 def _dcg_at_k(relevances: list[int], k: int) -> float:
@@ -121,9 +82,14 @@ def _ndcg_single(
         (no relevant documents) and the query should be excluded
         from the mean.
     """
+    require_same_length(
+        "llm.retrieval.ndcg",
+        y_scores=y_scores,
+        y_true=y_true,
+    )
     # Sort documents by score descending; ties broken by original order
     paired = sorted(
-        zip(y_scores, y_true, strict=False),
+        zip(y_scores, y_true, strict=True),
         key=lambda x: -x[0],
     )
     ranked_relevances = [rel for _, rel in paired]
@@ -187,6 +153,11 @@ def assert_ndcg(
         >>> y_scores = [[0.9, 0.8, 0.2, 0.5], [0.8, 0.1, 0.3, 0.7]]
         >>> assert_ndcg(y_true, y_scores, k=4, min_ndcg=0.5)
     """
+    require_same_length(
+        "llm.retrieval.ndcg",
+        y_true=y_true,
+        y_scores=y_scores,
+    )
     if on_empty not in _ON_EMPTY_OPTIONS:
         return _unknown_on_empty_result("llm.retrieval.ndcg", on_empty)
 
@@ -205,7 +176,7 @@ def assert_ndcg(
         )
 
     per_query: list[float] = []
-    for yt, ys in zip(y_true, y_scores, strict=False):
+    for yt, ys in zip(y_true, y_scores, strict=True):
         score = _ndcg_single(yt, ys, k)
         if score is not None:
             per_query.append(score)
@@ -388,6 +359,11 @@ def assert_recall_at_k(
         >>> retrieved = [["d1", "d3", "d6", "d2"], ["d5", "d7"]]
         >>> assert_recall_at_k(relevant, retrieved, k=3, min_recall=0.5)
     """
+    require_same_length(
+        "llm.retrieval.recall_at_k",
+        relevant=relevant,
+        retrieved=retrieved,
+    )
     if on_empty not in _ON_EMPTY_OPTIONS:
         return _unknown_on_empty_result("llm.retrieval.recall_at_k", on_empty)
 
@@ -406,7 +382,7 @@ def assert_recall_at_k(
         )
 
     per_query: list[float] = []
-    for rel_set, ret_list in zip(relevant, retrieved, strict=False):
+    for rel_set, ret_list in zip(relevant, retrieved, strict=True):
         if not rel_set:
             continue
         top_k = set(ret_list[:k])
@@ -493,6 +469,11 @@ def assert_map_at_k(
         >>> retrieved = [["d1", "d2", "d3"], ["d1", "d2", "d3"]]
         >>> assert_map_at_k(relevant, retrieved, k=3, min_map=0.5)
     """
+    require_same_length(
+        "llm.retrieval.map_at_k",
+        relevant=relevant,
+        retrieved=retrieved,
+    )
     if on_empty not in _ON_EMPTY_OPTIONS:
         return _unknown_on_empty_result("llm.retrieval.map_at_k", on_empty)
 
@@ -511,7 +492,7 @@ def assert_map_at_k(
         )
 
     per_query: list[float] = []
-    for rel_set, ret_list in zip(relevant, retrieved, strict=False):
+    for rel_set, ret_list in zip(relevant, retrieved, strict=True):
         if not rel_set:
             continue
 

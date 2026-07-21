@@ -27,6 +27,7 @@ from collections.abc import Callable
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 __all__ = [
     "assert_llm_judge_score",
@@ -282,18 +283,11 @@ def assert_llm_judge_score(
         ...     min_score=3.0,
         ... )
     """
-    if len(prompts) != len(responses):
-        return assert_true(
-            False, name="llm.judge.score",
-            message=(
-                f"prompts and responses must have equal length "
-                f"(got {len(prompts)} vs {len(responses)})"
-            ),
-            severity=Severity.CRITICAL,
-            avg_score=0.0, min_score=min_score,
-            per_item_scores=[], criterion=criterion,
-            n_items=0, scores_below_min=0,
-        )
+    require_same_length(
+        "assert_llm_judge_score",
+        prompts=prompts,
+        responses=responses,
+    )
 
     if not prompts:
         return assert_true(
@@ -309,7 +303,7 @@ def assert_llm_judge_score(
     total_score = 0.0
     scores_below_min = 0
 
-    for prompt, response in zip(prompts, responses, strict=False):
+    for prompt, response in zip(prompts, responses, strict=True):
         eval_prompt = format_judge_prompt(
             prompt=prompt,
             response=response,
@@ -420,23 +414,12 @@ def assert_llm_judge_pairwise(
         ...     min_win_rate=0.6,
         ... )
     """
-    n = len(prompts)
-    lengths_match = (
-        len(responses_a) == n and len(responses_b) == n
+    require_same_length(
+        "assert_llm_judge_pairwise",
+        prompts=prompts,
+        responses_a=responses_a,
+        responses_b=responses_b,
     )
-
-    if not lengths_match:
-        return assert_true(
-            False, name="llm.judge.pairwise",
-            message=(
-                f"prompts, responses_a, and responses_b must have "
-                f"equal length (got {n}, {len(responses_a)}, "
-                f"{len(responses_b)})"
-            ),
-            severity=Severity.CRITICAL,
-            win_rate=0.0, min_win_rate=min_win_rate,
-            wins_a=0, wins_b=0, ties=0, n_comparisons=0,
-        )
 
     if not prompts:
         return assert_true(
@@ -460,11 +443,12 @@ def assert_llm_judge_pairwise(
             wins_a=0, wins_b=0, ties=0, n_comparisons=0,
         )
 
+    n = len(prompts)
     wins_a = 0
     wins_b = 0
     ties = 0
 
-    for prompt, resp_a, resp_b in zip(prompts, responses_a, responses_b, strict=False):
+    for prompt, resp_a, resp_b in zip(prompts, responses_a, responses_b, strict=True):
         comparison_prompt = _format_pairwise_prompt(
             prompt=prompt,
             response_a=resp_a,

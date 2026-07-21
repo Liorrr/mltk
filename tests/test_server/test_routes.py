@@ -1,6 +1,8 @@
 """Tests for mltk server API routes via FastAPI TestClient."""
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 
 pytest.importorskip("fastapi", reason="fastapi not installed — skipping server route tests")
@@ -73,6 +75,39 @@ def test_submit_run(client):
     assert body["status"] == "saved"
     assert isinstance(body["run_id"], int)
     assert body["run_id"] > 0
+
+
+def test_submit_run_schedules_webhook_delivery(client):
+    # SCENARIO: a run with failures matches a registered webhook.
+    # WHY: async route must not perform blocking webhook network I/O inline.
+    # EXPECTED: webhook send is scheduled as a BackgroundTasks job.
+    c, raw_key = client
+    auth = {"Authorization": f"Bearer {raw_key}"}
+    create_resp = c.post(
+        "/api/webhooks",
+        json={"url": "http://example.com/hook", "events": ["on_failure"]},
+        headers=auth,
+    )
+    assert create_resp.status_code == 200, create_resp.text
+
+    with mock.patch(
+        "fastapi.BackgroundTasks.add_task",
+        autospec=True,
+    ) as add_task, mock.patch("mltk.server.routes.send_webhook") as send:
+        resp = c.post(
+            "/api/runs",
+            json={"project": "myproject", "results": SAMPLE_RESULTS},
+            headers=auth,
+        )
+
+    assert resp.status_code == 200, resp.text
+    send.assert_not_called()
+    assert add_task.call_count == 1
+    _, scheduled_func, url, payload = add_task.call_args.args
+    assert scheduled_func is send
+    assert url == "http://example.com/hook"
+    assert payload["event"] == "on_failure"
+    assert payload["failed"] == 1
 
 
 def test_list_runs(client):

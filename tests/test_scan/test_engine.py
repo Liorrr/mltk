@@ -8,6 +8,8 @@ error handling, filtering, and report structure.
 
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -109,6 +111,27 @@ class TestScanEngineIntegration:
         # "slice") should have run
         for name in report.scanners_run:
             assert "slice" in name.lower()
+
+    def test_model_probe_respects_per_scanner_timeout(self) -> None:
+        """A hanging model probe does not block context building."""
+        X, _ = _simple_df(20)
+
+        def hanging_model(x):
+            time.sleep(2.0)
+            return np.zeros(len(x), dtype=int)
+
+        cfg = ScanConfig(
+            enabled_scanners=[],
+            per_scanner_timeout=0.05,
+        )
+        engine = ScanEngine(config=cfg)
+
+        start = time.perf_counter()
+        report = engine.scan(hanging_model, X, y=None)
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.75
+        assert report.model_type == "unknown"
 
 
 # ---------------------------------------------------------------

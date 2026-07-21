@@ -1,5 +1,7 @@
 """Tests for mltk.domains.llm.rag — RAG evaluation assertions."""
 
+from __future__ import annotations
+
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
@@ -82,6 +84,7 @@ class TestFaithfulness:
             "", "Some relevant context.", min_score=0.7, on_empty="pass"
         )
         assert result.passed is True
+        assert result.severity == Severity.CRITICAL
         assert result.details["score"] == 1.0
         assert result.message == "Empty answer -- trivially faithful (score=1.0)"
 

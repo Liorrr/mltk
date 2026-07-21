@@ -12,6 +12,7 @@ import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 
 @timed_assertion
@@ -92,25 +93,16 @@ def assert_gradient_sync(
         >>> grads1 = [np.array([0.01, 0.02]), np.array([0.1, -0.05])]
         >>> assert_gradient_sync(grads0, grads1, tolerance=1e-5)
     """
-    if len(grads_rank0) != len(grads_rank1):
-        return assert_true(
-            False,
-            name="training.gradient_sync",
-            message=(
-                f"Rank gradient list length mismatch: "
-                f"rank0={len(grads_rank0)}, rank1={len(grads_rank1)}"
-            ),
-            severity=Severity.CRITICAL,
-            max_diff=float("inf"),
-            diverged_layers=[],
-            num_layers=max(len(grads_rank0), len(grads_rank1)),
-            tolerance=tolerance,
-        )
+    require_same_length(
+        "assert_gradient_sync",
+        grads_rank0=grads_rank0,
+        grads_rank1=grads_rank1,
+    )
 
     diverged_layers: list[int] = []
     max_diff: float = 0.0
 
-    for i, (g0, g1) in enumerate(zip(grads_rank0, grads_rank1, strict=False)):
+    for i, (g0, g1) in enumerate(zip(grads_rank0, grads_rank1, strict=True)):
         arr0 = np.asarray(g0, dtype=float)
         arr1 = np.asarray(g1, dtype=float)
         if arr0.shape != arr1.shape:

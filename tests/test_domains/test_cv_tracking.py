@@ -101,6 +101,15 @@ class TestAssertMOTA:
         for key in ("mota", "fn", "fp", "idsw", "total_gt"):
             assert key in result.details, f"Missing key: {key}"
 
+    def test_mota_frame_count_mismatch_raises_value_error(self) -> None:
+        # SCENARIO: GT and prediction tracks cover different frame counts.
+        # EXPECTED: caller usage error, not silent truncation.
+        gt = [_frame([1], [[0, 0, 10, 10]]), _frame([1], [[1, 1, 11, 11]])]
+        pred = [_frame([1], [[0, 0, 10, 10]])]
+
+        with pytest.raises(ValueError, match="assert_mota: length mismatch"):
+            assert_mota(gt, pred, min_mota=0.5)
+
 
 # ---------------------------------------------------------------------------
 # MOTP tests
@@ -161,6 +170,18 @@ class TestAssertMOTP:
         pred = [_frame([1, 2], boxes_gt), _frame([1, 2], boxes_gt)]
         result = assert_motp(gt, pred, min_motp=0.5)
         assert result.details["num_matches"] == 4
+
+    def test_motp_frame_count_mismatch_raises_value_error(self) -> None:
+        # SCENARIO: GT and prediction tracks cover different frame counts.
+        # EXPECTED: caller usage error, not a MOTP computed on partial data.
+        gt = [_frame([1], [[0, 0, 10, 10]])]
+        pred = [
+            _frame([1], [[0, 0, 10, 10]]),
+            _frame([1], [[1, 1, 11, 11]]),
+        ]
+
+        with pytest.raises(ValueError, match="assert_motp: length mismatch"):
+            assert_motp(gt, pred, min_motp=0.5)
 
 
 # ---------------------------------------------------------------------------
@@ -243,6 +264,18 @@ class TestAssertIDF1:
         result = assert_idf1(gt, pred, min_idf1=0.5)
         for key in ("idf1", "idtp", "idfp", "idfn"):
             assert key in result.details, f"Missing key: {key}"
+
+    def test_idf1_frame_count_mismatch_raises_value_error(self) -> None:
+        # SCENARIO: GT and prediction tracks cover different frame counts.
+        # EXPECTED: caller usage error, not an IDF1 computed on partial data.
+        gt = [_frame([1], [[0, 0, 10, 10]])]
+        pred = [
+            _frame([1], [[0, 0, 10, 10]]),
+            _frame([1], [[1, 1, 11, 11]]),
+        ]
+
+        with pytest.raises(ValueError, match="assert_idf1: length mismatch"):
+            assert_idf1(gt, pred, min_idf1=0.5)
 
 
 # ---------------------------------------------------------------------------

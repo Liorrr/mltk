@@ -136,12 +136,20 @@ class OverfitScanner(Scanner):
         y_pred: np.ndarray,
     ) -> float:
         """Compute accuracy without sklearn."""
-        if len(y_true) == 0:
+        y_true_arr = np.asarray(y_true)
+        y_pred_arr = np.asarray(y_pred)
+        if y_true_arr.shape != y_pred_arr.shape:
+            raise ValueError(
+                "accuracy shape mismatch: "
+                f"y_true shape {y_true_arr.shape} != "
+                f"y_pred shape {y_pred_arr.shape}"
+            )
+        if y_true_arr.size == 0:
             return 0.0
         return float(
             (
-                np.asarray(y_true)
-                == np.asarray(y_pred)
+                y_true_arr
+                == y_pred_arr
             ).mean(),
         )
 
