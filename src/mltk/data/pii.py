@@ -153,7 +153,7 @@ def _validate_nhs(text: str) -> bool:
     if len(digits) != 10 or not digits.isdigit():
         return False
     weights = [10, 9, 8, 7, 6, 5, 4, 3, 2]
-    total = sum(int(d) * w for d, w in zip(digits[:9], weights, strict=False))
+    total = sum(int(d) * w for d, w in zip(digits[:9], weights, strict=True))
     remainder = total % 11
     check = 11 - remainder
     if check == 11:

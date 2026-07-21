@@ -1,6 +1,8 @@
 """Tests for mltk.domains.llm.retrieval -- retrieval ranking metrics."""
 
 
+from __future__ import annotations
+
 import random
 
 import pytest
@@ -94,6 +96,7 @@ class TestNDCG:
         # EXPECTED: Empty query set passes with the original score/message.
         result = assert_ndcg([], [], k=5, min_ndcg=0.8, on_empty="pass")
         assert result.passed is True
+        assert result.severity == Severity.CRITICAL
         assert result.details["ndcg"] == 1.0
         assert result.details["num_queries"] == 0
         assert result.message == (
@@ -595,28 +598,46 @@ class TestPerQueryScoresVerification:
 
 
 class TestMismatchedLengths:
-    """Mismatched y_true and y_scores lengths."""
+    """Mismatched paired inputs are usage errors."""
 
     def test_ndcg_fewer_scores_than_true(self) -> None:
         # SCENARIO: y_true has 2 queries, y_scores has 1.
-        # WHY: zip silently truncates; we verify the result
-        #   only processes the matched pairs.
+        # WHY: top-level query pairs must have the same length.
         y_true = [[3, 2], [1, 0]]
         y_scores = [[1.0, 0.5]]
-        result = assert_ndcg(
-            y_true, y_scores, k=2, min_ndcg=0.0,
-        )
-        # zip produces only 1 pair
-        assert result.details["num_queries"] == 1
+        with pytest.raises(ValueError, match="length mismatch"):
+            assert_ndcg(
+                y_true, y_scores, k=2, min_ndcg=0.0,
+            )
+
+    def test_ndcg_single_query_fewer_scores_than_true(self) -> None:
+        # SCENARIO: One query has 2 relevance labels but only 1 score.
+        # WHY: per-query document pairs must have the same length.
+        y_true = [[3, 2]]
+        y_scores = [[1.0]]
+        with pytest.raises(ValueError, match="length mismatch"):
+            assert_ndcg(
+                y_true, y_scores, k=2, min_ndcg=0.0,
+            )
 
     def test_recall_fewer_relevant_than_retrieved(
         self,
     ) -> None:
         # SCENARIO: 1 relevant set, 2 retrieved lists.
-        # WHY: zip truncates to shorter list.
+        # WHY: relevant/retrieved query pairs must have the same length.
         relevant = [{"a"}]
         retrieved = [["a", "b"], ["c", "d"]]
-        result = assert_recall_at_k(
-            relevant, retrieved, k=2, min_recall=0.0,
-        )
-        assert result.details["num_queries"] == 1
+        with pytest.raises(ValueError, match="length mismatch"):
+            assert_recall_at_k(
+                relevant, retrieved, k=2, min_recall=0.0,
+            )
+
+    def test_map_fewer_relevant_than_retrieved(self) -> None:
+        # SCENARIO: 1 relevant set, 2 retrieved lists.
+        # WHY: relevant/retrieved query pairs must have the same length.
+        relevant = [{"a"}]
+        retrieved = [["a", "b"], ["c", "d"]]
+        with pytest.raises(ValueError, match="length mismatch"):
+            assert_map_at_k(
+                relevant, retrieved, k=2, min_map=0.0,
+            )

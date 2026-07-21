@@ -87,7 +87,7 @@ def assert_bertscore(
         precision, recall, f1 = _bertscore_pr(
             ref.tolist(), hyp.tolist(),
         )
-    except (ImportError, Exception):
+    except ImportError:
         precision, recall, f1 = _bertscore_numpy(ref, hyp)
 
     if f1 >= 0.95 and not suppress_warnings:

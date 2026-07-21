@@ -1,5 +1,7 @@
 """Tests for mltk.domains.llm.conversation — multi-turn conversation evaluation."""
 
+from __future__ import annotations
+
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
@@ -100,6 +102,7 @@ class TestKnowledgeRetention:
         # EXPECTED: Empty turn list passes with the original score/message.
         result = assert_knowledge_retention([], min_score=0.7, on_empty="pass")
         assert result.passed is True
+        assert result.severity == Severity.CRITICAL
         assert result.details["score"] == 1.0
         assert result.message == "Empty turn list — trivially retained (score=1.0)"
 

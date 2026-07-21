@@ -78,6 +78,16 @@ def test_numpy_array_golden(tmp_path):
     assert result.passed is True
 
 
+def test_list_length_mismatch_raises_value_error(tmp_path):
+    # SCENARIO: current output has a different list length than the golden data
+    # EXPECTED: usage error, not a diff computed on truncated partial data
+    path = tmp_path / "list_golden.json"
+    save_golden([0.1, 0.2], path)
+
+    with pytest.raises(ValueError, match="_max_numeric_diff: length mismatch"):
+        assert_matches_golden([0.1, 0.2, 0.3], path, tolerance=0.01)
+
+
 def test_numpy_array_golden_fail(tmp_path):
     # SCENARIO: numpy array deviates beyond tolerance
     # WHY: numeric comparison must detect large deviations in arrays

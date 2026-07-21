@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 from mltk.domains.llm._utils import _tokenize
 
 __all__ = [
@@ -306,11 +307,11 @@ def assert_no_lost_in_middle(
         ...     min_accuracy=0.7,
         ... )
     """
-    if len(facts) != len(questions):
-        raise ValueError(
-            f"facts ({len(facts)}) and questions ({len(questions)}) "
-            "must have the same length"
-        )
+    require_same_length(
+        "assert_no_lost_in_middle",
+        facts=facts,
+        questions=questions,
+    )
 
     context = "\n".join(
         f"Fact {i + 1}: {fact}" for i, fact in enumerate(facts)
@@ -319,7 +320,7 @@ def assert_no_lost_in_middle(
     correct_count = 0
     per_position_correct: dict[str, bool] = {}
 
-    for i, (fact, question) in enumerate(zip(facts, questions, strict=False)):
+    for i, (fact, question) in enumerate(zip(facts, questions, strict=True)):
         # Label position for reporting
         if i == 0:
             pos_label = "beginning"

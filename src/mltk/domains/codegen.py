@@ -48,9 +48,16 @@ import tempfile
 from typing import Any
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.empty import (
+    ON_EMPTY_OPTIONS as _ON_EMPTY_OPTIONS,
+)
+from mltk.core.empty import (
+    empty_input_result as _empty_input_result,
+)
+from mltk.core.empty import (
+    unknown_on_empty_result as _unknown_on_empty_result,
+)
 from mltk.core.result import Severity, TestResult
-
-_ON_EMPTY_OPTIONS = ("fail", "skip", "pass")
 
 __all__ = [
     "assert_code_executes",
@@ -83,53 +90,6 @@ _PASSWORD_RE = re.compile(
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
-
-def _unknown_on_empty_result(name: str, on_empty: str) -> TestResult:
-    """Return a failed result for an unsupported on_empty policy."""
-    return assert_true(
-        False,
-        name=name,
-        message=(
-            f"Unknown on_empty: '{on_empty}'. "
-            f"Supported: {', '.join(_ON_EMPTY_OPTIONS)}"
-        ),
-        severity=Severity.CRITICAL,
-        on_empty=on_empty,
-    )
-
-
-def _empty_input_result(
-    *,
-    name: str,
-    reason: str,
-    on_empty: str,
-    legacy_message: str,
-    **legacy_details: object,
-) -> TestResult:
-    """Apply the configured empty-input policy."""
-    if on_empty == "fail":
-        return assert_true(
-            False,
-            name=name,
-            message=f"{reason} -- empty input is not allowed",
-            severity=Severity.CRITICAL,
-        )
-    if on_empty == "skip":
-        return assert_true(
-            True,
-            name=name,
-            message=f"Skipped: {reason}",
-            severity=Severity.INFO,
-            skipped=True,
-            reason=reason,
-        )
-    return assert_true(
-        True,
-        name=name,
-        message=legacy_message,
-        severity=Severity.CRITICAL,
-        **legacy_details,
-    )
 
 
 def _python_executable() -> str:

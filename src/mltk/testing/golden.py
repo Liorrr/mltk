@@ -9,6 +9,7 @@ import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 
 def save_golden(
@@ -102,10 +103,15 @@ def _max_numeric_diff(
         return max(diffs) if diffs else 0.0
 
     if isinstance(current, list) and isinstance(golden_data, list):
+        require_same_length(
+            "_max_numeric_diff",
+            current=current,
+            golden_data=golden_data,
+        )
         if not golden_data:
             return 0.0
         diffs = []
-        for c_val, g_val in zip(current, golden_data, strict=False):
+        for c_val, g_val in zip(current, golden_data, strict=True):
             diffs.append(_max_numeric_diff(c_val, g_val))
         return max(diffs) if diffs else 0.0
 

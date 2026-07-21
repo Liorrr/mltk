@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-07-14 by scripts/generate_skill_index.py
+> Generated 2026-07-21 by scripts/generate_skill_index.py
 
 **241** assertions | **13** MCP tools | **29** CLI commands | **8** scanners
 
@@ -67,31 +67,31 @@ def assert_frame_accuracy(frame_preds: Any, frame_labels: Any, threshold: float=
 ```
 > Assert per-frame classification/detection accuracy.
 
-**`assert_idf1`** (domains/cv/tracking.py:236)
+**`assert_idf1`** (domains/cv/tracking.py:241)
 ```python
 def assert_idf1(gt_tracks: list[dict[str, Any]], pred_tracks: list[dict[str, Any]], min_idf1: float=0.5)
 ```
 > Assert ID F1 score (IDF1) meets threshold.
 
-**`assert_iou`** (domains/cv/detection.py:53)
+**`assert_iou`** (domains/cv/detection.py:54)
 ```python
 def assert_iou(pred_boxes: Any, gt_boxes: Any, threshold: float=0.5)
 ```
 > Assert minimum mean IoU between predictions and ground truth.
 
-**`assert_map`** (domains/cv/detection.py:110)
+**`assert_map`** (domains/cv/detection.py:111)
 ```python
 def assert_map(predictions: list[dict[str, Any]], ground_truth: list[dict[str, Any]], iou_threshold: float=0.5, min_map: float=0.5)
 ```
 > Assert mean Average Precision meets threshold.
 
-**`assert_mota`** (domains/cv/tracking.py:76)
+**`assert_mota`** (domains/cv/tracking.py:77)
 ```python
 def assert_mota(gt_tracks: list[dict[str, Any]], pred_tracks: list[dict[str, Any]], min_mota: float=0.5)
 ```
 > Assert Multi-Object Tracking Accuracy (MOTA) meets threshold.
 
-**`assert_motp`** (domains/cv/tracking.py:165)
+**`assert_motp`** (domains/cv/tracking.py:168)
 ```python
 def assert_motp(gt_tracks: list[dict[str, Any]], pred_tracks: list[dict[str, Any]], min_motp: float=0.5)
 ```
@@ -129,7 +129,7 @@ def assert_column_stdev(df: pd.DataFrame, column: str, min_val: float | None=Non
 ```
 > Assert column standard deviation is within [min_val, max_val].
 
-**`assert_correlation_preserved`** (data/synthetic.py:196)
+**`assert_correlation_preserved`** (data/synthetic.py:150)
 ```python
 def assert_correlation_preserved(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, max_delta: float=0.1, columns: list[str] | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -147,7 +147,7 @@ def assert_datetime_format(df: pd.DataFrame, column: str, fmt: str='%Y-%m-%d')
 ```
 > Assert all values in column match the specified datetime format.
 
-**`assert_dcr_safe`** (data/synthetic.py:430)
+**`assert_dcr_safe`** (data/synthetic.py:384)
 ```python
 def assert_dcr_safe(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, min_dcr: float=0.05, sample_size: int=2000, columns: list[str] | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -189,7 +189,7 @@ def assert_lineage_complete(graph: LineageGraph, expected_steps: int, severity: 
 ```
 > Assert lineage graph has the expected number of transformation steps.
 
-**`assert_marginal_fidelity`** (data/synthetic.py:90)
+**`assert_marginal_fidelity`** (data/synthetic.py:44)
 ```python
 def assert_marginal_fidelity(real: pd.Series, synthetic: pd.Series, method: str='ks', max_divergence: float=0.1, severity: Severity=Severity.CRITICAL)
 ```
@@ -201,7 +201,7 @@ def assert_no_conflicting_labels(df: pd.DataFrame, feature_cols: list[str], labe
 ```
 > Assert no rows have identical features but different labels.
 
-**`assert_no_drift`** (data/drift.py:68)
+**`assert_no_drift`** (data/drift.py:79)
 ```python
 def assert_no_drift(reference: pd.Series, current: pd.Series, method: str | None=None, threshold: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -209,11 +209,11 @@ def assert_no_drift(reference: pd.Series, current: pd.Series, method: str | None
 
 **`assert_no_embedding_drift`** (data/embedding_drift.py:18)
 ```python
-def assert_no_embedding_drift(reference: Any, current: Any, method: str='cosine', threshold: float=0.1)
+def assert_no_embedding_drift(reference: Any, current: Any, method: str='cosine', threshold: float=0.1, seed: int=0)
 ```
 > Assert no significant drift in embedding space.
 
-**`assert_no_multivariate_drift`** (data/drift.py:541)
+**`assert_no_multivariate_drift`** (data/drift.py:552)
 ```python
 def assert_no_multivariate_drift(reference: np.ndarray | pd.DataFrame, current: np.ndarray | pd.DataFrame, threshold: float=0.05, n_permutations: int=200, max_samples: int=500, kernel: str='rbf', sigma: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -231,7 +231,7 @@ def assert_no_outliers(series: pd.Series, method: str='iqr', threshold: float=1.
 ```
 > Assert no statistical outliers in a numeric Series.
 
-**`assert_no_pii`** (data/pii.py:671)
+**`assert_no_pii`** (data/pii.py:678)
 ```python
 def assert_no_pii(df: pd.DataFrame, columns: list[str] | None=None, patterns: list[str] | None=None, allowlist: list[str] | None=None, method: str='regex', entity_types: list[str] | None=None, score_threshold: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -261,7 +261,7 @@ def assert_schema(df: pd.DataFrame, expected: dict[str, str], allow_extra_column
 ```
 > Assert DataFrame columns and dtypes match expected schema.
 
-**`assert_synthetic_novelty`** (data/synthetic.py:311)
+**`assert_synthetic_novelty`** (data/synthetic.py:265)
 ```python
 def assert_synthetic_novelty(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, max_copy_rate: float=0.05, columns: list[str] | None=None, on_empty: str='fail', severity: Severity=Severity.CRITICAL)
 ```
@@ -287,25 +287,25 @@ def assert_clinical_agreement(y_true: np.ndarray, y_pred: np.ndarray, min_kappa:
 ```
 > Assert that clinical agreement (Cohen's Kappa) meets a threshold.
 
-**`assert_code_complexity`** (domains/codegen.py:537)
+**`assert_code_complexity`** (domains/codegen.py:497)
 ```python
 def assert_code_complexity(code: str, max_cyclomatic: int=10, max_lines: int=200)
 ```
 > Assert that generated code complexity stays within bounds.
 
-**`assert_code_executes`** (domains/codegen.py:254)
+**`assert_code_executes`** (domains/codegen.py:214)
 ```python
 def assert_code_executes(code: str, timeout_seconds: float=10.0, language: str='python', on_empty: str='fail')
 ```
 > Assert that generated code executes without errors.
 
-**`assert_code_passes_tests`** (domains/codegen.py:362)
+**`assert_code_passes_tests`** (domains/codegen.py:322)
 ```python
 def assert_code_passes_tests(code: str, test_code: str, timeout_seconds: float=30.0, on_empty: str='fail')
 ```
 > Assert that generated code passes a test suite.
 
-**`assert_coverage`** (domains/recommendation.py:393)
+**`assert_coverage`** (domains/recommendation.py:359)
 ```python
 def assert_coverage(recommended: list[list], catalog_size: int, min_coverage: float=0.1, on_empty: str='fail')
 ```
@@ -317,25 +317,25 @@ def assert_cumulative_reward(rewards: np.ndarray | list, min_cumulative: float)
 ```
 > Assert that cumulative episode reward meets a minimum threshold.
 
-**`assert_diversity`** (domains/recommendation.py:181)
+**`assert_diversity`** (domains/recommendation.py:147)
 ```python
 def assert_diversity(recommended: list[list], item_categories: dict, min_diversity: float=0.5, on_empty: str='fail')
 ```
 > Assert that recommendation diversity meets a minimum threshold.
 
-**`assert_hit_rate`** (domains/recommendation.py:95)
+**`assert_hit_rate`** (domains/recommendation.py:56)
 ```python
 def assert_hit_rate(recommended: list[list], relevant: list[set], min_rate: float=0.5, on_empty: str='fail')
 ```
 > Assert that hit rate meets a minimum threshold.
 
-**`assert_no_code_vulnerabilities`** (domains/codegen.py:453)
+**`assert_no_code_vulnerabilities`** (domains/codegen.py:413)
 ```python
 def assert_no_code_vulnerabilities(code: str, rules: list[str] | None=None)
 ```
 > Assert that generated code contains no security vulnerabilities.
 
-**`assert_novelty`** (domains/recommendation.py:292)
+**`assert_novelty`** (domains/recommendation.py:258)
 ```python
 def assert_novelty(recommended: list[list], popularity: dict, min_novelty: float=0.3, on_empty: str='fail')
 ```
@@ -365,7 +365,7 @@ def assert_sensitivity(y_true: np.ndarray, y_pred: np.ndarray, min_sensitivity: 
 ```
 > Assert that model sensitivity meets a minimum threshold.
 
-**`assert_serendipity`** (domains/recommendation.py:474)
+**`assert_serendipity`** (domains/recommendation.py:440)
 ```python
 def assert_serendipity(recommended: list[list], expected: list[list], relevant: list[set], min_serendipity: float=0.1, on_empty: str='fail')
 ```
@@ -463,7 +463,7 @@ def assert_agent_handoff(agent_names: list[str], expected_flow: list[str], stric
 ```
 > Assert that agent handoffs follow an expected flow.
 
-**`assert_answer_relevancy`** (domains/llm/rag.py:339)
+**`assert_answer_relevancy`** (domains/llm/rag.py:298)
 ```python
 def assert_answer_relevancy(question: str, answer: str, min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
 ```
@@ -481,31 +481,31 @@ def assert_coherence(text: str, min_score: float=0.3)
 ```
 > Assert text is internally coherent.
 
-**`assert_context_precision`** (domains/llm/rag.py:472)
+**`assert_context_precision`** (domains/llm/rag.py:431)
 ```python
 def assert_context_precision(relevant_ids: list[str], retrieved_ids: list[str], min_precision: float=0.5, on_empty: str='fail')
 ```
 > Assert precision of retrieval: |relevant ∩ retrieved| / |retrieved|.
 
-**`assert_context_recall`** (domains/llm/rag.py:540)
+**`assert_context_recall`** (domains/llm/rag.py:499)
 ```python
 def assert_context_recall(relevant_ids: list[str], retrieved_ids: list[str], min_recall: float=0.5, on_empty: str='fail')
 ```
 > Assert recall of retrieval: |relevant ∩ retrieved| / |relevant|.
 
-**`assert_context_relevancy`** (domains/llm/rag.py:206)
+**`assert_context_relevancy`** (domains/llm/rag.py:165)
 ```python
 def assert_context_relevancy(question: str, context: str | list[str], min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
 ```
 > Assert retrieved context is relevant to the question.
 
-**`assert_context_utilization`** (domains/llm/long_context.py:149)
+**`assert_context_utilization`** (domains/llm/long_context.py:150)
 ```python
 def assert_context_utilization(model_fn: Callable[[str], str], facts: list[str], question: str, min_facts_used: int=3)
 ```
 > Assert that an LLM uses facts from across its full context window.
 
-**`assert_conversation_completeness`** (domains/llm/conversation.py:266)
+**`assert_conversation_completeness`** (domains/llm/conversation.py:225)
 ```python
 def assert_conversation_completeness(turns: list[dict[str, str]], expected_topics: list[str], min_coverage: float=0.8, on_empty: str='fail')
 ```
@@ -523,7 +523,7 @@ def assert_error_recovery(trace: AgentTrace, max_consecutive_errors: int=3)
 ```
 > Assert the agent does not produce long streaks of consecutive errors.
 
-**`assert_faithfulness`** (domains/llm/rag.py:72)
+**`assert_faithfulness`** (domains/llm/rag.py:31)
 ```python
 def assert_faithfulness(answer: str, context: str | list[str], min_score: float=0.7, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
 ```
@@ -541,25 +541,25 @@ def assert_json_schema(output: Any, schema: dict, *, severity: Severity=Severity
 ```
 > Assert that output conforms to a JSON Schema.
 
-**`assert_knowledge_retention`** (domains/llm/conversation.py:66)
+**`assert_knowledge_retention`** (domains/llm/conversation.py:25)
 ```python
 def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7, on_empty: str='fail')
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:372)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:366)
 ```python
 def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None)
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:231)
+**`assert_llm_judge_score`** (domains/llm/judge.py:232)
 ```python
 def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None)
 ```
 > Assert that LLM responses meet a minimum quality score via judge evaluation.
 
-**`assert_map_at_k`** (domains/llm/retrieval.py:455)
+**`assert_map_at_k`** (domains/llm/retrieval.py:431)
 ```python
 def assert_map_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_map: float=0.5, on_empty: str='fail')
 ```
@@ -595,19 +595,19 @@ def assert_mcp_tool_selection(trace: McpTrace, expected_tools: Sequence[str], se
 ```
 > Assert that an MCP trace contains the expected tools.
 
-**`assert_mrr`** (domains/llm/retrieval.py:252)
+**`assert_mrr`** (domains/llm/retrieval.py:223)
 ```python
 def assert_mrr(queries_results: list[list[bool]], min_mrr: float=0.5, on_empty: str='fail')
 ```
 > Assert that Mean Reciprocal Rank meets a minimum threshold.
 
-**`assert_ndcg`** (domains/llm/retrieval.py:146)
+**`assert_ndcg`** (domains/llm/retrieval.py:112)
 ```python
 def assert_ndcg(y_true: list[list[int]], y_scores: list[list[float]], k: int=10, min_ndcg: float=0.8, on_empty: str='fail')
 ```
 > Assert that mean nDCG@k meets a minimum threshold.
 
-**`assert_needle_in_haystack`** (domains/llm/long_context.py:52)
+**`assert_needle_in_haystack`** (domains/llm/long_context.py:53)
 ```python
 def assert_needle_in_haystack(model_fn: Callable[[str], str], needle: str, haystack: str, positions: list[float] | None=None, min_recall: float=0.8)
 ```
@@ -637,7 +637,7 @@ def assert_no_hallucination(claims: list[str], sources: list[str], method: str='
 ```
 > Assert LLM claims are supported by source documents.
 
-**`assert_no_lost_in_middle`** (domains/llm/long_context.py:254)
+**`assert_no_lost_in_middle`** (domains/llm/long_context.py:255)
 ```python
 def assert_no_lost_in_middle(model_fn: Callable[[str], str], facts: list[str], questions: list[str], min_accuracy: float=0.7)
 ```
@@ -691,7 +691,7 @@ def assert_readability(text: str, max_grade_level: float=12.0)
 ```
 > Assert text readability using Flesch-Kincaid grade level.
 
-**`assert_recall_at_k`** (domains/llm/retrieval.py:354)
+**`assert_recall_at_k`** (domains/llm/retrieval.py:325)
 ```python
 def assert_recall_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_recall: float=0.8, on_empty: str='fail')
 ```
@@ -709,7 +709,7 @@ def assert_safety_taxonomy(model_fn: Callable[[str], str], prompts_by_category: 
 ```
 > Assert that a model refuses unsafe prompts consistently across safety categories.
 
-**`assert_semantic_similarity`** (domains/llm/similarity.py:48)
+**`assert_semantic_similarity`** (domains/llm/similarity.py:49)
 ```python
 def assert_semantic_similarity(references: list[str], hypotheses: list[str], min_score: float=0.7, method: str='token')
 ```
@@ -799,7 +799,7 @@ def assert_ttft(func: Callable[..., Any], *args: Any, max_ms: float=1000.0, iter
 ```
 > Assert Time to First Token is within bounds.
 
-**`assert_turn_relevancy`** (domains/llm/conversation.py:167)
+**`assert_turn_relevancy`** (domains/llm/conversation.py:126)
 ```python
 def assert_turn_relevancy(turns: list[dict[str, str]], min_score: float=0.5, on_empty: str='fail')
 ```
@@ -925,7 +925,7 @@ def assert_counterfactual_fairness(model_fn: Callable[..., Any], X: np.ndarray, 
 ```
 > Assert that a model's predictions do not change when the protected
 
-**`assert_intersectional_fairness`** (model/bias.py:399)
+**`assert_intersectional_fairness`** (model/bias.py:484)
 ```python
 def assert_intersectional_fairness(y_true: Any, y_pred: Any, sensitive_features: dict[str, Any], method: str='demographic_parity', threshold: float | None=None, min_subgroup_size: int=30, severity: Severity=Severity.CRITICAL)
 ```
@@ -949,7 +949,7 @@ def assert_metric(y_true: Any, y_pred: Any, metric: str='accuracy', threshold: f
 ```
 > Assert a model metric meets a minimum threshold.
 
-**`assert_no_bias`** (model/bias.py:79)
+**`assert_no_bias`** (model/bias.py:121)
 ```python
 def assert_no_bias(y_true: Any, y_pred: Any, sensitive_feature: Any, method: str='demographic_parity', threshold: float | None=None, severity: Severity=Severity.CRITICAL)
 ```
@@ -1171,13 +1171,13 @@ def assert_vqa_accuracy(question: str, image: ImageInput | None, expected_answer
 
 ### nlp
 
-**`assert_bleu`** (domains/nlp/generation.py:10)
+**`assert_bleu`** (domains/nlp/generation.py:11)
 ```python
 def assert_bleu(references: list[str], hypotheses: list[str], min_score: float=0.3)
 ```
 > Assert BLEU score meets minimum threshold.
 
-**`assert_ner_f1`** (domains/nlp/ner.py:10)
+**`assert_ner_f1`** (domains/nlp/ner.py:11)
 ```python
 def assert_ner_f1(y_true_entities: list[list[tuple[str, int, int]]], y_pred_entities: list[list[tuple[str, int, int]]], min_f1: float=0.8)
 ```
@@ -1195,7 +1195,7 @@ def assert_no_sentiment_drift(ref_texts: list[str], cur_texts: list[str], max_dr
 ```
 > Assert sentiment distribution hasn't shifted between datasets.
 
-**`assert_rouge`** (domains/nlp/generation.py:62)
+**`assert_rouge`** (domains/nlp/generation.py:63)
 ```python
 def assert_rouge(references: list[str], hypotheses: list[str], variant: str='rougeL', min_score: float=0.3)
 ```
@@ -1241,7 +1241,7 @@ def assert_token_usage(usage: CostTracker | int, max_tokens: int, *, severity: S
 
 ### pipeline
 
-**`assert_checksum`** (pipeline/reproducibility.py:107)
+**`assert_checksum`** (pipeline/reproducibility.py:142)
 ```python
 def assert_checksum(path: str | Path, expected_hash: str)
 ```
@@ -1271,9 +1271,9 @@ def assert_pipeline_stages_compatible(stages: list[StageSpec], *, check_dtypes: 
 ```
 > Assert that consecutive pipeline stages are schema-compatible.
 
-**`assert_reproducible`** (pipeline/reproducibility.py:18)
+**`assert_reproducible`** (pipeline/reproducibility.py:50)
 ```python
-def assert_reproducible(func: Callable[..., Any], *args: Any, seed: int=42, runs: int=3, tolerance: float=0.001)
+def assert_reproducible(func: Callable[..., Any], *args: Any, seed: int | None=None, runs: int=3, tolerance: float=0.001)
 ```
 > Assert function produces identical output across runs with same seed.
 
@@ -1345,7 +1345,7 @@ def assert_impact_coverage(changed_files: list[str], executed_tests: list[str], 
 ```
 > Assert that all impacted tests were actually executed.
 
-**`assert_matches_golden`** (testing/golden.py:119)
+**`assert_matches_golden`** (testing/golden.py:125)
 ```python
 def assert_matches_golden(current: dict | list | np.ndarray, golden_path: str | Path, tolerance: float=0.01)
 ```
@@ -1365,19 +1365,19 @@ def assert_checkpoint_complete(path: str | Path, required_keys: list[str] | None
 ```
 > Assert checkpoint file exists and contains required keys.
 
-**`assert_effective_batch_size`** (training/distributed.py:18)
+**`assert_effective_batch_size`** (training/distributed.py:19)
 ```python
 def assert_effective_batch_size(local_batch_size: int, world_size: int, expected_batch_size: int)
 ```
 > Assert effective batch size equals local_batch_size * world_size.
 
-**`assert_gradient_alignment`** (training/distributed.py:273)
+**`assert_gradient_alignment`** (training/distributed.py:265)
 ```python
 def assert_gradient_alignment(grads_a: list[np.ndarray], grads_b: list[np.ndarray], min_cosine: float=0.9)
 ```
 > Assert gradient vectors from two ranks are directionally aligned.
 
-**`assert_gradient_clipped`** (training/distributed.py:386)
+**`assert_gradient_clipped`** (training/distributed.py:378)
 ```python
 def assert_gradient_clipped(gradients: list[np.ndarray], max_norm: float)
 ```
@@ -1389,13 +1389,13 @@ def assert_gradient_flow(gradients: list[np.ndarray], min_mean_grad: float=1e-07
 ```
 > Assert that gradients are flowing through all layers (no dead layers).
 
-**`assert_gradient_sync`** (training/distributed.py:66)
+**`assert_gradient_sync`** (training/distributed.py:67)
 ```python
 def assert_gradient_sync(grads_rank0: list[np.ndarray], grads_rank1: list[np.ndarray], tolerance: float=1e-05)
 ```
 > Assert gradients are synchronized across ranks after all-reduce.
 
-**`assert_loss_decreasing`** (training/numerical.py:74)
+**`assert_loss_decreasing`** (training/numerical.py:76)
 ```python
 def assert_loss_decreasing(losses: np.ndarray, window: int=10, min_decrease: float=0.0)
 ```
@@ -1413,7 +1413,7 @@ def assert_loss_is_detached(memory_per_step_mb: list[float], max_growth_per_step
 ```
 > Assert loss tensor isn't accumulating the computation graph.
 
-**`assert_n_rank_gradient_sync`** (training/distributed.py:160)
+**`assert_n_rank_gradient_sync`** (training/distributed.py:152)
 ```python
 def assert_n_rank_gradient_sync(grads_by_rank: list[list[np.ndarray]], tolerance: float=1e-05)
 ```
@@ -1431,7 +1431,7 @@ def assert_no_exploding_gradient(gradients: list[np.ndarray], max_grad_norm: flo
 ```
 > Assert that no layer has exploding gradients (L2 norm too large).
 
-**`assert_no_loss_divergence`** (training/numerical.py:138)
+**`assert_no_loss_divergence`** (training/numerical.py:140)
 ```python
 def assert_no_loss_divergence(losses: np.ndarray, max_increase_ratio: float=10.0)
 ```
@@ -1443,7 +1443,7 @@ def assert_no_memory_leak(memory_readings_mb: list[float], max_growth_mb: float=
 ```
 > Assert memory doesn't grow unbounded during training.
 
-**`assert_no_nan_inf`** (training/numerical.py:17)
+**`assert_no_nan_inf`** (training/numerical.py:18)
 ```python
 def assert_no_nan_inf(arrays: list[np.ndarray], names: list[str] | None=None)
 ```
@@ -1479,7 +1479,7 @@ def assert_resume_loss_continuous(pre_losses: list[float], post_losses: list[flo
 ```
 > Assert loss continuity after checkpoint resume.
 
-**`assert_softmax_valid`** (training/numerical.py:209)
+**`assert_softmax_valid`** (training/numerical.py:211)
 ```python
 def assert_softmax_valid(probabilities: np.ndarray)
 ```
@@ -1491,7 +1491,7 @@ def assert_temporal_split(train_df: pd.DataFrame, test_df: pd.DataFrame, time_co
 ```
 > Assert train data is strictly before test data (no temporal leakage).
 
-**`assert_weight_divergence`** (training/distributed.py:331)
+**`assert_weight_divergence`** (training/distributed.py:323)
 ```python
 def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.ndarray], max_l2_distance: float=0.01)
 ```
@@ -1609,7 +1609,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:949)
+### `mltk_container_scan` (server.py:955)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1619,7 +1619,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
 
-### `mltk_import` (server.py:1009)
+### `mltk_import` (server.py:1015)
 
 > Import a dataset into an mltk pytest suite and eval dataset.
 
@@ -1945,7 +1945,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config | `ScanConfig` |  |
 | seed | `int` |  |
 
-### `ScanReport` (scan/engine.py:71)
+### `ScanReport` (scan/engine.py:73)
 > Aggregated output of a scan run.
 
 | Field | Type | Default |
@@ -1960,7 +1960,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | n_features | `int` | `0` |
 | config | `ScanConfig` | `field(default_factory=ScanConfig)` |
 
-### `ScanEngine` (scan/engine.py:455)
+### `ScanEngine` (scan/engine.py:457)
 > Orchestrates scanners and produces a ScanReport.
 
 *(no dataclass fields)*

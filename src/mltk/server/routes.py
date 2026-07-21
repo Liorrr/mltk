@@ -1,7 +1,7 @@
 """API routes for the mltk server."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
 from mltk.report.summarizer import summarize_test_history
@@ -81,6 +81,7 @@ async def health_ready(request: Request) -> dict:  # type: ignore[type-arg]
 async def submit_run(
     req: SubmitRunRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     _project: str = Depends(require_api_key),
 ) -> dict:  # type: ignore[type-arg]
     """Submit test results from a test run. Requires Bearer API key.
@@ -117,7 +118,7 @@ async def submit_run(
                 "failed": failed,
                 "total": total,
             }
-            send_webhook(wh.url, payload)
+            background_tasks.add_task(send_webhook, wh.url, payload)
 
     return {"run_id": run_id, "status": "saved"}
 

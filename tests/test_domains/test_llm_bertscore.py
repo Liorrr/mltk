@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+import types
+
 import numpy as np
 import pytest
 
@@ -128,3 +131,22 @@ class TestBERTScoreMetadata:
         assert result.details["hyp_tokens"] == 3
         assert result.details["embedding_dim"] == 3
         assert result.duration_ms >= 0
+
+
+class TestBERTScoreRustFallback:
+    # SCENARIO: Rust backend imports but raises during computation.
+    # WHY: computation bugs must propagate instead of being hidden by numpy fallback.
+    # EXPECTED: RuntimeError propagates to the caller.
+
+    def test_rust_backend_runtime_errors_propagate(self, monkeypatch) -> None:
+        """Only Rust import failures should fall back to numpy."""
+        rust_module = types.ModuleType("mltk._rust")
+
+        def broken_bertscore(*_args: object) -> tuple[float, float, float]:
+            raise RuntimeError("rust bertscore failed")
+
+        rust_module.bertscore_precision_recall = broken_bertscore
+        monkeypatch.setitem(sys.modules, "mltk._rust", rust_module)
+
+        with pytest.raises(RuntimeError, match="rust bertscore failed"):
+            assert_bertscore(np.eye(2), np.eye(2), min_f1=0.5)

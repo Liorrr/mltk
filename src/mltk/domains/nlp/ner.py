@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 
 @timed_assertion
@@ -28,11 +29,17 @@ def assert_ner_f1(
         >>> pred = [[("PER", 0, 5), ("ORG", 10, 15)]]
         >>> assert_ner_f1(true, pred, min_f1=0.5)
     """
+    require_same_length(
+        "assert_ner_f1",
+        y_true_entities=y_true_entities,
+        y_pred_entities=y_pred_entities,
+    )
+
     tp = 0
     fp = 0
     fn = 0
 
-    for true_ents, pred_ents in zip(y_true_entities, y_pred_entities, strict=False):
+    for true_ents, pred_ents in zip(y_true_entities, y_pred_entities, strict=True):
         true_set = set(true_ents)
         pred_set = set(pred_ents)
         tp += len(true_set & pred_set)

@@ -125,6 +125,7 @@ class TestCodeExecutes:
         """PASS: Empty code can explicitly use legacy behavior."""
         result = assert_code_executes("", on_empty="pass")
         assert result.passed is True
+        assert result.severity == Severity.CRITICAL
         assert result.details["returncode"] == 0
         assert result.message == "Empty code executes trivially"
 

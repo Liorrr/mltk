@@ -48,6 +48,14 @@ class TestNerF1:
         result = assert_ner_f1(true_ents, pred_ents, min_f1=0.5)
         assert result.passed is True
 
+    def test_mismatched_document_counts_raise_value_error(self) -> None:
+        """USAGE ERROR: true and predicted entity lists must be parallel."""
+        true_ents = [[("PER", 0, 5)], [("ORG", 10, 20)]]
+        pred_ents = [[("PER", 0, 5)]]
+
+        with pytest.raises(ValueError, match="assert_ner_f1: length mismatch"):
+            assert_ner_f1(true_ents, pred_ents, min_f1=0.5)
+
     def test_poor_ner_fails(self) -> None:
         """FAIL: Model predicted wrong entity types at wrong positions.
 

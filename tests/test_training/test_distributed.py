@@ -118,13 +118,12 @@ class TestGradientSync:
 
     def test_gradient_sync_length_mismatch(self) -> None:
         # SCENARIO: Rank 0 has 3 layers, rank 1 has 2 layers
-        # WHY: Model architecture mismatch or serialization bug — must fail clearly
-        # EXPECTED: MltkAssertionError with informative message
+        # WHY: Model architecture mismatch or serialization bug must fail clearly
+        # EXPECTED: ValueError with informative message
         grads0 = [np.array([0.1]), np.array([0.2]), np.array([0.3])]
         grads1 = [np.array([0.1]), np.array([0.2])]
-        with pytest.raises(MltkAssertionError) as exc:
+        with pytest.raises(ValueError, match="assert_gradient_sync: length mismatch"):
             assert_gradient_sync(grads0, grads1)
-        assert "mismatch" in exc.value.result.message.lower()
 
     def test_gradient_sync_returns_duration(self) -> None:
         # SCENARIO: @timed_assertion decorator is active

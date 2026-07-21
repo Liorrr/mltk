@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 
 @timed_assertion
@@ -68,9 +69,7 @@ def assert_rouge(
     """Assert ROUGE score meets minimum threshold.
 
     Args:
-        references: Reference texts. Must have the same length as hypotheses;
-            if lengths differ, the shorter list determines the count of pairs
-            evaluated (extra items in the longer list are ignored).
+        references: Reference texts. Must have the same length as hypotheses.
         hypotheses: Model-generated texts.
         variant: ROUGE variant -- "rouge1", "rouge2", "rougeL", "rougeLsum".
         min_score: Minimum required F-measure (0-1).
@@ -83,6 +82,8 @@ def assert_rouge(
         >>> hyps = ["the cat is on the mat"]
         >>> assert_rouge(refs, hyps, variant="rougeL", min_score=0.3)
     """
+    require_same_length("assert_rouge", references=references, hypotheses=hypotheses)
+
     try:
         from rouge_score import rouge_scorer
     except ImportError as err:
@@ -93,7 +94,7 @@ def assert_rouge(
     scorer = rouge_scorer.RougeScorer([variant], use_stemmer=True)
 
     scores = []
-    for ref, hyp in zip(references, hypotheses, strict=False):
+    for ref, hyp in zip(references, hypotheses, strict=True):
         result = scorer.score(ref, hyp)
         scores.append(result[variant].fmeasure)
 

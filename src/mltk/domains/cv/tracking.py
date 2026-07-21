@@ -13,6 +13,7 @@ import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 from mltk.domains.cv.detection import compute_iou
 
 # IoU threshold for a detection to count as a true match
@@ -99,6 +100,8 @@ def assert_mota(
         >>> pred = [{"ids": [1], "boxes": [[0, 0, 10, 10]]}]
         >>> assert_mota(gt, pred, min_mota=0.5)
     """
+    require_same_length("assert_mota", gt_tracks=gt_tracks, pred_tracks=pred_tracks)
+
     total_gt = 0
     fn = 0
     fp = 0
@@ -107,7 +110,7 @@ def assert_mota(
     # id_map tracks the last known pred-id assigned to each gt-id
     id_map: dict[int, int] = {}
 
-    for frame_gt, frame_pred in zip(gt_tracks, pred_tracks, strict=False):
+    for frame_gt, frame_pred in zip(gt_tracks, pred_tracks, strict=True):
         gt_ids, gt_boxes = _parse_frame(frame_gt)
         pred_ids, pred_boxes = _parse_frame(frame_pred)
 
@@ -187,10 +190,12 @@ def assert_motp(
         >>> pred = [{"ids": [1], "boxes": [[0, 0, 10, 10]]}]
         >>> assert_motp(gt, pred, min_motp=0.5)
     """
+    require_same_length("assert_motp", gt_tracks=gt_tracks, pred_tracks=pred_tracks)
+
     iou_sum = 0.0
     num_matches = 0
 
-    for frame_gt, frame_pred in zip(gt_tracks, pred_tracks, strict=False):
+    for frame_gt, frame_pred in zip(gt_tracks, pred_tracks, strict=True):
         _, gt_boxes = _parse_frame(frame_gt)
         _, pred_boxes = _parse_frame(frame_pred)
 
@@ -263,12 +268,14 @@ def assert_idf1(
         >>> pred = [{"ids": [1, 2], "boxes": [[0,0,10,10],[20,20,30,30]]}]
         >>> assert_idf1(gt, pred, min_idf1=0.5)
     """
+    require_same_length("assert_idf1", gt_tracks=gt_tracks, pred_tracks=pred_tracks)
+
     # co_occurrence[gt_id][pred_id] = number of matched frames
     co_occur: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
     total_gt_dets: dict[int, int] = defaultdict(int)
     total_pred_dets: dict[int, int] = defaultdict(int)
 
-    for frame_gt, frame_pred in zip(gt_tracks, pred_tracks, strict=False):
+    for frame_gt, frame_pred in zip(gt_tracks, pred_tracks, strict=True):
         gt_ids, gt_boxes = _parse_frame(frame_gt)
         pred_ids, pred_boxes = _parse_frame(frame_pred)
 

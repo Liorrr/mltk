@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 
 
 def _token_f1(reference: str, hypothesis: str) -> float:
@@ -70,10 +71,16 @@ def assert_semantic_similarity(
         >>> # With embeddings (requires sentence-transformers):
         >>> assert_semantic_similarity(refs, hyps, min_score=0.7, method="embedding")
     """
+    require_same_length(
+        "assert_semantic_similarity",
+        references=references,
+        hypotheses=hypotheses,
+    )
+
     if method == "token":
         scores = [
             _token_f1(ref, hyp)
-            for ref, hyp in zip(references, hypotheses, strict=False)
+            for ref, hyp in zip(references, hypotheses, strict=True)
         ]
     elif method == "embedding":
         if not references or not hypotheses:

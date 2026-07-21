@@ -102,6 +102,14 @@ class TestOverfitScannerDetection:
             for f in findings
         )
 
+    def test_accuracy_raises_for_shape_mismatch(self) -> None:
+        """Mismatched prediction/label shapes fail loudly."""
+        y_true = np.array([1, 0, 1])
+        y_pred = np.array([[1, 0, 1]])
+
+        with pytest.raises(ValueError, match="shape mismatch"):
+            OverfitScanner._accuracy(y_true, y_pred)
+
     def test_no_overfitting_good_model(self) -> None:
         """Well-generalising model yields no findings."""
         rng = np.random.default_rng(42)

@@ -115,6 +115,14 @@ class TestROUGE:
         assert result.passed is True
         assert result.details["score"] > 0.9
 
+    def test_rouge_mismatched_lengths_raise_value_error(self) -> None:
+        """USAGE ERROR: references and hypotheses must be parallel lists."""
+        refs = ["the cat sat on the mat", "the dog played in the park"]
+        hyps = ["the cat is on the mat"]
+
+        with pytest.raises(ValueError, match="assert_rouge: length mismatch"):
+            assert_rouge(refs, hyps, variant="rougeL", min_score=0.3)
+
     def test_rouge_fail_no_overlap(self) -> None:
         """FAIL: Completely unrelated hypothesis.
 

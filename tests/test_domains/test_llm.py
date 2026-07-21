@@ -27,6 +27,17 @@ class TestSemanticSimilarity:
         result = assert_semantic_similarity(refs, hyps, min_score=0.3)
         assert result.passed is True
 
+    def test_mismatched_lengths_raise_value_error(self) -> None:
+        """USAGE ERROR: references and hypotheses must be parallel lists."""
+        refs = ["The cat sat on the mat", "The dog played"]
+        hyps = ["A cat is sitting on the mat"]
+
+        with pytest.raises(
+            ValueError,
+            match="assert_semantic_similarity: length mismatch",
+        ):
+            assert_semantic_similarity(refs, hyps, min_score=0.3)
+
     def test_dissimilar_texts(self) -> None:
         """FAIL: Completely different texts below threshold."""
         refs = ["The cat sat on the mat"]

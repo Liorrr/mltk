@@ -1,5 +1,7 @@
 """Tests for mltk.domains.recommendation -- beyond-accuracy metrics."""
 
+from __future__ import annotations
+
 import math
 
 import pytest
@@ -89,6 +91,7 @@ class TestHitRate:
         # EXPECTED: Empty user set passes with the original score/message.
         result = assert_hit_rate([], [], min_rate=0.9, on_empty="pass")
         assert result.passed is True
+        assert result.severity == Severity.CRITICAL
         assert result.details["hit_rate"] == 1.0
         assert result.details["n_users"] == 0
         assert result.message == (
@@ -670,3 +673,20 @@ class TestRecommendationLargeScale:
             recs, catalog_size=500, min_coverage=0.01,
         )
         assert rc.passed is True
+
+
+class TestMismatchedLengths:
+    """Mismatched paired inputs are usage errors."""
+
+    def test_hit_rate_recommended_relevant_mismatch(self) -> None:
+        recs = [["a"], ["b"]]
+        rels = [{"a"}]
+        with pytest.raises(ValueError, match="length mismatch"):
+            assert_hit_rate(recs, rels, min_rate=0.0)
+
+    def test_serendipity_recommended_expected_relevant_mismatch(self) -> None:
+        recs = [["a"], ["b"]]
+        expected = [["a"]]
+        rels = [{"a"}, {"b"}]
+        with pytest.raises(ValueError, match="length mismatch"):
+            assert_serendipity(recs, expected, rels, min_serendipity=0.0)

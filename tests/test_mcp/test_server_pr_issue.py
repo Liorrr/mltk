@@ -10,6 +10,10 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from mltk.core.result import Severity, TestResult
+from mltk.scan.engine import ScanReport
+from mltk.scan.finding import ScanFinding
+
 from ._helpers import assert_error, assert_ok, call_tool
 
 # ---------------------------------------------------------------------------
@@ -47,6 +51,14 @@ _JIRA_CONFIG_JSON = json.dumps({
     "email": "bot@example.com",
     "token": "ATATT3_test",
 })
+_ASANA_CONFIG_JSON = json.dumps({
+    "token": "asana_test",
+    "workspace_gid": "workspace-1",
+})
+_LINEAR_CONFIG_JSON = json.dumps({
+    "api_key": "linear_test",
+    "team_id": "team-1",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +78,31 @@ def _make_pr_result(
     r.number = number
     r.draft = draft
     return r
+
+
+def _flat_scan_report_finding_json() -> str:
+    """Build real ScanReport JSON and return its first flat finding."""
+    result = TestResult(
+        name="slice_accuracy_drop",
+        passed=False,
+        severity=Severity.WARNING,
+        message="Slice accuracy dropped below threshold",
+    )
+    finding = ScanFinding(
+        result=result,
+        assertion_fn=lambda: result,
+        scanner_name="slice",
+    )
+    report = ScanReport(
+        findings=[finding],
+        scanners_run=["slice"],
+        model_type="classifier",
+        n_samples=10,
+        n_features=2,
+    )
+    finding_data = json.loads(report.to_json())["findings"][0]
+    assert "result" not in finding_data
+    return json.dumps(finding_data)
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +304,32 @@ class TestMltkCreatePr:
         assert isinstance(result["suggested_next_step"], str)
         assert len(result["suggested_next_step"]) > 0
 
+    @patch("mltk.integrations.pr_generator.PullRequestGenerator")
+    @patch("mltk.integrations.github_adapter.GitHubIssuesAdapter")
+    @patch("mltk.experiment.worktree.find_git_root", return_value=Path("/repo"))
+    @patch("mltk.experiment.worktree.git_available", return_value=True)
+    def test_create_pr_preserves_flat_scan_report_finding_fields(
+        self, mock_git_avail, mock_git_root, mock_adapter, mock_gen
+    ):
+        # SCENARIO: finding_json comes from ScanReport.to_json() flat shape
+        # WHY: MCP PR creation must preserve advertised scan output fields
+        # EXPECTED: extracted ScanFinding still has name and message
+        mock_gen_inst = MagicMock()
+        mock_gen.return_value = mock_gen_inst
+        mock_gen_inst.create_pr.return_value = _make_pr_result()
+
+        result = call_tool(
+            "mltk_create_pr",
+            finding_json=_flat_scan_report_finding_json(),
+            fix_json=_FIX_JSON,
+            repo=_REPO,
+        )
+
+        assert_ok(result)
+        finding = mock_gen_inst.create_pr.call_args.kwargs["finding"]
+        assert finding.result.name == "slice_accuracy_drop"
+        assert finding.result.message == "Slice accuracy dropped below threshold"
+
 
 # ---------------------------------------------------------------------------
 # mltk_create_issue
@@ -315,6 +378,56 @@ class TestMltkCreateIssue:
 
         assert_ok(result)
         assert result["issue_key"] == "ML-42"
+
+    @patch("mltk.integrations.issue_linker.IssueLinker")
+    @patch("mltk.integrations.asana_adapter.AsanaAdapter")
+    def test_create_issue_asana_reaches_adapter(self, mock_asana, mock_linker):
+        # SCENARIO: tracker="asana" with Asana-specific config
+        # WHY: Asana adapter is exported and must be reachable from MCP
+        # EXPECTED: unsupported-tracker gate is bypassed and adapter is used
+        mock_linker_inst = MagicMock()
+        mock_linker.return_value = mock_linker_inst
+        mock_linker_inst.create_from_finding.return_value = "asana-task-1"
+
+        result = call_tool(
+            "mltk_create_issue",
+            finding_json=_FINDING_JSON,
+            tracker="asana",
+            project="project-1",
+            config_json=_ASANA_CONFIG_JSON,
+        )
+
+        assert_ok(result)
+        assert result["issue_key"] == "asana-task-1"
+        mock_asana.assert_called_once_with(
+            token="asana_test",
+            workspace_gid="workspace-1",
+        )
+
+    @patch("mltk.integrations.issue_linker.IssueLinker")
+    @patch("mltk.integrations.linear_adapter.LinearAdapter")
+    def test_create_issue_linear_reaches_adapter(self, mock_linear, mock_linker):
+        # SCENARIO: tracker="linear" with Linear-specific config
+        # WHY: Linear adapter is exported and must be reachable from MCP
+        # EXPECTED: unsupported-tracker gate is bypassed and adapter is used
+        mock_linker_inst = MagicMock()
+        mock_linker.return_value = mock_linker_inst
+        mock_linker_inst.create_from_finding.return_value = "LIN-42"
+
+        result = call_tool(
+            "mltk_create_issue",
+            finding_json=_FINDING_JSON,
+            tracker="linear",
+            project="team-1",
+            config_json=_LINEAR_CONFIG_JSON,
+        )
+
+        assert_ok(result)
+        assert result["issue_key"] == "LIN-42"
+        mock_linear.assert_called_once_with(
+            api_key="linear_test",
+            team_id="team-1",
+        )
 
     @patch("mltk.integrations.issue_linker.IssueLinker")
     @patch("mltk.integrations.github_adapter.GitHubIssuesAdapter")
@@ -412,6 +525,30 @@ class TestMltkCreateIssue:
             assert key in result, f"Missing key: {key!r}"
         assert isinstance(result["suggested_next_step"], str)
         assert len(result["suggested_next_step"]) > 0
+
+    @patch("mltk.integrations.issue_linker.IssueLinker")
+    @patch("mltk.integrations.github_adapter.GitHubIssuesAdapter")
+    def test_create_issue_preserves_flat_scan_report_finding_fields(
+        self, mock_adapter, mock_linker
+    ):
+        # SCENARIO: finding_json comes from ScanReport.to_json() flat shape
+        # WHY: MCP issue creation must preserve advertised scan output fields
+        # EXPECTED: extracted ScanFinding still has name and message
+        mock_linker_inst = MagicMock()
+        mock_linker.return_value = mock_linker_inst
+        mock_linker_inst.create_from_finding.return_value = _ISSUE_URL
+
+        result = call_tool(
+            "mltk_create_issue",
+            finding_json=_flat_scan_report_finding_json(),
+            tracker="github",
+            config_json=_GH_CONFIG_JSON,
+        )
+
+        assert_ok(result)
+        finding = mock_linker_inst.create_from_finding.call_args.args[0]
+        assert finding.result.name == "slice_accuracy_drop"
+        assert finding.result.message == "Slice accuracy dropped below threshold"
 
     @patch("mltk.integrations.issue_linker.IssueLinker")
     @patch("mltk.integrations.github_adapter.GitHubIssuesAdapter")
