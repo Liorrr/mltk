@@ -99,6 +99,18 @@ def assert_no_nulls(
             severity=severity,
             missing_columns=sorted(missing_cols),
         )
+    # Empty frames have zero null counts (vacuous truth) but never verified
+    # real data. Fail closed so silent empty extracts cannot green-pass.
+    if len(df) == 0:
+        return assert_true(
+            False,
+            name="data.no_nulls",
+            message="Cannot check nulls on empty DataFrame (0 rows)",
+            severity=severity,
+            null_counts={},
+            columns_checked=cols,
+            row_count=0,
+        )
     null_counts = {col: int(df[col].isnull().sum()) for col in cols if df[col].isnull().any()}
     total_nulls = sum(null_counts.values())
 

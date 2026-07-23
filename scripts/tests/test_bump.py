@@ -23,6 +23,7 @@ def _make_counts(
     *,
     assertions: int = 230,
     cli: int = 24,
+    cli_summary: str = "19 top-level + 5 groups",
     mcp: int = 11,
     scanners: int = 8,
     tests: int = 4247,
@@ -31,6 +32,7 @@ def _make_counts(
     return LiveCounts(
         assertions=assertions,
         cli=cli,
+        cli_summary=cli_summary,
         mcp=mcp,
         scanners=scanners,
         tests=tests,
@@ -46,7 +48,7 @@ class TestRefreshIdempotent:
 
         monkeypatch.setattr(bump, "COUNT_TARGETS", ["doc.md"])
         monkeypatch.setattr(bump, "REPO_ROOT", tmp_path)
-        monkeypatch.setattr(bump, "get_live_counts", lambda: counts)
+        monkeypatch.setattr(bump, "get_live_counts", lambda **_kw: counts)
 
         first_modified = cmd_refresh(counts=counts)
         assert len(first_modified) == 1
@@ -63,7 +65,7 @@ class TestVerifyDrift:
 
         monkeypatch.setattr(bump, "COUNT_TARGETS", ["stale.md"])
         monkeypatch.setattr(bump, "REPO_ROOT", tmp_path)
-        monkeypatch.setattr(bump, "get_live_counts", lambda: counts)
+        monkeypatch.setattr(bump, "get_live_counts", lambda **_kw: counts)
 
         exit_code = cmd_verify()
         assert exit_code == 1
@@ -75,7 +77,7 @@ class TestVerifyDrift:
 
         monkeypatch.setattr(bump, "COUNT_TARGETS", ["fresh.md"])
         monkeypatch.setattr(bump, "REPO_ROOT", tmp_path)
-        monkeypatch.setattr(bump, "get_live_counts", lambda: counts)
+        monkeypatch.setattr(bump, "get_live_counts", lambda **_kw: counts)
 
         exit_code = cmd_verify()
         assert exit_code == 0
@@ -96,7 +98,7 @@ class TestDryRunNoWrites:
         monkeypatch.setattr(bump, "CHANGELOG", changelog)
         monkeypatch.setattr(bump, "VERSION_TARGETS", ["pyproject.toml"])
         monkeypatch.setattr(bump, "COUNT_TARGETS", ["README.md"])
-        monkeypatch.setattr(bump, "get_live_counts", lambda: counts)
+        monkeypatch.setattr(bump, "get_live_counts", lambda **_kw: counts)
         monkeypatch.setattr(bump, "get_current_version", lambda: "0.9.0")
         monkeypatch.setattr(bump, "_git_add", lambda _: None)
 
@@ -181,7 +183,7 @@ class TestVersionBumpPyproject:
         monkeypatch.setattr(bump, "CHANGELOG", changelog)
         monkeypatch.setattr(bump, "VERSION_TARGETS", ["pyproject.toml"])
         monkeypatch.setattr(bump, "COUNT_TARGETS", [])
-        monkeypatch.setattr(bump, "get_live_counts", lambda: counts)
+        monkeypatch.setattr(bump, "get_live_counts", lambda **_kw: counts)
         monkeypatch.setattr(bump, "get_current_version", lambda: "0.9.0")
         monkeypatch.setattr(bump, "_git_add", lambda _: None)
 

@@ -69,10 +69,16 @@ class AllData:
     assertions: dict[str, list[FileAssertions]]
     assertion_count: int
     cli_cmds: list[CliCommand]
+    cli_groups: list[str]
     mcp_tools: list[McpTool]
     scanners: list[ScannerEntry]
     key_classes: list[KeyClass]
     test_dirs: list[tuple[str, str]]  # (test_dir, src_dir)
+
+    @property
+    def cli_summary(self) -> str:
+        """Honest CLI header, e.g. ``19 top-level + 5 groups``."""
+        return format_cli_summary(self.cli_cmds, self.cli_groups)
 
 
 # -------------------------------------------------------------------
@@ -232,6 +238,16 @@ def _imported_function_docstring(
     return ""
 
 
+def _import_alias_map(tree: ast.Module) -> dict[str, str]:
+    """Map local import aliases to fully-qualified module paths."""
+    imports: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                imports[alias.asname or alias.name] = node.module
+    return imports
+
+
 def _collect_call_registrations(
     tree: ast.Module, app_py: Path
 ) -> list[CliCommand]:
@@ -241,11 +257,7 @@ def _collect_call_registrations(
     ``mltk.cli.importer``) are registered as an expression, not a
     decorator, so the decorator scan cannot see them.
     """
-    imports: dict[str, str] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            for alias in node.names:
-                imports[alias.asname or alias.name] = node.module
+    imports = _import_alias_map(tree)
 
     cmds: list[CliCommand] = []
     for node in ast.walk(tree):
@@ -292,8 +304,172 @@ def _collect_call_registrations(
     return cmds
 
 
+def _typer_app_name(tree: ast.Module) -> str | None:
+    """Return Typer ``name=`` for the first ``X = typer.Typer(...)`` assign."""
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not isinstance(node.value, ast.Call):
+            continue
+        func = node.value.func
+        is_typer = (
+            isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "typer"
+            and func.attr == "Typer"
+        ) or (isinstance(func, ast.Name) and func.id == "Typer")
+        if not is_typer:
+            continue
+        for kw in node.value.keywords:
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                return str(kw.value.value)
+        # Fall back to assigned variable name
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                return target.id
+    return None
+
+
+def _local_typer_var_names(tree: ast.AST) -> dict[str, str]:
+    """Map local ``X = typer.Typer(name=...)`` vars to group names.
+
+    Walks nested scopes (CLI registers groups inside ``main()``).
+    """
+    result: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not isinstance(node.value, ast.Call):
+            continue
+        func = node.value.func
+        is_typer = (
+            isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "typer"
+            and func.attr == "Typer"
+        )
+        if not is_typer:
+            continue
+        group: str | None = None
+        for kw in node.value.keywords:
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                group = str(kw.value.value)
+                break
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                # Skip the root app (name="mltk")
+                if target.id == "app":
+                    continue
+                result[target.id] = (
+                    group or target.id.removesuffix("_app")
+                )
+    return result
+
+
+def _collect_external_typer_commands(
+    tree: ast.Module, app_py: Path
+) -> tuple[list[CliCommand], list[str]]:
+    """Collect groups + subcommands from ``app.add_typer(...)``.
+
+    In-file groups (``contract_app = typer.Typer(...)``) contribute group
+    names only — their subcommands are already covered by the decorator
+    scan. External apps such as ``from mltk.cli.container import app as
+    container_app`` also contribute leaf command paths.
+    """
+    imports = _import_alias_map(tree)
+    # Nested imports inside main() (e.g. container_app)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                imports[alias.asname or alias.name] = node.module
+
+    local_typers = _local_typer_var_names(tree)
+
+    group_names: list[str] = []
+    cmds: list[CliCommand] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Expr) or not isinstance(
+            node.value, ast.Call
+        ):
+            continue
+        call = node.value
+        if not (
+            isinstance(call.func, ast.Attribute)
+            and call.func.attr == "add_typer"
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "app"
+            and call.args
+            and isinstance(call.args[0], ast.Name)
+        ):
+            continue
+        alias = call.args[0].id
+        # Explicit name= on add_typer takes precedence
+        explicit_group: str | None = None
+        for kw in call.keywords:
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                explicit_group = str(kw.value.value)
+
+        if alias in local_typers:
+            group = explicit_group or local_typers[alias]
+            if group and group not in group_names:
+                group_names.append(group)
+            continue
+
+        module = imports.get(alias)
+        if not module or not module.startswith("mltk."):
+            continue
+        rel = Path(*module.split(".")[1:]).with_suffix(".py")
+        candidate = app_py.parent.parent / rel
+        try:
+            ext_tree = ast.parse(candidate.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError):
+            continue
+        group = explicit_group or _typer_app_name(ext_tree) or alias
+        if group not in group_names:
+            group_names.append(group)
+        prefix = f"{group} "
+        for ext_node in ast.walk(ext_tree):
+            if not isinstance(ext_node, ast.FunctionDef):
+                continue
+            caller_id = _decorator_attr(ext_node, "command")
+            if caller_id is None:
+                continue
+            cmd_name: str | None = None
+            for dec in ext_node.decorator_list:
+                if not isinstance(dec, ast.Call):
+                    continue
+                if (
+                    isinstance(dec.func, ast.Attribute)
+                    and dec.func.attr == "command"
+                ):
+                    if dec.args and isinstance(dec.args[0], ast.Constant):
+                        cmd_name = str(dec.args[0].value)
+                    for kw in dec.keywords:
+                        if (
+                            kw.arg == "name"
+                            and isinstance(kw.value, ast.Constant)
+                        ):
+                            cmd_name = str(kw.value.value)
+                    break
+            if cmd_name is None:
+                cmd_name = ext_node.name.replace("_", "-")
+            doc = ast.get_docstring(ext_node) or ""
+            first_line = doc.split("\n")[0].strip() if doc else ""
+            cmds.append(CliCommand(
+                name=prefix + cmd_name,
+                line=ext_node.lineno,
+                docstring=first_line,
+            ))
+    return cmds, group_names
+
+
 def collect_cli_commands(app_py: Path) -> list[CliCommand]:
-    """Parse CLI commands from app.py using AST."""
+    """Parse CLI leaf commands from app.py (+ external add_typer modules).
+
+    Returns every invocable leaf path (e.g. ``scan``, ``contract init``,
+    ``container scan``). Prefer :func:`format_cli_summary` for public counts
+    — do not report ``len(result)`` as "N CLI commands".
+    """
     try:
         tree = ast.parse(app_py.read_text(encoding="utf-8"))
     except (OSError, SyntaxError):
@@ -335,7 +511,39 @@ def collect_cli_commands(app_py: Path) -> list[CliCommand]:
         ))
 
     cmds.extend(_collect_call_registrations(tree, app_py))
-    return sorted(cmds, key=lambda c: c.line)
+    ext_cmds, _groups = _collect_external_typer_commands(tree, app_py)
+    cmds.extend(ext_cmds)
+    return sorted(cmds, key=lambda c: (c.name, c.line))
+
+
+def collect_cli_groups(app_py: Path) -> list[str]:
+    """Return Typer group names registered via ``app.add_typer(...)``."""
+    try:
+        tree = ast.parse(app_py.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return []
+    _ext_cmds, groups = _collect_external_typer_commands(tree, app_py)
+    return groups
+
+
+def cli_top_level_count(cmds: list[CliCommand]) -> int:
+    """Count top-level leaf commands (no group prefix / space in name)."""
+    return sum(1 for c in cmds if " " not in c.name)
+
+
+def format_cli_summary(
+    cmds: list[CliCommand], groups: list[str] | None = None
+) -> str:
+    """Honest CLI wording for headers: ``19 top-level + 5 groups``."""
+    top = cli_top_level_count(cmds)
+    if groups is None:
+        groups = sorted({
+            c.name.split(" ", 1)[0]
+            for c in cmds
+            if " " in c.name
+        })
+    n_groups = len(groups)
+    return f"{top} top-level + {n_groups} groups"
 
 
 def collect_mcp_tools(server_py: Path) -> list[McpTool]:
@@ -641,7 +849,7 @@ def fmt_compact(data: AllData) -> str:
     lines.append(
         f"  mltk codebase index -- {data.assertion_count} assertions,"
         f" {len(data.mcp_tools)} MCP tools,"
-        f" {len(data.cli_cmds)} CLI commands,"
+        f" {data.cli_summary} CLI,"
         f" {len(data.scanners)} scanners."
         " For full signatures: docs/reference/full-api-index.md"
     )
@@ -673,13 +881,25 @@ def fmt_compact(data: AllData) -> str:
         )
     lines.append("")
 
-    # CLI Commands
-    lines.append(f"## CLI Commands ({len(data.cli_cmds)})")
+    # CLI Commands (honest: top-level + groups, not raw leaf-path count)
+    lines.append(f"## CLI Commands ({data.cli_summary})")
+    lines.append("")
+    lines.append(
+        f"Groups: {', '.join(data.cli_groups) if data.cli_groups else 'none'}"
+    )
     lines.append("")
     lines.append("| Command | File:Line |")
     lines.append("|---------|-----------|")
     for cmd in data.cli_cmds:
-        lines.append(f"| {cmd.name} | app.py:{cmd.line} |")
+        # External typer modules keep their own filename in path via name
+        file_hint = "app.py"
+        if " " in cmd.name:
+            group = cmd.name.split(" ", 1)[0]
+            if group not in {
+                "contract", "docs", "registry", "notify",
+            }:
+                file_hint = f"{group}.py"
+        lines.append(f"| {cmd.name} | {file_hint}:{cmd.line} |")
     lines.append("")
 
     # Scanners
@@ -737,7 +957,7 @@ def fmt_detailed(data: AllData) -> str:
     lines.append(
         f"**{data.assertion_count}** assertions | "
         f"**{len(data.mcp_tools)}** MCP tools | "
-        f"**{len(data.cli_cmds)}** CLI commands | "
+        f"**{data.cli_summary}** CLI | "
         f"**{len(data.scanners)}** scanners"
     )
     lines.append("")
@@ -797,7 +1017,18 @@ def fmt_detailed(data: AllData) -> str:
     # --- CLI command details ---
     lines.append("---")
     lines.append("")
-    lines.append(f"## CLI Commands ({len(data.cli_cmds)})")
+    lines.append(f"## CLI Commands ({data.cli_summary})")
+    lines.append("")
+    lines.append(
+        f"Typer groups: "
+        f"{', '.join(f'`{g}`' for g in data.cli_groups) if data.cli_groups else 'none'}"
+    )
+    lines.append("")
+    lines.append(
+        "Listed rows are invocable leaf paths (top-level commands and "
+        "group subcommands). Prefer the summary count above over the "
+        "raw row count."
+    )
     lines.append("")
     lines.append("| # | Command | Line | Description |")
     lines.append("|---|---------|------|-------------|")
@@ -874,14 +1105,16 @@ def main() -> None:
     src_root = repo_root / "src" / "mltk"
 
     assertions, count = collect_assertions(src_root)
-    cli_cmds = collect_cli_commands(src_root / "cli" / "app.py")
+    app_py = src_root / "cli" / "app.py"
+    cli_cmds = collect_cli_commands(app_py)
+    cli_groups = collect_cli_groups(app_py)
     mcp_tools = collect_mcp_tools(src_root / "mcp" / "server.py")
     scanners = collect_scanners(src_root / "scan" / "scanners")
     key_classes = collect_key_classes(src_root)
     test_dirs = collect_test_layout(repo_root / "tests")
 
     data = AllData(
-        assertions, count, cli_cmds, mcp_tools,
+        assertions, count, cli_cmds, cli_groups, mcp_tools,
         scanners, key_classes, test_dirs,
     )
 
@@ -922,7 +1155,8 @@ def main() -> None:
         )
     print(  # noqa: T201
         f"Assertions: {count}"
-        f" | CLI: {len(cli_cmds)}"
+        f" | CLI: {data.cli_summary}"
+        f" (leaves={len(cli_cmds)})"
         f" | MCP: {len(mcp_tools)}"
         f" | Scanners: {len(scanners)}"
     )

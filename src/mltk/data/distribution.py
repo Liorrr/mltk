@@ -35,6 +35,22 @@ def assert_range(
         >>> assert_range(df["age"], min_val=0, max_val=150)
         >>> assert_range(df["probability"], min_val=0.0, max_val=1.0)
     """
+    name = f"data.range[{series.name}]" if series.name else "data.range"
+    # Empty series has zero violations (vacuous truth) but never verified real
+    # values. Fail closed so silent empty extracts cannot green-pass.
+    if len(series) == 0:
+        return assert_true(
+            False,
+            name=name,
+            message="Cannot check range on empty series",
+            severity=Severity.CRITICAL,
+            actual_min=None,
+            actual_max=None,
+            below_count=0,
+            above_count=0,
+            row_count=0,
+        )
+
     actual_min = float(series.min())
     actual_max = float(series.max())
     below = int((series < min_val).sum())
@@ -42,7 +58,6 @@ def assert_range(
     violations = below + above
 
     passed = violations == 0
-    name = f"data.range[{series.name}]" if series.name else "data.range"
     message = (
         f"All {len(series)} values in [{min_val}, {max_val}]"
         if passed
@@ -83,11 +98,24 @@ def assert_unique(
         >>> assert_unique(df, columns=["user_id"])
         >>> assert_unique(df, columns=["date", "store_id"])  # composite key
     """
+    col_str = ", ".join(columns)
+    # Empty frames have zero duplicates (vacuous truth) but never verified a
+    # real uniqueness constraint. Fail closed so empty extracts cannot green-pass.
+    if len(df) == 0:
+        return assert_true(
+            False,
+            name="data.unique",
+            message=f"Cannot check uniqueness on empty DataFrame (columns=[{col_str}])",
+            severity=Severity.CRITICAL,
+            columns=columns,
+            duplicate_count=0,
+            total_rows=0,
+        )
+
     duplicates = df.duplicated(subset=columns, keep=False)
     dup_count = int(duplicates.sum())
 
     passed = dup_count == 0
-    col_str = ", ".join(columns)
     message = (
         f"All {len(df)} rows unique on [{col_str}]"
         if passed
@@ -136,8 +164,22 @@ def assert_no_outliers(
             severity=Severity.CRITICAL,
         )
 
-    q1 = float(np.percentile(series.dropna(), 25))
-    q3 = float(np.percentile(series.dropna(), 75))
+    clean = series.dropna()
+    name = f"data.no_outliers[{series.name}]" if series.name else "data.no_outliers"
+    if len(clean) == 0:
+        return assert_true(
+            False,
+            name=name,
+            message="Cannot check outliers on empty series",
+            severity=Severity.WARNING,
+            method=method,
+            threshold=threshold,
+            outlier_count=0,
+            row_count=len(series),
+        )
+
+    q1 = float(np.percentile(clean, 25))
+    q3 = float(np.percentile(clean, 75))
     iqr = q3 - q1
     lower_bound = q1 - threshold * iqr
     upper_bound = q3 + threshold * iqr
@@ -146,7 +188,6 @@ def assert_no_outliers(
     outlier_count = int(outliers)
 
     passed = outlier_count == 0
-    name = f"data.no_outliers[{series.name}]" if series.name else "data.no_outliers"
     message = (
         f"No outliers (IQR bounds: [{lower_bound:.2f}, {upper_bound:.2f}])"
         if passed

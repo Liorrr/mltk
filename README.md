@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-4947%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4964%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 <!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
@@ -32,7 +32,7 @@ pip install mlspec  # PyPI name — 'mltk' pending transfer
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional testing does not catch these failures.
 
-**mltk** gives you **241 assertions** covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
+**mltk** gives you **241 assertion definitions** (238 unique names; **229** listed by `mltk list` / discovery) covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
 
 ## Quick Start
 
@@ -84,7 +84,7 @@ pytest --mltk-report
 
 ## What's Included (v0.12.4)
 
-**Behavioral consistency testing** — 7 assertions (paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency, ParaphraseGenerator) that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation: lexical (token F1), embedding, NLI, LLM-as-Judge. No other ML testing tool ships these as pytest assertions.
+**Behavioral consistency testing** — 6 assertions (paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency) plus built-in `ParaphraseGenerator` that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation: lexical (token F1), embedding, NLI, LLM-as-Judge. No other ML testing tool ships these as pytest assertions.
 
 **NER PII detection** — `assert_no_pii(method="ner"|"gliner"|"hybrid")` adds Named Entity Recognition to PII scanning. Presidio + spaCy catches names, organizations, and locations that regex cannot find. GLiNER provides zero-shot detection for domain-specific entities (healthcare MRN, legal case numbers). Hybrid mode runs regex + NER with intelligent deduplication. Install with `pip install mltk[ner]`.
 
@@ -116,7 +116,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (241 assertions)
+## Feature Matrix (241 assertion definitions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -300,7 +300,7 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | Composable TestSuite | No | No | No | No | No | No | **Yes** |
 | Code Generation | No | No | No | No | No | No | **Yes (4 assertions)** |
 | LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (241 assertions)** |
-| Behavioral consistency | No | No | No | No | No | No | **Yes (7 assertions)** |
+| Behavioral consistency | No | No | No | No | No | No | **Yes (6 assertions + generator)** |
 | NER PII detection | No | No | No | No | No | No | **Yes (4 methods)** |
 | Agent trace testing | No | No | No | Yes (basic) | No | Yes (tracing) | **Yes (9 assertions)** |
 | Multi-agent testing | No | No | No | No | No | No | **Yes** |

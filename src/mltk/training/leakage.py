@@ -33,6 +33,24 @@ def assert_no_train_test_overlap(
     Example:
         >>> assert_no_train_test_overlap(train, test, key_cols=["user_id"])
     """
+    # Empty train and/or test yields empty key sets whose intersection is
+    # always empty (vacuous "no overlap"). Fail closed so empty splits
+    # cannot green-pass a no-leakage claim.
+    if len(train_df) == 0 or len(test_df) == 0:
+        return assert_true(
+            False,
+            name="training.no_overlap",
+            message=(
+                "Cannot check train/test overlap on empty split "
+                f"(train_rows={len(train_df)}, test_rows={len(test_df)})"
+            ),
+            severity=Severity.CRITICAL,
+            overlap_count=0,
+            train_rows=len(train_df),
+            test_rows=len(test_df),
+            key_cols=key_cols,
+        )
+
     train_keys = set(train_df[key_cols].apply(tuple, axis=1))
     test_keys = set(test_df[key_cols].apply(tuple, axis=1))
     overlap = train_keys & test_keys
@@ -114,16 +132,30 @@ def assert_no_target_leakage(
     Example:
         >>> assert_no_target_leakage(df, target_col="label", corr_threshold=0.95)
     """
-    if feature_cols is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        feature_cols = [c for c in numeric_cols if c != target_col]
-
     if target_col not in df.columns:
         return assert_true(
             False, name="training.target_leakage",
             message=f"Target column '{target_col}' not found",
             severity=Severity.CRITICAL,
         )
+
+    # Correlation on empty frames is undefined / NaN and yields zero leaky
+    # features (vacuous truth). Fail closed so empty extracts cannot green-pass.
+    if len(df) == 0:
+        return assert_true(
+            False,
+            name="training.target_leakage",
+            message="Cannot check target leakage on empty DataFrame (0 rows)",
+            severity=Severity.CRITICAL,
+            leaky_features={},
+            features_checked=0,
+            corr_threshold=corr_threshold,
+            row_count=0,
+        )
+
+    if feature_cols is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        feature_cols = [c for c in numeric_cols if c != target_col]
 
     leaky_features: dict[str, float] = {}
     for col in feature_cols:

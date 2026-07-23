@@ -1,7 +1,7 @@
 # mltk Full API Index
 > Generated 2026-07-21 by scripts/generate_skill_index.py
 
-**241** assertions | **13** MCP tools | **29** CLI commands | **8** scanners
+**241** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
 
 ---
 
@@ -117,13 +117,13 @@ def assert_column_mean(df: pd.DataFrame, column: str, min_val: float | None=None
 ```
 > Assert column mean is within [min_val, max_val]. At least one bound required.
 
-**`assert_column_median`** (data/statistics.py:78)
+**`assert_column_median`** (data/statistics.py:92)
 ```python
 def assert_column_median(df: pd.DataFrame, column: str, min_val: float | None=None, max_val: float | None=None)
 ```
 > Assert column median is within [min_val, max_val]. At least one bound required.
 
-**`assert_column_stdev`** (data/statistics.py:136)
+**`assert_column_stdev`** (data/statistics.py:164)
 ```python
 def assert_column_stdev(df: pd.DataFrame, column: str, min_val: float | None=None, max_val: float | None=None)
 ```
@@ -153,7 +153,7 @@ def assert_dcr_safe(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, min_dcr: 
 ```
 > Assert that synthetic records are not dangerously close to real records.
 
-**`assert_dtypes`** (data/schema.py:123)
+**`assert_dtypes`** (data/schema.py:135)
 ```python
 def assert_dtypes(df: pd.DataFrame, expected: dict[str, str], severity: Severity=Severity.CRITICAL)
 ```
@@ -225,7 +225,7 @@ def assert_no_nulls(df: pd.DataFrame, columns: list[str] | None=None, severity: 
 ```
 > Assert no null/NaN values in specified columns (or all columns).
 
-**`assert_no_outliers`** (data/distribution.py:109)
+**`assert_no_outliers`** (data/distribution.py:137)
 ```python
 def assert_no_outliers(series: pd.Series, method: str='iqr', threshold: float=1.5)
 ```
@@ -237,7 +237,7 @@ def assert_no_pii(df: pd.DataFrame, columns: list[str] | None=None, patterns: li
 ```
 > Assert no PII detected in DataFrame text columns.
 
-**`assert_quantiles`** (data/statistics.py:199)
+**`assert_quantiles`** (data/statistics.py:241)
 ```python
 def assert_quantiles(df: pd.DataFrame, column: str, quantiles: dict[float, tuple[float, float]])
 ```
@@ -267,7 +267,7 @@ def assert_synthetic_novelty(real_df: pd.DataFrame, synthetic_df: pd.DataFrame, 
 ```
 > Assert that synthetic data is not just a copy of the real data.
 
-**`assert_unique`** (data/distribution.py:66)
+**`assert_unique`** (data/distribution.py:81)
 ```python
 def assert_unique(df: pd.DataFrame, columns: list[str])
 ```
@@ -1449,7 +1449,7 @@ def assert_no_nan_inf(arrays: list[np.ndarray], names: list[str] | None=None)
 ```
 > Assert that none of the provided arrays contain NaN or Inf values.
 
-**`assert_no_target_leakage`** (training/leakage.py:94)
+**`assert_no_target_leakage`** (training/leakage.py:112)
 ```python
 def assert_no_target_leakage(df: pd.DataFrame, target_col: str, feature_cols: list[str] | None=None, corr_threshold: float=0.95)
 ```
@@ -1485,7 +1485,7 @@ def assert_softmax_valid(probabilities: np.ndarray)
 ```
 > Assert that softmax outputs are valid probability distributions.
 
-**`assert_temporal_split`** (training/leakage.py:58)
+**`assert_temporal_split`** (training/leakage.py:76)
 ```python
 def assert_temporal_split(train_df: pd.DataFrame, test_df: pd.DataFrame, time_col: str)
 ```
@@ -1502,7 +1502,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ## MCP Tools (13)
 
-### `mltk_scan` (server.py:179)
+### `mltk_scan` (server.py:184)
 
 > Return findings from a JSON scan report or a static Python file listing.
 
@@ -1511,16 +1511,16 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | path | `str` | *required* |
 | scanners | `str` | `'all'` |
 
-### `mltk_test` (server.py:250)
+### `mltk_test` (server.py:255)
 
-> Run an mltk test suite and return pass/fail results.
+> Run .py tests via pytest, or parse a YAML suite (no execution).
 
 | Param | Type | Default |
 |-------|------|---------|
 | suite_path | `str` | *required* |
 | verbose | `bool` | `False` |
 
-### `mltk_list` (server.py:341)
+### `mltk_list` (server.py:353)
 
 > List available mltk assertions for ML testing.
 
@@ -1529,9 +1529,9 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | filter_text | `str` | `''` |
 | domain | `str` | `''` |
 
-### `mltk_eval` (server.py:386)
+### `mltk_eval` (server.py:398)
 
-> Run an evaluation pipeline on a dataset with configurable solvers and scorers.
+> Run a scorer-pipeline smoke eval with an identity passthrough model.
 
 | Param | Type | Default |
 |-------|------|---------|
@@ -1539,7 +1539,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | scorer | `str` | `'exact_match'` |
 | solver | `str` | `'generate'` |
 
-### `mltk_dataset` (server.py:465)
+### `mltk_dataset` (server.py:483)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1548,7 +1548,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:518)
+### `mltk_report` (server.py:536)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1558,9 +1558,9 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:591)
+### `mltk_suggest` (server.py:609)
 
-> Get fix suggestions for a scan finding.
+> Get fix suggestions already attached to a finding JSON.
 
 | Param | Type | Default |
 |-------|------|---------|
@@ -1568,7 +1568,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:674)
+### `mltk_experiment` (server.py:696)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1579,13 +1579,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:823)
+### `mltk_workflow` (server.py:845)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:873)
+### `mltk_create_pr` (server.py:895)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1597,7 +1597,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:916)
+### `mltk_create_issue` (server.py:938)
 
 > Create an issue ticket from a scan finding.
 
@@ -1609,7 +1609,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:955)
+### `mltk_container_scan` (server.py:977)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1619,7 +1619,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
 
-### `mltk_import` (server.py:1015)
+### `mltk_import` (server.py:1037)
 
 > Import a dataset into an mltk pytest suite and eval dataset.
 
@@ -1641,39 +1641,44 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ---
 
-## CLI Commands (29)
+## CLI Commands (19 top-level + 5 groups)
+
+Typer groups: `contract`, `docs`, `registry`, `notify`, `container`
+
+Listed rows are invocable leaf paths (top-level commands and group subcommands). Prefer the summary count above over the raw row count.
 
 | # | Command | Line | Description |
 |---|---------|------|-------------|
-| 1 | `mltk version` | 35 | Show mltk version. |
-| 2 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
-| 3 | `mltk scan` | 80 | Quick data quality scan on a CSV/Parquet file. |
-| 4 | `mltk drift` | 123 | Compare two datasets for distribution drift. |
-| 5 | `mltk score` | 191 | Show the ML Test Score rubric and how to generate scores. |
-| 6 | `mltk doctor` | 208 | Diagnose ML testing environment. |
-| 7 | `mltk test` | 249 | Run YAML-defined test suite. |
-| 8 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
-| 9 | `mltk compliance` | 321 | Generate EU AI Act compliance report. |
-| 10 | `mltk contract init` | 356 | Scaffold an example data contract YAML file. |
-| 11 | `mltk contract validate` | 382 | Validate a data file against a contract. |
-| 12 | `mltk contract generate-tests` | 405 | Generate pytest test file from a data contract. |
-| 13 | `mltk docs serve` | 426 | Serve documentation locally with hot reload. |
-| 14 | `mltk docs build` | 455 | Build static HTML documentation. |
-| 15 | `mltk docs open` | 484 | Build docs, start a local server, and open in browser. |
-| 16 | `mltk registry push` | 543 | Push a directory of test files to the registry as a named collection. |
-| 17 | `mltk registry pull` | 564 | Pull a named collection from the registry into a local directory. |
-| 18 | `mltk registry list` | 579 | List all collections in the registry. |
-| 19 | `mltk notify slack` | 601 | Send test results (or a custom message) to Slack. |
-| 20 | `mltk import` | 673 | Import a dataset, preview mapping, build a suite, and emit pytest. |
-| 21 | `mltk chat` | 676 | Interactive Q&A about test results. |
-| 22 | `mltk server` | 688 | Start the mltk server platform. |
-| 23 | `mltk server-create-key` | 709 | Generate an API key for the mltk server. |
-| 24 | `mltk fda-audit` | 736 | Generate FDA 21 CFR Part 11 audit trail. |
-| 25 | `mltk compliance-pdf` | 759 | Convert HTML compliance report to print-ready PDF. |
-| 26 | `mltk compliance-gap` | 775 | Run compliance gap analysis across frameworks. |
-| 27 | `mltk grafana-export` | 984 | Export a Grafana dashboard JSON for mltk metrics. |
-| 28 | `mltk scan-model` | 1009 | Scan a model for issues and generate tests. |
-| 29 | `mltk list` | 1191 | List all available mltk assertions. |
+| 1 | `mltk chat` | 676 | Interactive Q&A about test results. |
+| 2 | `mltk compliance` | 321 | Generate EU AI Act compliance report. |
+| 3 | `mltk compliance-gap` | 775 | Run compliance gap analysis across frameworks. |
+| 4 | `mltk compliance-pdf` | 759 | Convert HTML compliance report to print-ready PDF. |
+| 5 | `mltk container scan` | 33 | Scan a container image for vulnerabilities and secrets. |
+| 6 | `mltk contract generate-tests` | 405 | Generate pytest test file from a data contract. |
+| 7 | `mltk contract init` | 356 | Scaffold an example data contract YAML file. |
+| 8 | `mltk contract validate` | 382 | Validate a data file against a contract. |
+| 9 | `mltk docs build` | 455 | Build static HTML documentation. |
+| 10 | `mltk docs open` | 484 | Build docs, start a local server, and open in browser. |
+| 11 | `mltk docs serve` | 426 | Serve documentation locally with hot reload. |
+| 12 | `mltk doctor` | 208 | Diagnose ML testing environment. |
+| 13 | `mltk drift` | 123 | Compare two datasets for distribution drift. |
+| 14 | `mltk fda-audit` | 736 | Generate FDA 21 CFR Part 11 audit trail. |
+| 15 | `mltk grafana-export` | 984 | Export a Grafana dashboard JSON for mltk metrics. |
+| 16 | `mltk import` | 673 | Import a dataset, preview mapping, build a suite, and emit pytest. |
+| 17 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
+| 18 | `mltk list` | 1191 | List all available mltk assertions. |
+| 19 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
+| 20 | `mltk notify slack` | 601 | Send test results (or a custom message) to Slack. |
+| 21 | `mltk registry list` | 579 | List all collections in the registry. |
+| 22 | `mltk registry pull` | 564 | Pull a named collection from the registry into a local directory. |
+| 23 | `mltk registry push` | 543 | Push a directory of test files to the registry as a named collection. |
+| 24 | `mltk scan` | 80 | Quick data quality scan on a CSV/Parquet file. |
+| 25 | `mltk scan-model` | 1009 | Scan a model for issues and generate tests. |
+| 26 | `mltk score` | 191 | Show the ML Test Score rubric and how to generate scores. |
+| 27 | `mltk server` | 688 | Start the mltk server platform. |
+| 28 | `mltk server-create-key` | 709 | Generate an API key for the mltk server. |
+| 29 | `mltk test` | 249 | Run YAML-defined test suite. |
+| 30 | `mltk version` | 35 | Show mltk version. |
 
 ---
 

@@ -54,6 +54,19 @@ class TestAssertRange:
             assert_range(s, min_val=-50.0, max_val=60.0)
         assert "1 values outside" in str(exc.value)
 
+    def test_empty_series_fails(self) -> None:
+        """FAIL: Empty series has zero violations (vacuous truth).
+
+        Scenario: Upstream extract returned zero rows. Silent pass would
+        hide a broken pipeline while looking like 'all values in range'.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        s = pd.Series(dtype=float, name="probability")
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_range(s, min_val=0.0, max_val=1.0)
+        assert "empty" in str(exc.value).lower()
+        assert exc.value.result.passed is False
+
 
 # --- assert_unique tests ---
 
@@ -91,6 +104,19 @@ class TestAssertUnique:
         df = pd.DataFrame({"date": ["2026-01-01", "2026-01-01", "2026-01-02"], "store": [1, 2, 1]})
         result = assert_unique(df, columns=["date", "store"])
         assert result.passed is True
+
+    def test_empty_dataframe_fails(self) -> None:
+        """FAIL: Empty DataFrame has zero duplicates (vacuous truth).
+
+        Scenario: Upstream extract returned 0 rows. Silent pass would hide a
+        broken pipeline while looking like 'all rows unique'.
+        EXPECTED: MltkAssertionError mentioning empty.
+        """
+        df = pd.DataFrame({"user_id": pd.Series(dtype="int64")})
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_unique(df, columns=["user_id"])
+        assert "empty" in str(exc.value).lower()
+        assert exc.value.result.passed is False
 
 
 # --- assert_no_outliers tests ---
@@ -132,3 +158,15 @@ class TestAssertNoOutliers:
         s = pd.Series([1, 2, 3])
         with pytest.raises(MltkAssertionError):
             assert_no_outliers(s, method="invalid")
+
+    def test_empty_series_fails(self) -> None:
+        """FAIL: Empty series cannot compute IQR percentiles.
+
+        Scenario: Upstream extract returned zero rows. Must not raise
+        IndexError from numpy percentile; fail closed instead.
+        EXPECTED: passed=False (WARNING severity, no exception).
+        """
+        s = pd.Series(dtype=float, name="salary")
+        result = assert_no_outliers(s)
+        assert result.passed is False
+        assert "empty" in result.message.lower()
