@@ -40,7 +40,11 @@ src/mltk/
 ## Testing Conventions
 - Tests mirror src: `tests/test_scan/`, `tests/test_mcp/`, etc.
 - Lint: `ruff check src/ tests/` — fix with `ruff check --fix`
-- Run tests: `python -m pytest tests/ -x -q` (use `-x` to stop on first failure)
+- **Slim regression is mandatory before any agent "done"** — run
+  `python -m pytest tests/regression -q` and paste output in the Report.
+  Full suite (`python -m pytest tests/ -x -q`) is CI/PR / expensive-optional,
+  not the agent completion gate.
+- Scoped package tests still required for touched areas (`tests/test_<pkg>/`).
 - The suite is fully green — the historical leakage-scanner failures (KeyError: 0) were fixed in the S97 review cycle; any failure is a regression
 - `from __future__ import annotations` must be the first code line (after docstring above it) to avoid E402
 

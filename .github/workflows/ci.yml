@@ -18,6 +18,19 @@ jobs:
       # enforcement is `ruff check` only, matching the documented convention.
       - run: ruff check src/ tests/
 
+  # Fast claim-integrity canary. Complements (does not replace) the full
+  # OS×Python test matrix below. Agents use the same suite as their "done" gate.
+  claim-regression:
+    name: claim-regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/regression -q
+
   test:
     strategy:
       fail-fast: false
