@@ -65,6 +65,86 @@ def _error(
     return json.dumps(payload, indent=2)
 
 
+def _resolve_eval_model(
+    model_mode: str = "passthrough",
+    model_ref: str = "",
+) -> tuple[Any, str, str]:
+    """Resolve ``mltk_eval`` model callable and honesty labels.
+
+    Supported modes:
+    - ``passthrough`` / ``identity`` (default): echo the prompt.
+    - ``module``: import ``model_ref`` as ``package.module:callable``.
+
+    Returns:
+        ``(model_fn, normalized_mode, model_label)``
+
+    Raises:
+        ValueError: unknown mode, missing/invalid ``model_ref``, or
+            import/attribute failures (honest refuse — no silent facade).
+        TypeError: resolved object is not callable.
+    """
+    import importlib
+    from collections.abc import Callable
+
+    mode = (model_mode or "passthrough").strip().lower()
+    ref = (model_ref or "").strip()
+
+    if mode in ("passthrough", "identity", ""):
+        if ref:
+            raise ValueError(
+                "model_ref is only valid with model_mode='module'; "
+                f"got model_mode={mode!r} with model_ref={ref!r}"
+            )
+
+        def _passthrough(prompt: str) -> str:
+            return prompt
+
+        return _passthrough, "passthrough", "identity_passthrough"
+
+    if mode == "module":
+        if not ref:
+            raise ValueError(
+                "model_mode='module' requires model_ref as "
+                "'package.module:callable_name'"
+            )
+        if ":" not in ref:
+            raise ValueError(
+                "model_ref must be 'package.module:callable_name' "
+                f"(got {ref!r})"
+            )
+        mod_path, fn_name = ref.rsplit(":", 1)
+        if not mod_path or not fn_name:
+            raise ValueError(
+                "model_ref must be 'package.module:callable_name' "
+                f"(got {ref!r})"
+            )
+        try:
+            mod = importlib.import_module(mod_path)
+        except ImportError as exc:
+            raise ValueError(
+                f"Cannot import model module {mod_path!r}: {exc}"
+            ) from exc
+        try:
+            fn = getattr(mod, fn_name)
+        except AttributeError as exc:
+            raise ValueError(
+                f"Module {mod_path!r} has no attribute {fn_name!r}"
+            ) from exc
+        if not callable(fn):
+            raise TypeError(
+                f"model_ref {ref!r} resolved to non-callable "
+                f"{type(fn).__name__}"
+            )
+        model_fn: Callable[[str], str] = fn  # type: ignore[assignment]
+        return model_fn, "module", ref
+
+    raise ValueError(
+        f"Unknown model_mode={model_mode!r}. "
+        "Supported: 'passthrough' (default), 'module' "
+        "(with model_ref='package.module:callable')."
+    )
+
+
 # ----- Workflow hints for agent orchestration -----
 
 _WORKFLOW_HINTS: dict[str, dict[str, Any]] = {
@@ -399,19 +479,28 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         dataset_path: str,
         scorer: str = "exact_match",
         solver: str = "generate",
+        model_mode: str = "passthrough",
+        model_ref: str = "",
     ) -> str:
-        """Run a scorer-pipeline smoke eval with an identity passthrough model.
+        """Run a scorer-pipeline eval with an explicit model mode.
 
-        Loads the dataset and runs the chosen solver/scorer chain, but the
-        model_fn is identity passthrough (prompt is echoed unchanged). Metrics
-        reflect scorer behavior against that passthrough only — not real model
-        quality. Integrate a real model via the Python API for true eval.
+        Default ``model_mode='passthrough'`` uses an identity model
+        (prompt echoed unchanged). Metrics then reflect scorer behavior
+        against passthrough only — not real model quality.
+
+        For a real model without baking a vendor SDK into MCP, pass
+        ``model_mode='module'`` and ``model_ref='package.module:callable'``
+        where the callable is ``(prompt: str) -> str``. Only load trusted
+        callables (local import). Unknown modes refuse honestly.
 
         Args:
             dataset_path: Path to CSV/JSON with 'input'
                 and 'target' columns.
             scorer: exact_match, includes, or pattern.
             solver: generate, chain_of_thought, few_shot.
+            model_mode: ``passthrough`` (default) or ``module``.
+            model_ref: Required for ``module`` —
+                ``package.module:callable_name``.
         """
         try:
             from mltk.eval import (
@@ -454,8 +543,22 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 rk, ExactMatchScorer
             )
 
-            def _passthrough(prompt: str) -> str:
-                return prompt
+            try:
+                model_fn, norm_mode, model_label = (
+                    _resolve_eval_model(
+                        model_mode=model_mode,
+                        model_ref=model_ref,
+                    )
+                )
+            except (ValueError, TypeError) as exc:
+                return _error(
+                    str(exc),
+                    suggested_action=(
+                        "Use model_mode='passthrough' or "
+                        "model_mode='module' with "
+                        "model_ref='package.module:callable'."
+                    ),
+                )
 
             task = EvalTask(
                 name="mcp-eval",
@@ -463,17 +566,29 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 scorers=scorer_cls(),
                 dataset=samples,
             )
-            result = task.run(_passthrough)
+            result = task.run(model_fn)
+            next_step = (
+                "Review metrics. For a non-passthrough model, "
+                "re-run with model_mode='module' and "
+                "model_ref='package.module:callable', or use "
+                "the Python EvalTask API."
+                if norm_mode == "passthrough"
+                else (
+                    "Review metrics from the injected model. "
+                    "Compare against passthrough baseline if needed."
+                )
+            )
             return _ok(_with_hint("mltk_eval", {
                 "metrics": result.metrics,
                 "sample_count": result.total_samples,
                 "duration_ms": result.duration_ms,
                 "solver": sk, "scorer": rk,
-                "model": "identity_passthrough",
-                "suggested_next_step": (
-                    "Review metrics. Integrate a real "
-                    "model via the Python API."
+                "model_mode": norm_mode,
+                "model": model_label,
+                "model_ref": (
+                    model_ref.strip() if norm_mode == "module" else ""
                 ),
+                "suggested_next_step": next_step,
             }))
         except Exception as exc:
             _log(traceback.format_exc())
