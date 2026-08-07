@@ -4,25 +4,18 @@ This hands-on tutorial takes you from zero to running ML tests with reports in a
 
 ---
 
-<!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
-!!! warning "Temporary installation note"
-    `pip install mltk` is not yet available — the PyPI name is pending a transfer claim.
-    Install directly from GitHub in the meantime:
-
-    ```bash
-    pip install git+https://github.com/Liorrr/mltk
-    ```
-
-    All imports (`import mltk`), CLI commands (`mltk scan`), and functionality are identical.
-    This note will be removed once `pip install mltk` is live on PyPI.
-<!-- END TEMP-PYPI-CLAIM -->
+!!! note "Distribution vs import name"
+    **Install:** `pip install mlspec` (PyPI distribution name).  
+    **Import / CLI:** `import mltk`, `mltk doctor` (unchanged).  
+    Do **not** `pip install mltk` — that resolves a different, unrelated PyPI project.  
+    Optional: `pip install "git+https://github.com/Liorrr/mltk"` for latest `master`.
 
 ## Step 1: Install (30 seconds)
 
 ### Basic install
 
 ```bash
-pip install mltk
+pip install mlspec
 ```
 
 This installs mltk with core dependencies: `numpy` and `pandas`.
@@ -32,37 +25,37 @@ This installs mltk with core dependencies: `numpy` and `pandas`.
 For the CLI and HTML reports -- what most users want:
 
 ```bash
-pip install mltk[cli,report]
+pip install mlspec[cli,report]
 ```
 
 ### All optional extras
 
 ```bash
 # Statistical tests (scipy-based drift detection)
-pip install "mltk[scipy]"
+pip install "mlspec[scipy]"
 
 # Domain kits
-pip install "mltk[cv]"      # Computer vision (OpenCV)
-pip install "mltk[nlp]"     # NLP (NLTK, rouge-score)
-pip install "mltk[speech]"  # Speech (jiwer)
+pip install "mlspec[cv]"      # Computer vision (OpenCV)
+pip install "mlspec[nlp]"     # NLP (NLTK, rouge-score)
+pip install "mlspec[speech]"  # Speech (jiwer)
 
 # Embedding-based evaluation (sentence-transformers)
-pip install "mltk[embedding]"
+pip install "mlspec[embedding]"
 
 # NLI-based evaluation (bidirectional entailment)
-pip install "mltk[nli]"
+pip install "mlspec[nli]"
 
 # Toxicity classifier (transformer-based)
-pip install "mltk[classifier]"
+pip install "mlspec[classifier]"
 
 # Server platform (dashboard + REST API)
-pip install "mltk[server]"
+pip install "mlspec[server]"
 
 # All optional dependencies
-pip install "mltk[all]"
+pip install "mlspec[all]"
 
 # Development (pytest, ruff, mypy)
-pip install "mltk[dev]"
+pip install "mlspec[dev]"
 ```
 
 ### Requirements
@@ -83,7 +76,7 @@ Expected output:
 mltk doctor
   [OK]   Python version: 3.12.1 (>= 3.10)
   [OK]   Core deps: numpy 1.26.4, pandas 2.2.0
-  [WARN] Optional dep: scipy not installed (pip install mltk[scipy])
+  [WARN] Optional dep: scipy not installed (pip install mlspec[scipy])
   [OK]   Config: mltk.yaml found
   [OK]   Report dir: ./mltk-reports exists
   [FAIL] Baseline dir: ./mltk-baselines not found
@@ -425,7 +418,7 @@ In Jupyter notebooks, `MltkSuite` renders an interactive HTML table automaticall
 
 | | pytest approach | MltkSuite approach |
 |---|---|---|
-| **Setup** | `pip install mltk[dev]`, write `test_*.py` files | `pip install mltk`, use in any `.py` or `.ipynb` |
+| **Setup** | `pip install mlspec[dev]`, write `test_*.py` files | `pip install mlspec`, use in any `.py` or `.ipynb` |
 | **Run** | `pytest --mltk-report -v` | `suite.passed` / `suite.score` |
 | **Output** | Terminal + HTML report file | Inline notebook display or print summary |
 | **CI/CD** | Native: exit code, JUnit XML | Use `assert suite.passed` for exit code |

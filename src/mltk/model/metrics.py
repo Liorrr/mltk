@@ -52,7 +52,7 @@ def _compute_metric(
     except ImportError as err:
         raise ImportError(
             "scikit-learn is required for model metrics. "
-            "Install with: pip install mltk[sklearn]"
+            "Install with: pip install mlspec[sklearn]"
         ) from err
 
     y_t = np.asarray(y_true)

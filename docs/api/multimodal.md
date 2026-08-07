@@ -161,7 +161,7 @@ provided.
 
 ```
 ImportError: Pillow is required for multimodal assertions.
-Install with: pip install mltk[multimodal]
+Install with: pip install mlspec[multimodal]
 ```
 
 ---
@@ -327,7 +327,7 @@ def test_tutorial_images():
     assert_image_helpfulness(
         question="How do I install the package?",
         image="screenshots/install_terminal.png",
-        answer="Run: pip install mltk",
+        answer="Run: pip install mlspec",
         judge_fn=openai_judge,
         min_score=0.8,
     )
@@ -496,7 +496,7 @@ For image-loading support (Pillow) and SSIM-based
 edit preservation (scikit-image):
 
 ```bash
-pip install mltk[multimodal]
+pip install mlspec[multimodal]
 ```
 
 This installs `Pillow>=9.0` and `scikit-image>=0.20`.
@@ -508,7 +508,7 @@ The `method="pixel_diff"` fallback requires only Pillow.
 For the live CLIPScore path (downloads ~340MB model):
 
 ```bash
-pip install mltk[clip]
+pip install mlspec[clip]
 ```
 
 This installs `open-clip-torch>=2.24` and `Pillow>=9.0`.

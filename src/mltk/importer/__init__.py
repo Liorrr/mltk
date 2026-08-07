@@ -10,7 +10,7 @@ auto-inferred, user-overridable column-role mapping. From there,
 This package is intentionally standalone -- it is not imported by
 ``mltk``'s top-level ``__init__.py``, so the optional ``datasets``
 (HuggingFace) dependency is never loaded on a plain ``import mltk``.
-Install it with ``pip install mltk[importer]``.
+Install it with ``pip install mlspec[importer]``.
 
 Quick start::
 

@@ -38,7 +38,7 @@ def _load_toxicity_pipeline(
         raise ImportError(
             "transformers + torch are required for "
             "method='classifier'. Install with: "
-            "pip install mltk[classifier] "
+            "pip install mlspec[classifier] "
             "or pip install transformers torch"
         ) from None
     return pipeline(
@@ -82,7 +82,7 @@ def assert_no_toxicity(
          First call downloads ~438 MB of model weights.
          Requires ``transformers`` and ``torch``::
 
-             pip install mltk[classifier]
+             pip install mlspec[classifier]
              # or
              pip install transformers torch
 

@@ -82,7 +82,7 @@ def ks_test(reference: list[float], current: list[float]) -> tuple[float, float]
     except ImportError as err:
         raise ImportError(
             "Either the Rust extension or scipy is required for KS test. "
-            "Install with: pip install mltk[scipy]"
+            "Install with: pip install mlspec[scipy]"
         ) from err
 
 

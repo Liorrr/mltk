@@ -142,7 +142,7 @@ def pytest_addoption(parser):  # type: ignore[no-untyped-def]
         metavar="URL",
         help=(
             "Push test results to a running mltk server after the session "
-            "(e.g., http://localhost:8080). Requires: pip install mltk[server]"
+            "(e.g., http://localhost:8080). Requires: pip install mlspec[server]"
         ),
     )
 

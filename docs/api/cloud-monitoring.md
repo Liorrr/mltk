@@ -4,7 +4,7 @@ Monitor ML model endpoints deployed on AWS SageMaker, GCP Vertex AI, Azure ML, o
 
 **Module:** `mltk.monitor`
 
-**Install:** `pip install mltk[aws]`, `mltk[gcp]`, or `mltk[azure]`
+**Install:** `pip install mlspec[aws]`, `mltk[gcp]`, or `mltk[azure]`
 
 ---
 

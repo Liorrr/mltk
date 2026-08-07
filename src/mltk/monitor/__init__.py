@@ -14,16 +14,16 @@ On-prem / Prometheus monitoring (stdlib only — no extra dependencies):
     assert_triton_healthy     — Triton /v2/health/ready readiness probe
 
 Cloud monitoring (optional — requires provider-specific extras):
-    AWS / SageMaker   → mltk.monitor.aws    (pip install mltk[aws])
+    AWS / SageMaker   → mltk.monitor.aws    (pip install mlspec[aws])
         assert_endpoint_healthy      — endpoint InService check
         assert_endpoint_latency      — CloudWatch ModelLatency P99
         assert_endpoint_error_rate   — 4XX+5XX error rate
 
-    GCP / Vertex AI   → mltk.monitor.gcp    (pip install mltk[gcp])
+    GCP / Vertex AI   → mltk.monitor.gcp    (pip install mlspec[gcp])
         assert_endpoint_healthy      — deployed model count check
         assert_prediction_latency    — Cloud Monitoring latency P99
 
-    Azure / AzureML   → mltk.monitor.azure  (pip install mltk[azure])
+    Azure / AzureML   → mltk.monitor.azure  (pip install mlspec[azure])
         assert_endpoint_healthy      — managed endpoint provisioning state
         assert_endpoint_latency      — Azure Monitor RequestLatency_P99
 

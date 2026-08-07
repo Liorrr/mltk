@@ -59,7 +59,7 @@ def create_app(db_path: str = "mltk_server.db") -> FastAPI:
         if result is None:
             return Response(
                 status_code=404,
-                content="Metrics disabled. Install: pip install mltk[metrics]",
+                content="Metrics disabled. Install: pip install mlspec[metrics]",
             )
         body, content_type = result
         return Response(content=body, media_type=content_type)

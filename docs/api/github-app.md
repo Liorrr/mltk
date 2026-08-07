@@ -527,7 +527,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install mltk[sklearn]
+      - run: pip install mlspec[sklearn]
       - run: pytest --mltk-report --mltk-export-json results.json
       - name: Post check run
         if: always()

@@ -6,23 +6,14 @@ mltk is a Python testing toolkit that gives you `assert_*` functions for every s
 
 ---
 
-<!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
-!!! warning "Temporary installation note"
-    `pip install mltk` is not yet available — the PyPI name is pending a transfer claim.
-    Install directly from GitHub in the meantime:
-
-    ```bash
-    pip install git+https://github.com/Liorrr/mltk
-    ```
-
-    All imports (`import mltk`), CLI commands (`mltk scan`), and functionality are identical.
-    This note will be removed once `pip install mltk` is live on PyPI.
-<!-- END TEMP-PYPI-CLAIM -->
+!!! note "Distribution vs import name"
+    **Install:** `pip install mlspec` · **Import/CLI:** `mltk`  
+    Do **not** `pip install mltk` (unrelated PyPI package).
 
 ## Install in 30 seconds
 
 ```bash
-pip install mltk[cli,report]
+pip install "mlspec[cli,report]"
 mltk doctor
 ```
 

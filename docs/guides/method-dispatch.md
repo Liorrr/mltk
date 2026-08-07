@@ -260,13 +260,13 @@ Each method has different dependency requirements:
 Built into mltk. Works out of the box.
 
 ```bash
-pip install mltk
+pip install mlspec
 ```
 
 ### `embedding` — sentence-transformers
 
 ```bash
-pip install mltk[embedding]
+pip install mlspec[embedding]
 # or directly:
 pip install sentence-transformers
 ```
@@ -277,7 +277,7 @@ first use. Subsequent runs use the cached model.
 ### `nli` — sentence-transformers (same package)
 
 ```bash
-pip install mltk[embedding]
+pip install mlspec[embedding]
 # or directly:
 pip install sentence-transformers
 ```
@@ -635,7 +635,7 @@ You get a clear `ImportError` with installation instructions:
 ```
 ImportError: sentence-transformers is required for
 embedding-based methods. Install with:
-pip install mltk[embedding]
+pip install mlspec[embedding]
 ```
 
 ### Can I use the same `judge_fn` across multiple assertions?

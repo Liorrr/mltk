@@ -39,7 +39,7 @@ def _require_ml_client(
     except ImportError as exc:
         raise ImportError(
             "azure-ai-ml and azure-identity are required for Azure monitoring. "
-            "Install them with: pip install mltk[azure]"
+            "Install them with: pip install mlspec[azure]"
         ) from exc
 
     import os
@@ -187,7 +187,7 @@ def assert_endpoint_latency(
     except ImportError as exc:
         raise ImportError(
             "azure-monitor-query and azure-identity are required for Azure latency monitoring. "
-            "Install them with: pip install mltk[azure]"
+            "Install them with: pip install mlspec[azure]"
         ) from exc
 
     sub = subscription_id or os.environ.get("AZURE_SUBSCRIPTION_ID")

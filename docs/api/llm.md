@@ -23,7 +23,7 @@ hypotheses = ["A cat was sitting on a mat."]
 # Token-level F1 (no dependencies, fast)
 assert_semantic_similarity(references, hypotheses, min_score=0.3, method="token")
 
-# Embedding cosine similarity (requires: pip install mltk[embedding])
+# Embedding cosine similarity (requires: pip install mlspec[embedding])
 assert_semantic_similarity(references, hypotheses, min_score=0.7, method="embedding")
 ```
 
@@ -43,7 +43,7 @@ assert_semantic_similarity(references, hypotheses, min_score=0.7, method="embedd
 | `"token"` | None (built-in) | Fast | Basic | CI/CD gates, quick checks, no GPU |
 | `"embedding"` | `sentence-transformers` | Slower | High | Paraphrase detection, semantic equivalence, nuanced comparison |
 
-The `"embedding"` method uses the `all-mpnet-base-v2` model by default. Install with `pip install mltk[embedding]` or `pip install sentence-transformers`.
+The `"embedding"` method uses the `all-mpnet-base-v2` model by default. Install with `pip install mlspec[embedding]` or `pip install sentence-transformers`.
 
 ---
 

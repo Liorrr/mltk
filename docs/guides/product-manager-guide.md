@@ -107,7 +107,7 @@ mltk compliance-pdf results.json --output compliance-report.pdf
 For ongoing monitoring across releases, deploy the mltk server:
 
 ```bash
-pip install mltk[server]
+pip install mlspec[server]
 mltk server-create-key --project my-project
 mltk server
 # Dashboard at http://localhost:8080

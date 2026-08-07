@@ -99,7 +99,7 @@ The JSON structure:
 
 #### `to_html(path: str) -> str`
 
-Export results as a self-contained HTML report. Delegates to `mltk.report.generator.generate_report`. Requires `jinja2` (`pip install mltk[report]`).
+Export results as a self-contained HTML report. Delegates to `mltk.report.generator.generate_report`. Requires `jinja2` (`pip install mlspec[report]`).
 
 Returns the absolute path to the generated HTML file.
 

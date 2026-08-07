@@ -4,7 +4,7 @@ Speech-specific assertions for recognition accuracy (WER, CER), real-time perfor
 
 **Module:** `mltk.domains.speech`
 
-**Install:** `pip install mltk[speech]`
+**Install:** `pip install mlspec[speech]`
 
 ---
 

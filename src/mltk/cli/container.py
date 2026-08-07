@@ -92,7 +92,7 @@ def container_scan(
     except ImportError:
         console.print(
             "[red]mltk[container] not installed. "
-            "Run: pip install mltk[container][/red]"
+            "Run: pip install mlspec[container][/red]"
         )
         raise typer.Exit(1) from None
 

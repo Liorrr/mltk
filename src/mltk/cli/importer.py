@@ -124,7 +124,7 @@ def import_dataset(
     except ImportError as err:
         print(  # noqa: T201
             "The mltk importer requires optional dependencies. "
-            "Install them with: pip install mltk[importer]"
+            "Install them with: pip install mlspec[importer]"
         )
         raise typer.Exit(1) from err
 

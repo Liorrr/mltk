@@ -4,7 +4,7 @@ Log mltk test results to Weights & Biases dashboards. Unifies training metrics a
 
 **Module:** `mltk.integrations.wandb_adapter`
 
-**Install:** `pip install mltk[wandb]`
+**Install:** `pip install mlspec[wandb]`
 
 ---
 

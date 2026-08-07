@@ -1075,7 +1075,7 @@ def test_mcp_agent_full(mcp_trace):
 ### Core (no MCP assertions)
 
 ```bash
-pip install mltk
+pip install mlspec
 ```
 
 All existing assertions work. MCP dataclasses
@@ -1085,7 +1085,7 @@ available without extra dependencies.
 ### MCP assertions
 
 ```bash
-pip install mltk[mcp]
+pip install mlspec[mcp]
 ```
 
 Installs `jsonschema>=4.0` (~100KB, no heavy transitive
@@ -1101,7 +1101,7 @@ If you call `assert_mcp_tool_schema_conformance` without
 ```
 ImportError: jsonschema is required for MCP schema
 conformance validation. Install with:
-    pip install mltk[mcp]
+    pip install mlspec[mcp]
 ```
 
 The other four assertions

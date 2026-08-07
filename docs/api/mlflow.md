@@ -4,7 +4,7 @@ Log mltk test results as MLflow metrics and attach HTML reports as artifacts.
 
 **Module:** `mltk.integrations.mlflow_logger`
 
-**Install:** `pip install mltk[mlflow]`
+**Install:** `pip install mlspec[mlflow]`
 
 ---
 

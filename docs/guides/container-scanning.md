@@ -9,7 +9,7 @@ exceeded.
 ## Installation
 
 ```bash
-pip install mltk[container]
+pip install mlspec[container]
 ```
 
 !!! info "Trivy binary"
@@ -76,7 +76,7 @@ CI systems need to fail a build.
 container_scan:
   image: python:3.11-slim
   script:
-    - pip install mltk[container]
+    - pip install mlspec[container]
     - mltk container scan $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --max-critical 0 --junit-xml scan.xml
   artifacts:
     when: always
@@ -141,7 +141,7 @@ format. This lets you alert on "a new CRITICAL vulnerability appeared in a
 deployed image" without waiting for the next CI run.
 
 ```bash
-pip install mltk[metrics]
+pip install mlspec[metrics]
 mltk server  # exposes /metrics on the server port
 ```
 
@@ -176,7 +176,7 @@ Metrics exposed:
 ## Troubleshooting
 
 !!! warning "`ImportError: Trivy binary not found`"
-    Install the extra (`pip install mltk[container]`) or point
+    Install the extra (`pip install mlspec[container]`) or point
     `TRIVY_BIN` at an existing Trivy binary. On macOS: `brew install
     aquasecurity/trivy/trivy`. On Debian/Ubuntu, follow the
     [official install guide](https://trivy.dev/latest/getting-started/installation/).

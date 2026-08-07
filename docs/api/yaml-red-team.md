@@ -778,7 +778,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install mltk
-        run: pip install mltk
+        run: pip install mlspec
       - name: Run PR security gate
         run: mltk test tests/security/pr-gate.yaml
       - name: Upload results
@@ -795,7 +795,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install mltk
-        run: pip install mltk
+        run: pip install mlspec
       - name: Run nightly full scan
         run: mltk test tests/security/nightly.yaml
 ```
@@ -1028,7 +1028,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install mltk
-        run: pip install mltk
+        run: pip install mlspec
 
       - name: Run security gate
         env:

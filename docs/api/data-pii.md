@@ -14,7 +14,7 @@ PII (Personally Identifiable Information) in training data is a compliance and s
     **[NER-Based PII Detection](pii-ner.md)** -- supports
     Presidio NER, GLiNER zero-shot, and hybrid (regex + NER)
     methods via the same `assert_no_pii` function with a
-    `method` parameter. Install with `pip install mltk[ner]`.
+    `method` parameter. Install with `pip install mlspec[ner]`.
 
 **When to use:**
 - Before training: scan datasets for PII that shouldn't be there

@@ -4,7 +4,7 @@ Generate audit-ready evidence documents that map mltk test results to EU AI Act 
 
 **Module:** `mltk.compliance`
 
-**Install:** `pip install mltk[report]` (requires Jinja2)
+**Install:** `pip install mlspec[report]` (requires Jinja2)
 
 **CLI:** `mltk compliance results.json --risk-level high --system-name "FaceID"`
 

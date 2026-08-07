@@ -185,7 +185,7 @@ def _check_rust_extension() -> DiagnosticResult:
             message="Rust extension not available — using Python fallback (slower)",
             fix_hint=(
                 "Install from source with Rust toolchain: "
-                "pip install mltk --no-binary mltk  "
+                "pip install mlspec --no-binary mltk  "
                 "(requires cargo)"
             ),
         )

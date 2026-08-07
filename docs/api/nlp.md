@@ -4,7 +4,7 @@ NLP-specific assertions for text generation (BLEU, ROUGE), named entity recognit
 
 **Module:** `mltk.domains.nlp`
 
-**Install:** `pip install mltk[nlp]`
+**Install:** `pip install mlspec[nlp]`
 
 ---
 

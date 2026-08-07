@@ -19,10 +19,10 @@ become a versioned [`EvalDataset`](eval-datasets.md).
 - `mltk_import` — the same pipeline exposed as an MCP tool for AI agents
   (see [The mltk_import MCP tool](#the-mltk_import-mcp-tool))
 
-**Install:** `pip install mltk[importer]` (adds `datasets>=4.0` for
+**Install:** `pip install mlspec[importer]` (adds `datasets>=4.0` for
 HuggingFace Hub loading — 4.0+ drops script-based/remote-code dataset
 loading — and `pyarrow>=14` for local Parquet files). This is an
-optional extra — a plain `pip install mltk` never pulls in either
+optional extra — a plain `pip install mlspec` never pulls in either
 dependency, and `import mltk` does not import `mltk.importer`.
 
 ---
@@ -102,8 +102,8 @@ half of the pipeline.
 |--------|--------|
 | Local CSV | Supported — `pandas.read_csv` |
 | Local JSON | Supported — bare array or `{"samples": [...]}` shape |
-| Local Parquet | Supported — requires `pyarrow` (`pip install mltk[importer]`) |
-| HuggingFace Hub | Supported — requires `datasets` (`pip install mltk[importer]`); no network calls happen unless you actually call `.load()` with a Hub id |
+| Local Parquet | Supported — requires `pyarrow` (`pip install mlspec[importer]`) |
+| HuggingFace Hub | Supported — requires `datasets` (`pip install mlspec[importer]`); no network calls happen unless you actually call `.load()` with a Hub id |
 | URL (remote CSV/JSON/Parquet) | **Not yet implemented** — raises `NotImplementedError`; download the file locally first |
 | SQL / database source | **Not planned for the current epic** — not in the S97-S99 scope; see [Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper) for the adapter roadmap (Kaggle, OpenML, object storage) |
 | HuggingFace streaming mode (`streaming=True`) | **Not supported** — `DatasetImporter` always fully materializes the dataset (`dataset.to_list()`) before returning. Large Hub datasets that don't fit in memory are out of scope for S97 |
@@ -582,7 +582,7 @@ Mapping problems are printed as warnings; if no column maps to `INPUT`
 (so no `EvalDataset` can be built), the command exits non-zero instead
 of guessing. The command works without the `mltk[importer]` extra
 installed only for `--help`; actual imports need
-`pip install mltk[importer]` for HuggingFace sources.
+`pip install mlspec[importer]` for HuggingFace sources.
 
 ---
 
