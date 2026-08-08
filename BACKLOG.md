@@ -271,6 +271,37 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] Grafana plugin for mltk dashboards (Grafana OSS — free, self-hosted)
 - [ ] Real-time streaming drift detection
 
+### Agent Trace Capture (clearance-tiered) — proposed 2026-08-08
+*Roadmap entry: `docs/roadmap.md` → Tier 1. Gap: mltk grades traces but cannot record them — callers hand-assemble every trace.*
+- [ ] **PREREQUISITE FINDING — three incompatible trace schemas exist today, nothing converts between them:** `AgentTrace`/`McpTrace` (`domains/llm/trace.py`, `.mcp`; 7 agentic + 5 `assert_mcp_*`), `SpanTrace`/`Span` (`domains/llm/span.py`; 4 `assert_span_*`), and a flat `dict` (`integrations/trace_quality.py`; `assert_trace_quality`, which does not import `AgentTrace`). Emitting any one of them activates only that slice.
+- [ ] **DECIDED 2026-08-08 — capture owns its own record type.** New `mltk.trace` package defines one canonical record; the three schemas above become adapter *outputs*, not what capture emits natively. Dependency inverts to `domains/llm → mltk.trace`. Rejected alternative: extending one existing schema (adds a fourth de-facto shape, caps the concept at the LLM domain)
+- [ ] Trace recorder that wraps live API calls and emits the canonical capture record
+- [ ] Adapter layer projecting the capture record into `AgentTrace`/`McpTrace`, `SpanTrace`, and the `trace_quality` dict — makes all 16 existing trace assertions reachable
+- [ ] **T0 (closed inference)** — request/response pairs, tool-use blocks, tool-call count + names + arguments, total API-call/round-trip count, retries, token usage, stop reason, per-hop latency
+- [ ] **T1 (instrumented client)** — nested sub-agent calls, additional/fan-out API calls, per-hop timing, error and retry chains, cache hits, ordered detailed action log
+- [ ] **T2 (open inference)** — logprobs + top-k alternatives, sampling parameters, refusal/guard internals, hidden-state hooks where the runtime exposes them
+- [ ] **GATE — honesty rule:** unobservable fields are `None` with the clearance tier recorded, never `0` or a plausible default (follows the S102 fairness `None`-propagation precedent). Tier is a **typed field on the capture record**, not an `AgentTrace.metadata` dict entry — an untyped catch-all makes the guarantee unenforceable. T2 data (logprobs, top-k, sampling params) likewise has no home in any of the three existing schemas
+- [ ] Export captured traces through the shipped `mltk.integrations` Phoenix/Langfuse/OTel adapters; reuse `mltk.cost` for token/cost fields — no new backend
+- [ ] **DECIDE at planning:** provider coverage order; decorator vs context manager vs client proxy; T2 degradation when the runtime lacks hooks; whether the three existing schemas are eventually deprecated or kept indefinitely as projections
+
+### Compliance Drift Auto-Sync — proposed 2026-08-08
+*Roadmap entry: `docs/roadmap.md` → Tier 2. Gap: all 8 frameworks in `mltk.compliance` are point-in-time; nothing watches coverage change over time.*
+- [ ] Versioned, committed coverage baseline (reviewable in a PR, snapshot-test style)
+- [ ] **Internal drift** — detect controls that silently lost coverage (assertion renamed, deleted, skipped, or now failing)
+- [ ] `assert_no_compliance_drift` pytest gate + CI job (not a dashboard)
+- [ ] **External drift** — detect framework definition changes (renumbered articles, new controls); separate track, needs a maintained framework-version source
+- [ ] **GATE:** internal and external drift stay separate categories in reports, never merged; external re-mapping requires a human-confirmed framework version bump — no silent self-update of an audit artifact
+- [ ] **DECIDE at planning:** baseline storage format/location; whether external drift is in the first cut; whether to reuse the `DatasetRegistry` versioning pattern
+
+### Metric Coverage Expansion (6 external-lib metrics) — proposed 2026-08-08
+*Roadmap entry: `docs/roadmap.md` → Tier 2. Each metric = one optional-extra dependency + assertion wiring (import guard w/ install hint, deterministic base case, populated `.details`). Ship in the order below, not as one batch.*
+- [ ] **chrF** (`sacrebleu`) — character n-gram F-score for `mltk.domains.nlp`; lowest effort, and `sacrebleu` gives a canonical BLEU to cross-check `assert_bleu` against
+- [ ] **langdetect** (`langdetect`; alternatives `py3langid`, fastText LID) — enables `assert_output_language`, a real multilingual gap
+- [ ] **DER** (`pyannote.metrics`) — diarization error rate for `mltk.domains.speech`, joins `assert_wer`
+- [ ] **CIDEr / METEOR** (`pycocoevalcap`) — caption/generation quality for `mltk.domains.multimodal` + nlp; **SPICE from the same package needs a Java runtime** — gate it behind an explicit availability check or defer
+- [ ] **COMET** (`unbabel-comet`) — neural MT quality; heavy (torch + model download), must be strictly optional and offline-testable; own scoping pass
+- [ ] **TEDS / GriTS** — table structure recognition. **No canonical PyPI package**: TEDS reference impl is in IBM's PubTabNet repo, GriTS in Microsoft's table-transformer repo; `zss`/`easyted` are generic tree-edit-distance libs, not the table metric. Needs a vendored implementation over `zss` — highest effort, scope before scheduling
+
 ### Monitoring Visualization Portal
 - [ ] **ACTION**: Research build vs. buy — compare custom portal effort against free solutions (Grafana OSS, Apache Superset, Metabase, Redash) before committing to implementation
 - [ ] Live visualization portal connected to mltk server for monitoring state and data

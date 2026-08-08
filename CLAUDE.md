@@ -9,34 +9,6 @@ mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
 - v0.13.0, 241 assertion definitions (238 unique names; 229 discoverable), 4964+ tests, 8 scanners, 13 MCP tools
 - Phase F (Agent Integration): COMPLETE — building toward v1.0.0
 
-## Architecture
-```
-src/mltk/
-  scan/          # Scan engine: 8 scanners (data/drift/bias/overfit/calibration/robustness/leakage/slice)
-  scan/finding.py  # ScanFinding + FixSuggestion dataclasses
-  experiment/    # ExperimentRunner, Hypothesis, GitWorktree, sandboxed execution
-  mcp/           # FastMCP server (13 tools: scan/test/list/eval/dataset/report/suggest/experiment/workflow/create_pr/create_issue/container_scan/import)
-  core/          # Config, assertions registry
-  testdefs/      # YAML test definitions
-  eval/          # Evaluation pipeline (solvers, scorers, spans, datasets)
-  data/          # Data assertions, contracts
-  model/         # Model metrics, calibration
-  training/      # Training bug detection
-  domains/       # CV, NLP, Speech, LLM, Multimodal, Agentic, etc.
-  cli/           # 19 top-level commands + 5 groups (contract/docs/registry/notify/container)
-  server/        # FastAPI server + dashboard
-  report/        # HTML/JSON report generation
-  compliance/    # FDA, NIST, ISO 42001, EU AI Act
-  chat/          # Rule-based Q&A chat interface
-  contracts/     # Data contract definitions
-  inference/     # Latency, throughput, contract assertions
-  integrations/  # Jira, GitHub, Slack, MLflow, etc.
-  monitor/       # Degradation, SLA, GPU monitoring
-  pipeline/      # Pipeline reproducibility, stage validation
-  registry/      # Test resource registry (push/pull/list)
-  testing/       # Testing patterns (flaky, golden, retry)
-```
-
 ## Testing Conventions
 - Tests mirror src: `tests/test_scan/`, `tests/test_mcp/`, etc.
 - Lint: `ruff check src/ tests/` — fix with `ruff check --fix`
@@ -62,52 +34,13 @@ Uses sprint-executor skill: research → design plan → user approval → paral
   change (it holds no version/count facts by design).
 
 ## Skills for Subagents
-Two skills exist. The orchestrator MUST read and include them in agent prompts per the matrix below.
-
-| Skill | Path | Content |
-|-------|------|---------|
-| **Index** | `~/.claude/skills/mltk-index.md` (generated) | 241 assertions, 13 MCP tools, 19 top-level CLI + 5 groups, 8 scanners, 28 classes with file:line |
-| **Templates** | `skills/mltk-templates.md` (repo) → `~/.claude/skills/` | Patterns for adding assertions, scanners, MCP tools, CLI commands |
-
-Regenerate index after each sprint: `python scripts/generate_skill_index.py`
-Detailed reference with full signatures: `docs/reference/full-api-index.md`
-
-### Which agents get which skills
-
-| Agent Type | Index | Templates | Why |
-|------------|:-----:|:---------:|-----|
-| Builder | Y | Y | Needs file locations + code patterns |
-| Test hardening | Y | N | Needs assertion names + test file mapping |
-| Wiring/integration | Y | Y | Needs module structure + export patterns |
-| Documentation | Y | N | Needs to know what exists |
-| Reviewer/auditor | Y | N | Needs to navigate during review |
-| Researcher | N | N | Searches web, not codebase |
-
-### How to include
-Read both skill files and paste their content into the agent prompt:
-```
-## Codebase Index
-{content of ~/.claude/skills/mltk-index.md}
-
-## Development Templates
-{content of ~/.claude/skills/mltk-templates.md}
-```
+Before dispatching ANY subagent or Codex worker in this repo, read `skills/mltk-agent-dispatch.md` (or invoke the `mltk-agent-dispatch` skill, which loads it) — it holds the required index/templates matrix and the paste format.
+Regenerate the index after each sprint: `python scripts/generate_skill_index.py`
 
 ## VS Code Extension (separate repo)
-- **Repo**: `C:\Users\lior1\mltk-vscode` (GitHub: `Liorrr/mltk-vscode`)
-- **Version**: 0.3.0, 27 TypeScript files, esbuild + vitest
-- **Architecture**: subprocess-based — spawns `python -m pytest` and `python -m mltk` CLI commands, parses JSON output
-- **No MCP integration** — uses CLI only, not the 13 MCP tools
-- **Features**: test runner, inline gutter/hover/CodeLens, dashboard webview, YAML validation, model scan, security scan, PII scan, red team CodeLens, native Test Explorer
-- **Key files**: `src/extension.ts` (entry), `src/testRunner.ts`, `src/scanRunner.ts`, `src/securityScanRunner.ts`
+- **Repo**: `C:\Users\lior1\mltk-vscode` (GitHub: `Liorrr/mltk-vscode`) — open it for current version and file layout
+- **Architecture**: subprocess-based — spawns `python -m pytest` and `python -m mltk` CLI commands and parses JSON output. Deliberately **no MCP integration**; CLI only.
 - **Hard rule**: same no-company-name restriction as main repo
-
-## Key Files
-- `BACKLOG.md` — sprint history + backlog items
-- `CHANGELOG.md` — version changelog
-- `pyproject.toml` — maturin build, dependencies
-- `src/mltk/__init__.py` — public API exports
-- `scripts/generate_skill_index.py` — regenerates skill index from source
 
 ## graphify
 
