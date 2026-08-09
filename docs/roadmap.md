@@ -230,6 +230,28 @@ Six metrics mltk does not implement today. Each is an optional-extra dependency 
 
 **Effort:** 2-4 sprints depending on batching | **Dependencies:** `sacrebleu`, `langdetect`, `pyannote.metrics`, `pycocoevalcap`, `unbabel-comet` — all optional extras; TEDS/GriTS packaging unresolved | **Priority:** Medium — closes named-metric gaps that evaluators ask about by name
 
+#### Meta-Evaluation — Testing the Eval Suite's Own Premises
+*Status: Proposed — assertion family, not yet scoped*
+
+Every eval suite rests on premises that are themselves untested: that the dataset is representative of production traffic, that the LLM judge correlates with human preference, that the chosen metric actually separates good outputs from bad ones. When one of those is false, the suite reports confidently and means nothing — a green run on an unrepresentative dataset is worse than no run, because it is trusted.
+
+**Proposed assertions:** `assert_judge_correlates` (judge scores vs. a human-labeled subset, with a minimum correlation floor), `assert_dataset_representative` (distribution comparison between eval set and a production sample — reuses the shipped drift machinery), `assert_metric_discriminates` (does the metric actually separate known-good from known-deliberately-bad fixtures?).
+
+**Why it fits mltk:** the library already treats "the test is wrong" as a first-class failure mode — dataset-quality gates in the importer, calibration validation, the empty-input contract. This extends that discipline from the data to the evaluation apparatus itself. It also composes with existing work rather than adding a new dependency surface: representativeness reuses drift detection, discrimination reuses fixture-based testing.
+
+**Effort:** 1-2 sprints | **Dependencies:** none (reuses drift + judge infrastructure) | **Priority:** Medium — small surface, addresses a failure mode that silently invalidates everything downstream
+
+#### Compliance Evidence from Captured Traces
+*Status: Proposed — composition of two other roadmap items, not independently buildable*
+
+Compliance frameworks want evidence that a control was exercised. Test results alone are weak evidence: they record that an assertion passed, not what was actually observable when it ran. A trace captured at a **known clearance tier** is strictly stronger — it records what was tested, at what access level, on what date, with what supporting data.
+
+Combining Agent Trace Capture (Tier 1) with Compliance Drift Auto-Sync (above) produces auditable evidence as a byproduct of ordinary eval runs, rather than as a separate reporting exercise. The clearance tier is what makes it defensible: an auditor can distinguish "we verified this against model internals" from "we inferred it from black-box responses," and the honesty rule guarantees the distinction is recorded rather than assumed.
+
+**Dependency note:** neither parent item delivers this alone, and it should not be scheduled before both have shipped. Listed here so the composition is not rediscovered later as a surprise.
+
+**Effort:** 1 sprint on top of both parents | **Dependencies:** Agent Trace Capture + Compliance Drift Auto-Sync | **Priority:** Medium — highest-value combination of the two, but strictly downstream of them
+
 #### JSON Schema Validation
 *Status: Shipped (S96)*
 

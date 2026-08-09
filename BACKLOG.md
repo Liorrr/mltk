@@ -261,6 +261,13 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Golden-set binding (S99) — `bind_golden()` maps a provided golden/reference file onto imported samples (key-column or row-order join); samples with no exact golden are stamped `"judge"` and the emitted scaffold falls back to `assert_llm_judge_score` (opt-in via `--judge`).
 - [ ] Pluggable source adapters — HuggingFace first; design for Kaggle, OpenML, local files, and object storage later *(deferred beyond the epic)*
 
+### Dream-session candidates — proposed 2026-08-09
+*Generated from the 2026-08-08/09 session retrospective. Speculative; not committed. Positioning rationale lives in the vault, not here.*
+- [ ] **Silent-fallback scanner / `assert_no_silent_fallback`** — detect the `map.get(key, DEFAULT)` shape where the *requested* key is later reported back as if honored. Live instance: `mltk_eval` accepts `scorer="llm_judge"` (documented in `docs/api/mcp-server.md`), silently runs `ExactMatchScorer`, and returns `"scorer": "llm_judge"`. Statically detectable; would be a 9th scanner. See GH issue
+- [ ] **Access-tier metadata + `mltk capabilities --access {closed,instrumented,open}`** — every assertion has an implicit observability precondition (black-box API vs logits vs weights). Annotate assertions with the tier they require, then answer "which assertions can I run against a closed API?". Shares the T0/T1/T2 vocabulary with Agent Trace Capture. Largest cost is annotating the assertion set, not the CLI. See GH issue
+- [ ] **Meta-evaluation family** — assertions that test the *premises* of an eval suite rather than the model: `assert_judge_correlates` (judge vs human labels), `assert_dataset_representative`, `assert_metric_discriminates` (does the metric separate known-good from known-bad?). Roadmap entry added
+- [ ] **Compliance evidence from captured traces** — a trace captured at a known clearance tier is an auditable artifact ("control X tested, at this access level, on this date, with this evidence"). Composes Agent Trace Capture with Compliance Drift Auto-Sync; neither item delivers it alone. Roadmap entry added
+
 ### Monetization (Pro tier)
 - [ ] Cloud dashboard: hosted report aggregation, team views
 - [ ] Multi-tenant server with SSO
