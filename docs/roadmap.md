@@ -131,7 +131,7 @@ mltk can **grade** an agent trace but cannot **record** one. Every trace-consumi
 
 | Schema | Location | Shape | Consumed by |
 |--------|----------|-------|-------------|
-| `AgentTrace` / `McpTrace` | `mltk.domains.llm.trace`, `.mcp` | Dataclass: `tool_calls`, `total_tokens`, `total_duration_ms`, `metadata` | 7 agentic assertions + 5 `assert_mcp_*` |
+| `AgentTrace` / `McpTrace` | `mltk.domains.llm.trace`, `.mcp` | Dataclass: `tool_calls`, `total_tokens`, `total_duration_ms`, `metadata` | 7 agentic assertions + 4 `assert_mcp_*` |
 | `SpanTrace` / `Span` / `SpanKind` | `mltk.domains.llm.span` | Span tree, OTel-shaped, `.total_cost_usd` | 4 `assert_span_*` (`span_eval.py`) |
 | plain `dict` | `mltk.integrations.trace_quality` | Flat keys: `latency_ms`, `cost_usd`, `score`, `output` | `assert_trace_quality` |
 

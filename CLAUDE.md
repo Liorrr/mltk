@@ -34,7 +34,7 @@ Uses sprint-executor skill: research → design plan → user approval → paral
   change (it holds no version/count facts by design).
 
 ## Skills for Subagents
-Before dispatching ANY subagent or Codex worker in this repo, read `skills/mltk-agent-dispatch.md` (or invoke the `mltk-agent-dispatch` skill, which loads it) — it holds the required index/templates matrix and the paste format.
+Before dispatching ANY subagent or Codex worker in this repo, read `skills/mltk-agent-dispatch.md` — it holds the required index/templates matrix and the paste format.
 Regenerate the index after each sprint: `python scripts/generate_skill_index.py`
 
 ## VS Code Extension (separate repo)
