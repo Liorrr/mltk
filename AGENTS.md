@@ -48,7 +48,12 @@ src/mltk/
 
 - Tests mirror src: `tests/test_scan/`, `tests/test_mcp/`, etc.
 - Lint: `ruff check src/ tests/` — fix with `ruff check --fix`
-- Run tests: `python -m pytest tests/ -x -q` (`-x` stops on first failure)
+- **Slim regression is mandatory before any agent "done"** — run
+  `python -m pytest tests/regression -q` and paste trimmed output in the
+  Report. Full suite (`python -m pytest tests/ -x -q`) is CI/PR /
+  expensive-optional, not the agent completion gate.
+- Also run scoped package tests for every touched area
+  (`tests/test_<pkg>/`; MCP → `tests/test_mcp`).
 - **The suite is fully green. Any test failure is a regression you must fix
   or report — never dismiss a failure as "pre-existing".**
 - `from __future__ import annotations` must be the first code line (after
