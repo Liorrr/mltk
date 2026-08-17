@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-# Non-callable attribute used to assert honest TypeError refuse.
+# Non-callable attribute — see test_module_mode_non_callable_refuses.
 not_a_callable = 42
 
 

@@ -10,6 +10,7 @@ Usage: ``python -m mltk.mcp``
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -75,12 +76,19 @@ def _resolve_eval_model(
     - ``passthrough`` / ``identity`` (default): echo the prompt.
     - ``module``: import ``model_ref`` as ``package.module:callable``.
 
+    ``module`` mode is gated by the ``MLTK_MCP_MODEL_MODULES`` environment
+    variable — a comma-separated list of allowed module prefixes. It is
+    empty by default, so the mode is disabled unless an operator opts in.
+    The gate is checked *before* import, because importing runs the target
+    module's top-level code.
+
     Returns:
         ``(model_fn, normalized_mode, model_label)``
 
     Raises:
-        ValueError: unknown mode, missing/invalid ``model_ref``, or
-            import/attribute failures (honest refuse — no silent facade).
+        ValueError: unknown mode, missing/invalid ``model_ref``, a module
+            outside the allowlist, or import/attribute failures (honest
+            refuse — no silent facade).
         TypeError: resolved object is not callable.
     """
     import importlib
@@ -117,6 +125,28 @@ def _resolve_eval_model(
             raise ValueError(
                 "model_ref must be 'package.module:callable_name' "
                 f"(got {ref!r})"
+            )
+        # Gate before importing: `importlib.import_module` executes the
+        # target module's top-level code, so an un-allowlisted ref must be
+        # refused here rather than after resolution. Without this, any
+        # importable dotted path resolves (`os:system`), and GenerateSolver
+        # feeds each dataset `input` row to it as the argument — so dataset
+        # content, which can arrive from `mltk_import`, reaches a call sink.
+        allowed = tuple(
+            p.strip()
+            for p in os.environ.get("MLTK_MCP_MODEL_MODULES", "").split(",")
+            if p.strip()
+        )
+        if not allowed:
+            raise ValueError(
+                "model_mode='module' is disabled. Set MLTK_MCP_MODEL_MODULES "
+                "to a comma-separated list of allowed module prefixes "
+                "(e.g. 'myorg.models') to enable trusted model injection."
+            )
+        if not any(mod_path == p or mod_path.startswith(p + ".") for p in allowed):
+            raise ValueError(
+                f"Module {mod_path!r} is not in the MLTK_MCP_MODEL_MODULES "
+                f"allowlist {list(allowed)}."
             )
         try:
             mod = importlib.import_module(mod_path)

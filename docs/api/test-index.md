@@ -1,6 +1,6 @@
 # Test Coverage Index
 
-Complete index of all **4969+ tests** across **95 test files** in the mltk test suite.
+Complete index of all **4974+ tests** across **95 test files** in the mltk test suite.
 
 ---
 
@@ -307,5 +307,5 @@ pytest tests/test_domains/test_llm_rag.py -q    # RAG evaluation only
 pytest tests/test_training/test_gradient.py -q  # Gradient health only
 
 # Full suite
-pytest tests/ -q                      # All 4969+ tests
+pytest tests/ -q                      # All 4974+ tests
 ```
