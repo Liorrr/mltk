@@ -28,6 +28,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # Canary deps must stay inside `[dev]` (numpy/pandas/pytest only) — this
+      # job installs no optional extras, unlike the `test` matrix below. A
+      # canary importing typer/sklearn/fastapi/Pillow passes locally (dev envs
+      # have the extras) and fails here at collection. Widen this install if
+      # that ever becomes intended.
       - run: pip install -e ".[dev]"
       - run: pytest tests/regression -q
 
