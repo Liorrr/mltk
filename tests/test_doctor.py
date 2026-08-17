@@ -227,7 +227,61 @@ def test_diagnostic_result_with_fix_hint() -> None:
         name="Missing dep",
         status="WARN",
         message="scipy not installed",
-        fix_hint="pip install mltk[scipy]",
+        fix_hint="pip install mlspec[scipy]",
     )
-    assert r.fix_hint == "pip install mltk[scipy]"
+    assert r.fix_hint == "pip install mlspec[scipy]"
     assert r.status == "WARN"
+
+
+# ---------------------------------------------------------------------------
+# Install-hint integrity
+# ---------------------------------------------------------------------------
+
+
+def test_optional_dep_hints_use_pypi_dist_name(monkeypatch) -> None:
+    """SCENARIO: every optional extra is missing, so each emits a fix_hint.
+
+    WHY: the import/CLI name is ``mltk`` but the PyPI distribution is
+         ``mlspec``. ``pip install mltk[scipy]`` resolves to an unrelated
+         project, so a hint naming ``mltk`` actively misdirects the user.
+         This regressed once already: commit 96b1270 renamed the install
+         story everywhere except this table, and no test caught it because
+         the surrounding tests assert hints they construct themselves.
+    EXPECTED: every emitted hint names ``mlspec[...]`` and none names
+         ``mltk[...]``.
+    """
+    import importlib
+
+    from mltk.doctor import _check_optional_deps
+
+    def _always_missing(name: str, *args, **kwargs):
+        raise ImportError(f"No module named {name!r}")
+
+    monkeypatch.setattr(importlib, "import_module", _always_missing)
+
+    results = _check_optional_deps()
+    hints = [r.fix_hint for r in results if r.fix_hint]
+
+    assert hints, "expected a fix_hint for every missing optional dep"
+    for hint in hints:
+        assert "mltk[" not in hint, f"hint names the import name, not the dist: {hint}"
+        assert "mlspec[" in hint, f"hint does not name the PyPI dist: {hint}"
+
+
+def test_no_diagnostic_hint_recommends_installing_mltk() -> None:
+    """SCENARIO: a full diagnose() run over the real environment.
+
+    WHY: guards the same misdirection across every other check that emits an
+         install command (Rust extension, pytest plugin reinstall), not just
+         the optional-extras table.
+    EXPECTED: no fix_hint tells the user to pip-install ``mltk``.
+    """
+    for r in diagnose():
+        if not r.fix_hint:
+            continue
+        assert "install mltk" not in r.fix_hint, (
+            f"{r.name!r} recommends installing the import name: {r.fix_hint}"
+        )
+        assert "mltk[" not in r.fix_hint, (
+            f"{r.name!r} names a non-existent extras target: {r.fix_hint}"
+        )

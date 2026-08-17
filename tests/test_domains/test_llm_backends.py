@@ -144,7 +144,7 @@ class TestEmbeddingBackend:
             _load_sentence_model,
         )
         _load_sentence_model.cache_clear()
-        with pytest.raises(ImportError, match="mltk"):
+        with pytest.raises(ImportError, match=r"mlspec\[embedding\]"):
             _load_sentence_model("all-MiniLM-L6-v2")
 
     @patch(
@@ -245,7 +245,7 @@ class TestNLIBackend:
             _load_nli_model,
         )
         _load_nli_model.cache_clear()
-        with pytest.raises(ImportError, match="mltk"):
+        with pytest.raises(ImportError, match=r"mlspec\[nli\]"):
             _load_nli_model(
                 "cross-encoder/nli-deberta-v3-base"
             )
