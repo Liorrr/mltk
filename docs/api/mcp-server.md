@@ -398,6 +398,30 @@ scores and aggregate metrics.
 | `dataset_path` | `string` | Yes | Path to a CSV or JSON dataset. Must have an `input` column; `target` column is optional for reference-based scorers. |
 | `scorer` | `string` | Yes | Scorer to apply. Values: `"exact_match"`, `"includes"`, `"pattern"`, `"llm_judge"`. |
 | `solver` | `string` | No | Prompting strategy. Values: `"generate"` (direct), `"chain_of_thought"`, `"few_shot"`. Default: `"generate"`. |
+| `model_mode` | `string` | No | How the model under test is supplied. `"passthrough"` (default) echoes the prompt back — useful for validating a pipeline, not a model. `"module"` imports a callable. |
+| `model_ref` | `string` | No | Required when `model_mode="module"`, rejected otherwise. Format `package.module:callable_name`. The callable takes the prompt and returns the completion. |
+
+**Enabling `model_mode="module"`**
+
+Module mode is **disabled by default** and gated by the
+`MLTK_MCP_MODEL_MODULES` environment variable — a comma-separated list of
+allowed module prefixes, matched on package boundaries:
+
+```bash
+export MLTK_MCP_MODEL_MODULES="myorg.models,myorg.eval"
+```
+
+With the variable unset, any `model_mode="module"` call is refused. A
+`model_ref` outside the allowlist is refused *before* the module is
+imported, since importing executes the target's top-level code.
+
+!!! warning "Why this is gated"
+    `model_ref` resolves through `importlib` + `getattr`, and the solver
+    passes each dataset `input` row to the resolved callable as its
+    argument. Without the allowlist, an unrestricted ref such as
+    `os:system` would turn dataset content — which can arrive from
+    `mltk_import` — into arguments at a call sink. Allowlist only modules
+    you control.
 
 **Example call:**
 

@@ -6,14 +6,23 @@ mltk is a Python testing toolkit that gives you `assert_*` functions for every s
 
 ---
 
-!!! note "Distribution vs import name"
-    **Install:** `pip install mlspec` · **Import/CLI:** `mltk`  
-    Do **not** `pip install mltk` (unrelated PyPI package).
+<!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
+!!! warning "Temporary installation note"
+    `pip install mltk` is not yet available — the PyPI name is pending a transfer claim.
+    Install directly from GitHub in the meantime:
+
+    ```bash
+    pip install git+https://github.com/Liorrr/mltk
+    ```
+
+    All imports (`import mltk`), CLI commands (`mltk scan`), and functionality are identical.
+    This note will be removed once `pip install mltk` is live on PyPI.
+<!-- END TEMP-PYPI-CLAIM -->
 
 ## Install in 30 seconds
 
 ```bash
-pip install "mlspec[cli,report]"
+pip install mltk[cli,report]
 mltk doctor
 ```
 
@@ -210,7 +219,7 @@ Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, 
 
 ## Project Status
 
-mltk is at **v0.13.0**. Core modules are stable and tested with 241 assertions and 4966+ tests. Recent additions include the Smart Dataset Importer (`mltk.importer` -- deterministic column-role mapping from HuggingFace Hub or local CSV/JSON/Parquet into a versioned `EvalDataset`), red team security testing (4 assertions with 440+ attack variants), multimodal LLM evaluation (8 assertions covering LLM-as-Judge and numerical paths -- CLIPScore, POPE hallucination, SSIM, OCR), observability adapters (Phoenix/Langfuse with `assert_trace_quality` CI gate), synthetic QA generation, MCP agent evaluation (5 assertions), NER-based PII detection (Presidio, GLiNER zero-shot, and hybrid method dispatch), behavioral consistency testing (7 assertions -- the only ML testing tool that ships these as pytest assertions), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
+mltk is at **v0.13.0**. Core modules are stable and tested with 241 assertions and 4976+ tests. Recent additions include the Smart Dataset Importer (`mltk.importer` -- deterministic column-role mapping from HuggingFace Hub or local CSV/JSON/Parquet into a versioned `EvalDataset`), red team security testing (4 assertions with 440+ attack variants), multimodal LLM evaluation (8 assertions covering LLM-as-Judge and numerical paths -- CLIPScore, POPE hallucination, SSIM, OCR), observability adapters (Phoenix/Langfuse with `assert_trace_quality` CI gate), synthetic QA generation, MCP agent evaluation (5 assertions), NER-based PII detection (Presidio, GLiNER zero-shot, and hybrid method dispatch), behavioral consistency testing (7 assertions -- the only ML testing tool that ships these as pytest assertions), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, and recommendation system testing. See the [CHANGELOG](https://github.com/Liorrr/mltk/blob/main/CHANGELOG.md) for release notes and the [Domain Overview](api/domain-overview.md) for a complete map of all testing capabilities.
 
 ## License
 

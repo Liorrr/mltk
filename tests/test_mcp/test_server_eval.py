@@ -209,3 +209,198 @@ class TestMltkEval:
             result = call_tool("mltk_eval", dataset_path=str(ds))
         assert_ok(result)
         assert result["solver"] == "generate"
+
+    def test_default_model_mode_is_passthrough(self, tmp_path) -> None:
+        # SCENARIO: Omit model_mode — honesty fields must still appear.
+        # WHY: Agents must not mistake passthrough for a real model.
+        # EXPECTED: model_mode=passthrough, model=identity_passthrough.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        with patch(_PATCH_LOAD, return_value=[_make_sample()]), \
+             patch(_PATCH_TASK, _make_task_cls()):
+            result = call_tool("mltk_eval", dataset_path=str(ds))
+        assert_ok(result)
+        assert result["model_mode"] == "passthrough"
+        assert result["model"] == "identity_passthrough"
+        assert result.get("model_ref", "") == ""
+
+    def test_unknown_model_mode_refuses(self, tmp_path) -> None:
+        # SCENARIO: model_mode is not supported.
+        # WHY: Honest refuse > silent facade.
+        # EXPECTED: status=error mentioning model_mode.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="openai",
+        )
+        assert_error(result)
+        assert "model_mode" in result["error"].lower()
+
+    def test_module_mode_requires_model_ref(self, tmp_path) -> None:
+        # SCENARIO: model_mode=module without model_ref.
+        # EXPECTED: recoverable error, no eval run.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="module",
+        )
+        assert_error(result)
+        assert "model_ref" in result["error"].lower()
+
+    def test_module_mode_blocked_without_allowlist(self, tmp_path) -> None:
+        # SCENARIO: module mode with MLTK_MCP_MODEL_MODULES unset.
+        # WHY: importlib + getattr resolves any dotted path, and dataset
+        #   rows become the callable's argument — so the mode must be
+        #   opt-in, not merely documented as "trusted callables only".
+        # EXPECTED: recoverable error naming the env var; nothing imported.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="module",
+            model_ref="test_mcp._eval_model_fixture:constant_four",
+        )
+        assert_error(result)
+        assert "MLTK_MCP_MODEL_MODULES" in result["error"]
+
+    def test_module_mode_refuses_module_outside_allowlist(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        # SCENARIO: allowlist is set, but model_ref points outside it.
+        # WHY: the prefix check must actually constrain, and must refuse
+        #   before import — `os` must never be imported-and-called here.
+        # EXPECTED: recoverable error naming the offending module.
+        monkeypatch.setenv("MLTK_MCP_MODEL_MODULES", "test_mcp")
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="module",
+            model_ref="os:system",
+        )
+        assert_error(result)
+        assert "allowlist" in result["error"].lower()
+
+    def test_module_mode_prefix_match_is_not_substring(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        # SCENARIO: allowlist entry is a prefix of the requested module
+        #   name but not a package boundary ("test_mcp" vs "test_mcpevil").
+        # WHY: a naive startswith() would admit `test_mcpevil`; the check
+        #   must split on a dot boundary.
+        # EXPECTED: refused.
+        monkeypatch.setenv("MLTK_MCP_MODEL_MODULES", "test_mcp")
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="module",
+            model_ref="test_mcpevil.mod:fn",
+        )
+        assert_error(result)
+        assert "allowlist" in result["error"].lower()
+
+    def test_module_mode_non_callable_refuses(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        # SCENARIO: model_ref resolves to an int, not a callable.
+        # WHY: honest TypeError refuse, not a silent facade. The fixture
+        #   carried `not_a_callable` with a comment claiming it was used
+        #   for exactly this, while nothing referenced it and the
+        #   `raise TypeError` branch had zero coverage.
+        # EXPECTED: recoverable error naming the non-callable resolution.
+        monkeypatch.setenv("MLTK_MCP_MODEL_MODULES", "test_mcp")
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="module",
+            model_ref="test_mcp._eval_model_fixture:not_a_callable",
+        )
+        assert_error(result)
+        assert "non-callable" in result["error"].lower()
+
+    def test_module_mode_injects_non_identity_model(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        # SCENARIO: reverse_model differs from passthrough on every row.
+        # WHY: constant_four returns "4" for a dataset whose targets are
+        #   both "4", so that test still scores 1.0 even if the injected
+        #   callable were never consulted. reverse_model is
+        #   input-dependent, so 1.0 is only reachable if the injected
+        #   callable actually produced the output.
+        # EXPECTED: ok, 100% accuracy against reversed targets.
+        monkeypatch.setenv("MLTK_MCP_MODEL_MODULES", "test_mcp")
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\nabc,cba\nxy,yx\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="module",
+            model_ref="test_mcp._eval_model_fixture:reverse_model",
+        )
+        assert_ok(result)
+        acc_keys = [k for k in result["metrics"] if k.endswith("/accuracy")]
+        assert acc_keys, f"no accuracy metrics in {result['metrics']}"
+        assert result["metrics"][acc_keys[0]] == 1.0
+
+    def test_module_model_injection(self, tmp_path, monkeypatch) -> None:
+        # SCENARIO: Inject trusted module callable (constant_four).
+        # WHY: D1 real-work path without vendor SDK.
+        # EXPECTED: ok, model_mode=module, metrics from injected model.
+        monkeypatch.setenv("MLTK_MCP_MODEL_MODULES", "test_mcp")
+        ds = tmp_path / "data.csv"
+        # GenerateSolver prompt is the input field; constant_four → "4".
+        ds.write_text(
+            "input,target\n2+2,4\n3+1,4\n",
+            encoding="utf-8",
+        )
+        result = call_tool(
+            "mltk_eval",
+            dataset_path=str(ds),
+            model_mode="module",
+            model_ref="test_mcp._eval_model_fixture:constant_four",
+        )
+        assert_ok(result)
+        assert result["model_mode"] == "module"
+        assert result["model"] == (
+            "test_mcp._eval_model_fixture:constant_four"
+        )
+        assert result["model_ref"] == (
+            "test_mcp._eval_model_fixture:constant_four"
+        )
+        # Both targets are "4" → perfect exact_match accuracy.
+        acc_keys = [
+            k for k in result["metrics"] if k.endswith("/accuracy")
+        ]
+        assert acc_keys, f"no accuracy metrics in {result['metrics']}"
+        assert result["metrics"][acc_keys[0]] == 1.0
+
+    def test_passthrough_unmocked_identity_semantics(
+        self, tmp_path,
+    ) -> None:
+        # SCENARIO: Live EvalTask, identity model, mixed match/mismatch.
+        # WHY: Pin passthrough semantics without mocking the pipeline.
+        # EXPECTED: 50% exact_match accuracy on hello/hello + hello/world.
+        ds = tmp_path / "data.csv"
+        ds.write_text(
+            "input,target\nhello,hello\nhello,world\n",
+            encoding="utf-8",
+        )
+        result = call_tool("mltk_eval", dataset_path=str(ds))
+        assert_ok(result)
+        assert result["model_mode"] == "passthrough"
+        acc_keys = [
+            k for k in result["metrics"] if k.endswith("/accuracy")
+        ]
+        assert acc_keys
+        assert result["metrics"][acc_keys[0]] == 0.5
+        assert result["sample_count"] == 2
