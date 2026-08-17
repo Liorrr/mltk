@@ -20,7 +20,7 @@ mltk compliance-pdf mltk-reports/eu-ai-act-report.html
 
 ## How it works
 
-1. If `weasyprint` is installed (`pip install mltk[pdf]`): generates actual PDF
+1. If `weasyprint` is installed (`pip install mlspec[pdf]`): generates actual PDF
 2. Otherwise: injects `@media print` CSS into the HTML for browser Print-to-PDF
 
 ## Python API

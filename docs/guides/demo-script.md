@@ -2,7 +2,7 @@
 
 **Event:** April 19 presentation
 **Duration:** 16 minutes (2 opening + 12 demo + 1 Q&A intro + 1 closing)
-**Setup:** Python 3.10+, `pip install mltk[cli]`,
+**Setup:** Python 3.10+, `pip install mlspec[cli]`,
 terminal visible to audience.
 
 ---
@@ -201,7 +201,7 @@ Pause. Let hands go up. Nod.
 
 > "This is pytest for ML."
 
-*Let the closing stars and `pip install mltk[cli]` render. Pause. Let it land.*
+*Let the closing stars and `pip install mlspec[cli]` render. Pause. Let it land.*
 
 ---
 
@@ -213,7 +213,7 @@ Pause. Let hands go up. Nod.
 
 ### "Can I use this with my existing pytest suite?"
 
-> "Yes, that's the point. It's a pytest plugin. `pip install mltk` and it auto-registers. Your existing `conftest.py`, fixtures, markers, CI pipeline -- everything works. You just add `from mltk.data import assert_no_nulls` and write tests like you normally do. No new CLI to learn, no separate dashboard to check."
+> "Yes, that's the point. It's a pytest plugin. `pip install mlspec` and it auto-registers. Your existing `conftest.py`, fixtures, markers, CI pipeline -- everything works. You just add `from mltk.data import assert_no_nulls` and write tests like you normally do. No new CLI to learn, no separate dashboard to check."
 
 ### "What about performance overhead?"
 
@@ -233,7 +233,7 @@ Pause. Let hands go up. Nod.
 
 ### "How do I add this to my CI pipeline?"
 
-> "Same as any pytest plugin. In your GitHub Actions YAML: `pip install mltk[cli]`, then `pytest -m ml_data` for data tests, `pytest -m ml_model` for model tests. Add `--mltk-report` for an HTML report, `--mltk-export-json` for machine-readable results. We also have a GitHub App integration that posts results as PR comments."
+> "Same as any pytest plugin. In your GitHub Actions YAML: `pip install mlspec[cli]`, then `pytest -m ml_data` for data tests, `pytest -m ml_model` for model tests. Add `--mltk-report` for an HTML report, `--mltk-export-json` for machine-readable results. We also have a GitHub App integration that posts results as PR comments."
 
 ---
 
@@ -247,7 +247,7 @@ Pause. Let hands go up. Nod.
 > "Third: **red team plus multimodal, zero dependencies**. 56 attack payloads built in, encoding mutations, OWASP mapping -- all running offline with no external APIs. No other tool combines security scanning and evaluation testing in one pip install."
 
 ### Call to Action (15 sec)
-> "`pip install mltk`. The repo is `Liorrr/mltk` on GitHub. Free for internal use. Star it, try it, break it, tell us what's missing."
+> "`pip install mlspec`. The repo is `Liorrr/mltk` on GitHub. Free for internal use. Star it, try it, break it, tell us what's missing."
 
 ### Close (15 sec)
 > "Questions?"
@@ -317,7 +317,7 @@ BEAT 4:  "Generate test data, test RAG, zero human labeling. Runs in CI."
 BEAT 5:  "56 attacks in under a second. Your security gate."
 BEAT 6:  "241 assertions. One pip install. pytest for ML."
 
-CLOSE:   pip install mltk | GitHub: Liorrr/mltk | Elastic 2.0
+CLOSE:   pip install mlspec | GitHub: Liorrr/mltk | Elastic 2.0
          "Questions?"
 ```
 

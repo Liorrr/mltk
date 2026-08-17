@@ -183,7 +183,7 @@ def load_golden(path: str | Path) -> list[dict[str, Any]]:
         except ImportError as err:  # pragma: no cover - optional dep
             raise ValueError(
                 "Reading .parquet golden files requires pandas. "
-                "Install it with: pip install mltk[importer]"
+                "Install it with: pip install mlspec[importer]"
             ) from err
         return pd.read_parquet(p).to_dict("records")
 

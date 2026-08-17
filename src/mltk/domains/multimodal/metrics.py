@@ -11,7 +11,7 @@ Two assertions:
    via cosine similarity.  Two paths:
    - *Zero-dep*: pass pre-computed numpy embeddings.
    - *Model*: pass raw image + text; lazy-imports ``open_clip`` to
-     encode both.  Requires ``pip install mltk[clip]``.
+     encode both.  Requires ``pip install mlspec[clip]``.
 
 2. **Edit preservation** (``assert_edit_preservation``): Measures how
    much an edited image preserves the original.  Two methods:
@@ -63,7 +63,7 @@ def _load_and_resize(
     except ImportError as exc:
         raise ImportError(
             "Pillow is required for image comparison. "
-            "Install it with: pip install mltk[multimodal]  "
+            "Install it with: pip install mlspec[multimodal]  "
             "(or: pip install Pillow)"
         ) from exc
 
@@ -104,7 +104,7 @@ def _get_clip_model(
         raise ImportError(
             "open-clip-torch is required for CLIPScore "
             "with raw image/text inputs. "
-            "Install it with: pip install mltk[clip]  "
+            "Install it with: pip install mlspec[clip]  "
             "(or: pip install open-clip-torch)"
         ) from exc
 
@@ -134,7 +134,7 @@ def _encode_clip(
     except ImportError as exc:
         raise ImportError(
             "PyTorch is required for CLIPScore model path. "
-            "Install it with: pip install mltk[clip]  "
+            "Install it with: pip install mlspec[clip]  "
             "(or: pip install torch)"
         ) from exc
 
@@ -143,7 +143,7 @@ def _encode_clip(
     except ImportError as exc:
         raise ImportError(
             "Pillow is required for CLIPScore model path. "
-            "Install it with: pip install mltk[multimodal]  "
+            "Install it with: pip install mlspec[multimodal]  "
             "(or: pip install Pillow)"
         ) from exc
 
@@ -195,7 +195,7 @@ def assert_clip_score(
 
     2. **Model path**: Pass ``image`` (file/bytes) and ``text``
        (string).  mltk lazy-imports ``open_clip`` to encode both.
-       Requires ``pip install mltk[clip]``.
+       Requires ``pip install mlspec[clip]``.
 
     Why 0.25 default?  CLIP cosine similarities are lower than
     typical embedding spaces.  ViT-B/32 matched pairs score
@@ -374,7 +374,7 @@ def assert_edit_preservation(
         except ImportError as exc:
             raise ImportError(
                 "scikit-image is required for SSIM comparison. "
-                "Install it with: pip install mltk[multimodal]  "
+                "Install it with: pip install mlspec[multimodal]  "
                 "(or: pip install scikit-image)"
             ) from exc
 

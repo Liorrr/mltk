@@ -10,7 +10,7 @@ The definitive guide for deploying, operating, and monitoring mltk in production
 
 ```bash
 # Install server extras (FastAPI + uvicorn)
-pip install mltk[server]
+pip install mlspec[server]
 
 # Generate an API key
 mltk server-create-key --project my-project
@@ -597,7 +597,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install mltk[all]
+          pip install mlspec[all]
           pip install -r requirements.txt
 
       # Smoke tests on every push (fast, <2 min)
@@ -757,7 +757,7 @@ ml-tests:
     MLTK_DRIFT_METHOD: psi
     MLTK_DRIFT_THRESHOLD: "0.1"
   script:
-    - pip install mltk[all]
+    - pip install mlspec[all]
     - pip install -r requirements.txt
     - pytest --mltk-report --mltk-export-json results.json -q
   artifacts:
@@ -774,7 +774,7 @@ nightly-drift:
   stage: test
   image: python:3.12
   script:
-    - pip install mltk[all]
+    - pip install mlspec[all]
     - pytest -m "ml_drift or ml_model" --mltk-report --mltk-export-json results.json -q
   artifacts:
     when: always
@@ -817,7 +817,7 @@ pipeline {
     stages {
         stage('Install') {
             steps {
-                sh 'pip install mltk[all] -r requirements.txt'
+                sh 'pip install mlspec[all] -r requirements.txt'
             }
         }
         stage('ML Tests') {
@@ -874,7 +874,7 @@ steps:
       versionSpec: '3.12'
 
   - script: |
-      pip install mltk[all]
+      pip install mlspec[all]
       pip install -r requirements.txt
     displayName: 'Install dependencies'
 
@@ -907,7 +907,7 @@ steps:
 set -euo pipefail
 
 # Install
-pip install mltk[all]
+pip install mlspec[all]
 pip install -r requirements.txt
 
 # Run tests with JSON export
@@ -1158,7 +1158,7 @@ mltk can validate ML model endpoints deployed on major cloud platforms. These as
 ### AWS SageMaker
 
 ```bash
-pip install mltk[aws]
+pip install mlspec[aws]
 ```
 
 ```python
@@ -1181,7 +1181,7 @@ assert_endpoint_error_rate("my-model-endpoint", max_rate=0.01)
 ### GCP Vertex AI
 
 ```bash
-pip install mltk[gcp]
+pip install mlspec[gcp]
 ```
 
 ```python
@@ -1194,7 +1194,7 @@ assert_prediction_latency("my-endpoint", max_p99_ms=500)
 ### Azure ML
 
 ```bash
-pip install mltk[azure]
+pip install mlspec[azure]
 ```
 
 ```python
@@ -1265,7 +1265,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install mltk[all]
+      - run: pip install mlspec[all]
       - run: pytest tests/monitoring/ --mltk-report --mltk-export-json results.json -q
       - run: |
           curl -sf -X POST "${{ secrets.MLTK_SERVER_URL }}/api/runs" \
@@ -1702,7 +1702,7 @@ mltk doctor -- environment diagnostics
 [OK  ] mltk.yaml config found
 [OK  ] Report directory exists: ./mltk-reports
 [FAIL] Rust extension not available -- using pure-Python fallback
-         -> pip install mltk[rust]
+         -> pip install mlspec[rust]
 [OK  ] pytest plugin: registered
 [OK  ] Config valid: no misconfigurations
 ============================================================
@@ -1733,7 +1733,7 @@ Each check returns a **fix hint** when it fails. Exit code is `1` if any check f
 Error: No module named 'fastapi'
 ```
 
-**Fix:** Install server extras: `pip install mltk[server]`
+**Fix:** Install server extras: `pip install mlspec[server]`
 
 ```
 Address already in use
@@ -1841,7 +1841,7 @@ SyntaxError: future feature annotations is not defined
 This is not an error. mltk includes optional Rust-accelerated functions (KS test, PSI, cosine similarity, PII scanning) that are 10-100x faster. If the Rust extension is not available, pure-Python fallbacks are used automatically. Performance-critical deployments should ensure the binary wheel is installed:
 
 ```bash
-pip install mltk  # binary wheel includes Rust extension on supported platforms
+pip install mlspec  # binary wheel includes Rust extension on supported platforms
 ```
 
 ---
@@ -1852,8 +1852,8 @@ pip install mltk  # binary wheel includes Rust extension on supported platforms
 
 ```bash
 # Install
-pip install mltk[server]            # server + dashboard
-pip install mltk[all]               # everything
+pip install mlspec[server]            # server + dashboard
+pip install mlspec[all]               # everything
 
 # Server
 mltk server                         # start (localhost:8080)

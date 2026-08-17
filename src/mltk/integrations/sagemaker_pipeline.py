@@ -70,7 +70,7 @@ def _get_sagemaker_client(region: str) -> Any:
     except ImportError as exc:
         raise ImportError(
             "boto3 is required for SageMaker Pipeline assertions. "
-            "Install it with: pip install mltk[aws]"
+            "Install it with: pip install mlspec[aws]"
         ) from exc
 
     return boto3.client("sagemaker", region_name=region)

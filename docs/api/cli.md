@@ -3,7 +3,7 @@
 mltk provides a command-line interface for quick data quality checks, test execution, compliance reporting, and server management — all without writing Python code.
 
 ```bash
-pip install mltk[cli]
+pip install mlspec[cli]
 ```
 
 ---
@@ -93,7 +93,7 @@ mltk doctor
 # [OK  ] mltk.yaml config found
 # [OK  ] Report directory exists: ./mltk-reports
 # [FAIL] Rust extension not available — using pure-Python fallback
-#          -> pip install mltk[rust]
+#          -> pip install mlspec[rust]
 # ============================================================
 # Summary: 5 OK, 1 warnings, 1 failures
 ```
@@ -191,7 +191,7 @@ See [FDA Audit Trail](fda-audit.md) for the full format specification.
 ---
 
 ### mltk compliance-pdf
-Convert an HTML compliance report (EU AI Act or OWASP) to a print-ready PDF. Requires the `weasyprint` package (`pip install mltk[pdf]`).
+Convert an HTML compliance report (EU AI Act or OWASP) to a print-ready PDF. Requires the `weasyprint` package (`pip install mlspec[pdf]`).
 
 ```bash
 # First generate the HTML report
@@ -449,7 +449,7 @@ mltk server --host 0.0.0.0 --port 9000 --db /data/mltk.db
 | `--port` | `8080` | Port to listen on |
 | `--db` | `mltk_server.db` | SQLite database path |
 
-Requires `pip install mltk[server]`. See [Server Platform](server-platform.md).
+Requires `pip install mlspec[server]`. See [Server Platform](server-platform.md).
 
 ### mltk server-create-key
 Generate an API key for authenticating against the mltk server. Prints the raw key once — store it securely.

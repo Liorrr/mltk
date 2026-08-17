@@ -18,7 +18,7 @@ You write test suites for a living. mltk gives you **118 ready-made assertions**
 ## Quick start (5 minutes)
 
 ```bash
-pip install mltk[cli,report]
+pip install mlspec[cli,report]
 mltk init
 pytest --mltk-report -v
 ```

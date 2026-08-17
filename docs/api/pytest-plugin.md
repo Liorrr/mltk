@@ -1,6 +1,6 @@
 # pytest Plugin
 
-mltk includes a pytest plugin that auto-registers when you `pip install mltk`. It provides ML-specific markers for test categorization, fixtures for configuration, and a `--mltk-report` flag for test summary output.
+mltk includes a pytest plugin that auto-registers when you `pip install mlspec`. It provides ML-specific markers for test categorization, fixtures for configuration, and a `--mltk-report` flag for test summary output.
 
 **Module:** `mltk.pytest_plugin`
 
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install mltk[sklearn]
+      - run: pip install mlspec[sklearn]
       - run: pytest -m "ml_data or ml_smoke" --mltk-report  # Fast tests on PR
 
   ml-full:

@@ -10,8 +10,8 @@ evaluations appear in one dashboard -- not two separate tools.
 **Install:**
 
 ```bash
-pip install mltk[phoenix]    # arize-phoenix-evals + arize-phoenix-otel
-pip install mltk[langfuse]   # langfuse >= 4.0
+pip install mlspec[phoenix]    # arize-phoenix-evals + arize-phoenix-otel
+pip install mlspec[langfuse]   # langfuse >= 4.0
 ```
 
 ---
@@ -550,10 +550,10 @@ assert not failures, f"{len(failures)} traces failed quality gate:\n" + \
 
 | Integration | Install command | Adds |
 |-------------|----------------|------|
-| Phoenix adapter | `pip install mltk[phoenix]` | `arize-phoenix-otel`, `arize-phoenix-evals` |
-| Langfuse adapter | `pip install mltk[langfuse]` | `langfuse>=4.0` |
-| Both | `pip install mltk[phoenix,langfuse]` | All of the above |
-| OTEL only (Jaeger/Tempo) | `pip install mltk[otel]` | `opentelemetry-*` packages |
+| Phoenix adapter | `pip install mlspec[phoenix]` | `arize-phoenix-otel`, `arize-phoenix-evals` |
+| Langfuse adapter | `pip install mlspec[langfuse]` | `langfuse>=4.0` |
+| Both | `pip install mlspec[phoenix,langfuse]` | All of the above |
+| OTEL only (Jaeger/Tempo) | `pip install mlspec[otel]` | `opentelemetry-*` packages |
 
 All adapters follow the graceful degradation pattern from `MltkTracer`: if the
 optional package is not installed, importing the adapter raises a clear `ImportError`

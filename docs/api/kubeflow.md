@@ -4,7 +4,7 @@ Validate Kubeflow pipeline runs, step outputs, and artifact integrity from your 
 
 **Module:** `mltk.integrations.kubeflow`
 
-**Install:** `pip install mltk[kubeflow]`
+**Install:** `pip install mlspec[kubeflow]`
 
 ---
 

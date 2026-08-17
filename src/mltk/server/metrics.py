@@ -1,6 +1,6 @@
 """Prometheus metrics for mltk server.
 
-Enable with: ``pip install mltk[metrics]``.
+Enable with: ``pip install mlspec[metrics]``.
 
 Metrics are exposed at ``/metrics`` in Prometheus exposition format when the
 FastAPI app mounts :func:`metrics_response`. If ``prometheus_client`` is not

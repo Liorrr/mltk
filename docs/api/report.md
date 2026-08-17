@@ -162,7 +162,7 @@ pipeline {
     stages {
         stage('ML Tests') {
             steps {
-                sh 'pip install mltk[cli]'
+                sh 'pip install mlspec[cli]'
                 sh 'pytest --mltk-export-json results.json tests/'
                 sh '''python -c "
 from mltk.report.junit import export_junit_xml
@@ -188,7 +188,7 @@ export_junit_xml(results, 'mltk-results.xml')
 ml-tests:
   stage: test
   script:
-    - pip install mltk[cli]
+    - pip install mlspec[cli]
     - pytest --mltk-export-json results.json tests/
     - python -c "
         from mltk.report.junit import export_junit_xml;
@@ -207,7 +207,7 @@ ml-tests:
 ```yaml
 - name: Run ML tests
   run: |
-    pip install mltk[cli]
+    pip install mlspec[cli]
     pytest --mltk-export-json results.json tests/
     python -c "
     from mltk.report.junit import export_junit_xml

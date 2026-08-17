@@ -1180,7 +1180,7 @@ mltk ships a self-hosted test results platform (FastAPI + SQLite). Think of it a
 
 ```bash
 # Install server dependencies
-pip install "mltk[server]"
+pip install "mlspec[server]"
 
 # Start the server
 uvicorn mltk.server.app:create_app --factory --host 0.0.0.0 --port 8080
@@ -1453,7 +1453,7 @@ scipy (if installed)
 pure numpy / Python stdlib (always works)
 ```
 
-Users who install mltk with `pip install mltk` get numpy-based fallbacks. The Rust extension is compiled into the wheel on PyPI for supported platforms. Building from source gives users the Rust path even on unsupported platforms.
+Users who install mltk with `pip install mlspec` get numpy-based fallbacks. The Rust extension is compiled into the wheel on PyPI for supported platforms. Building from source gives users the Rust path even on unsupported platforms.
 
 ### Benchmarks (Criterion)
 

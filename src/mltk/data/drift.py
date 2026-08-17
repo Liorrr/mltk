@@ -300,7 +300,7 @@ def _drift_chi2(
     except ImportError as err:
         raise ImportError(
             "scipy is required for chi2 drift detection. "
-            "Install with: pip install mltk[scipy]"
+            "Install with: pip install mlspec[scipy]"
         ) from err
 
     ref_counts = reference.value_counts()

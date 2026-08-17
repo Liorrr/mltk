@@ -4,7 +4,7 @@ CV-specific assertions for object detection (IoU, mAP), video analytics (frame a
 
 **Module:** `mltk.domains.cv`
 
-**Install:** `pip install mltk[cv]`
+**Install:** `pip install mlspec[cv]`
 
 ---
 

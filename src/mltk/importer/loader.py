@@ -92,7 +92,7 @@ class DatasetImporter:
             if not _DATASETS_AVAILABLE:
                 raise ImportError(
                     f"HuggingFace `datasets` package is required to load '{source}'. "
-                    "Install with: pip install mltk[importer]"
+                    "Install with: pip install mlspec[importer]"
                 )
             columns, dtypes, rows = _load_hf_dataset(source, split=split)
 

@@ -32,7 +32,7 @@ def assert_wer(
         import jiwer
     except ImportError as err:
         raise ImportError(
-            "jiwer is required for WER computation. Install: pip install mltk[speech]"
+            "jiwer is required for WER computation. Install: pip install mlspec[speech]"
         ) from err
 
     wer_value = float(jiwer.wer(references, hypotheses))
@@ -78,7 +78,7 @@ def assert_cer(
         import jiwer
     except ImportError as err:
         raise ImportError(
-            "jiwer is required for CER computation. Install: pip install mltk[speech]"
+            "jiwer is required for CER computation. Install: pip install mlspec[speech]"
         ) from err
 
     cer_value = float(jiwer.cer(references, hypotheses))

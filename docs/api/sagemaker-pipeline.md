@@ -4,7 +4,7 @@ Validate SageMaker pipeline executions, step-level status, and cross-step data f
 
 **Module:** `mltk.integrations.sagemaker_pipeline`
 
-**Install:** `pip install mltk[aws]`
+**Install:** `pip install mlspec[aws]`
 
 ---
 
@@ -328,7 +328,7 @@ jobs:
         timeout-minutes: 120
 
       - name: Install mltk
-        run: pip install "mltk[aws]"
+        run: pip install "mlspec[aws]"
 
       - name: Verify pipeline with mltk
         env:

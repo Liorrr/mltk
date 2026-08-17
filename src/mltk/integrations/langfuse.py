@@ -140,7 +140,7 @@ class LangfuseAdapter:
         except ImportError as exc:
             raise ImportError(
                 "langfuse is required for LangfuseAdapter. "
-                "Install it with: pip install mltk[langfuse]  "
+                "Install it with: pip install mlspec[langfuse]  "
                 "(or: pip install langfuse)"
             ) from exc
         self._langfuse = Langfuse()

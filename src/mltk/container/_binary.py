@@ -46,7 +46,7 @@ def find_trivy_binary() -> str:
                 return str(bin_path)
 
     raise ImportError(
-        "Trivy binary not found. Install via: pip install mltk[container] "
+        "Trivy binary not found. Install via: pip install mlspec[container] "
         "or install Trivy separately: "
         "https://trivy.dev/latest/getting-started/installation/"
     )

@@ -158,7 +158,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install mltk
-        run: pip install mltk[all]
+        run: pip install mlspec[all]
 
       - name: Run canary validation
         run: |
@@ -237,7 +237,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install mltk[all]
+      - run: pip install mlspec[all]
       - run: pytest tests/test_canary.py --mltk-server $MLTK_SERVER -q
         env:
           MLTK_SERVER: ${{ secrets.MLTK_SERVER }}

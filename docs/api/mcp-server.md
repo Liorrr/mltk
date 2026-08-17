@@ -46,7 +46,7 @@ make ML quality gating fully automated.
 **Step 1 — Install mltk with MCP support:**
 
 ```bash
-pip install "mltk[mcp]"
+pip install "mlspec[mcp]"
 ```
 
 **Step 2 — Add `.mcp.json` to your project root:**
