@@ -175,6 +175,77 @@ def _resolve_eval_model(
     )
 
 
+# Scorers that exist in mltk.eval but cannot be built from the MCP
+# surface, mapped to why. Every MCP parameter is a string, so a scorer
+# requiring a caller-supplied callable has no way to receive one. These
+# refuse with their own reason rather than the generic unknown-value
+# error, because the name is real and documented — the caller has not
+# made a typo.
+_MCP_UNAVAILABLE_SCORERS: dict[str, str] = {
+    "llm_judge": (
+        "'llm_judge' requires a judge_fn callable, which cannot be "
+        "passed over MCP (every tool parameter is a string). Use the "
+        "Python API instead: EvalTask(scorers=LLMJudgeScorer(judge_fn=...))."
+    ),
+}
+
+
+def _resolve_eval_components(
+    solver: str, scorer: str,
+) -> tuple[Any, Any, str, str]:
+    """Resolve solver/scorer names to classes, refusing unknown values.
+
+    Returns ``(solver_cls, scorer_cls, normalized_solver,
+    normalized_scorer)``. The normalized names are what the caller
+    should echo back, and after this function they are guaranteed to
+    describe what actually ran.
+
+    Raises:
+        ValueError: unknown solver or scorer name, or a scorer that
+            exists but is unusable over MCP (honest refuse — never a
+            silent fallback to a different scorer).
+    """
+    from mltk.eval import (
+        ChainOfThoughtSolver,
+        ExactMatchScorer,
+        FewShotSolver,
+        GenerateSolver,
+        IncludesScorer,
+        PatternScorer,
+    )
+
+    solver_map = {
+        "generate": GenerateSolver,
+        "chain_of_thought": ChainOfThoughtSolver,
+        "few_shot": FewShotSolver,
+    }
+    scorer_map = {
+        "exact_match": ExactMatchScorer,
+        "includes": IncludesScorer,
+        "pattern": PatternScorer,
+    }
+
+    # An omitted/blank value means "use the documented default", which
+    # matches how model_mode treats "". An unrecognized value does not.
+    sk = (solver or "").strip().lower() or "generate"
+    rk = (scorer or "").strip().lower() or "exact_match"
+
+    if sk not in solver_map:
+        raise ValueError(
+            f"Unknown solver={solver!r}. Supported: "
+            f"{', '.join(sorted(solver_map))}."
+        )
+    if rk in _MCP_UNAVAILABLE_SCORERS:
+        raise ValueError(_MCP_UNAVAILABLE_SCORERS[rk])
+    if rk not in scorer_map:
+        raise ValueError(
+            f"Unknown scorer={scorer!r}. Supported: "
+            f"{', '.join(sorted(scorer_map))}."
+        )
+
+    return solver_map[sk], scorer_map[rk], sk, rk
+
+
 # ----- Workflow hints for agent orchestration -----
 
 _WORKFLOW_HINTS: dict[str, dict[str, Any]] = {
@@ -523,24 +594,22 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         where the callable is ``(prompt: str) -> str``. Only load trusted
         callables (local import). Unknown modes refuse honestly.
 
+        Unknown ``solver``/``scorer`` values refuse with a recoverable
+        error listing the supported names — they are never silently
+        replaced by a default, so the ``solver``/``scorer`` echoed in the
+        response always names what actually ran.
+
         Args:
             dataset_path: Path to CSV/JSON with 'input'
                 and 'target' columns.
-            scorer: exact_match, includes, or pattern.
+            scorer: exact_match, includes, or pattern. ``llm_judge``
+                is not available here — it needs a judge callable.
             solver: generate, chain_of_thought, few_shot.
             model_mode: ``passthrough`` (default) or ``module``.
             model_ref: Required for ``module`` —
                 ``package.module:callable_name``.
         """
         try:
-            from mltk.eval import (
-                ChainOfThoughtSolver,
-                ExactMatchScorer,
-                FewShotSolver,
-                GenerateSolver,
-                IncludesScorer,
-                PatternScorer,
-            )
             from mltk.eval.task import (
                 EvalTask,
                 load_dataset,
@@ -554,24 +623,22 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             samples = load_dataset(str(target))
             if not samples:
                 return _error("Dataset is empty.")
-            solver_map = {
-                "generate": GenerateSolver,
-                "chain_of_thought": ChainOfThoughtSolver,
-                "few_shot": FewShotSolver,
-            }
-            scorer_map = {
-                "exact_match": ExactMatchScorer,
-                "includes": IncludesScorer,
-                "pattern": PatternScorer,
-            }
-            sk = solver.strip().lower()
-            rk = scorer.strip().lower()
-            solver_cls = solver_map.get(
-                sk, GenerateSolver
-            )
-            scorer_cls = scorer_map.get(
-                rk, ExactMatchScorer
-            )
+
+            try:
+                solver_cls, scorer_cls, sk, rk = (
+                    _resolve_eval_components(
+                        solver=solver, scorer=scorer,
+                    )
+                )
+            except ValueError as exc:
+                return _error(
+                    str(exc),
+                    suggested_action=(
+                        "Pass a supported solver/scorer name, or use "
+                        "the Python EvalTask API for scorers that need "
+                        "a callable."
+                    ),
+                )
 
             try:
                 model_fn, norm_mode, model_label = (
