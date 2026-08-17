@@ -261,6 +261,11 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] Golden-set binding (S99) — `bind_golden()` maps a provided golden/reference file onto imported samples (key-column or row-order join); samples with no exact golden are stamped `"judge"` and the emitted scaffold falls back to `assert_llm_judge_score` (opt-in via `--judge`).
 - [ ] Pluggable source adapters — HuggingFace first; design for Kaggle, OpenML, local files, and object storage later *(deferred beyond the epic)*
 
+### Test-integrity cleanup — found 2026-08-17
+*Surfaced while unbreaking master after `96b1270` (see the PR that added this entry).*
+- [ ] **Self-referential install-hint fixtures pin nothing.** `tests/test_data/test_pii_ner.py:330`, `tests/test_domains/test_llm_s68.py:170`, and `tests/test_domains/test_multimodal_v2.py:450` each mock an `ImportError` with text they invent, then assert on that same text. They still name `mltk[...]` and pass, and would stay green through any rename — they test the mock, not the source. Either assert against the real message or drop the assertion. Same shape as the `test_doctor.py` gap that let three wrong `pip install` hints ship undetected.
+- [ ] **Audit for the general pattern** — grep for tests that construct a message and assert on it in the same body. The install-hint family is unlikely to be the only instance.
+
 ### Monetization (Pro tier)
 - [ ] Cloud dashboard: hosted report aggregation, team views
 - [ ] Multi-tenant server with SSO
