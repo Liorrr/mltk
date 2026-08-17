@@ -507,11 +507,11 @@ class TestLoadHuggingFaceHub:
         # SCENARIO: `datasets` extra not installed, unmocked HF-id load
         # WHY: contract requires a clear install hint, not a bare
         #   ModuleNotFoundError
-        # EXPECTED: ImportError mentioning "pip install mltk[importer]"
+        # EXPECTED: ImportError mentioning "pip install mlspec[importer]"
         with patch("mltk.importer.loader._DATASETS_AVAILABLE", False):
             with pytest.raises(ImportError) as exc:
                 DatasetImporter.load("some/hf-dataset-id")
-        assert "pip install mltk[importer]" in str(exc.value)
+        assert "pip install mlspec[importer]" in str(exc.value)
 
     def test_hf_load_computes_dtypes_and_mapping_roles(self):
         # SCENARIO: mocked HF dataset with a string column and a

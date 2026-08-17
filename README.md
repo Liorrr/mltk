@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-4964%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-4966%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 > **Install name:** On PyPI the distribution is **`mlspec`**. After install, imports and the CLI stay **`mltk`** (`import mltk`, `mltk scan`). Do **not** `pip install mltk` — that name is a different, unrelated package.
