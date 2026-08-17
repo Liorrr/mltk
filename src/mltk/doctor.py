@@ -64,17 +64,20 @@ def _check_core_deps() -> list[DiagnosticResult]:
 
 def _check_optional_deps() -> list[DiagnosticResult]:
     """Optional extras — WARN if missing, not FAIL."""
+    # Extras are keyed on the PyPI distribution name (`mlspec`), not the
+    # import/CLI name (`mltk`) — `pip install mltk[...]` resolves to an
+    # unrelated project. See docs/INSTALL.md.
     optional: list[tuple[str, str]] = [
-        ("scipy", "mltk[scipy]"),
-        ("sklearn", "mltk[sklearn]"),
-        ("typer", "mltk[cli]"),
-        ("rich", "mltk[cli]"),
-        ("plotly", "mltk[report]"),
-        ("jinja2", "mltk[report]"),
-        ("yaml", "mltk[contracts]"),
-        ("nltk", "mltk[nlp]"),
-        ("jiwer", "mltk[speech]"),
-        ("cv2", "mltk[cv]"),
+        ("scipy", "mlspec[scipy]"),
+        ("sklearn", "mlspec[sklearn]"),
+        ("typer", "mlspec[cli]"),
+        ("rich", "mlspec[cli]"),
+        ("plotly", "mlspec[report]"),
+        ("jinja2", "mlspec[report]"),
+        ("yaml", "mlspec[contracts]"),
+        ("nltk", "mlspec[nlp]"),
+        ("jiwer", "mlspec[speech]"),
+        ("cv2", "mlspec[cv]"),
     ]
     results = []
     for module, extra in optional:
@@ -185,7 +188,7 @@ def _check_rust_extension() -> DiagnosticResult:
             message="Rust extension not available — using Python fallback (slower)",
             fix_hint=(
                 "Install from source with Rust toolchain: "
-                "pip install mlspec --no-binary mltk  "
+                "pip install mlspec --no-binary mlspec  "
                 "(requires cargo)"
             ),
         )
@@ -199,7 +202,7 @@ def _check_pytest_plugin() -> DiagnosticResult:
             name="pytest plugin",
             status="WARN",
             message="mltk.pytest_plugin.plugin module not found",
-            fix_hint="Reinstall mltk: pip install --force-reinstall mltk",
+            fix_hint="Reinstall mltk: pip install --force-reinstall mlspec",
         )
 
     # Check entry point registration
