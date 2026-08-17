@@ -177,7 +177,7 @@ def _get_presidio_analyzer() -> Any:
     except ImportError as exc:
         raise ImportError(
             "Presidio is required for NER-based PII detection. "
-            "Install it with: pip install mltk[ner]  "
+            "Install it with: pip install mlspec[ner]  "
             "(or: pip install presidio-analyzer spacy && "
             "python -m spacy download en_core_web_lg)"
         ) from exc
@@ -213,7 +213,7 @@ def _get_gliner_model(model_name: str) -> Any:
     except ImportError as exc:
         raise ImportError(
             "GLiNER is required for zero-shot NER PII detection. "
-            "Install it with: pip install mltk[gliner]  "
+            "Install it with: pip install mlspec[gliner]  "
             "(or: pip install gliner)"
         ) from exc
 

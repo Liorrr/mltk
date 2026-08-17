@@ -34,7 +34,7 @@ def assert_bleu(
         from nltk.translate.bleu_score import SmoothingFunction, corpus_bleu
     except ImportError as err:
         raise ImportError(
-            "nltk is required for BLEU scoring. Install: pip install mltk[nlp]"
+            "nltk is required for BLEU scoring. Install: pip install mlspec[nlp]"
         ) from err
 
     # Tokenize
@@ -88,7 +88,7 @@ def assert_rouge(
         from rouge_score import rouge_scorer
     except ImportError as err:
         raise ImportError(
-            "rouge-score is required for ROUGE scoring. Install: pip install mltk[nlp]"
+            "rouge-score is required for ROUGE scoring. Install: pip install mlspec[nlp]"
         ) from err
 
     scorer = rouge_scorer.RougeScorer([variant], use_stemmer=True)

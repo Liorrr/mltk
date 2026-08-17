@@ -335,7 +335,7 @@ class TestSagemakerStepStatus:
 
         WHY: SageMaker assertions require the AWS SDK.  When it is
         missing, the error must be actionable: tell the user exactly what
-        package to install (``pip install mltk[aws]``), not just show a
+        package to install (``pip install mlspec[aws]``), not just show a
         bare ModuleNotFoundError traceback.
 
         EXPECTED: MltkAssertionError raised, message contains
@@ -364,7 +364,7 @@ class TestSagemakerStepStatus:
                     step_name="Train",
                 )
 
-        assert "mltk[aws]" in exc_info.value.result.message
+        assert "mlspec[aws]" in exc_info.value.result.message
 
 
 # -------------------------------------------------------------------

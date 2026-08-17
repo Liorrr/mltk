@@ -24,7 +24,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install mltk[all]
+          pip install mlspec[all]
           pip install -r requirements.txt
 
       - name: Run ML tests
@@ -72,7 +72,7 @@ ml-tests:
   stage: test
   image: python:3.12
   script:
-    - pip install mltk[all]
+    - pip install mlspec[all]
     - pytest --mltk-report --mltk-export-json results.json -q
   artifacts:
     when: always
@@ -95,7 +95,7 @@ pipeline {
     stages {
         stage('Install') {
             steps {
-                sh 'pip install mltk[all]'
+                sh 'pip install mlspec[all]'
                 sh 'pip install -r requirements.txt'
             }
         }
@@ -139,7 +139,7 @@ steps:
       versionSpec: '3.12'
 
   - script: |
-      pip install mltk[all]
+      pip install mlspec[all]
       pip install -r requirements.txt
     displayName: 'Install dependencies'
 
@@ -246,7 +246,7 @@ Run mltk tests in a container:
 
 ```dockerfile
 FROM python:3.12-slim
-RUN pip install mltk[all]
+RUN pip install mlspec[all]
 COPY . /app
 WORKDIR /app
 CMD ["pytest", "--mltk-report", "--mltk-export-json", "results.json", "-q"]

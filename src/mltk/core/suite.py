@@ -318,7 +318,7 @@ class MltkSuite:
 
         Delegates to :func:`mltk.report.generator.generate_report`.
         Requires the ``jinja2`` package (install via
-        ``pip install mltk[report]``).
+        ``pip install mlspec[report]``).
 
         Args:
             path: Destination file path (e.g. ``"report.html"``).

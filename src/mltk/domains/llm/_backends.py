@@ -45,7 +45,7 @@ def _load_sentence_model(model_name: str):  # noqa: ANN201
         raise ImportError(
             "sentence-transformers is required for "
             "embedding-based methods. "
-            "Install with: pip install mltk[embedding]"
+            "Install with: pip install mlspec[embedding]"
         ) from None
     revision = _MODEL_REVISIONS.get(model_name)
     kwargs: dict[str, str] = {}
@@ -111,7 +111,7 @@ def _load_nli_model(model_name: str):  # noqa: ANN201
         raise ImportError(
             "sentence-transformers is required for "
             "NLI-based methods. "
-            "Install with: pip install mltk[nli]"
+            "Install with: pip install mlspec[nli]"
         ) from None
     revision = _MODEL_REVISIONS.get(model_name)
     kwargs = {}

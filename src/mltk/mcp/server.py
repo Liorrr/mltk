@@ -274,7 +274,7 @@ def create_server() -> FastMCP:
     if FastMCP is None:
         raise ImportError(
             "The 'mcp' package is required. "
-            "Install with: pip install mltk[mcp]"
+            "Install with: pip install mlspec[mcp]"
         )
     mcp = FastMCP(
         "mltk", version=__version__,
@@ -1141,7 +1141,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             return _error(
                 str(exc),
                 recoverable=True,
-                suggested_action="Install the container extra: pip install mltk[container]",
+                suggested_action="Install the container extra: pip install mlspec[container]",
             )
         try:
             # Run both assertions.  MltkAssertionError = policy threshold exceeded
@@ -1237,7 +1237,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 str(exc),
                 recoverable=True,
                 suggested_action=(
-                    "Install the importer extra: pip install mltk[importer]"
+                    "Install the importer extra: pip install mlspec[importer]"
                 ),
             )
 

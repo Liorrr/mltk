@@ -693,7 +693,7 @@ def assert_no_pii(
         PII (API keys, credit cards, SSNs). No extra dependencies.
       - ``"ner"`` -- Microsoft Presidio with spaCy NER for contextual
         PII (names, organizations, locations). Requires:
-        ``pip install mltk[ner]``.
+        ``pip install mlspec[ner]``.
       - ``"gliner"`` -- zero-shot NER for domain-specific PII types.
         Requires: ``pip install gliner``.
       - ``"hybrid"`` -- regex + NER combined. Best coverage.

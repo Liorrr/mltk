@@ -4,7 +4,7 @@ Trace mltk assertion execution with OpenTelemetry -- per-assertion timing, failu
 
 **Module:** `mltk.integrations.otel`
 
-**Install:** `pip install mltk[otel]`
+**Install:** `pip install mlspec[otel]`
 
 ---
 
@@ -71,7 +71,7 @@ OpenTelemetry is the **CNCF standard** for observability. By emitting OTEL spans
 
 ML testing runs in diverse environments: CI pipelines, local laptops, air-gapped servers, Jupyter notebooks. Requiring `opentelemetry-sdk` as a hard dependency would break installs in constrained environments. Instead:
 
-- **With OTEL installed** (`pip install mltk[otel]`): full tracing with real spans
+- **With OTEL installed** (`pip install mlspec[otel]`): full tracing with real spans
 - **Without OTEL**: all methods silently no-op, `export_json` still works (pure dict → JSON)
 - **Your code stays the same** — instrument once, activate when ready
 
@@ -150,7 +150,7 @@ MltkTracer operates in one of two modes, determined automatically at initializat
 **Real mode** (OpenTelemetry SDK is installed). The tracer creates actual OTEL spans that are exported to your tracing backend. Spans carry structured attributes, timing data, and parent-child relationships. This mode requires `opentelemetry-api`, `opentelemetry-sdk`, and `opentelemetry-exporter-otlp` to be installed.
 
 ```bash
-pip install mltk[otel]
+pip install mlspec[otel]
 # Installs: opentelemetry-api, opentelemetry-sdk, opentelemetry-exporter-otlp-proto-grpc
 ```
 
@@ -633,7 +633,7 @@ pip install arize-phoenix
 phoenix serve  # Runs on http://localhost:6006
 
 # 2. Install mltk with Phoenix support
-pip install mltk[phoenix]
+pip install mlspec[phoenix]
 ```
 
 ```python

@@ -211,7 +211,7 @@ def assert_mcp_tool_schema_conformance(
 
     Uses ``jsonschema.validate()`` under the hood.  The ``jsonschema``
     package is an optional dependency -- install with
-    ``pip install mltk[mcp]`` or ``pip install jsonschema``.
+    ``pip install mlspec[mcp]`` or ``pip install jsonschema``.
 
     Args:
         tool_schema: The ``inputSchema`` dict from the MCP tool
@@ -246,7 +246,7 @@ def assert_mcp_tool_schema_conformance(
             name="llm.mcp.tool_schema_conformance",
             message=(
                 "jsonschema is required for MCP schema conformance "
-                "assertions. Install it with: pip install mltk[mcp]  "
+                "assertions. Install it with: pip install mlspec[mcp]  "
                 "(or: pip install jsonschema)"
             ),
             severity=Severity.CRITICAL,

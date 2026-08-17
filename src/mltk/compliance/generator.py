@@ -59,7 +59,7 @@ def generate_compliance_report(
     except ImportError as err:
         raise ImportError(
             "jinja2 is required for compliance report generation. "
-            "Install with: pip install mltk[report]"
+            "Install with: pip install mlspec[report]"
         ) from err
 
     # Load template

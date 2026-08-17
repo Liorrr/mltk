@@ -77,7 +77,7 @@ conventions. NER catches all three.
 | `hybrid` | regex + NER union | Maximum coverage |
 
 **Install:** `regex` needs no extra deps. `ner` and
-`hybrid` need `pip install mltk[ner]`. `gliner` needs
+`hybrid` need `pip install mlspec[ner]`. `gliner` needs
 `pip install gliner`.
 
 All four methods share the same function signature. The
@@ -555,7 +555,7 @@ on first use. Cached in `~/.cache/huggingface/`.
 ### Regex only (default)
 
 ```bash
-pip install mltk
+pip install mlspec
 ```
 
 No extra dependencies. All 40+ regex patterns are
@@ -564,7 +564,7 @@ built-in.
 ### NER (Presidio + spaCy)
 
 ```bash
-pip install mltk[ner]
+pip install mlspec[ner]
 ```
 
 This installs `presidio-analyzer` and `spacy`. The
@@ -583,7 +583,7 @@ from HuggingFace Hub on first use.
 ### Hybrid
 
 ```bash
-pip install mltk[ner]
+pip install mlspec[ner]
 ```
 
 Hybrid mode uses regex (built-in) + NER (Presidio).
@@ -597,7 +597,7 @@ installed, you get a clear error:
 ```
 ImportError: presidio-analyzer is required for
 NER-based PII detection. Install with:
-    pip install mltk[ner]
+    pip install mlspec[ner]
 ```
 
 Same pattern for GLiNER:

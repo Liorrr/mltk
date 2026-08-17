@@ -4,7 +4,7 @@ Verify DVC-tracked files, data versioning integrity, and pipeline reproducibilit
 
 **Module:** `mltk.integrations.dvc`
 
-**Install:** `pip install mltk[dvc]`
+**Install:** `pip install mlspec[dvc]`
 
 ---
 
@@ -306,7 +306,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: pip install "mltk[dvc]" dvc[s3]
+        run: pip install "mlspec[dvc]" dvc[s3]
 
       - name: Configure DVC remote
         run: dvc remote modify myremote access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}

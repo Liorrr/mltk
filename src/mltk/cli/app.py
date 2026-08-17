@@ -17,7 +17,7 @@ def main() -> None:
     except ImportError as err:
         print(  # noqa: T201
             "Typer is required for the mltk CLI. "
-            "Install it with: pip install mltk[cli]"
+            "Install it with: pip install mlspec[cli]"
         )
         raise SystemExit(1) from err
 
@@ -696,7 +696,7 @@ quality:
         except ImportError as err:
             print(  # noqa: T201
                 "uvicorn is required for the mltk server. "
-                "Install it with: pip install mltk[server]"
+                "Install it with: pip install mlspec[server]"
             )
             raise typer.Exit(1) from err
         from mltk.server import create_app

@@ -26,7 +26,7 @@ def _get_boto3_client(service: str, region: str | None) -> Any:
     except ImportError as exc:
         raise ImportError(
             "boto3 is required for AWS monitoring. "
-            "Install it with: pip install mltk[aws]"
+            "Install it with: pip install mlspec[aws]"
         ) from exc
 
     kwargs: dict[str, Any] = {}

@@ -26,7 +26,7 @@ def _require_aiplatform() -> Any:
     except ImportError as exc:
         raise ImportError(
             "google-cloud-aiplatform is required for GCP monitoring. "
-            "Install it with: pip install mltk[gcp]"
+            "Install it with: pip install mlspec[gcp]"
         ) from exc
 
 
@@ -42,7 +42,7 @@ def _require_monitoring() -> Any:
     except ImportError as exc:
         raise ImportError(
             "google-cloud-monitoring is required for GCP latency monitoring. "
-            "Install it with: pip install mltk[gcp]"
+            "Install it with: pip install mlspec[gcp]"
         ) from exc
 
 

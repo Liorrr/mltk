@@ -19,7 +19,7 @@ Without mltk, Playwright tells you "the search results appeared." With mltk, you
 ## Setup
 
 ```bash
-pip install mltk[all] playwright
+pip install mlspec[all] playwright
 playwright install chromium
 ```
 
@@ -377,7 +377,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install mltk[all] playwright
+          pip install mlspec[all] playwright
           playwright install chromium --with-deps
 
       - name: Start application
