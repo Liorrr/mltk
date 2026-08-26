@@ -275,6 +275,7 @@ Assertions for validating inference latency, throughput, and API contracts.
 | # | Assertion | Module | Description | Since |
 |---|-----------|--------|-------------|-------|
 | 83 | `assert_bleu` | `mltk.domains.nlp.generation` | Verify BLEU score for text generation quality | v0.1.0 |
+| 83a | `assert_chrf` | `mltk.domains.nlp.generation` | Verify chrF / chrF++ score for text generation quality | v0.14.0 |
 | 84 | `assert_rouge` | `mltk.domains.nlp.generation` | Verify ROUGE score (rouge1/rouge2/rougeL) for summarization | v0.1.0 |
 | 85 | `assert_ner_f1` | `mltk.domains.nlp.ner` | Verify named entity recognition F1 score | v0.1.0 |
 | 86 | `assert_no_prompt_injection` | `mltk.domains.nlp.security` | Test model resilience against prompt injection payloads | v0.1.0 |
@@ -712,7 +713,7 @@ from mltk.domains.cv.face import assert_face_far
 from mltk.domains.cv.tracking import assert_mota, assert_motp, assert_idf1
 
 # NLP
-from mltk.domains.nlp.generation import assert_bleu, assert_rouge
+from mltk.domains.nlp.generation import assert_bleu, assert_chrf, assert_rouge
 from mltk.domains.nlp.ner import assert_ner_f1
 from mltk.domains.nlp.security import assert_no_prompt_injection
 from mltk.domains.nlp.sentiment import assert_sentiment_positive, assert_no_sentiment_drift

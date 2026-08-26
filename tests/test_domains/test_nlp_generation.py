@@ -82,6 +82,11 @@ class TestBLEU:
         result = assert_bleu(refs, hyps, min_score=0.3)
         assert result.passed is True
 
+    def test_bleu_rejects_length_mismatch(self) -> None:
+        """USAGE ERROR: references and hypotheses must be parallel lists."""
+        with pytest.raises(ValueError, match="assert_bleu"):
+            assert_bleu(["a"], ["b", "c"], min_score=0.0)
+
 
 class TestROUGE:
     """ROUGE score tests.
@@ -147,3 +152,62 @@ class TestROUGE:
         result = assert_rouge(refs, hyps, variant="rouge1", min_score=0.3)
         assert result.passed is True
         assert result.details["variant"] == "rouge1"
+
+
+class TestCHRF:
+    """chrF (Popović 2015) corpus score, reported in [0, 1]."""
+
+    def test_chrf_identical_is_high(self) -> None:
+        pytest.importorskip("sacrebleu", reason="sacrebleu required for chrF tests")
+        from mltk.domains.nlp.generation import assert_chrf
+
+        refs = ["the cat sat on the mat"]
+        hyps = ["the cat sat on the mat"]
+        result = assert_chrf(refs, hyps, min_score=0.9)
+        assert result.passed
+        assert result.details["score"] == pytest.approx(1.0, abs=0.05)
+
+    def test_chrf_unrelated_fails(self) -> None:
+        pytest.importorskip("sacrebleu", reason="sacrebleu required for chrF tests")
+        from mltk.domains.nlp.generation import assert_chrf
+
+        with pytest.raises(MltkAssertionError):
+            assert_chrf(
+                ["the cat sat on the mat"],
+                ["zzzz unrelated"],
+                min_score=0.5,
+            )
+
+    def test_chrf_score_is_unit_interval(self) -> None:
+        pytest.importorskip("sacrebleu", reason="sacrebleu required for chrF tests")
+        from mltk.domains.nlp.generation import assert_chrf
+
+        result = assert_chrf(["hello world"], ["hello world"], min_score=0.0)
+        assert 0.0 <= result.details["score"] <= 1.0
+
+    def test_chrf_rejects_length_mismatch(self) -> None:
+        pytest.importorskip("sacrebleu", reason="sacrebleu required for chrF tests")
+        from mltk.domains.nlp.generation import assert_chrf
+
+        with pytest.raises(ValueError, match="assert_chrf"):
+            assert_chrf(["a"], ["b", "c"])
+
+    def test_chrf_empty_equal_lists_fail(self) -> None:
+        pytest.importorskip("sacrebleu", reason="sacrebleu required for chrF tests")
+        from mltk.domains.nlp.generation import assert_chrf
+
+        with pytest.raises(MltkAssertionError):
+            assert_chrf([], [], min_score=0.0)
+
+    def test_chrfpp_word_order_two_names_metric(self) -> None:
+        pytest.importorskip("sacrebleu", reason="sacrebleu required for chrF tests")
+        from mltk.domains.nlp.generation import assert_chrf
+
+        result = assert_chrf(
+            ["the cat sat on the mat"],
+            ["the cat sat on the mat"],
+            min_score=0.0,
+            word_order=2,
+        )
+        assert result.passed
+        assert result.name == "nlp.chrfpp"
