@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mltk
+description: mltk server — pytest-for-ML results platform (SQLite, single writer)
+type: application
+version: 0.1.0
+appVersion: "0.13.0"

@@ -1519,7 +1519,9 @@ curl http://mltk-server:8080/api/health
 
 ### Helm Chart Notes
 
-There is no official Helm chart yet. To create one from the Kubernetes manifests above:
+An official chart ships at `charts/mltk`. See [Container Deployment](container-deployment.md#7-helm-chart).
+
+The sample manifests above are still useful as a starting point if you are not using Helm. To turn them into a chart:
 
 1. Template the image tag, resource limits, PVC size, and replica count
 2. Use a `values.yaml` for environment-specific configuration
