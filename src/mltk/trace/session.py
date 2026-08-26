@@ -7,7 +7,13 @@ import time
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from mltk.trace.record import CapturedCall, CaptureRecord
+from mltk.trace.record import (
+    CapturedCall,
+    CaptureRecord,
+    FanoutCall,
+    RetryEvent,
+    SubagentCall,
+)
 from mltk.trace.tier import ClearanceTier
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -30,7 +36,18 @@ class CaptureSession:
         self._output_tokens: int | None = None
         self._stop_reason: str | None = None
         self._api_explicit: int | None = None
+        self._subagents: list[SubagentCall] = []
+        self._fanouts: list[FanoutCall] = []
+        self._retry_events: list[RetryEvent] = []
+        self._cache_hits: int | None = None
+        self._actions: list[str] = []
         self._finished: CaptureRecord | None = None
+
+    def _require_t1(self) -> None:
+        if self.tier is not ClearanceTier.T1:
+            raise ValueError(
+                "T1 observations require CaptureSession(tier=ClearanceTier.T1)"
+            )
 
     def __enter__(self) -> CaptureSession:
         return self
@@ -83,6 +100,34 @@ class CaptureSession:
         """Record one underlying API call when it is not 1:1 with round trips."""
         self._api_explicit = (self._api_explicit or 0) + 1
 
+    def record_subagent(self, name: str, *, duration_ms: float | None = None) -> None:
+        """Record a nested sub-agent start (T1)."""
+        self._require_t1()
+        self._subagents.append(SubagentCall(name=name, duration_ms=duration_ms))
+
+    def record_fanout(self, count: int, *, duration_ms: float | None = None) -> None:
+        """Record a fan-out of API calls (T1)."""
+        self._require_t1()
+        self._fanouts.append(FanoutCall(count=int(count), duration_ms=duration_ms))
+
+    def record_error_retry(self, error: str) -> None:
+        """Record an error hop in the retry chain (T1) and bump T0 retry count."""
+        self._require_t1()
+        self.record_retry()
+        self._retry_events.append(
+            RetryEvent(error=error, attempt=self._retries)
+        )
+
+    def record_cache_hit(self) -> None:
+        """Record one cache hit (T1)."""
+        self._require_t1()
+        self._cache_hits = (self._cache_hits or 0) + 1
+
+    def record_action(self, action: str) -> None:
+        """Append one ordered action-log entry (T1)."""
+        self._require_t1()
+        self._actions.append(action)
+
     def finish(self) -> CaptureRecord:
         """Freeze the session into a :class:`CaptureRecord`."""
         if self._finished is not None:
@@ -104,6 +149,13 @@ class CaptureSession:
             stop_reason=self._stop_reason,
             per_hop_latency_ms=tuple(self._hops) if self._hops else None,
             total_duration_ms=sum(self._hops) if self._hops else None,
+            subagent_calls=tuple(self._subagents) if self._subagents else None,
+            fanout_api_calls=tuple(self._fanouts) if self._fanouts else None,
+            error_retry_chain=(
+                tuple(self._retry_events) if self._retry_events else None
+            ),
+            cache_hits=self._cache_hits,
+            action_log=tuple(self._actions) if self._actions else None,
         )
         return self._finished
 
