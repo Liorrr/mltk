@@ -54,3 +54,27 @@ assert_tool_chain(to_agent_trace(record), expected_tools=["search"])
 those legacy types use `int` / `float`. Honesty stays on `CaptureRecord`.
 `to_quality_dict` *omits* `None` keys so `assert_trace_quality` skip-if-missing
 still applies.
+
+---
+
+## T1 instrumented client
+
+Wrap any callable. Nested sub-agents share the session. Unobserved T1
+fields stay `None`. T2 fields stay `None`.
+
+```python
+from mltk.trace import CaptureSession, ClearanceTier, InstrumentedClient
+
+with CaptureSession(tier=ClearanceTier.T1) as cap:
+    client = InstrumentedClient(model_fn, session=cap)
+    writer = client.subagent("writer")
+    writer.call("draft this")
+    client.fanout(["q1", "q2"])
+    client.cache_hit()
+record = cap.finish()
+assert record.subagent_calls[0].name == "writer"
+assert record.cache_hits == 1
+assert record.logprobs is None
+```
+
+A T0 session cannot construct `InstrumentedClient` (raises `ValueError`).
