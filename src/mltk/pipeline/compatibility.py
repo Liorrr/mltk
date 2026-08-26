@@ -46,11 +46,31 @@ def _canonical_dtype(dtype: str) -> str:
         return lowered
 
 
+def _dtype_compatible(produced: str, required: str, *, allow_widening: bool) -> bool:
+    """Return True if *produced* satisfies *required*.
+
+    Exact match after canonicalization always succeeds. When
+    ``allow_widening`` is True, a produced dtype that NumPy can safely
+    cast to the required dtype also succeeds (e.g. int32 → int64).
+    """
+    left = _canonical_dtype(produced)
+    right = _canonical_dtype(required)
+    if left == right:
+        return True
+    if not allow_widening:
+        return False
+    try:
+        return bool(np.can_cast(np.dtype(left), np.dtype(right), casting="safe"))
+    except (TypeError, ValueError):
+        return False
+
+
 @timed_assertion
 def assert_pipeline_stages_compatible(
     stages: list[StageSpec],
     *,
     check_dtypes: bool = True,
+    allow_widening: bool = False,
     severity: Severity = Severity.CRITICAL,
 ) -> TestResult:
     """Assert that consecutive pipeline stages are schema-compatible.
@@ -71,12 +91,16 @@ def assert_pipeline_stages_compatible(
         check_dtypes: When True, the required dtype must match the produced
             dtype after canonicalizing equivalent spellings. When False, only
             column presence is verified and dtype differences are silently ignored.
+        allow_widening: When True (and ``check_dtypes`` is True), a produced
+            dtype that NumPy can safely cast to the required dtype is accepted
+            (e.g. ``int32`` satisfies ``int64``). Default False preserves
+            exact-match behaviour.
         severity: Severity level applied on failure. CRITICAL raises
             ``MltkAssertionError``; WARNING and INFO return a failed
             ``TestResult`` without raising.
 
     Returns:
-        TestResult with ``n_stages``, ``check_dtypes``, and
+        TestResult with ``n_stages``, ``check_dtypes``, ``allow_widening``, and
         ``incompatibilities`` (list of per-stage dicts with keys ``from``,
         ``to``, ``missing``, and ``dtype_mismatch``) in ``details``.
 
@@ -99,6 +123,7 @@ def assert_pipeline_stages_compatible(
             severity=severity,
             n_stages=n_stages,
             check_dtypes=check_dtypes,
+            allow_widening=allow_widening,
             incompatibilities=[],
         )
 
@@ -116,8 +141,10 @@ def assert_pipeline_stages_compatible(
                     missing.append(col)
                 elif check_dtypes:
                     available_dtype = cumulative[col]
-                    if _canonical_dtype(available_dtype) != _canonical_dtype(
-                        required_dtype
+                    if not _dtype_compatible(
+                        available_dtype,
+                        required_dtype,
+                        allow_widening=allow_widening,
                     ):
                         dtype_mismatch.append(
                             {
@@ -167,5 +194,6 @@ def assert_pipeline_stages_compatible(
         severity=severity,
         n_stages=n_stages,
         check_dtypes=check_dtypes,
+        allow_widening=allow_widening,
         incompatibilities=incompatibilities,
     )
