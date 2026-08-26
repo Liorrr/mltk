@@ -19,6 +19,15 @@ from mltk.domains.llm.unicode_attacks import (
 # 'p', 'y', 'l' are ASCII; chr(0x0430) is Cyrillic SMALL LETTER A.
 _HOMOGLYPH_TOKEN = "p" + chr(0x0430) + "yp" + chr(0x0430) + "l"
 
+# Whole-word Cyrillic lookalikes of "paypa" + palochka-as-l (U+04CF).
+_CYRILLIC_SPOOF = "раура" + chr(0x04CF)
+
+# Fullwidth Latin "paypal" (U+FF50..).
+_FULLWIDTH_SPOOF = "".join(chr(ord(c) + 0xFEE0) for c in "paypal")
+
+# Mathematical bold "paypal" (U+1D41A MATHEMATICAL BOLD SMALL A ...).
+_MATH_SPOOF = "".join(chr(0x1D41A + (ord(c) - ord("a"))) for c in "paypal")
+
 # Zero-width space (U+200B)
 _ZWSP = chr(0x200B)
 
@@ -129,11 +138,52 @@ class TestDetectUnicodeAttacks:
         assert result["total"] == 0
 
     def test_pure_cyrillic_token_not_flagged_as_homoglyph(self) -> None:
-        """PASS: Token with only Cyrillic (no ASCII Latin) is not a homoglyph."""
+        """PASS: Real Cyrillic (КИЕВ contains И, not a Latin twin) is not a spoof."""
         text = "КИЕВ"  # KIEV in Cyrillic
         result = detect_unicode_attacks(text, checks=("homoglyph",))
         assert result["total"] == 0
         assert result["homoglyph"] == []
+
+    def test_whole_word_cyrillic_lookalike_is_flagged(self) -> None:
+        """DETECT: All-lookalike Cyrillic spoof of a Latin word is flagged."""
+        result = detect_unicode_attacks(_CYRILLIC_SPOOF, checks=("homoglyph",))
+        assert result["total"] == 1
+        assert result["homoglyph"][0]["token"] == _CYRILLIC_SPOOF
+
+    def test_real_cyrillic_sentence_not_flagged(self) -> None:
+        """PASS: Ordinary Russian is not a lookalike spoof."""
+        result = detect_unicode_attacks("привет мир", checks=("homoglyph",))
+        assert result["homoglyph"] == []
+
+    def test_greek_in_scientific_text_not_flagged(self) -> None:
+        """PASS: Mixed Latin+Greek scientific text stays unflagged."""
+        result = detect_unicode_attacks("α-helix 5μm kΩ", checks=("homoglyph",))
+        assert result["homoglyph"] == []
+
+    def test_whole_word_greek_lookalike_is_flagged(self) -> None:
+        """DETECT: All-lookalike Greek spoof (ΑΒΟ ~ ABO) is flagged."""
+        spoof = "ΑΒΟ"
+        result = detect_unicode_attacks(spoof, checks=("homoglyph",))
+        assert result["total"] == 1
+        assert result["homoglyph"][0]["token"] == spoof
+
+    def test_fullwidth_latin_is_flagged(self) -> None:
+        """DETECT: Fullwidth Latin paypal lookalike is a homoglyph."""
+        result = detect_unicode_attacks(_FULLWIDTH_SPOOF, checks=("homoglyph",))
+        assert result["total"] == 1
+        assert result["homoglyph"][0]["token"] == _FULLWIDTH_SPOOF
+
+    def test_math_alphanumeric_is_flagged(self) -> None:
+        """DETECT: Mathematical alphanumeric paypal lookalike is a homoglyph."""
+        result = detect_unicode_attacks(_MATH_SPOOF, checks=("homoglyph",))
+        assert result["total"] == 1
+        assert result["homoglyph"][0]["token"] == _MATH_SPOOF
+
+    def test_mixed_latin_and_fullwidth_is_flagged(self) -> None:
+        """DETECT: ASCII Latin mixed with fullwidth is mixed-script homoglyph."""
+        token = "pay" + _FULLWIDTH_SPOOF
+        result = detect_unicode_attacks(token, checks=("homoglyph",))
+        assert result["total"] == 1
 
     def test_checks_subset_excludes_other_categories(self) -> None:
         """SCOPE: Keys for unchecked categories must not appear in the result.
