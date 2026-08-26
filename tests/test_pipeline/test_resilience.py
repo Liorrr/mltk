@@ -120,6 +120,58 @@ class TestAssertPipelineResilient:
             assert "error" in entry
             assert isinstance(entry["crashed"], bool)
 
+    def test_validate_output_counts_none_as_failure(self) -> None:
+        """FAIL: A silent None return is a failure when validate_output is set."""
+
+        def swallow(_df: pd.DataFrame) -> None:
+            return None
+
+        def ok(value: object) -> bool:
+            return value is not None
+
+        with pytest.raises(MltkAssertionError):
+            assert_pipeline_resilient(
+                swallow,
+                _BASELINE,
+                faults=["null_injection"],
+                validate_output=ok,
+                seed=_SEED,
+            )
+
+    def test_validate_output_false_is_not_a_crash(self) -> None:
+        """Invalid output is recorded as invalid, not crashed."""
+
+        def swallow(_df: pd.DataFrame) -> None:
+            return None
+
+        result = assert_pipeline_resilient(
+            swallow,
+            _BASELINE,
+            faults=["null_injection"],
+            validate_output=lambda value: value is not None,
+            severity=Severity.WARNING,
+            seed=_SEED,
+        )
+        assert result.passed is False
+        entry = result.details["results"][0]
+        assert entry["crashed"] is False
+        assert entry["invalid_output"] is True
+
+    def test_validate_output_none_keeps_legacy_graceful_equals_no_exception(self) -> None:
+        """PASS: Without validate_output, returning None still counts as survived."""
+
+        def swallow(_df: pd.DataFrame) -> None:
+            return None
+
+        result = assert_pipeline_resilient(
+            swallow,
+            _BASELINE,
+            faults=["null_injection"],
+            seed=_SEED,
+        )
+        assert result.passed is True
+        assert result.details["results"][0]["crashed"] is False
+
     def test_crashed_entry_captures_error_message(self) -> None:
         """A crashed fault entry stores a non-None error string."""
         result = assert_pipeline_resilient(

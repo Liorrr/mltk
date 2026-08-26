@@ -96,6 +96,7 @@ def assert_pipeline_resilient(
     *,
     faults: list[str] | None = None,
     max_failure_rate: float = 0.0,
+    validate_output: Callable[[Any], bool] | None = None,
     severity: Severity = Severity.CRITICAL,
     seed: int = 42,
 ) -> TestResult:
@@ -110,6 +111,10 @@ def assert_pipeline_resilient(
         baseline_input: Reference DataFrame; NEVER mutated by this function.
         faults: Fault names to inject; defaults to all entries in DEFAULT_FAULTS.
         max_failure_rate: Maximum tolerated crash fraction (0.0 = zero crashes allowed).
+        validate_output: Optional predicate on the pipeline return value. When
+            provided, a return that is not truthy under this callable counts as
+            a failure (silent ``None``/garbage). Omitted: any non-raising call
+            is treated as survived (legacy).
         severity: Severity level; CRITICAL raises on failure, WARNING/INFO only report.
         seed: Random seed for deterministic fault generation.
 
@@ -140,13 +145,27 @@ def assert_pipeline_resilient(
     for fault_name in fault_names:
         faulted = apply_fault(baseline_input, fault_name, rng)
         try:
-            pipeline_fn(faulted)
-            run_results.append({"fault": fault_name, "crashed": False, "error": None})
+            output = pipeline_fn(faulted)
         except Exception as exc:
-            run_results.append({"fault": fault_name, "crashed": True, "error": str(exc)})
+            run_results.append({
+                "fault": fault_name,
+                "crashed": True,
+                "invalid_output": False,
+                "error": str(exc),
+            })
+            continue
+        invalid = (
+            validate_output is not None and not bool(validate_output(output))
+        )
+        run_results.append({
+            "fault": fault_name,
+            "crashed": False,
+            "invalid_output": invalid,
+            "error": None,
+        })
 
     n_faults = len(fault_names)
-    crashes = sum(1 for r in run_results if r["crashed"])
+    crashes = sum(1 for r in run_results if r["crashed"] or r["invalid_output"])
     survived = n_faults - crashes
     failure_rate = crashes / n_faults if n_faults > 0 else 0.0
     passed = failure_rate <= max_failure_rate
