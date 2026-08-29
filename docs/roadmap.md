@@ -122,6 +122,41 @@ One-click onboarding: point mltk at a dataset (HuggingFace Hub or local CSV/Parq
 
 **Effort:** 2-3 sprints | **Dependencies:** `datasets`, `pyarrow` (optional `mltk[importer]` extra) | **Priority:** High — lowers time-to-first-eval to near zero
 
+#### Agent Trace Capture (Clearance-Tiered)
+*Status: Proposed — new `mltk.trace` package owning a single capture record; the existing trace schemas become adapter targets*
+
+mltk can **grade** an agent trace but cannot **record** one. Every trace-consuming assertion takes a structure the caller assembled by hand, so each real workflow begins with glue code that reconstructs what the model did from raw provider responses.
+
+**Prerequisite finding — the trace surface is already fragmented into three incompatible schemas:**
+
+| Schema | Location | Shape | Consumed by |
+|--------|----------|-------|-------------|
+| `AgentTrace` / `McpTrace` | `mltk.domains.llm.trace`, `.mcp` | Dataclass: `tool_calls`, `total_tokens`, `total_duration_ms`, `metadata` | 7 agentic assertions + 4 `assert_mcp_*` |
+| `SpanTrace` / `Span` / `SpanKind` | `mltk.domains.llm.span` | Span tree, OTel-shaped, `.total_cost_usd` | 4 `assert_span_*` (`span_eval.py`) |
+| plain `dict` | `mltk.integrations.trace_quality` | Flat keys: `latency_ms`, `cost_usd`, `score`, `output` | `assert_trace_quality` |
+
+Nothing converts between them; `assert_trace_quality` does not import `AgentTrace` at all. There is therefore no single "existing trace surface" to extend — any capture layer that emits one of these three activates only that slice and leaves the other two untouched.
+
+**The decision (2026-08-08): capture owns its own record type.** A new `mltk.trace` package defines one canonical capture record; the three schemas above become **outputs of an adapter step**, not the thing capture emits natively. This inverts the dependency — `domains/llm → mltk.trace` rather than capture living downstream of assertion code — and makes capture the forcing function that resolves the fragmentation, since it is the only component upstream of every consumer. Extending one existing schema instead would add a fourth de-facto shape under `domains/llm` and cap the concept at the LLM domain, when "record what the model did at a given clearance level" applies to any served inference.
+
+**Clearance-tiered capture.** How much is observable depends on the access level, so capture is tiered and every field records the tier that produced it:
+
+| Tier | Access level | What can be captured |
+|------|-------------|----------------------|
+| **T0 — closed inference** | Black-box provider API | Request/response pairs, tool-use blocks, tool-call count with names and arguments, total API-call/round-trip count, retries, token usage, stop reason, per-hop latency |
+| **T1 — instrumented client** | Wrapping the SDK or agent loop | Nested sub-agent calls, additional/fan-out API calls, per-hop timing, error and retry chains, cache hits, ordered detailed action log |
+| **T2 — open inference** | Self-hosted, weights or logits reachable | Logprobs and top-k alternatives, sampling parameters, refusal/guard internals, hidden-state hooks where the runtime exposes them |
+
+**Honesty rule (non-negotiable):** a field the clearance tier could not observe is `None` with its tier recorded — never a zero, never a plausible default. This follows the S102 fairness precedent, where undefined per-group rates propagate as `None` and are excluded rather than coerced to `0.0`. A trace must never imply an observation the access level did not permit.
+
+**Why the tier belongs in the schema, not in metadata.** This rule is the main structural argument for a dedicated record. Under any of the three existing schemas, tier provenance would land in `AgentTrace.metadata: dict[str, Any]` — an untyped catch-all — leaving the honesty guarantee as a convention nothing can enforce, in a codebase whose recent history is largely about eliminating exactly that class of silent default. A capture-owned record carries the tier as a typed field on every captured value. The same applies to T2 data: logprobs, top-k alternatives, and sampling parameters have no home in `AgentTrace`, `SpanTrace`, or the flat dict.
+
+**Integration, unchanged:** adapters project the capture record into `AgentTrace` / `McpTrace`, `SpanTrace`, and the `trace_quality` dict, so all 16 existing trace assertions become reachable rather than only one family's worth. Export still goes through the shipped Phoenix / Langfuse / OTel adapters in `mltk.integrations` — no new backend. Token and cost fields reuse `mltk.cost`.
+
+**Open questions for sprint planning:** provider coverage order; whether capture is a decorator, a context manager, or a client proxy; how T2 hooks degrade when the serving runtime does not expose them; and whether the three existing schemas are eventually deprecated in favor of the capture record or kept indefinitely as projections.
+
+**Effort:** 3-4 sprints (larger than a single-schema extension — the adapter layer and the fragmentation it resolves are the added cost) | **Dependencies:** none for T0/T1 (provider SDKs optional); T2 depends on the serving runtime | **Priority:** High — turns a fixture-only assertion surface into a live one, and is the last natural moment to impose one trace record before a fourth consumer family ships
+
 ### Tier 2: Expanding Capabilities
 
 #### Multimodal LLM Evaluation
@@ -158,6 +193,64 @@ Test image generation quality, image-text alignment, visual reasoning, image edi
 **Effort:** 1 sprint | **Dependencies:** arize-phoenix-otel (optional), langfuse (optional) | **Priority:** Medium
 
 *Research brief: `docs/research/` — observability build vs integrate (15 sources including Phoenix, Langfuse, OTel GenAI semconv)*
+
+#### Compliance Drift Auto-Sync
+*Status: Proposed — extends the shipped `mltk.compliance` frameworks*
+
+`mltk.compliance` ships EU AI Act, NIST AI RMF, ISO 42001, OWASP LLM, HIPAA, SR 11-7, FDA, and custom frameworks with `find_gaps`, `assert_*_coverage`, and `generate_compliance_report`. All of it is **point-in-time**: it answers "are we covered right now" and nothing watches that answer change.
+
+**Two drift axes, both currently unmonitored:**
+
+1. **Internal drift** — a control you previously covered silently loses coverage: the backing assertion was renamed, deleted, moved behind a skip, or started failing. Today this surfaces only if someone re-runs the report and reads it closely.
+2. **External drift** — the framework itself moves underneath the mapping: renumbered articles, new controls, revised guidance. A mapping built against last year's text quietly stops meaning what it claims.
+
+**The proposal:** a stored, versioned coverage baseline plus a re-check that diffs current coverage against it and reports what moved — delivered as a normal pytest gate (`assert_no_compliance_drift`) and a CI job, not as a dashboard.
+
+**Design constraints:** the baseline is a committed, reviewable artifact (a snapshot test, diffable in a PR); drift reporting keeps "control lost coverage" and "framework definition changed" as separate categories and never merges them; and external-drift detection requires a human-confirmed framework version bump — mltk must not silently re-map controls against regulatory text it fetched on its own. An audit artifact that updates itself without review is worse than a stale one.
+
+**Open questions for sprint planning:** baseline storage format and location, whether external drift ships at all in the first cut (it needs a maintained source of framework versions), and whether this reuses the `DatasetRegistry` versioning pattern.
+
+**Effort:** 1-2 sprints for internal drift; external drift is a separate track | **Dependencies:** none for internal drift | **Priority:** Medium-High — compliance claims decay silently, the worst failure mode for an audit artifact
+
+#### Metric Coverage Expansion (External-Library Backed)
+*Status: Proposed — 6 named metrics, each an external dependency plus wiring*
+
+Six metrics mltk does not implement today. Each is an optional-extra dependency wrapped in an assertion following the shipped pattern: import guard with an install hint, deterministic base case, `TestResult` with populated `.details`.
+
+| Metric | Measures | Home | Library | Notes |
+|--------|----------|------|---------|-------|
+| **DER** | Diarization error rate — speaker attribution | `mltk.domains.speech`, joins `assert_wer` | `pyannote.metrics` | Cleanest fit of the six; mature reference implementation |
+| **COMET** | Neural MT quality; correlates with human judgment far better than BLEU | `mltk.domains.nlp` | `unbabel-comet` | Heavy — pulls torch plus a model download; must be strictly optional and offline-testable |
+| **chrF** | Character n-gram F-score; robust for morphologically rich languages | `mltk.domains.nlp`, joins `assert_bleu` / `assert_rouge` | `sacrebleu` | Lowest effort; `sacrebleu` also provides a canonical BLEU to cross-check `assert_bleu` against |
+| **TEDS / GriTS** | Table structure recognition accuracy | New surface — document/table extraction | **No canonical PyPI package** | TEDS reference implementation lives in IBM's PubTabNet repo, GriTS in Microsoft's table-transformer repo. Pip options (`zss`, `easyted`) are generic tree-edit-distance libraries, not the table metric. Needs a vendored implementation over `zss` — highest effort, scope before scheduling |
+| **CIDEr / SPICE / METEOR** | Caption and generation quality | `mltk.domains.multimodal` + `mltk.domains.nlp` | `pycocoevalcap` | Bundles all three, but **SPICE requires a Java runtime** — likely ship CIDEr + METEOR and gate SPICE behind an explicit availability check |
+| **langdetect** | Output language identification | `mltk.domains.nlp` | `langdetect` (alternatives: `py3langid`, fastText LID) | Enables `assert_output_language` — a real gap for multilingual deployments |
+
+**Sequencing note:** this is not one sprint. chrF and langdetect are near-trivial wiring; DER is contained; CIDEr/METEOR is moderate with a Java caveat; COMET and TEDS/GriTS each deserve their own scoping pass. Ship in that order rather than as a single batch.
+
+**Effort:** 2-4 sprints depending on batching | **Dependencies:** `sacrebleu`, `langdetect`, `pyannote.metrics`, `pycocoevalcap`, `unbabel-comet` — all optional extras; TEDS/GriTS packaging unresolved | **Priority:** Medium — closes named-metric gaps that evaluators ask about by name
+
+#### Meta-Evaluation — Testing the Eval Suite's Own Premises
+*Status: Proposed — assertion family, not yet scoped*
+
+Every eval suite rests on premises that are themselves untested: that the dataset is representative of production traffic, that the LLM judge correlates with human preference, that the chosen metric actually separates good outputs from bad ones. When one of those is false, the suite reports confidently and means nothing — a green run on an unrepresentative dataset is worse than no run, because it is trusted.
+
+**Proposed assertions:** `assert_judge_correlates` (judge scores vs. a human-labeled subset, with a minimum correlation floor), `assert_dataset_representative` (distribution comparison between eval set and a production sample — reuses the shipped drift machinery), `assert_metric_discriminates` (does the metric actually separate known-good from known-deliberately-bad fixtures?).
+
+**Why it fits mltk:** the library already treats "the test is wrong" as a first-class failure mode — dataset-quality gates in the importer, calibration validation, the empty-input contract. This extends that discipline from the data to the evaluation apparatus itself. It also composes with existing work rather than adding a new dependency surface: representativeness reuses drift detection, discrimination reuses fixture-based testing.
+
+**Effort:** 1-2 sprints | **Dependencies:** none (reuses drift + judge infrastructure) | **Priority:** Medium — small surface, addresses a failure mode that silently invalidates everything downstream
+
+#### Compliance Evidence from Captured Traces
+*Status: Proposed — composition of two other roadmap items, not independently buildable*
+
+Compliance frameworks want evidence that a control was exercised. Test results alone are weak evidence: they record that an assertion passed, not what was actually observable when it ran. A trace captured at a **known clearance tier** is strictly stronger — it records what was tested, at what access level, on what date, with what supporting data.
+
+Combining Agent Trace Capture (Tier 1) with Compliance Drift Auto-Sync (above) produces auditable evidence as a byproduct of ordinary eval runs, rather than as a separate reporting exercise. The clearance tier is what makes it defensible: an auditor can distinguish "we verified this against model internals" from "we inferred it from black-box responses," and the honesty rule guarantees the distinction is recorded rather than assumed.
+
+**Dependency note:** neither parent item delivers this alone, and it should not be scheduled before both have shipped. Listed here so the composition is not rediscovered later as a surprise.
+
+**Effort:** 1 sprint on top of both parents | **Dependencies:** Agent Trace Capture + Compliance Drift Auto-Sync | **Priority:** Medium — highest-value combination of the two, but strictly downstream of them
 
 #### JSON Schema Validation
 *Status: Shipped (S96)*
@@ -224,4 +317,4 @@ Want to influence priorities? Open an issue on GitHub or reach out directly.
 
 ---
 
-*Last updated: 2026-07-22 — TRAILS/body honesty pass after claim audit (S75/S76/S77/S96 shipped surfaces reconciled with code); original research briefs remain under `docs/research/`*
+*Last updated: 2026-08-08 — added three proposed items (Agent Trace Capture, Compliance Drift Auto-Sync, Metric Coverage Expansion); previous pass 2026-07-22, TRAILS/body honesty reconciliation after the claim audit (S75/S76/S77/S96 shipped surfaces reconciled with code). Original research briefs remain under `docs/research/`*
