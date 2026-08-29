@@ -175,17 +175,26 @@ def _resolve_eval_model(
     )
 
 
-# Scorers that exist in mltk.eval but cannot be built from the MCP
-# surface, mapped to why. Every MCP parameter is a string, so a scorer
-# requiring a caller-supplied callable has no way to receive one. These
-# refuse with their own reason rather than the generic unknown-value
-# error, because the name is real and documented — the caller has not
-# made a typo.
+# Components that exist in mltk.eval but cannot be built from the MCP
+# surface, mapped to why. Every MCP parameter is a string, so anything
+# needing a caller-supplied callable or structured value has no way to
+# receive one. These refuse with their own reason rather than the
+# generic unknown-value error, because the name is real and documented
+# — the caller has not made a typo.
 _MCP_UNAVAILABLE_SCORERS: dict[str, str] = {
     "llm_judge": (
         "'llm_judge' requires a judge_fn callable, which cannot be "
         "passed over MCP (every tool parameter is a string). Use the "
         "Python API instead: EvalTask(scorers=LLMJudgeScorer(judge_fn=...))."
+    ),
+}
+
+_MCP_UNAVAILABLE_SOLVERS: dict[str, str] = {
+    "few_shot": (
+        "'few_shot' requires an examples list of (input, output) pairs, "
+        "which cannot be passed over MCP (every tool parameter is a "
+        "string). Use the Python API instead: "
+        "EvalTask(solver=FewShotSolver(examples=[...]))."
     ),
 }
 
@@ -201,14 +210,13 @@ def _resolve_eval_components(
     describe what actually ran.
 
     Raises:
-        ValueError: unknown solver or scorer name, or a scorer that
+        ValueError: unknown solver or scorer name, or a component that
             exists but is unusable over MCP (honest refuse — never a
-            silent fallback to a different scorer).
+            silent fallback to a different solver or scorer).
     """
     from mltk.eval import (
         ChainOfThoughtSolver,
         ExactMatchScorer,
-        FewShotSolver,
         GenerateSolver,
         IncludesScorer,
         PatternScorer,
@@ -217,7 +225,6 @@ def _resolve_eval_components(
     solver_map = {
         "generate": GenerateSolver,
         "chain_of_thought": ChainOfThoughtSolver,
-        "few_shot": FewShotSolver,
     }
     scorer_map = {
         "exact_match": ExactMatchScorer,
@@ -230,6 +237,8 @@ def _resolve_eval_components(
     sk = (solver or "").strip().lower() or "generate"
     rk = (scorer or "").strip().lower() or "exact_match"
 
+    if sk in _MCP_UNAVAILABLE_SOLVERS:
+        raise ValueError(_MCP_UNAVAILABLE_SOLVERS[sk])
     if sk not in solver_map:
         raise ValueError(
             f"Unknown solver={solver!r}. Supported: "
@@ -604,7 +613,8 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 and 'target' columns.
             scorer: exact_match, includes, or pattern. ``llm_judge``
                 is not available here — it needs a judge callable.
-            solver: generate, chain_of_thought, few_shot.
+            solver: generate or chain_of_thought. ``few_shot`` is not
+                available here — it needs an examples list.
             model_mode: ``passthrough`` (default) or ``module``.
             model_ref: Required for ``module`` —
                 ``package.module:callable_name``.
@@ -635,8 +645,8 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     str(exc),
                     suggested_action=(
                         "Pass a supported solver/scorer name, or use "
-                        "the Python EvalTask API for scorers that need "
-                        "a callable."
+                        "the Python EvalTask API for components that "
+                        "need a callable or an examples list."
                     ),
                 )
 

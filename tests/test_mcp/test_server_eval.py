@@ -284,6 +284,27 @@ class TestMltkEval:
         assert "judge_fn" in result["error"]
         assert "llm_judge" in result["error"]
 
+    def test_few_shot_solver_refuses_with_reason(self, tmp_path) -> None:
+        # SCENARIO: solver="few_shot" — a real solver that mltk ships,
+        #   and which docs/api/mcp-server.md used to advertise here.
+        # WHY: FewShotSolver takes a mandatory examples list of
+        #   (input, output) pairs and every MCP parameter is a string,
+        #   so it cannot be built from this surface. It previously
+        #   passed name validation and then raised a raw TypeError
+        #   ("missing 1 required positional argument: 'examples'") out
+        #   of the generic handler. Same shape as llm_judge: the caller
+        #   has not made a typo, so the error must say why.
+        # EXPECTED: error naming examples and pointing to the Python API.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval", dataset_path=str(ds), solver="few_shot",
+        )
+        assert_error(result)
+        assert "examples" in result["error"]
+        assert "few_shot" in result["error"]
+        assert "TypeError" not in result["error"]
+
     def test_blank_scorer_and_solver_use_documented_defaults(
         self, tmp_path,
     ) -> None:

@@ -397,7 +397,7 @@ scores and aggregate metrics.
 |-----------|------|----------|-------------|
 | `dataset_path` | `string` | Yes | Path to a CSV or JSON dataset. Must have an `input` column; `target` column is optional for reference-based scorers. |
 | `scorer` | `string` | No | Scorer to apply. Values: `"exact_match"`, `"includes"`, `"pattern"`. Default: `"exact_match"`. An unsupported value refuses with a recoverable error — it is never silently replaced by a default. `"llm_judge"` is **not** available here; it needs a `judge_fn` callable, which cannot be passed over MCP (see below). |
-| `solver` | `string` | No | Prompting strategy. Values: `"generate"` (direct), `"chain_of_thought"`, `"few_shot"`. Default: `"generate"`. |
+| `solver` | `string` | No | Prompting strategy. Values: `"generate"` (direct), `"chain_of_thought"`. Default: `"generate"`. An unsupported value refuses with a recoverable error — it is never silently replaced by a default. `"few_shot"` is **not** available here; it needs an examples list of `(input, output)` pairs, which cannot be passed over MCP (see below). |
 | `model_mode` | `string` | No | How the model under test is supplied. `"passthrough"` (default) echoes the prompt back — useful for validating a pipeline, not a model. `"module"` imports a callable. |
 | `model_ref` | `string` | No | Required when `model_mode="module"`, rejected otherwise. Format `package.module:callable_name`. The callable takes the prompt and returns the completion. |
 
@@ -681,12 +681,13 @@ Agent: "I have a RAG pipeline. What should I test?"
    → status: "fail" (threshold: 0.80)
 ```
 
-Judge-scored evaluation is not reachable from `mltk_eval`, because
-`LLMJudgeScorer` takes a `judge_fn` callable and every MCP parameter is a
-string. Run it from Python instead:
+Judge-scored evaluation and few-shot prompting are not reachable from
+`mltk_eval`: `LLMJudgeScorer` takes a `judge_fn` callable and
+`FewShotSolver` takes an examples list, while every MCP parameter is a
+string. Run them from Python instead:
 
 ```python
-from mltk.eval import LLMJudgeScorer
+from mltk.eval import ChainOfThoughtSolver, FewShotSolver, LLMJudgeScorer
 from mltk.eval.task import EvalTask, load_dataset
 
 task = EvalTask(
@@ -697,6 +698,9 @@ task = EvalTask(
 )
 result = task.run(my_model)
 ```
+
+For few-shot prompting, swap the solver for
+`FewShotSolver(examples=[("2+2", "4"), ("3+3", "6")])`.
 
 ---
 
