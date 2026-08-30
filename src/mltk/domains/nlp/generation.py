@@ -17,7 +17,8 @@ def assert_bleu(
 
     Args:
         references: Reference translations/texts. Must have the same length as
-            hypotheses; mismatched lengths raise ``ValueError``.
+            hypotheses; mismatched lengths raise ``ValueError``. An empty
+            corpus fails rather than scoring.
         hypotheses: Model-generated translations/texts.
         min_score: Minimum required BLEU score (0-1).
 
@@ -32,6 +33,20 @@ def assert_bleu(
     require_same_length(
         "assert_bleu", references=references, hypotheses=hypotheses,
     )
+    # Two empty lists have the same length, so they reach corpus_bleu
+    # and divide by zero. Fail as an assertion, the way assert_chrf and
+    # assert_rouge already do, rather than raising out of nltk.
+    if len(references) == 0:
+        return assert_true(
+            False,
+            name="nlp.bleu",
+            message="BLEU: empty corpus",
+            severity=Severity.CRITICAL,
+            score=None,
+            min_score=min_score,
+            num_references=0,
+            num_hypotheses=0,
+        )
 
     try:
         from nltk.translate.bleu_score import SmoothingFunction, corpus_bleu

@@ -87,6 +87,18 @@ class TestBLEU:
         with pytest.raises(ValueError, match="assert_bleu"):
             assert_bleu(["a"], ["b", "c"], min_score=0.0)
 
+    def test_bleu_empty_equal_lists_fail(self) -> None:
+        """EMPTY CORPUS: fails as an assertion, not a ZeroDivisionError.
+
+        Two empty lists pass the length check, so they used to reach
+        corpus_bleu and raise Fraction(0, 0) out of nltk -- which
+        pytest.raises(MltkAssertionError) cannot catch and which points
+        the traceback at nltk rather than at the caller's data.
+        assert_chrf and assert_rouge already fail cleanly here.
+        """
+        with pytest.raises(MltkAssertionError):
+            assert_bleu([], [], min_score=0.0)
+
 
 class TestROUGE:
     """ROUGE score tests.
