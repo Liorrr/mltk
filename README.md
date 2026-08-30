@@ -32,7 +32,7 @@ pip install mlspec  # PyPI name — 'mltk' pending transfer
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional testing does not catch these failures.
 
-**mltk** gives you **241 assertion definitions** (238 unique names; **229** listed by `mltk list` / discovery) covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
+**mltk** gives you **242 assertion definitions** (238 unique names; **229** listed by `mltk list` / discovery) covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
 
 ## Quick Start
 
@@ -116,7 +116,7 @@ pytest --mltk-report
 
 **JSON export** — `--mltk-export-json` flag exports full test results to JSON for downstream tooling.
 
-## Feature Matrix (241 assertion definitions)
+## Feature Matrix (242 assertion definitions)
 
 | Module | Assertions | Purpose |
 |--------|-----------|---------|
@@ -299,7 +299,7 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | Conformal prediction | No | No | No | No | No | No | **Yes** |
 | Composable TestSuite | No | No | No | No | No | No | **Yes** |
 | Code Generation | No | No | No | No | No | No | **Yes (4 assertions)** |
-| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (241 assertions)** |
+| LLM evaluation | No | Yes (LLM-only) | No | **Yes (50+ metrics)** | Yes (OWASP scanner) | **Yes (tracing)** | **Yes (242 assertions)** |
 | Behavioral consistency | No | No | No | No | No | No | **Yes (6 assertions + generator)** |
 | NER PII detection | No | No | No | No | No | No | **Yes (4 methods)** |
 | Agent trace testing | No | No | No | Yes (basic) | No | Yes (tracing) | **Yes (9 assertions)** |

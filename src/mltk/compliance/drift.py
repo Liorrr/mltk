@@ -154,9 +154,25 @@ def assert_no_compliance_drift(
         ``baseline.framework_version`` differs from the live module
         version and ``confirmed_framework_version`` does not equal the
         live version. Confirmation never rewrites the baseline file.
+
+    Raises:
+        ValueError: *framework* is unknown, or the baseline was written
+            for a different framework. A mismatched baseline is a wiring
+            error, not drift, and must not be reported as one.
     """
     _require_framework(framework)
     baseline = load_coverage_baseline(baseline_path)
+    baseline_framework = str(baseline["framework"])
+    if baseline_framework != framework:
+        # Without this the two sides describe different control
+        # universes, every baseline id looks absent from the live
+        # mapper, and the gate reports a phantom `dropped_control`
+        # for each one instead of the wrong path it actually got.
+        raise ValueError(
+            f"baseline at {baseline_path} is for framework "
+            f"{baseline_framework!r}, not {framework!r}. Point at the "
+            f"{framework} baseline, or regenerate this one."
+        )
     live_version = FRAMEWORK_VERSIONS[framework]
     current = snapshot_coverage(framework, results)
 

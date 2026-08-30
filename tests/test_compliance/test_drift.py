@@ -145,3 +145,49 @@ def test_dropped_control_is_internal_drift(tmp_path: Path) -> None:
         )
     kinds = {item["kind"] for item in exc.value.result.details["internal_drift"]}
     assert "dropped_control" in kinds
+
+
+def test_baseline_for_another_framework_is_refused(tmp_path: Path) -> None:
+    # SCENARIO: a NIST baseline checked with framework="iso_42001".
+    # WHY: the two sides then describe different control universes, so
+    #   every baseline id looks absent from the live mapper. Before the
+    #   guard this reported four phantom `dropped_control` entries —
+    #   a coverage regression that never happened, written into the
+    #   audit trail — when the real fault was the path argument.
+    # EXPECTED: ValueError naming both frameworks, and no drift verdict.
+    results = _nist_results()
+    path = tmp_path / "nist.json"
+    write_coverage_baseline(
+        path,
+        framework="nist_ai_rmf",
+        framework_version=NIST_VERSION,
+        controls=snapshot_coverage("nist_ai_rmf", results),
+    )
+
+    with pytest.raises(ValueError, match="nist_ai_rmf") as exc:
+        assert_no_compliance_drift(
+            results, path, framework="iso_42001",
+        )
+
+    message = str(exc.value)
+    assert "nist_ai_rmf" in message
+    assert "iso_42001" in message
+
+
+def test_matching_framework_baseline_still_passes(tmp_path: Path) -> None:
+    # SCENARIO: the guard's happy path.
+    # WHY: refusing a mismatch must not refuse the correct pairing.
+    # EXPECTED: no drift, no raise.
+    results = _nist_results()
+    path = tmp_path / "nist.json"
+    write_coverage_baseline(
+        path,
+        framework="nist_ai_rmf",
+        framework_version=NIST_VERSION,
+        controls=snapshot_coverage("nist_ai_rmf", results),
+    )
+
+    result = assert_no_compliance_drift(
+        results, path, framework="nist_ai_rmf",
+    )
+    assert result.passed
