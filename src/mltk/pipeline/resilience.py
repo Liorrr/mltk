@@ -113,13 +113,18 @@ def assert_pipeline_resilient(
         max_failure_rate: Maximum tolerated crash fraction (0.0 = zero crashes allowed).
         validate_output: Optional predicate on the pipeline return value. When
             provided, a return that is not truthy under this callable counts as
-            a failure (silent ``None``/garbage). Omitted: any non-raising call
-            is treated as survived (legacy).
+            a failure (silent ``None``/garbage). A predicate that *raises* on
+            the output also counts as a failure, with the exception recorded in
+            ``invalid_reason`` -- writing ``lambda out: len(out) > 0`` must not
+            have to defend against the very ``None`` it is there to catch.
+            Omitted: any non-raising call is treated as survived (legacy).
         severity: Severity level; CRITICAL raises on failure, WARNING/INFO only report.
         seed: Random seed for deterministic fault generation.
 
     Returns:
-        TestResult with per-fault crash details and aggregate failure_rate.
+        TestResult with per-fault details (``crashed``, ``invalid_output``,
+        ``invalid_reason``, ``error``) and aggregate failure_rate. A run can
+        fail without crashing when ``validate_output`` rejects the output.
 
     Raises:
         ValueError: If any entry in *faults* is not a recognised fault name.
@@ -151,16 +156,31 @@ def assert_pipeline_resilient(
                 "fault": fault_name,
                 "crashed": True,
                 "invalid_output": False,
+                "invalid_reason": None,
                 "error": str(exc),
             })
             continue
-        invalid = (
-            validate_output is not None and not bool(validate_output(output))
-        )
+        if validate_output is None:
+            invalid = False
+            invalid_reason = None
+        else:
+            try:
+                invalid = not bool(validate_output(output))
+                invalid_reason = None
+            except Exception as exc:
+                # A predicate that cannot even evaluate the output is
+                # itself the signal: the value is not the shape the
+                # caller expects. Counting it as invalid keeps the
+                # garbage case -- a silent None, which is what this
+                # parameter exists to catch -- inside failure_rate
+                # instead of killing the whole assertion.
+                invalid = True
+                invalid_reason = f"{type(exc).__name__}: {exc}"
         run_results.append({
             "fault": fault_name,
             "crashed": False,
             "invalid_output": invalid,
+            "invalid_reason": invalid_reason,
             "error": None,
         })
 
