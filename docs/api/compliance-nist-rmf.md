@@ -37,7 +37,45 @@ results = [
 
 # Check coverage
 assert_nist_rmf_coverage(results, min_coverage=0.75)
+```
 
+### assert_no_compliance_drift
+
+Pytest gate against a **committed** JSON baseline. Detects two
+separate categories (never merged into one score):
+
+- **Internal drift** — a control that had covering assertions now has
+  none, or a control disappeared from the mapper (`dropped_control`).
+  Adding coverage is not drift.
+- **External drift** — the live framework version string differs from
+  the baseline. Pass `confirmed_framework_version` equal to the live
+  version to acknowledge a human-reviewed bump. Confirmation **does
+  not** rewrite the baseline file; call `write_coverage_baseline` in
+  the same PR if you intend to update it.
+
+```python
+from mltk.compliance import (
+    assert_no_compliance_drift,
+    snapshot_coverage,
+    write_coverage_baseline,
+    FRAMEWORK_VERSIONS,
+)
+
+controls = snapshot_coverage("nist_ai_rmf", results)
+write_coverage_baseline(
+    "compliance/nist-baseline.json",
+    framework="nist_ai_rmf",
+    framework_version=FRAMEWORK_VERSIONS["nist_ai_rmf"],
+    controls=controls,
+)
+assert_no_compliance_drift(
+    results,
+    "compliance/nist-baseline.json",
+    framework="nist_ai_rmf",
+)
+```
+
+```python
 # See which functions are covered
 grouped = map_results_to_measures(results)
 # {"GV": [...], "MP": [], "MS": [...], "MN": [...]}
