@@ -92,6 +92,7 @@ nav:
       - Domain Overview: api/domain-overview.md
       - Computer Vision: api/cv.md
       - NLP: api/nlp.md
+      - Language Identification: api/language-id.md
       - Speech: api/speech.md
       - Tabular: api/tabular.md
       - Monitoring: api/monitor.md
