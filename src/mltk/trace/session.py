@@ -18,6 +18,11 @@ class CaptureSession:
 
     Unobserved fields stay ``None``. Counts become integers only after
     the matching ``record_*`` method runs at least once.
+
+    ``total_duration_ms`` sums every observed segment -- round-trip
+    latencies plus any tool-call ``duration_ms``. Time the caller never
+    recorded is not in it, so treat it as "observed duration", not
+    wall clock.
     """
 
     def __init__(self, *, tier: ClearanceTier) -> None:
@@ -92,6 +97,16 @@ class CaptureSession:
             api_call_count: int | None = self._api_explicit
         else:
             api_call_count = round_trip_count
+        # Total spans every observed segment, not just round trips.
+        # record_tool_call and record_round_trip are distinct APIs -- a
+        # tool call is never also a hop -- so summing both cannot double
+        # count. Tool calls left without a duration_ms contribute
+        # nothing, the same way an unobserved field stays None.
+        tool_ms = sum(
+            c.duration_ms for c in self._calls if c.duration_ms is not None
+        )
+        observed_ms = sum(self._hops) + tool_ms
+        total_duration_ms = observed_ms if (self._hops or tool_ms) else None
         self._finished = CaptureRecord(
             tier=self.tier,
             tool_call_count=len(self._calls) if self._calls else None,
@@ -103,7 +118,7 @@ class CaptureSession:
             output_tokens=self._output_tokens,
             stop_reason=self._stop_reason,
             per_hop_latency_ms=tuple(self._hops) if self._hops else None,
-            total_duration_ms=sum(self._hops) if self._hops else None,
+            total_duration_ms=total_duration_ms,
         )
         return self._finished
 

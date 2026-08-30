@@ -54,3 +54,18 @@ assert_tool_chain(to_agent_trace(record), expected_tools=["search"])
 those legacy types use `int` / `float`. Honesty stays on `CaptureRecord`.
 `to_quality_dict` *omits* `None` keys so `assert_trace_quality` skip-if-missing
 still applies.
+
+## What `total_duration_ms` means
+
+It is the sum of every **observed** segment: each `record_round_trip`
+latency plus any `record_tool_call(duration_ms=...)`. A tool call is never
+also a round trip, so the two cannot double count.
+
+It is *observed* duration, not wall clock. Time the caller never recorded
+— think between hops, or a tool call logged without `duration_ms` — is not
+in it, and a session that observed nothing leaves the field `None` rather
+than reporting `0.0`.
+
+This matters because `to_quality_dict` publishes it as `latency_ms`, which
+is the only key `assert_trace_quality` compares against `max_latency_ms`.
+Record the durations you want that gate to see.
