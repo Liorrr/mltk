@@ -29,7 +29,14 @@ def assert_language(
         severity: CRITICAL raises on failure.
 
     Returns:
-        TestResult named ``nlp.language``.
+        TestResult named ``nlp.language``. Details carry ``detected``,
+        ``expected``, and two separate confidences:
+        ``detected_probability`` (langdetect's confidence in the
+        top-ranked language) and ``expected_probability`` (the
+        confidence it assigned to *expected*, ``0.0`` when *expected* is
+        not among the candidates at all). ``min_prob`` reads against
+        ``expected_probability``. Both are ``None`` when detection never
+        ran -- empty input, or langdetect could not classify.
     """
     stripped = text.strip() if isinstance(text, str) else ""
     if not stripped:
@@ -40,7 +47,8 @@ def assert_language(
             severity=severity,
             detected=None,
             expected=expected,
-            probability=None,
+            detected_probability=None,
+            expected_probability=None,
         )
 
     try:
@@ -63,7 +71,8 @@ def assert_language(
             severity=severity,
             detected=None,
             expected=expected,
-            probability=None,
+            detected_probability=None,
+            expected_probability=None,
         )
 
     ranked = [(c.lang, float(c.prob)) for c in candidates]
@@ -90,7 +99,6 @@ def assert_language(
         severity=severity,
         detected=detected,
         expected=expected,
-        probability=expected_prob if min_prob is not None else (
-            ranked[0][1] if ranked else None
-        ),
+        detected_probability=ranked[0][1] if ranked else None,
+        expected_probability=expected_prob,
     )

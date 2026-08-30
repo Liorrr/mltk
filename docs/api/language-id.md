@@ -34,5 +34,13 @@ assert_language(
 
 #### Returns
 
-`TestResult` named `nlp.language` with `detected`, `expected`, and
-`probability` in `details`.
+`TestResult` named `nlp.language` with `detected`, `expected`, and two
+separate confidences in `details`:
+
+| key | meaning |
+|-----|---------|
+| `detected_probability` | langdetect's confidence in the top-ranked language |
+| `expected_probability` | the confidence it assigned to `expected`; `0.0` when `expected` is not among the candidates at all |
+
+`min_prob` gates on `expected_probability`. Both are `None` when
+detection never ran -- empty input, or langdetect could not classify.
