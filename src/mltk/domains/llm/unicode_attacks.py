@@ -81,18 +81,65 @@ def _is_ascii_latin(ch: str) -> bool:
     return ("A" <= ch <= "Z") or ("a" <= ch <= "z")
 
 
-def _is_confusable_script(ch: str) -> bool:
-    """Return True if *ch* is a Cyrillic letter (homoglyph candidate).
+# Cyrillic letters that are visual twins of ASCII Latin (phishing set).
+# Palochka U+04CF stands in for Latin l. И/Й/etc. are *not* here so real
+# words such as КИЕВ stay unflagged.
+_CYRILLIC_LOOKALIKES: frozenset[str] = frozenset(
+    "аеорсухіјАВЕКМНОРСТХІ" + chr(0x04CF)
+)
 
-    Only the Cyrillic block (U+0400 through U+04FF) is treated as confusable
-    with ASCII Latin -- the real phishing vector (e.g. Cyrillic 'а' U+0430 in
-    "pаypal"). The Greek block is deliberately excluded: scientific text
-    routinely mixes Latin with Greek lookalikes (e.g. "α-helix", "5μm", "kΩ"),
-    and Greek letters such as α genuinely resemble Latin ones, so any
-    Greek-in-token rule produces unavoidable false positives on real text.
+# Greek letters that are visual twins of ASCII Latin. Used only for
+# whole-token spoofs — mixed Latin+Greek scientific text is not flagged.
+_GREEK_LOOKALIKES: frozenset[str] = frozenset("ΑΒΕΖΗΙΚΜΝΟΡΤΥΧαοικνυηρχτ")
+
+
+def _is_fullwidth_latin(ch: str) -> bool:
+    """Fullwidth Latin letters (U+FF21–FF3A, U+FF41–FF5A)."""
+    cp = ord(ch)
+    return 0xFF21 <= cp <= 0xFF3A or 0xFF41 <= cp <= 0xFF5A
+
+
+def _is_math_alphanumeric(ch: str) -> bool:
+    """Mathematical Alphanumeric Symbols block (U+1D400–U+1D7FF)."""
+    return 0x1D400 <= ord(ch) <= 0x1D7FF
+
+
+def _is_confusable_script(ch: str) -> bool:
+    """Return True if *ch* is a mixed-script partner of ASCII Latin.
+
+    Cyrillic, fullwidth Latin, and mathematical alphanumeric symbols.
+    Greek is excluded here: scientific text mixes Latin with Greek
+    (e.g. ``α-helix``). Whole-word Greek spoofs are handled separately.
     """
     cp = ord(ch)
-    return 0x0400 <= cp <= 0x04FF
+    if 0x0400 <= cp <= 0x04FF:
+        return True
+    return _is_fullwidth_latin(ch) or _is_math_alphanumeric(ch)
+
+
+def _is_lookalike_letter(ch: str) -> bool:
+    """Letter that can stand in for ASCII Latin in a whole-word spoof."""
+    return (
+        ch in _CYRILLIC_LOOKALIKES
+        or ch in _GREEK_LOOKALIKES
+        or _is_fullwidth_latin(ch)
+        or _is_math_alphanumeric(ch)
+    )
+
+
+def _is_single_script_spoof(token: str) -> bool:
+    """True if *token* is entirely lookalike letters (no ASCII Latin).
+
+    Requires at least three letters so short scientific tokens do not
+    fire. Real Cyrillic/Greek that includes a non-twin letter (КИЕВ,
+    привет) returns False.
+    """
+    letters = [c for c in token if c.isalpha()]
+    if len(letters) < 3:
+        return False
+    if any(_is_ascii_latin(c) for c in letters):
+        return False
+    return all(_is_lookalike_letter(c) for c in letters)
 
 
 def _is_pictographic(ch: str) -> bool:
@@ -188,7 +235,8 @@ def detect_unicode_attacks(
             token = m.group()
             has_latin = any(_is_ascii_latin(ch) for ch in token)
             has_confusable = any(_is_confusable_script(ch) for ch in token)
-            if has_latin and has_confusable:
+            mixed = has_latin and has_confusable
+            if mixed or _is_single_script_spoof(token):
                 hg_findings.append({"token": token, "index": m.start()})
         result["homoglyph"] = hg_findings
         total += len(hg_findings)
@@ -221,12 +269,13 @@ def assert_no_unicode_attacks(
         TestResult with ``passed=True`` when no attacks are detected.
 
     Note:
-        Homoglyph detection flags only tokens that MIX ASCII Latin with
-        Cyrillic. Whole-word single-script spoofs (e.g. an all-Cyrillic
-        lookalike) and variation-selector smuggling (U+FE0x) are out of scope.
-        Greek is intentionally not treated as confusable: scientific text
-        routinely mixes Latin with Greek (e.g. "α-helix"), so flagging Greek
-        would be an unavoidable false-positive generator.
+        Homoglyph detection flags (1) tokens that mix ASCII Latin with
+        Cyrillic, fullwidth Latin, or mathematical alphanumeric symbols,
+        and (2) whole-word single-script spoofs whose every letter is a
+        Latin lookalike (Cyrillic/Greek twins, fullwidth, math bold).
+        Real words that include a non-twin letter (КИЕВ, привет) and
+        mixed Latin+Greek scientific text (α-helix) are not flagged.
+        Variation-selector smuggling (U+FE0x) remains out of scope.
         ``zero_width`` excludes legitimate Arabic/Syriac/Kaithi format marks to
         avoid false positives on real RTL text, and excludes zero-width joiners
         (U+200D) that sit between two emoji/pictographic characters, since
