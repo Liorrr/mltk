@@ -667,7 +667,7 @@ def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str=
 ```
 > Assert LLM outputs are not toxic.
 
-**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:423)
+**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:539)
 ```python
 def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), single_script_spoofs: str='auto', severity: Severity=Severity.CRITICAL)
 ```

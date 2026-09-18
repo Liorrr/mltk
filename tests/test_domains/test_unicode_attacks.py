@@ -51,6 +51,46 @@ _RUSSIAN_SENTENCE = "Я живу в МОСКВА и пою в хор кажды�
 _GREEK_SENTENCE = "Το βιβλίο και τον κόσμο ειναι ωραια"
 
 
+# "paypal" with only its tail fullwidth -- a genuine mixed-script spoof, and
+# the shape the CJK false positive must not cost us.
+_HALF_FULLWIDTH_SPOOF = "pay" + "".join(chr(ord(c) + 0xFEE0) for c in "pal")
+
+# CJK prose carrying a fullwidth acronym beside an ASCII word. CJK writes no
+# spaces, so each of these is a SINGLE \S+ token.
+_CJK_WITH_ASCII = (
+    # "This is a PDF. See https://example.com for details."
+    "これは" + "".join(chr(ord(c) + 0xFEE0) for c in "PDF") + "です。"
+    "詳細はhttps://example.comをご覧ください。",
+    # "Set it to ON and enable WiFi."
+    "設定は" + "".join(chr(ord(c) + 0xFEE0) for c in "ON") + "にしてWiFiを有効化する。",
+    # "Please set the CPU temp parameter."
+    "请把" + "".join(chr(ord(c) + 0xFEE0) for c in "CPU") + "的temp参数设置好。",
+)
+
+# Unicode mathematical notation inside ordinary English prose.
+_MATH_BOLD_ABC = "".join(chr(0x1D41A + i) for i in range(3))  # 𝐚𝐛𝐜
+_MATH_IN_PROSE = (
+    f"We define the set {_MATH_BOLD_ABC} to be the closure of S.",
+    "Let the matrix \U0001d400 act on f(\U0001d431) for all x.",
+    "the field \U0001d53d and ring \U0001d546\U0001d546\U0001d546 in algebra",
+)
+
+# Every separator str.splitlines() breaks on.
+_LINE_SEPARATORS = (
+    "\n",
+    "\r\n",
+    "\r",
+    "\v",
+    "\f",
+    "\x1c",
+    "\x1d",
+    "\x1e",
+    "\x85",
+    "\u2028",
+    "\u2029",
+)
+
+
 def _in_english(token: str) -> str:
     """Embed *token* in unambiguously English prose (Latin script context)."""
     return f"Please sign in to your {token} account again today"
@@ -208,10 +248,14 @@ class TestDetectUnicodeAttacks:
         assert result["total"] == 1
         assert result["homoglyph"][0]["token"] == _FULLWIDTH_SPOOF
 
-    def test_math_alphanumeric_is_flagged(self) -> None:
-        """DETECT: Mathematical alphanumeric lookalike in English is a homoglyph."""
+    def test_math_alphanumeric_needs_always_mode(self) -> None:
+        """SCOPE: Math notation only ever sits in Latin prose, so "auto" cannot
+        tell a spoof from a formula -- it is opt-in under "always".
+        """
+        text = _in_english(_MATH_SPOOF)
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
         result = detect_unicode_attacks(
-            _in_english(_MATH_SPOOF), checks=("homoglyph",)
+            text, checks=("homoglyph",), single_script_spoofs="always"
         )
         assert result["total"] == 1
         assert result["homoglyph"][0]["token"] == _MATH_SPOOF
@@ -348,15 +392,25 @@ class TestSingleScriptSpoofContext:
         )
         assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
 
-    def test_context_does_not_cross_a_line_break(self) -> None:
+    @pytest.mark.parametrize("sep", _LINE_SEPARATORS)
+    def test_context_does_not_cross_a_line_break(self, sep: str) -> None:
         """PASS: An English prompt line must not lend Latin context to the next.
 
-        The prompt/response pair is the common shape of an eval record.
+        The prompt/response pair is the common shape of an eval record, and
+        the separator is whatever the extractor emitted -- U+2028 and U+0085
+        arrive routinely out of PDF, DOCX and JSON-origin pipelines.
         """
         text = (
-            "Translate the quick brown fox jumps over the lazy dog\n"
+            "Translate the quick brown fox jumps over the lazy dog"
+            + sep
             + _RUSSIAN_SENTENCE
         )
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    @pytest.mark.parametrize("sep", _LINE_SEPARATORS)
+    def test_bare_spoof_on_its_own_line_is_clean(self, sep: str) -> None:
+        """PASS: Every separator must isolate a line, not just the newline."""
+        text = "Please sign in to your account" + sep + _CYRILLIC_SPOOF
         assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
 
     def test_interleaved_scripts_on_one_line_are_not_convicted(self) -> None:
@@ -372,7 +426,7 @@ class TestSingleScriptSpoofContext:
     # -- the same tokens inside Latin context are spoofs --------------------
 
     @pytest.mark.parametrize(
-        "spoof", [_CYRILLIC_SPOOF, _GREEK_SPOOF, _FULLWIDTH_SPOOF, _MATH_SPOOF]
+        "spoof", [_CYRILLIC_SPOOF, _GREEK_SPOOF, _FULLWIDTH_SPOOF]
     )
     def test_spoof_in_english_prose_is_flagged(self, spoof: str) -> None:
         """DETECT: The same token inside English prose is a whole-script spoof."""
@@ -462,6 +516,77 @@ class TestSingleScriptSpoofContext:
             detect_unicode_attacks(
                 "text", checks=("zero_width",), single_script_spoofs="yes"
             )
+
+
+# ---------------------------------------------------------------------------
+# Mixed-script evidence: the partner must sit in the same word, in a word that
+# is Latin throughout (run-2 review)
+# ---------------------------------------------------------------------------
+
+
+class TestMixedScriptEvidence:
+    """A token is not a word. `\\S+` hands this rule URLs, formulae and — since
+    CJK writes no spaces — whole Japanese and Chinese sentences.
+    """
+
+    @pytest.mark.parametrize("text", _CJK_WITH_ASCII)
+    @pytest.mark.parametrize("mode", ["auto", "always", "never"])
+    def test_cjk_with_fullwidth_and_ascii_is_clean(self, text: str, mode: str) -> None:
+        """PASS: Fullwidth acronyms beside ASCII are ordinary CJK typography.
+
+        The mixed-script rule is ungated by design, so this must hold in every
+        mode -- there is no parameter a caller could reach for otherwise.
+        """
+        result = detect_unicode_attacks(
+            text, checks=("homoglyph",), single_script_spoofs=mode
+        )
+        assert result["homoglyph"] == [], text
+
+    @pytest.mark.parametrize("text", _MATH_IN_PROSE)
+    @pytest.mark.parametrize("mode", ["auto", "never"])
+    def test_math_notation_in_english_prose_is_clean(
+        self, text: str, mode: str
+    ) -> None:
+        """PASS: `f(𝐱)` is a Latin function applied to a math variable.
+
+        The two scripts are in one token but not in one word, which is the
+        distinction the run boundary draws.
+        """
+        result = detect_unicode_attacks(
+            text, checks=("homoglyph",), single_script_spoofs=mode
+        )
+        assert result["homoglyph"] == [], text
+
+    def test_cyrillic_url_path_segment_is_clean(self) -> None:
+        """PASS: A Cyrillic path segment is a separate word from the domain."""
+        text = "See https://example.com/wiki/МОСКВА for details about it"
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    @pytest.mark.parametrize("mode", ["auto", "always", "never"])
+    def test_partial_fullwidth_word_is_still_flagged(self, mode: str) -> None:
+        """DETECT: Latin and fullwidth inside ONE word is the spoof shape."""
+        result = detect_unicode_attacks(
+            _in_english(_HALF_FULLWIDTH_SPOOF),
+            checks=("homoglyph",),
+            single_script_spoofs=mode,
+        )
+        assert [f["reason"] for f in result["homoglyph"]] == ["mixed_script"]
+
+    @pytest.mark.parametrize("mode", ["auto", "always", "never"])
+    def test_cyrillic_in_a_latin_word_is_still_flagged(self, mode: str) -> None:
+        """DETECT: No language writes Latin and Cyrillic inside one word."""
+        result = detect_unicode_attacks(
+            "Visit " + _HOMOGLYPH_TOKEN + ".com now",
+            checks=("homoglyph",),
+            single_script_spoofs=mode,
+        )
+        assert [f["reason"] for f in result["homoglyph"]] == ["mixed_script"]
+
+    def test_digits_do_not_split_a_spoofed_word(self) -> None:
+        """DETECT: A digit inside the word must not hide the script mixture."""
+        token = "p" + chr(0x0430) + "yp" + chr(0x0430) + "l1"
+        result = detect_unicode_attacks("Go to " + token, checks=("homoglyph",))
+        assert [f["reason"] for f in result["homoglyph"]] == ["mixed_script"]
 
 
 # ---------------------------------------------------------------------------

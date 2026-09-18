@@ -4,14 +4,25 @@ Detects zero-width invisible characters, bidirectional override controls
 (Trojan Source / CVE-2021-42574), and homoglyph tokens that can be used to
 bypass filters or deceive readers.
 
-Homoglyphs come in two shapes.  A *mixed-script* token carries its own
-evidence — ASCII Latin next to Cyrillic in one word is never accidental.  A
-*single-script* spoof does not: a token written entirely in Cyrillic or Greek
-letters that are Latin twins is indistinguishable, in isolation, from an
-ordinary word in that language.  Following UTS #39, which resolves
-whole-script confusables against a script context rather than per token, the
-single-script rule here is gated on the script of the letters surrounding the
-token.  See ``single_script_spoofs`` in :func:`detect_unicode_attacks`.
+Homoglyphs come in two shapes, and they need different evidence.
+
+A *mixed-script* spoof carries its own: ASCII Latin next to Cyrillic **inside
+one word** is never accidental.  The qualifier is load-bearing, because a
+token is ``\\S+`` rather than a word — a URL, a parenthesised formula and (CJK
+writes no spaces) an entire Japanese sentence all arrive as one token.  So the
+rule looks for the mixture within a single alphanumeric run, and requires that
+run to be Latin script or a confusable partner throughout; otherwise ordinary
+typography like ``設定はＯＮにしてWiFiを有効化する`` would convict.
+
+A *single-script* spoof carries no evidence at all: a token written entirely
+in Cyrillic or Greek letters that are Latin twins is indistinguishable, in
+isolation, from an ordinary word in that language.  Following UTS #39, which
+resolves whole-script confusables against a script context rather than per
+token, that rule is gated on the script of the letters surrounding the token.
+Mathematical alphanumerics are the exception the gate cannot serve — they have
+no native prose, so Latin context is guaranteed for them by construction — and
+are therefore opt-in.  See ``single_script_spoofs`` in
+:func:`detect_unicode_attacks`.
 """
 
 from __future__ import annotations
@@ -145,17 +156,79 @@ def _is_confusable_script(ch: str) -> bool:
     return _is_fullwidth_latin(ch) or _is_math_alphanumeric(ch)
 
 
+def _alnum_runs(token: str) -> list[str]:
+    """Split *token* into maximal runs of alphanumeric characters.
+
+    Tokens are ``\\S+``, so a token is not a word: a URL, a parenthesised
+    formula and — because CJK writes no spaces — an entire Japanese sentence
+    all arrive as one token.  Splitting on punctuation recovers the word,
+    which is the unit a homoglyph spoof actually operates on.  Digits stay
+    inside a run so ``раур1`` is not cut in half.
+    """
+    runs: list[str] = []
+    current: list[str] = []
+    for ch in token:
+        if ch.isalnum():
+            current.append(ch)
+        elif current:
+            runs.append("".join(current))
+            current = []
+    if current:
+        runs.append("".join(current))
+    return runs
+
+
+def _has_mixed_script_spoof(token: str) -> bool:
+    """True if some word inside *token* mixes ASCII Latin with a partner script.
+
+    Two conditions, and both are load-bearing:
+
+    * The Latin and the partner must sit in the **same alphanumeric run**.  A
+      spoof is one word wearing another word's face, so ``pаypal`` qualifies
+      while ``f(𝐱)`` — a Latin function name applied to a mathematical
+      variable — does not, and neither does a URL whose path happens to carry a
+      Cyrillic segment.
+    * Every letter of that run must be Latin script or a partner.  Fullwidth
+      Latin is ordinary typography beside CJK (``ＰＤＦ``, ``ＯＮ``, ``ＣＰＵ``), and CJK
+      has no spaces, so ``请把ＣＰＵ的temp参数设置好`` is a single run holding both
+      ASCII and fullwidth.  Requiring purity clears it while keeping
+      ``payｐａｌ``, whose every letter is Latin or fullwidth.
+
+    Cyrillic gains nothing from the purity test on its own — no language
+    writes Latin and Cyrillic inside one word — but it costs nothing either,
+    so all partners run the same rule.
+    """
+    for run in _alnum_runs(token):
+        letters = [c for c in run if c.isalpha()]
+        if not any(_is_ascii_latin(c) for c in letters):
+            continue
+        if not any(_is_confusable_script(c) for c in letters):
+            continue
+        if all(_is_latin_script(c) or _is_confusable_script(c) for c in letters):
+            return True
+    return False
+
+
 def _is_lookalike_letter(ch: str) -> bool:
-    """Letter that can stand in for ASCII Latin in a whole-word spoof."""
+    """Letter that can stand in for ASCII Latin in a whole-word spoof.
+
+    Mathematical alphanumerics are deliberately absent.  Cyrillic, Greek and
+    fullwidth letters each have native prose to sit in, which is what lets the
+    script context clear an innocent word; U+1D400–U+1D7FF has none — it is
+    the Unicode spelling of LaTeX-style notation and appears only inside Latin
+    text.  Latin context is therefore guaranteed for it by construction, so
+    gating on context would convict every legitimate formula rather than
+    protect it.  They are reinstated by ``_is_single_script_spoof``'s
+    ``allow_math``, which only ``single_script_spoofs="always"`` sets.
+    """
     return (
         ch in _CYRILLIC_LOOKALIKES
         or ch in _GREEK_LOOKALIKES
         or _is_fullwidth_latin(ch)
-        or _is_math_alphanumeric(ch)
     )
 
 
-def _is_single_script_spoof(token: str) -> bool:
+def _is_single_script_spoof(token: str, *, allow_math: bool = False) -> bool:
     """True if every letter of *token* is a Latin twin and none is ASCII Latin.
 
     This is a *candidate* test, not a verdict.  "Drawn entirely from the
@@ -168,14 +241,45 @@ def _is_single_script_spoof(token: str) -> bool:
     Requires at least three letters so short scientific tokens do not fire.
     Real Cyrillic/Greek that includes a non-twin letter (КИЕВ, привет)
     returns False outright.
+
+    Args:
+        token: The whitespace-delimited token to classify.
+        allow_math: Count mathematical alphanumerics as Latin twins.  Only
+            ``single_script_spoofs="always"`` sets this — see
+            :func:`_is_lookalike_letter` for why context cannot decide them.
     """
     letters = [c for c in token if c.isalpha()]
     if len(letters) < 3:
         return False
     if any(_is_ascii_latin(c) for c in letters):
         return False
-    return all(_is_lookalike_letter(c) for c in letters)
+    return all(
+        _is_lookalike_letter(c) or (allow_math and _is_math_alphanumeric(c))
+        for c in letters
+    )
 
+
+# Every separator ``str.splitlines()`` treats as a line break.  The token
+# regex (``\\S+``) already ends a token at each of these, so the context index
+# must end a line at each of them too — otherwise a prompt separated from a
+# response by U+2028 (routine out of PDF, DOCX and JSON-origin extractors)
+# silently lends its Latin context across what the corpus considers a line
+# boundary, which is exactly what the boundary exists to prevent.
+_LINE_BREAKS: frozenset[str] = frozenset(
+    chr(cp)
+    for cp in (
+        0x000A,  # LINE FEED
+        0x000B,  # LINE TABULATION
+        0x000C,  # FORM FEED
+        0x000D,  # CARRIAGE RETURN
+        0x001C,  # FILE SEPARATOR
+        0x001D,  # GROUP SEPARATOR
+        0x001E,  # RECORD SEPARATOR
+        0x0085,  # NEXT LINE
+        0x2028,  # LINE SEPARATOR
+        0x2029,  # PARAGRAPH SEPARATOR
+    )
+)
 
 # How many letters on each side of a candidate token make up its script
 # context.  ~24 letters per side is roughly four words either way: wide enough
@@ -221,7 +325,9 @@ class _ScriptContext:
         latin_prefix: list[int] = [0]
         line = 0
         for i, ch in enumerate(text):
-            if ch == "\n":  # context never crosses a line break
+            # CRLF bumps the counter twice; harmless, since the lookups only
+            # need _lines monotonic and the skipped number holds no letters.
+            if ch in _LINE_BREAKS:  # context never crosses a line break
                 line += 1
                 continue
             if not ch.isalpha():
@@ -314,9 +420,14 @@ def detect_unicode_attacks(
 
     Two homoglyph rules run under the ``homoglyph`` category:
 
-    * **mixed-script** — the token mixes ASCII Latin with Cyrillic, fullwidth
-      Latin or mathematical alphanumerics (``pаypal``).  Always on; it needs
-      no context because the mixture itself is the evidence.
+    * **mixed-script** — one word inside the token mixes ASCII Latin with
+      Cyrillic, fullwidth Latin or mathematical alphanumerics (``pаypal``,
+      ``payｐａｌ``).  Always on, in every mode: the mixture inside a word is
+      itself the evidence, so no context is needed.  "Word" means one
+      alphanumeric run whose letters are all Latin or a partner — which is
+      what separates a spoof from a URL with a Cyrillic path segment, from
+      ``f(𝐱)``, and from CJK prose carrying a fullwidth acronym beside an
+      ASCII one.
     * **single-script** — every letter of the token is a Latin twin and none
       is ASCII Latin (``раура``).  Gated by ``single_script_spoofs``, because
       ordinary Russian and Greek words (``МОСКВА``, ``και``) have exactly the
@@ -333,9 +444,15 @@ def detect_unicode_attacks(
               script (accents included).  A spoof planted
               in English prose is flagged; the same token inside Russian,
               Greek or CJK text, or passed on its own with no context, is not.
-            * ``"always"`` — flag every candidate regardless of context.  For
-              corpora known to be Latin-only; produces false positives on any
-              text genuinely written in Cyrillic or Greek.
+              Mathematical alphanumerics are excluded from this mode
+              entirely: U+1D400–U+1D7FF appears only inside Latin prose, so
+              the context test can never clear a formula such as
+              ``𝐚𝐛𝐜``.
+            * ``"always"`` — flag every candidate regardless of context, and
+              count mathematical alphanumerics as Latin twins.  For corpora
+              known to be Latin-only and free of Unicode mathematics;
+              produces false positives on any text genuinely written in
+              Cyrillic or Greek, and on ordinary mathematical notation.
             * ``"never"`` — mixed-script rule only.
 
     Returns:
@@ -391,15 +508,14 @@ def detect_unicode_attacks(
         # Built lazily: only texts that actually contain a single-script
         # candidate pay the O(n) indexing cost.
         context: _ScriptContext | None = None
+        allow_math = single_script_spoofs == "always"
         for m in _TOKEN_RE.finditer(text):
             token = m.group()
-            has_latin = any(_is_ascii_latin(ch) for ch in token)
-            has_confusable = any(_is_confusable_script(ch) for ch in token)
-            if has_latin and has_confusable:
+            if _has_mixed_script_spoof(token):
                 reason = "mixed_script"
             elif (
                 single_script_spoofs != "never"
-                and _is_single_script_spoof(token)
+                and _is_single_script_spoof(token, allow_math=allow_math)
             ):
                 if single_script_spoofs == "auto":
                     if context is None:
@@ -449,18 +565,29 @@ def assert_no_unicode_attacks(
         ValueError: If ``single_script_spoofs`` is not a recognised mode.
 
     Note:
-        Homoglyph detection flags (1) tokens that MIX ASCII Latin with
+        Homoglyph detection flags (1) words that MIX ASCII Latin with
         Cyrillic, fullwidth Latin or mathematical alphanumeric symbols
-        (``pаypal``), and (2) whole-word single-script spoofs whose every
-        letter is a Latin lookalike (``раура``).  Rule 2 is context-gated:
-        under the default ``single_script_spoofs="auto"`` it fires only where
-        the surrounding letters are predominantly Latin script, so ordinary
-        Russian and Greek words that happen to be built from Latin twins
-        (МОСКВА, СССР, хор, και) are not flagged inside their own script, and
-        neither is a bare token passed with no context.  Pass
-        ``single_script_spoofs="always"`` for Latin-only corpora, or
-        ``"never"`` to run the mixed-script rule alone.  Mixed Latin+Greek
-        scientific text (α-helix, 5μm, kΩ) is never flagged.
+        (``pаypal``, ``payｐａｌ``), and (2) whole-word single-script spoofs
+        whose every letter is a Latin lookalike (``раура``).
+
+        Rule 1 runs in every mode and needs no context, but the mixture must
+        occur inside one word — one alphanumeric run whose letters are all
+        Latin or a partner.  Ordinary CJK typography puts a fullwidth acronym
+        next to an ASCII word in a space-free sentence (設定はＯＮにしてWiFiを
+        有効化する), and that is not a spoof.
+
+        Rule 2 is context-gated: under the default
+        ``single_script_spoofs="auto"`` it fires only where the surrounding
+        letters are predominantly Latin script, so ordinary Russian and Greek
+        words that happen to be built from Latin twins (МОСКВА, СССР, хор,
+        και) are not flagged inside their own script, and neither is a bare
+        token passed with no context.  Mathematical alphanumerics are left out
+        of ``"auto"`` altogether — Unicode mathematics only ever appears in
+        Latin prose, so a context test cannot distinguish 𝐚𝐛𝐜 from 𝐩𝐚𝐲𝐩𝐚𝐥;
+        pass ``single_script_spoofs="always"`` (Latin-only corpus, no
+        mathematics) to include them.  ``"never"`` runs the mixed-script rule
+        alone.  Mixed Latin+Greek scientific text (α-helix, 5μm, kΩ) is never
+        flagged.
         Variation-selector smuggling (U+FE0x) remains out of scope.
         ``zero_width`` excludes legitimate Arabic/Syriac/Kaithi format marks to
         avoid false positives on real RTL text, and excludes zero-width joiners
