@@ -120,6 +120,105 @@ class TestAssertPipelineResilient:
             assert "error" in entry
             assert isinstance(entry["crashed"], bool)
 
+    def test_validate_output_counts_none_as_failure(self) -> None:
+        """FAIL: A silent None return is a failure when validate_output is set."""
+
+        def swallow(_df: pd.DataFrame) -> None:
+            return None
+
+        def ok(value: object) -> bool:
+            return value is not None
+
+        with pytest.raises(MltkAssertionError):
+            assert_pipeline_resilient(
+                swallow,
+                _BASELINE,
+                faults=["null_injection"],
+                validate_output=ok,
+                seed=_SEED,
+            )
+
+    def test_validate_output_false_is_not_a_crash(self) -> None:
+        """Invalid output is recorded as invalid, not crashed."""
+
+        def swallow(_df: pd.DataFrame) -> None:
+            return None
+
+        result = assert_pipeline_resilient(
+            swallow,
+            _BASELINE,
+            faults=["null_injection"],
+            validate_output=lambda value: value is not None,
+            severity=Severity.WARNING,
+            seed=_SEED,
+        )
+        assert result.passed is False
+        entry = result.details["results"][0]
+        assert entry["crashed"] is False
+        assert entry["invalid_output"] is True
+
+    def test_raising_predicate_counts_as_invalid_not_a_crash(self) -> None:
+        """FAIL: A predicate that raises on the output is a failure, not a TypeError.
+
+        validate_output runs on garbage output by construction -- that is
+        the point -- so the natural predicate for "non-empty frame"
+        raises on the silent None this parameter exists to catch. The
+        exception used to escape assert_pipeline_resilient entirely:
+        no TestResult, no failure_rate, dead on the first fault.
+        `not out.empty` and `out.shape[0] > 0` fail identically, so all
+        three obvious spellings hit it.
+        """
+
+        def swallow(_df: pd.DataFrame) -> None:
+            return None
+
+        result = assert_pipeline_resilient(
+            swallow,
+            _BASELINE,
+            faults=["null_injection"],
+            validate_output=lambda out: len(out) > 0,
+            max_failure_rate=1.0,
+            seed=_SEED,
+        )
+        entry = result.details["results"][0]
+        assert entry["crashed"] is False
+        assert entry["invalid_output"] is True
+        assert "TypeError" in entry["invalid_reason"]
+        assert result.details["failure_rate"] == 1.0
+
+    def test_passing_predicate_records_no_invalid_reason(self) -> None:
+        """PASS: A predicate that evaluates cleanly leaves invalid_reason unset.
+
+        Guards against the raising-predicate fix swallowing real
+        successes into invalid_output.
+        """
+        result = assert_pipeline_resilient(
+            lambda df: df,
+            _BASELINE,
+            faults=["null_injection"],
+            validate_output=lambda out: len(out) > 0,
+            seed=_SEED,
+        )
+        entry = result.details["results"][0]
+        assert entry["invalid_output"] is False
+        assert entry["invalid_reason"] is None
+        assert result.passed is True
+
+    def test_validate_output_none_keeps_legacy_graceful_equals_no_exception(self) -> None:
+        """PASS: Without validate_output, returning None still counts as survived."""
+
+        def swallow(_df: pd.DataFrame) -> None:
+            return None
+
+        result = assert_pipeline_resilient(
+            swallow,
+            _BASELINE,
+            faults=["null_injection"],
+            seed=_SEED,
+        )
+        assert result.passed is True
+        assert result.details["results"][0]["crashed"] is False
+
     def test_crashed_entry_captures_error_message(self) -> None:
         """A crashed fault entry stores a non-None error string."""
         result = assert_pipeline_resilient(
