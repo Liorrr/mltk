@@ -10,9 +10,16 @@ A *mixed-script* spoof carries its own: ASCII Latin next to Cyrillic **inside
 one word** is never accidental.  The qualifier is load-bearing, because a
 token is ``\\S+`` rather than a word — a URL, a parenthesised formula and (CJK
 writes no spaces) an entire Japanese sentence all arrive as one token.  So the
-rule looks for the mixture within a single alphanumeric run, and requires that
-run to be Latin script or a confusable partner throughout; otherwise ordinary
-typography like ``設定はＯＮにしてWiFiを有効化する`` would convict.
+rule looks for the mixture within a single word, and requires that word to be
+Latin script or a confusable partner throughout; otherwise ordinary typography
+like ``設定はＯＮにしてWiFiを有効化する`` would convict.
+
+A word ends at punctuation **and** at a change of script family.  Both halves
+matter, and in opposite directions: without the purity rule the CJK sentence
+above is a false positive, and without the script boundary ``ログインはpаypalへ``
+is a false *negative* — the same absence of spaces that makes CJK space-free
+makes it punctuation-free between words, so the spoof would hide inside its
+neighbours.
 
 A *single-script* spoof carries no evidence at all: a token written entirely
 in Cyrillic or Greek letters that are Latin twins is indistinguishable, in
@@ -143,6 +150,11 @@ def _is_math_alphanumeric(ch: str) -> bool:
     return 0x1D400 <= ord(ch) <= 0x1D7FF
 
 
+def _is_cyrillic(ch: str) -> bool:
+    """Cyrillic block (U+0400–U+04FF)."""
+    return 0x0400 <= ord(ch) <= 0x04FF
+
+
 def _is_confusable_script(ch: str) -> bool:
     """Return True if *ch* is a mixed-script partner of ASCII Latin.
 
@@ -150,60 +162,121 @@ def _is_confusable_script(ch: str) -> bool:
     Greek is excluded here: scientific text mixes Latin with Greek
     (e.g. ``α-helix``). Whole-word Greek spoofs are handled separately.
     """
-    cp = ord(ch)
-    if 0x0400 <= cp <= 0x04FF:
-        return True
-    return _is_fullwidth_latin(ch) or _is_math_alphanumeric(ch)
+    return (
+        _is_cyrillic(ch)
+        or _is_fullwidth_latin(ch)
+        or _is_math_alphanumeric(ch)
+    )
+
+
+def _is_latin_family(ch: str) -> bool:
+    """Latin script, or a script that can pass for it inside one word.
+
+    The union of real Latin and every confusable partner, and deliberately not
+    mode-dependent: this decides where a *word* ends, not whether a word is a
+    spoof.  If mathematical alphanumerics left the family under ``"auto"``,
+    ``pay𝐩𝐚𝐥`` would split into two words and the mixture would vanish
+    before any rule could judge it.
+    """
+    return _is_latin_script(ch) or _is_cyrillic(ch) or _is_fullwidth_latin(ch) or (
+        _is_math_alphanumeric(ch)
+    )
 
 
 def _alnum_runs(token: str) -> list[str]:
-    """Split *token* into maximal runs of alphanumeric characters.
+    """Split *token* into words.
 
     Tokens are ``\\S+``, so a token is not a word: a URL, a parenthesised
     formula and — because CJK writes no spaces — an entire Japanese sentence
-    all arrive as one token.  Splitting on punctuation recovers the word,
-    which is the unit a homoglyph spoof actually operates on.  Digits stay
-    inside a run so ``раур1`` is not cut in half.
+    all arrive as one token.  Two things end a word here.
+
+    Punctuation is the obvious one.  The other is a **change of script
+    family**: ``これはpаypalです`` carries no separator at all, yet it is three
+    words, and treating it as one would hide the spoof in the middle of it
+    behind the purity test in :func:`_has_mixed_script_spoof`.  Splitting on
+    punctuation alone is what made that a false negative — the same property
+    that makes CJK space-free makes it punctuation-free between words.
+
+    Digits are script-neutral and stay inside the current run, so ``раур1`` is
+    not cut in half.
     """
     runs: list[str] = []
     current: list[str] = []
+    family: bool | None = None
     for ch in token:
-        if ch.isalnum():
-            current.append(ch)
-        elif current:
-            runs.append("".join(current))
-            current = []
+        if not ch.isalnum():
+            if current:
+                runs.append("".join(current))
+                current = []
+            family = None
+            continue
+        if ch.isalpha():
+            ch_family = _is_latin_family(ch)
+            if family is not None and ch_family != family:
+                runs.append("".join(current))
+                current = []
+            family = ch_family
+        current.append(ch)
     if current:
         runs.append("".join(current))
     return runs
 
 
-def _has_mixed_script_spoof(token: str) -> bool:
+# How many mathematical-alphanumeric letters must sit inside one Latin word
+# before the mixture reads as a spoof rather than as notation.  ``𝐀x`` is a
+# bold matrix applied to a plain variable and ``x𝐢`` is a basis component —
+# one bold letter beside Latin is how mathematics is written.  Three or more
+# replacing a chunk of an ASCII word (``pay𝐩𝐚𝐥``) has no notational reading.
+# Same floor, and the same reasoning, as the three-letter minimum in
+# :func:`_is_single_script_spoof`.
+_MIN_MATH_RUN = 3
+
+
+def _has_mixed_script_spoof(token: str, *, allow_math: bool = False) -> bool:
     """True if some word inside *token* mixes ASCII Latin with a partner script.
 
-    Two conditions, and both are load-bearing:
+    Three conditions, and each one is load-bearing:
 
-    * The Latin and the partner must sit in the **same alphanumeric run**.  A
-      spoof is one word wearing another word's face, so ``pаypal`` qualifies
-      while ``f(𝐱)`` — a Latin function name applied to a mathematical
-      variable — does not, and neither does a URL whose path happens to carry a
-      Cyrillic segment.
-    * Every letter of that run must be Latin script or a partner.  Fullwidth
+    * The Latin and the partner must sit in the **same word** — see
+      :func:`_alnum_runs`, which ends a word at punctuation *and* at a change
+      of script family.  A spoof is one word wearing another word's face, so
+      ``pаypal`` qualifies, standalone and embedded in space-free CJK, while
+      ``f(𝐱)`` — a Latin function name applied to a mathematical variable —
+      does not, and neither does a URL whose path carries a Cyrillic segment.
+    * Every letter of that word must be Latin script or a partner.  Fullwidth
       Latin is ordinary typography beside CJK (``ＰＤＦ``, ``ＯＮ``, ``ＣＰＵ``), and CJK
-      has no spaces, so ``请把ＣＰＵ的temp参数设置好`` is a single run holding both
-      ASCII and fullwidth.  Requiring purity clears it while keeping
-      ``payｐａｌ``, whose every letter is Latin or fullwidth.
+      has no spaces, so ``请把ＣＰＵ的temp参数设置好`` reaches this rule as one token.
+      Requiring purity clears it while keeping ``payｐａｌ``, whose every letter
+      is Latin or fullwidth.
+    * Mathematical alphanumerics need :data:`_MIN_MATH_RUN` of them in the
+      word, unless *allow_math*.  Unlike Cyrillic and fullwidth they carry no
+      suspicion on their own: ``𝐀x`` is notation, and this rule has no context
+      test that could tell notation from a spoof.  Length is the signal that
+      is actually available — see :data:`_MIN_MATH_RUN`.
 
     Cyrillic gains nothing from the purity test on its own — no language
     writes Latin and Cyrillic inside one word — but it costs nothing either,
     so all partners run the same rule.
+
+    Args:
+        token: The whitespace-delimited token to classify.
+        allow_math: Treat a single mathematical-alphanumeric letter as
+            sufficient evidence.  Only ``single_script_spoofs="always"`` sets
+            this, matching :func:`_is_single_script_spoof`.
     """
     for run in _alnum_runs(token):
         letters = [c for c in run if c.isalpha()]
         if not any(_is_ascii_latin(c) for c in letters):
             continue
-        if not any(_is_confusable_script(c) for c in letters):
-            continue
+        if not any(
+            _is_cyrillic(c) or _is_fullwidth_latin(c) for c in letters
+        ):
+            n_math = sum(1 for c in letters if _is_math_alphanumeric(c))
+            if n_math == 0 or not (allow_math or n_math >= _MIN_MATH_RUN):
+                continue
+        # Purity decides NOT to convict, so it stays generous about what
+        # counts as Latin-family: math always qualifies here, whatever the
+        # mode, or a formula would start convicting its neighbours.
         if all(_is_latin_script(c) or _is_confusable_script(c) for c in letters):
             return True
     return False
@@ -220,6 +293,10 @@ def _is_lookalike_letter(ch: str) -> bool:
     gating on context would convict every legitimate formula rather than
     protect it.  They are reinstated by ``_is_single_script_spoof``'s
     ``allow_math``, which only ``single_script_spoofs="always"`` sets.
+
+    The mixed-script rule reaches the same conclusion by a different route:
+    it has no context test at all, so it leans on length instead — see
+    :data:`_MIN_MATH_RUN`.
     """
     return (
         ch in _CYRILLIC_LOOKALIKES
@@ -422,12 +499,16 @@ def detect_unicode_attacks(
 
     * **mixed-script** — one word inside the token mixes ASCII Latin with
       Cyrillic, fullwidth Latin or mathematical alphanumerics (``pаypal``,
-      ``payｐａｌ``).  Always on, in every mode: the mixture inside a word is
-      itself the evidence, so no context is needed.  "Word" means one
-      alphanumeric run whose letters are all Latin or a partner — which is
-      what separates a spoof from a URL with a Cyrillic path segment, from
+      ``payｐａｌ``, ``pay𝐩𝐚𝐥``).  Always on, in every mode: the mixture
+      inside a word is itself the evidence, so no context is needed.  "Word"
+      means one run of alphanumerics, ending at punctuation or at a change of
+      script family, whose letters are all Latin or a partner — which is what
+      separates a spoof from a URL with a Cyrillic path segment, from
       ``f(𝐱)``, and from CJK prose carrying a fullwidth acronym beside an
-      ASCII one.
+      ASCII one, while still catching ``pаypal`` embedded in space-free
+      Japanese, Chinese, Korean or Thai.  Mathematical alphanumerics need
+      three of them in the word before they count, since one bold letter
+      beside a plain one (``𝐀x``) is notation rather than a spoof.
     * **single-script** — every letter of the token is a Latin twin and none
       is ASCII Latin (``раура``).  Gated by ``single_script_spoofs``, because
       ordinary Russian and Greek words (``МОСКВА``, ``και``) have exactly the
@@ -511,7 +592,7 @@ def detect_unicode_attacks(
         allow_math = single_script_spoofs == "always"
         for m in _TOKEN_RE.finditer(text):
             token = m.group()
-            if _has_mixed_script_spoof(token):
+            if _has_mixed_script_spoof(token, allow_math=allow_math):
                 reason = "mixed_script"
             elif (
                 single_script_spoofs != "never"
@@ -571,10 +652,15 @@ def assert_no_unicode_attacks(
         whose every letter is a Latin lookalike (``раура``).
 
         Rule 1 runs in every mode and needs no context, but the mixture must
-        occur inside one word — one alphanumeric run whose letters are all
+        occur inside one word — one run of alphanumerics, ending at
+        punctuation or at a change of script family, whose letters are all
         Latin or a partner.  Ordinary CJK typography puts a fullwidth acronym
         next to an ASCII word in a space-free sentence (設定はＯＮにしてWiFiを
-        有効化する), and that is not a spoof.
+        有効化する), and that is not a spoof; a Latin/Cyrillic spoof dropped into
+        the same space-free prose (ログインはpаypalへ) is, and the script boundary
+        is what keeps it visible.  Mathematical alphanumerics count here only
+        three-or-more to a word: 𝐀x is a bold matrix applied to a plain
+        variable, while pay𝐩𝐚𝐥 has no reading but a spoof.
 
         Rule 2 is context-gated: under the default
         ``single_script_spoofs="auto"`` it fires only where the surrounding
@@ -585,7 +671,8 @@ def assert_no_unicode_attacks(
         of ``"auto"`` altogether — Unicode mathematics only ever appears in
         Latin prose, so a context test cannot distinguish 𝐚𝐛𝐜 from 𝐩𝐚𝐲𝐩𝐚𝐥;
         pass ``single_script_spoofs="always"`` (Latin-only corpus, no
-        mathematics) to include them.  ``"never"`` runs the mixed-script rule
+        mathematics) to include them, which also drops rule 1's
+        three-letter floor.  ``"never"`` runs the mixed-script rule
         alone.  Mixed Latin+Greek scientific text (α-helix, 5μm, kΩ) is never
         flagged.
         Variation-selector smuggling (U+FE0x) remains out of scope.

@@ -67,12 +67,45 @@ _CJK_WITH_ASCII = (
     "请把" + "".join(chr(ord(c) + 0xFEE0) for c in "CPU") + "的temp参数设置好。",
 )
 
+# Space-free scripts carrying a spoof with NO separator around it. This is the
+# positive counterpart the run-2 suite lacked: the same property that makes CJK
+# a false-positive risk (no spaces) also means no punctuation between words, so
+# a spoof lands in the same run as the surrounding script.
+_SPOOF_IN_SPACE_FREE_PROSE = (
+    "ログインは{}へアクセスしてください。",  # Japanese
+    "请访问{}网站登录",  # Chinese
+    "로그인은{}에서",  # Korean
+    "ไปที่{}เลย",  # Thai
+)
+
 # Unicode mathematical notation inside ordinary English prose.
 _MATH_BOLD_ABC = "".join(chr(0x1D41A + i) for i in range(3))  # 𝐚𝐛𝐜
 _MATH_IN_PROSE = (
     f"We define the set {_MATH_BOLD_ABC} to be the closure of S.",
     "Let the matrix \U0001d400 act on f(\U0001d431) for all x.",
     "the field \U0001d53d and ring \U0001d546\U0001d546\U0001d546 in algebra",
+)
+
+# Mathematics where a bold letter is juxtaposed with a plain one -- no
+# separator, which is how a bold matrix applied to a variable renders.
+# Notation, not a spoof.
+_MATH_JUXTAPOSED = (
+    "Let \U0001d400x = b be the system",
+    "the product \U0001d400x is defined",
+    "Consider \U0001d411n and its dual",
+    "A vector x\U0001d422 in the basis",
+    "the operator \U0001d400\U0001d401x applied",
+)
+
+# Math letters replacing a chunk of an ASCII word -- no notational reading.
+def _math_bold(text: str) -> str:
+    """Render lowercase ASCII as Mathematical Bold Small letters."""
+    return "".join(chr(0x1D41A + ord(c) - ord("a")) for c in text)
+
+
+_MATH_SPLICED_SPOOFS = (
+    "pay" + _math_bold("pal"),
+    _math_bold("pay") + "pal",
 )
 
 # Every separator str.splitlines() breaks on.
@@ -581,6 +614,86 @@ class TestMixedScriptEvidence:
             single_script_spoofs=mode,
         )
         assert [f["reason"] for f in result["homoglyph"]] == ["mixed_script"]
+
+    @pytest.mark.parametrize("carrier", _SPOOF_IN_SPACE_FREE_PROSE)
+    @pytest.mark.parametrize("mode", ["auto", "always", "never"])
+    def test_spoof_inside_space_free_prose_is_flagged(
+        self, carrier: str, mode: str
+    ) -> None:
+        """DETECT: The rule that clears CJK must not go blind inside it.
+
+        This is the mirror of test_cjk_with_fullwidth_and_ascii_is_clean, and
+        its absence is what let the purity test silently drop `pаypal` in
+        Japanese, Chinese, Korean and Thai prose -- a false NEGATIVE on the
+        assertion's headline vector, in every mode.
+        """
+        result = detect_unicode_attacks(
+            carrier.format(_HOMOGLYPH_TOKEN),
+            checks=("homoglyph",),
+            single_script_spoofs=mode,
+        )
+        assert [f["token"] for f in result["homoglyph"]] != [], carrier
+        assert result["homoglyph"][0]["reason"] == "mixed_script"
+
+    @pytest.mark.parametrize("sep", [" ", "・", ":"])
+    def test_spoof_in_cjk_with_a_separator_is_still_flagged(self, sep: str) -> None:
+        """DETECT: Detection must not depend on the attacker leaving a space."""
+        text = "ログインは" + sep + _HOMOGLYPH_TOKEN + sep + "へ"
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 1
+
+    @pytest.mark.parametrize("text", _MATH_JUXTAPOSED)
+    @pytest.mark.parametrize("mode", ["auto", "never"])
+    def test_juxtaposed_math_notation_is_clean(self, text: str, mode: str) -> None:
+        """PASS: `𝐀x` is a bold matrix applied to a plain variable.
+
+        The parenthesised form is cleared by the run boundary; juxtaposition
+        is the more common shape and has no separator to split on, so the
+        math-letter floor is what clears it.
+        """
+        result = detect_unicode_attacks(
+            text, checks=("homoglyph",), single_script_spoofs=mode
+        )
+        assert result["homoglyph"] == [], text
+
+    @pytest.mark.parametrize("text", _MATH_JUXTAPOSED)
+    def test_juxtaposed_math_notation_convicts_under_always(self, text: str) -> None:
+        """SCOPE: "always" asserts a Latin-only corpus free of mathematics."""
+        result = detect_unicode_attacks(
+            text, checks=("homoglyph",), single_script_spoofs="always"
+        )
+        assert result["homoglyph"] != [], text
+
+    @pytest.mark.parametrize("spoof", _MATH_SPLICED_SPOOFS)
+    @pytest.mark.parametrize("mode", ["auto", "always", "never"])
+    def test_math_spliced_into_an_ascii_word_is_flagged(
+        self, spoof: str, mode: str
+    ) -> None:
+        """DETECT: Three math letters replacing part of a word is a spoof.
+
+        Keeps default coverage of the realistic math-homoglyph shape while the
+        one-letter notation forms above stay clean.
+        """
+        result = detect_unicode_attacks(
+            _in_english(spoof), checks=("homoglyph",), single_script_spoofs=mode
+        )
+        assert [f["token"] for f in result["homoglyph"]] == [spoof]
+        assert result["homoglyph"][0]["reason"] == "mixed_script"
+
+    def test_fullwidth_acronym_abutting_ascii_is_flagged(self) -> None:
+        """DECISION: `ＵＲＬhttps` convicts -- it is the `payｐａｌ` shape.
+
+        Fullwidth is Latin family, so no script boundary is drawn between the
+        acronym and the ASCII word, and nothing distinguishes this from a
+        spoof. Splitting here instead would drop `payｐａｌ`, which matters more.
+        Japanese normally writes `ＵＲＬ：https`, which the punctuation splits --
+        pinned below so the pair is not silently changed.
+        """
+        assert detect_unicode_attacks("ＵＲＬhttpsで接続", checks=("homoglyph",))[
+            "total"
+        ] == 1
+        assert detect_unicode_attacks("ＵＲＬ：httpsで接続", checks=("homoglyph",))[
+            "total"
+        ] == 0
 
     def test_digits_do_not_split_a_spoofed_word(self) -> None:
         """DETECT: A digit inside the word must not hide the script mixture."""
