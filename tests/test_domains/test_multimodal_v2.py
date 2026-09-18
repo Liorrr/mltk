@@ -441,14 +441,18 @@ class TestEditPreservation:
             "multimodal.metrics.edit_preservation"
         )
 
-    def test_pillow_import_error(self) -> None:
-        """Missing Pillow produces a failing TestResult."""
+    def test_pillow_import_error_propagates(self) -> None:
+        """A loader ImportError produces a failing TestResult."""
+        # SCENARIO: the image loader raises ImportError.
+        # WHY: assert_edit_preservation must surface it as a failing
+        #   result rather than passing on unreadable images.
+        # EXPECTED: the loader's own message reaches result.message.
+        #   That message is invented by this mock, so this asserts
+        #   round-tripping only — the real install hint is pinned by
+        #   test_pillow_guard_names_the_install_extra below.
         with patch(
             "mltk.domains.multimodal.metrics._load_and_resize",
-            side_effect=ImportError(
-                "Pillow is required for image comparison. "
-                "Install with: pip install mltk[multimodal]"
-            ),
+            side_effect=ImportError("loader unavailable (test sentinel)"),
         ):
             with pytest.raises(MltkAssertionError) as exc_info:
                 assert_edit_preservation(
@@ -458,7 +462,25 @@ class TestEditPreservation:
                 )
             result = exc_info.value.result
             assert not result.passed
-            assert "Pillow" in result.message
+            assert "test sentinel" in result.message
+
+    def test_pillow_guard_names_the_install_extra(self) -> None:
+        """The real import guard names the real PyPI extra."""
+        # SCENARIO: PIL genuinely unimportable.
+        # WHY: the guard exists to hand the user a working install
+        #   command, and the propagation test above asserts a string
+        #   it made up. Only this test fails if the extra or the
+        #   distribution name is renamed.
+        # EXPECTED: ImportError naming mlspec[multimodal].
+        from mltk.domains.multimodal.metrics import _load_and_resize
+
+        with patch.dict(sys.modules, {"PIL": None}):
+            with pytest.raises(ImportError) as exc:
+                _load_and_resize(b"fake", 512)
+
+        msg = str(exc.value)
+        assert "mlspec[multimodal]" in msg
+        assert "mltk[" not in msg
 
 
 # ===============================================================
