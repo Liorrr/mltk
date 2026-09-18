@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-07-21 by scripts/generate_skill_index.py
+> Generated 2026-09-18 by scripts/generate_skill_index.py
 
 **241** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
 
@@ -661,9 +661,9 @@ def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str=
 ```
 > Assert LLM outputs are not toxic.
 
-**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:201)
+**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:422)
 ```python
-def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), severity: Severity=Severity.CRITICAL)
+def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), single_script_spoofs: str='auto', severity: Severity=Severity.CRITICAL)
 ```
 > Assert that *text* contains no unicode-based attack characters.
 
@@ -1502,7 +1502,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ## MCP Tools (13)
 
-### `mltk_scan` (server.py:184)
+### `mltk_scan` (server.py:294)
 
 > Return findings from a JSON scan report or a static Python file listing.
 
@@ -1511,7 +1511,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | path | `str` | *required* |
 | scanners | `str` | `'all'` |
 
-### `mltk_test` (server.py:255)
+### `mltk_test` (server.py:365)
 
 > Run .py tests via pytest, or parse a YAML suite (no execution).
 
@@ -1520,7 +1520,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | suite_path | `str` | *required* |
 | verbose | `bool` | `False` |
 
-### `mltk_list` (server.py:353)
+### `mltk_list` (server.py:463)
 
 > List available mltk assertions for ML testing.
 
@@ -1529,17 +1529,19 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | filter_text | `str` | `''` |
 | domain | `str` | `''` |
 
-### `mltk_eval` (server.py:398)
+### `mltk_eval` (server.py:508)
 
-> Run a scorer-pipeline smoke eval with an identity passthrough model.
+> Run a scorer-pipeline eval with an explicit model mode.
 
 | Param | Type | Default |
 |-------|------|---------|
 | dataset_path | `str` | *required* |
 | scorer | `str` | `'exact_match'` |
 | solver | `str` | `'generate'` |
+| model_mode | `str` | `'passthrough'` |
+| model_ref | `str` | `''` |
 
-### `mltk_dataset` (server.py:483)
+### `mltk_dataset` (server.py:628)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1548,7 +1550,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:536)
+### `mltk_report` (server.py:681)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1558,7 +1560,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:609)
+### `mltk_suggest` (server.py:754)
 
 > Get fix suggestions already attached to a finding JSON.
 
@@ -1568,7 +1570,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:696)
+### `mltk_experiment` (server.py:841)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1579,13 +1581,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:845)
+### `mltk_workflow` (server.py:990)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:895)
+### `mltk_create_pr` (server.py:1040)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1597,7 +1599,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:938)
+### `mltk_create_issue` (server.py:1083)
 
 > Create an issue ticket from a scan finding.
 
@@ -1609,7 +1611,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:977)
+### `mltk_container_scan` (server.py:1122)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1619,7 +1621,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
 
-### `mltk_import` (server.py:1037)
+### `mltk_import` (server.py:1182)
 
 > Import a dataset into an mltk pytest suite and eval dataset.
 
@@ -2000,6 +2002,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 | Test Directory | Source Module |
 |----------------|---------------|
+| test_charts/ | src/mltk/charts/ |
 | test_chat/ | src/mltk/chat/ |
 | test_cli/ | src/mltk/cli/ |
 | test_compliance/ | src/mltk/compliance/ |
@@ -2027,4 +2030,5 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | test_server/ | src/mltk/server/ |
 | test_testdefs/ | src/mltk/testdefs/ |
 | test_testing/ | src/mltk/testing/ |
+| test_trace/ | src/mltk/trace/ |
 | test_training/ | src/mltk/training/ |

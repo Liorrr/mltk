@@ -28,6 +28,34 @@ _FULLWIDTH_SPOOF = "".join(chr(ord(c) + 0xFEE0) for c in "paypal")
 # Mathematical bold "paypal" (U+1D41A MATHEMATICAL BOLD SMALL A ...).
 _MATH_SPOOF = "".join(chr(0x1D41A + (ord(c) - ord("a"))) for c in "paypal")
 
+# Greek spoof of Latin "ABO" -- every letter is a Latin twin.
+_GREEK_SPOOF = "ΑΒΟ"
+
+# Ordinary words built ENTIRELY from Latin twins. These are the false
+# positives the context gate exists to prevent: nothing about them is
+# adversarial, they are simply drawn from the lookalike subset.
+_REAL_CYRILLIC_WORDS = (
+    "МОСКВА",  # Moscow
+    "СССР",  # USSR
+    "хор",  # choir
+    "оса",  # wasp
+)
+_REAL_GREEK_WORDS = (
+    "και",  # "and" -- among the most frequent words in Greek
+    "τον",  # "the" (accusative)
+    "ναι",  # "yes"
+)
+
+# Prose in each script, long enough to fill a token's context window.
+_RUSSIAN_SENTENCE = "Я живу в МОСКВА и пою в хор каждый день"
+_GREEK_SENTENCE = "Το βιβλίο και τον κόσμο ειναι ωραια"
+
+
+def _in_english(token: str) -> str:
+    """Embed *token* in unambiguously English prose (Latin script context)."""
+    return f"Please sign in to your {token} account again today"
+
+
 # Zero-width space (U+200B)
 _ZWSP = chr(0x200B)
 
@@ -145,10 +173,13 @@ class TestDetectUnicodeAttacks:
         assert result["homoglyph"] == []
 
     def test_whole_word_cyrillic_lookalike_is_flagged(self) -> None:
-        """DETECT: All-lookalike Cyrillic spoof of a Latin word is flagged."""
-        result = detect_unicode_attacks(_CYRILLIC_SPOOF, checks=("homoglyph",))
+        """DETECT: All-lookalike Cyrillic spoof inside English prose is flagged."""
+        result = detect_unicode_attacks(
+            _in_english(_CYRILLIC_SPOOF), checks=("homoglyph",)
+        )
         assert result["total"] == 1
         assert result["homoglyph"][0]["token"] == _CYRILLIC_SPOOF
+        assert result["homoglyph"][0]["reason"] == "single_script"
 
     def test_real_cyrillic_sentence_not_flagged(self) -> None:
         """PASS: Ordinary Russian is not a lookalike spoof."""
@@ -161,23 +192,36 @@ class TestDetectUnicodeAttacks:
         assert result["homoglyph"] == []
 
     def test_whole_word_greek_lookalike_is_flagged(self) -> None:
-        """DETECT: All-lookalike Greek spoof (ΑΒΟ ~ ABO) is flagged."""
-        spoof = "ΑΒΟ"
-        result = detect_unicode_attacks(spoof, checks=("homoglyph",))
+        """DETECT: All-lookalike Greek spoof (ΑΒΟ ~ ABO) in English is flagged."""
+        result = detect_unicode_attacks(
+            _in_english(_GREEK_SPOOF), checks=("homoglyph",)
+        )
         assert result["total"] == 1
-        assert result["homoglyph"][0]["token"] == spoof
+        assert result["homoglyph"][0]["token"] == _GREEK_SPOOF
+        assert result["homoglyph"][0]["reason"] == "single_script"
 
     def test_fullwidth_latin_is_flagged(self) -> None:
-        """DETECT: Fullwidth Latin paypal lookalike is a homoglyph."""
-        result = detect_unicode_attacks(_FULLWIDTH_SPOOF, checks=("homoglyph",))
+        """DETECT: Fullwidth Latin paypal lookalike in English is a homoglyph."""
+        result = detect_unicode_attacks(
+            _in_english(_FULLWIDTH_SPOOF), checks=("homoglyph",)
+        )
         assert result["total"] == 1
         assert result["homoglyph"][0]["token"] == _FULLWIDTH_SPOOF
 
     def test_math_alphanumeric_is_flagged(self) -> None:
-        """DETECT: Mathematical alphanumeric paypal lookalike is a homoglyph."""
-        result = detect_unicode_attacks(_MATH_SPOOF, checks=("homoglyph",))
+        """DETECT: Mathematical alphanumeric lookalike in English is a homoglyph."""
+        result = detect_unicode_attacks(
+            _in_english(_MATH_SPOOF), checks=("homoglyph",)
+        )
         assert result["total"] == 1
         assert result["homoglyph"][0]["token"] == _MATH_SPOOF
+
+    def test_homoglyph_finding_carries_reason(self) -> None:
+        """STRUCTURE: Each homoglyph finding names the rule that produced it."""
+        result = detect_unicode_attacks(
+            "Visit " + _HOMOGLYPH_TOKEN, checks=("homoglyph",)
+        )
+        assert result["homoglyph"][0]["reason"] == "mixed_script"
 
     def test_mixed_latin_and_fullwidth_is_flagged(self) -> None:
         """DETECT: ASCII Latin mixed with fullwidth is mixed-script homoglyph."""
@@ -257,6 +301,167 @@ class TestDetectUnicodeAttacks:
         text = "p" + chr(0x0430) + "yp" + chr(0x0430) + "l"  # pаypаl
         result = detect_unicode_attacks(text, checks=("homoglyph",))
         assert result["total"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Single-script spoofs: the whole-token rule is context-gated (UTS #39)
+# ---------------------------------------------------------------------------
+
+
+class TestSingleScriptSpoofContext:
+    """The whole-token rule must fire on spoofs, not on ordinary foreign words.
+
+    "Every letter is a Latin twin" is a property of the alphabet subset, not
+    of spoofing. МОСКВА and και satisfy it exactly as раура does, so the rule
+    is resolved against the script surrounding the token.
+    """
+
+    # -- ordinary words in their own script must stay clean -----------------
+
+    @pytest.mark.parametrize("word", _REAL_CYRILLIC_WORDS + _REAL_GREEK_WORDS)
+    def test_real_word_alone_is_not_a_spoof(self, word: str) -> None:
+        """PASS: A bare all-twin word has no context and is never flagged."""
+        result = detect_unicode_attacks(word, checks=("homoglyph",))
+        assert result["homoglyph"] == [], word
+
+    @pytest.mark.parametrize("word", _REAL_CYRILLIC_WORDS)
+    def test_real_cyrillic_word_in_russian_prose_is_clean(self, word: str) -> None:
+        """PASS: An all-twin Russian word inside Russian prose is not an attack."""
+        text = f"{_RUSSIAN_SENTENCE} {word} {_RUSSIAN_SENTENCE}"
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    @pytest.mark.parametrize("word", _REAL_GREEK_WORDS)
+    def test_real_greek_word_in_greek_prose_is_clean(self, word: str) -> None:
+        """PASS: An all-twin Greek word inside Greek prose is not an attack."""
+        text = f"{_GREEK_SENTENCE} {word} {_GREEK_SENTENCE}"
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    def test_foreign_clause_inside_english_document_is_clean(self) -> None:
+        """PASS: Document-level Latin majority must not convict a local clause.
+
+        A long English paragraph followed by a short Russian one: the Russian
+        words are judged by their own neighbourhood, not the document average.
+        """
+        text = (
+            "The weather is fine today and everything works as expected "
+            "in the office this week. " + _RUSSIAN_SENTENCE
+        )
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    def test_context_does_not_cross_a_line_break(self) -> None:
+        """PASS: An English prompt line must not lend Latin context to the next.
+
+        The prompt/response pair is the common shape of an eval record.
+        """
+        text = (
+            "Translate the quick brown fox jumps over the lazy dog\n"
+            + _RUSSIAN_SENTENCE
+        )
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    def test_interleaved_scripts_on_one_line_are_not_convicted(self) -> None:
+        """PASS: Text genuinely mixing two scripts is ambiguous, so it is clean."""
+        text = "Hello world friend " + _RUSSIAN_SENTENCE
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    def test_fullwidth_latin_in_cjk_text_is_clean(self) -> None:
+        """PASS: Fullwidth Latin is ordinary typography inside CJK text."""
+        text = "これは" + _FULLWIDTH_SPOOF + "です。"
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+
+    # -- the same tokens inside Latin context are spoofs --------------------
+
+    @pytest.mark.parametrize(
+        "spoof", [_CYRILLIC_SPOOF, _GREEK_SPOOF, _FULLWIDTH_SPOOF, _MATH_SPOOF]
+    )
+    def test_spoof_in_english_prose_is_flagged(self, spoof: str) -> None:
+        """DETECT: The same token inside English prose is a whole-script spoof."""
+        result = detect_unicode_attacks(_in_english(spoof), checks=("homoglyph",))
+        assert [f["token"] for f in result["homoglyph"]] == [spoof]
+        assert result["homoglyph"][0]["reason"] == "single_script"
+
+    def test_spoof_at_start_of_text_is_flagged(self) -> None:
+        """DETECT: Context from one side alone is enough to convict."""
+        text = _CYRILLIC_SPOOF + " is the official login page for members"
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 1
+
+    @pytest.mark.parametrize(
+        "carrier",
+        [
+            "Đây là trang {} của bạn nhé",  # Vietnamese
+            "Proszę zalogować się na {} zaraz",  # Polish
+            "café naïve résumé {} account page",  # accented English
+        ],
+    )
+    def test_accented_latin_counts_as_latin_context(self, carrier: str) -> None:
+        """DETECT: Diacritics are Latin script, so they still convict a spoof."""
+        text = carrier.format(_CYRILLIC_SPOOF)
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 1
+
+    def test_scientific_greek_does_not_shield_a_spoof(self) -> None:
+        """DETECT: A few Greek symbols do not turn English into Greek context."""
+        text = "The α-helix " + _CYRILLIC_SPOOF + " domain is 5μm wide overall"
+        result = detect_unicode_attacks(text, checks=("homoglyph",))
+        assert [f["token"] for f in result["homoglyph"]] == [_CYRILLIC_SPOOF]
+
+    # -- explicit modes -----------------------------------------------------
+
+    @pytest.mark.parametrize("word", _REAL_CYRILLIC_WORDS + _REAL_GREEK_WORDS)
+    def test_always_mode_flags_every_candidate(self, word: str) -> None:
+        """SCOPE: always drops the context gate -- for Latin-only corpora."""
+        result = detect_unicode_attacks(
+            word, checks=("homoglyph",), single_script_spoofs="always"
+        )
+        assert result["total"] == 1, word
+
+    def test_always_mode_flags_a_context_free_spoof_list(self) -> None:
+        """SCOPE: A bulk list of spoof tokens has no prose to judge it by."""
+        text = "\n".join([_CYRILLIC_SPOOF, _FULLWIDTH_SPOOF, _MATH_SPOOF])
+        assert detect_unicode_attacks(text, checks=("homoglyph",))["total"] == 0
+        assert (
+            detect_unicode_attacks(
+                text, checks=("homoglyph",), single_script_spoofs="always"
+            )["total"]
+            == 3
+        )
+
+    def test_never_mode_disables_the_whole_token_rule(self) -> None:
+        """SCOPE: never restores mixed-script-only detection."""
+        result = detect_unicode_attacks(
+            _in_english(_CYRILLIC_SPOOF),
+            checks=("homoglyph",),
+            single_script_spoofs="never",
+        )
+        assert result["homoglyph"] == []
+
+    def test_never_mode_keeps_mixed_script_detection(self) -> None:
+        """SCOPE: never must not weaken the unambiguous mixed-script rule."""
+        result = detect_unicode_attacks(
+            "Visit " + _HOMOGLYPH_TOKEN,
+            checks=("homoglyph",),
+            single_script_spoofs="never",
+        )
+        assert [f["reason"] for f in result["homoglyph"]] == ["mixed_script"]
+
+    @pytest.mark.parametrize("mode", ["auto", "always", "never"])
+    def test_mixed_script_rule_is_unaffected_by_mode(self, mode: str) -> None:
+        """INVARIANT: The mixed-script rule needs no context in any mode."""
+        result = detect_unicode_attacks(
+            _HOMOGLYPH_TOKEN, checks=("homoglyph",), single_script_spoofs=mode
+        )
+        assert result["total"] == 1
+
+    def test_unknown_mode_raises_value_error(self) -> None:
+        """GUARD: A typo in the mode must fail loudly, not silently disable."""
+        with pytest.raises(ValueError, match="single_script_spoofs"):
+            detect_unicode_attacks("text", single_script_spoofs="sometimes")
+
+    def test_unknown_mode_raises_even_without_homoglyph_check(self) -> None:
+        """GUARD: The argument is validated regardless of the checks requested."""
+        with pytest.raises(ValueError, match="single_script_spoofs"):
+            detect_unicode_attacks(
+                "text", checks=("zero_width",), single_script_spoofs="yes"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -353,6 +558,56 @@ class TestAssertNoUnicodeAttacks:
         token = "p" + chr(0x0430) + "yp" + chr(0x0430) + "l"
         with pytest.raises(MltkAssertionError):
             assert_no_unicode_attacks("Visit " + token, checks=("homoglyph",))
+
+    def test_russian_prose_passes_assertion(self) -> None:
+        """PASS: A security gate must not fail a suite written in Russian."""
+        result = assert_no_unicode_attacks(_RUSSIAN_SENTENCE, checks=("homoglyph",))
+        assert result.passed is True
+
+    def test_greek_prose_passes_assertion(self) -> None:
+        """PASS: A security gate must not fail a suite written in Greek."""
+        result = assert_no_unicode_attacks(_GREEK_SENTENCE, checks=("homoglyph",))
+        assert result.passed is True
+
+    def test_single_script_spoof_in_english_raises(self) -> None:
+        """FAIL/CRITICAL: The same shape inside English prose is an attack."""
+        with pytest.raises(MltkAssertionError):
+            assert_no_unicode_attacks(
+                _in_english(_CYRILLIC_SPOOF), checks=("homoglyph",)
+            )
+
+    def test_always_mode_raises_on_a_bare_candidate(self) -> None:
+        """FAIL/CRITICAL: always opts a Latin-only corpus into the strict rule."""
+        with pytest.raises(MltkAssertionError):
+            assert_no_unicode_attacks(
+                _REAL_CYRILLIC_WORDS[0],
+                checks=("homoglyph",),
+                single_script_spoofs="always",
+            )
+
+    def test_never_mode_passes_on_a_single_script_spoof(self) -> None:
+        """PASS: never opts out of the whole-token rule entirely."""
+        result = assert_no_unicode_attacks(
+            _in_english(_CYRILLIC_SPOOF),
+            checks=("homoglyph",),
+            single_script_spoofs="never",
+        )
+        assert result.passed is True
+
+    def test_details_record_the_active_spoof_mode(self) -> None:
+        """STRUCTURE: A homoglyph result names the policy that produced it."""
+        result = assert_no_unicode_attacks("clean text", checks=("homoglyph",))
+        assert result.details["single_script_spoofs"] == "auto"
+
+    def test_details_omit_spoof_mode_when_homoglyph_not_checked(self) -> None:
+        """STRUCTURE: The mode is irrelevant when the category is not scanned."""
+        result = assert_no_unicode_attacks("clean text", checks=("zero_width",))
+        assert "single_script_spoofs" not in result.details
+
+    def test_unknown_mode_raises_value_error(self) -> None:
+        """GUARD: An unrecognised mode fails loudly rather than silently."""
+        with pytest.raises(ValueError, match="single_script_spoofs"):
+            assert_no_unicode_attacks("text", single_script_spoofs="maybe")
 
 
 # ---------------------------------------------------------------------------
