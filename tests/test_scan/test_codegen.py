@@ -159,14 +159,31 @@ class TestGenerateTestFile:
             "pytest.skip('ok')"
         )
 
-    def test_bad_scanner_snippet_fails_before_writing(self, tmp_path) -> None:
+    def test_bad_scanner_snippet_degrades_to_failing_body(self, tmp_path) -> None:
+        """A contract-violating snippet must not abort the whole file.
+
+        It becomes the generic failing body (reason in a comment), and a
+        valid sibling finding keeps its own body.
+        """
         output = tmp_path / "generated.py"
-        with pytest.raises(ValueError, match="top-level"):
-            generate_test_file(
-                [_mock_finding("def test_broken(): pass")],
-                output_path=str(output),
-            )
-        assert not output.exists()
+        code = generate_test_file(
+            [
+                _mock_finding("def test_broken(): pass"),
+                _mock_finding("assert X is not None"),
+            ],
+            output_path=str(output),
+        )
+        assert output.exists()
+        assert "# Scanner snippet rejected:" in code
+        assert "top-level" in code
+        assert "def test_broken" not in code
+        assert "assert X is not None" in code
+
+    def test_message_with_backslash_and_quotes_stays_valid(self) -> None:
+        finding = _mock_finding("assert True")
+        finding.result.message = 'slice C:\\Users \\U0001 """x"""'
+        code = generate_test_file([finding])
+        ast.parse(code)
 
     def test_report_output_matches_direct_codegen(self, tmp_path) -> None:
         findings = [_mock_finding("assert True")]

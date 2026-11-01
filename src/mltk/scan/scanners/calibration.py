@@ -171,11 +171,16 @@ class CalibrationScanner(Scanner):
     ) -> str:
         """Generate a pytest snippet for calibration."""
         return (
-            "y_prob = model.predict_proba(X)[:, 1]\n"
+            # Same positive-class extraction as the scan
+            # (_extract_positive_proba): (n,2) -> col 1,
+            # (n,1) -> col 0, 1-D as-is.
+            "y_prob = np.asarray(model.predict_proba(X))\n"
+            "if y_prob.ndim == 2:\n"
+            "    y_prob = y_prob[:, 1 if y_prob.shape[1] == 2 else 0]\n"
             "assert_calibration(\n"
             "    y, y_prob,\n"
-            f"        max_error={max_ece},\n"
-            f"        n_bins={n_bins},\n"
+            f"    max_error={max_ece},\n"
+            f"    n_bins={n_bins},\n"
             ")\n"
         )
 

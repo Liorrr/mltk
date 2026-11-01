@@ -290,6 +290,7 @@ class RedTeamSession:
                 "Unknown on_error. Valid values: fail_if_all, strict, resist"
             )
         compromised_at: int | None = None
+        start_len = len(self.history)
         errored_turns = 0
         last_error: Exception | None = None
 
@@ -313,7 +314,9 @@ class RedTeamSession:
                 compromised_at = i
                 break
 
-        executed = len(self.history)
+        # Only turns run by THIS chain count -- a reused session may
+        # already hold successful turns from earlier send() calls.
+        executed = len(self.history) - start_len
         if (on_error == "fail_if_all" and executed > 0
                 and errored_turns == executed and last_error is not None):
             raise RuntimeError(

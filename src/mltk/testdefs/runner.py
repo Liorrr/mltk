@@ -304,10 +304,10 @@ def _merge_defaults(
     elif defaults.mutations:
         merged["mutations"] = defaults.mutations
 
-    if "on_error" in params:
-        merged["on_error"] = params["on_error"]
-    elif defaults.on_error != "fail_if_all":
-        merged["on_error"] = defaults.on_error
+    # on_error is NOT merged from defaults: the built-in dispatch branches
+    # read suite.defaults.on_error themselves, and injecting it here would
+    # pass an unexpected kwarg to plugin assertions.  An explicit per-test
+    # on_error still passes through below.
 
     # Pass through remaining per-test params
     for k, v in params.items():

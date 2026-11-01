@@ -98,6 +98,18 @@ def _build_header() -> str:
     """)
 
 
+def _build_read_table_helper() -> str:
+    """Return the CSV/parquet reader shared by the data fixtures."""
+    return textwrap.dedent("""\
+
+        def _read_table(path):
+            \"\"\"Read CSV or parquet, matching ``mltk scan-model --data``.\"\"\"
+            if str(path).lower().endswith(".parquet"):
+                return pd.read_parquet(path)
+            return pd.read_csv(path)
+    """)
+
+
 def _snippet_names(body: str) -> tuple[set[str], set[str]]:
     """Return loaded names and names assigned anywhere in *body*."""
     try:
@@ -164,11 +176,14 @@ def _build_model_fixture(
 
         @pytest.fixture(scope="module")
         def model():
-            \"\"\"Load the scanned model.
+            \"\"\"Load the scanned model with the scan's own loader.
 
-            Override with MLTK_MODEL_PATH env var.
+            Override with MLTK_MODEL_PATH env var.  Returns an object
+            with ``predict`` (and ``predict_proba`` when supported).
             \"\"\"
-            import joblib
+            from types import SimpleNamespace
+
+            from mltk.scan.loader import load_model
 
             path = os.environ.get(
                 "MLTK_MODEL_PATH", {literal},
@@ -177,7 +192,12 @@ def _build_model_fixture(
                 pytest.skip(
                     "Set MLTK_MODEL_PATH or pass --model"
                 )
-            return joblib.load(path)
+            loaded = load_model(path)
+            return SimpleNamespace(
+                predict=loaded.predict_fn,
+                predict_proba=loaded.predict_proba_fn,
+                raw=loaded.raw,
+            )
     """)
 
 
@@ -213,7 +233,7 @@ def _build_data_fixture(
                 pytest.skip(
                     "Set MLTK_DATA_PATH or pass --data"
                 )
-            df = pd.read_csv(path)
+            df = _read_table(path)
             target = {repr(col)}
             y = df[target].values
             X = df.drop(columns=[target])
@@ -236,19 +256,20 @@ def _build_test_method(
     safe_name = _sanitize_name(result.name)
     method_name = f"test_{index:03d}_{safe_name}"
 
-    # Docstring from the finding
+    # Docstring from the finding.  Escape backslashes and quotes so a
+    # message such as "slice C:\Users" cannot break the literal.
     docstring = (
         f"{result.message}\n\n"
         f"Scanner: {finding.scanner_name}\n"
         f"Severity: {severity}"
-    )
+    ).replace("\\", "\\\\").replace('"', '\\"')
+    # Indent continuation lines to the docstring; keep blank lines empty.
+    docstring = "\n".join(
+        f"        {line}" if line else ""
+        for line in docstring.split("\n")
+    ).lstrip()
 
-    # Body: prefer scanner-provided code, else generic
-    if finding.suggested_test.strip():
-        body = finding.suggested_test.rstrip()
-    else:
-        body = _generic_body(finding)
-    check_snippet(body)
+    body = _finding_body(finding)
     loaded, _assigned = _snippet_names(body)
     needs_train = bool(loaded & {"X_train", "y_train"})
     params = "model, data"
@@ -271,6 +292,24 @@ def _build_test_method(
         lines.append(f"        {line}")
 
     return "\n".join(lines)
+
+
+def _finding_body(finding: ScanFinding) -> str:
+    """Return the contract-checked test body for *finding*.
+
+    Uses ``suggested_test`` when it satisfies :func:`check_snippet`.
+    A violating snippet degrades to the generic failing body (with the
+    reason as a comment) so one bad finding cannot abort the whole file.
+    """
+    if not finding.suggested_test.strip():
+        return _generic_body(finding)
+    body = finding.suggested_test.rstrip()
+    try:
+        check_snippet(body)
+    except ValueError as exc:
+        reason = str(exc).replace("\n", " ")
+        return f"# Scanner snippet rejected: {reason}\n" + _generic_body(finding)
+    return body
 
 
 def _generic_body(finding: ScanFinding) -> str:
@@ -325,13 +364,7 @@ def _mltk_names(findings: list[ScanFinding]) -> set[str]:
 
     names: set[str] = set()
     for finding in findings:
-        body = (
-            finding.suggested_test.rstrip()
-            if finding.suggested_test.strip()
-            else _generic_body(finding)
-        )
-        check_snippet(body)
-        loaded, assigned = _snippet_names(body)
+        loaded, assigned = _snippet_names(_finding_body(finding))
         names.update(
             name for name in loaded - assigned
             if name not in SNIPPET_PROVIDED_NAMES
@@ -354,7 +387,7 @@ def _build_train_data_fixture(
             path = os.environ.get("MLTK_TRAIN_DATA_PATH", {literal})
             if path is None:
                 pytest.skip("Set MLTK_TRAIN_DATA_PATH to run train/test checks")
-            df = pd.read_csv(path)
+            df = _read_table(path)
             target = {repr(col)}
             return df.drop(columns=[target]), df[target].values
     """)
@@ -423,7 +456,6 @@ def generate_test_file(
         The generated Python source code as a string.
 
     Raises:
-        ValueError: If a scanner body violates the snippet contract.
         SyntaxError: If the assembled code fails ``ast.parse()``.
 
     Example::
@@ -441,23 +473,16 @@ def generate_test_file(
     """
     mltk_names = _mltk_names(findings)
     needs_train = any(
-        bool(
-            _snippet_names(
-
-                    f.suggested_test.rstrip()
-                    if f.suggested_test.strip()
-                    else _generic_body(f)
-
-            )[0] & {"X_train", "y_train"}
-        )
+        _snippet_names(_finding_body(f))[0] & {"X_train", "y_train"}
         for f in findings
     )
     parts: list[str] = [
         _build_header(),
         (
-            "\n\nfrom mltk import " + ", ".join(sorted(mltk_names))
+            "from mltk import " + ", ".join(sorted(mltk_names)) + "\n"
             if mltk_names else ""
         ),
+        _build_read_table_helper(),
         _build_model_fixture(model_path),
         _build_data_fixture(data_path, target_col),
     ]

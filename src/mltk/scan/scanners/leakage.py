@@ -377,10 +377,10 @@ class LeakageScanner(Scanner):
         """Generate a pytest snippet for one feature."""
         return (
             "df = X.copy()\n"
-            "df['target'] = y\n"
+            "df['__mltk_target__'] = y\n"
             "assert_no_target_leakage(\n"
             "    df,\n"
-            "    target_col='target',\n"
+            "    target_col='__mltk_target__',\n"
             f"    feature_cols=[{col!r}],\n"
             f"    corr_threshold={threshold},\n"
             ")\n"
@@ -391,10 +391,10 @@ class LeakageScanner(Scanner):
         """Generate a pytest snippet for all features."""
         return (
             "df = X.copy()\n"
-            "df['target'] = y\n"
+            "df['__mltk_target__'] = y\n"
             "assert_no_target_leakage(\n"
             "    df,\n"
-            "    target_col='target',\n"
+            "    target_col='__mltk_target__',\n"
             f"        corr_threshold={threshold},\n"
             ")\n"
         )
