@@ -99,3 +99,23 @@ def test_empty_text_reports_both_confidences_as_none() -> None:
     assert details["detected"] is None
     assert details["detected_probability"] is None
     assert details["expected_probability"] is None
+
+
+def test_bare_iso_code_matches_langdetect_regional_variant() -> None:
+    zh = "我今天很高兴见到你，我们一起去公园散步吧。"
+    result = assert_language(zh, "zh")
+    assert result.passed is True
+    assert result.details["detected"] == "zh-cn"
+    assert result.details["expected_probability"] > 0.9
+    # mirror: a regional expected code still requires that exact region,
+    # and an unrelated language still fails
+    for wrong in ("zh-tw", "en"):
+        with pytest.raises(MltkAssertionError):
+            assert_language(zh, wrong)
+
+
+def test_expected_code_is_case_insensitive() -> None:
+    result = assert_language(
+        "The cat sat on the mat and watched the birds outside.", "EN"
+    )
+    assert result.passed is True

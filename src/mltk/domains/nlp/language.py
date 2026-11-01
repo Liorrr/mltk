@@ -24,6 +24,9 @@ def assert_language(
     Args:
         text: Input text to classify.
         expected: ISO 639-1 language code (e.g. ``"en"``, ``"fr"``).
+            Matching is case-insensitive, and a bare code also matches
+            langdetect's regional variants (``"zh"`` matches ``"zh-cn"``
+            and ``"zh-tw"``); a regional code requires that region.
         min_prob: Optional minimum probability for *expected*. ``None``
             checks identity only.
         severity: CRITICAL raises on failure.
@@ -77,8 +80,16 @@ def assert_language(
 
     ranked = [(c.lang, float(c.prob)) for c in candidates]
     detected = ranked[0][0] if ranked else None
-    expected_prob = next((p for lang, p in ranked if lang == expected), 0.0)
-    identity_ok = detected == expected
+    exp = expected.lower()
+
+    def _matches(code: str) -> bool:
+        # bare ISO 639-1 ("zh") also accepts langdetect's regional codes
+        # ("zh-cn", "zh-tw"); a regional expected code still requires that region.
+        code = code.lower()
+        return code == exp if "-" in exp else code.split("-", 1)[0] == exp
+
+    expected_prob = sum((p for lang, p in ranked if _matches(lang)), 0.0)
+    identity_ok = detected is not None and _matches(detected)
     prob_ok = True if min_prob is None else expected_prob >= min_prob
     passed = bool(identity_ok and prob_ok)
 

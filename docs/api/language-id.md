@@ -28,7 +28,7 @@ assert_language(
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `text` | `str` | *(required)* | Text to classify |
-| `expected` | `str` | *(required)* | ISO 639-1 code (`en`, `fr`, …) |
+| `expected` | `str` | *(required)* | ISO 639-1 code (`en`, `fr`, …). Case-insensitive; a bare code also matches regional variants (`zh` matches `zh-cn` and `zh-tw`), a regional code requires that region |
 | `min_prob` | `float \| None` | `None` | Optional minimum probability for `expected` |
 | `severity` | `Severity` | `CRITICAL` | CRITICAL raises on failure |
 
