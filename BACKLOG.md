@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S100: 243 assertions, 5086+ tests, 38 Rust tests) — v0.13.0
+## DONE (S0-S100: 243 assertions, 5224+ tests, 38 Rust tests) — v0.13.0
 
 ### S103 — Silent-pass fix batch (deep drift audit, batch 1 of 4)
 - [x] Seven assertions/tools that passed when they should fail, found by the full-source README contract audit: (1) **BREAKING** tiered `on_error="fail_if_all" | "strict" | "resist"` across all 4 red-team "error = resisted" copies (3 red-team assertions, `RedTeamSession.run_chain` + `MultiTurnResult.errored_turns`, `assert_no_prompt_injection`, `security-scan --on-error`) plus YAML `defaults.on_error` — the default fails only when every model call raised; legacy test-encoded cases opt in to `resist`; (2) `assert_no_regression` honours lower-is-better for mse/rmse/mae; (3) `assert_output_stability` fails when any input's runs all raise; (4) `assert_onnx_valid` uses the caller severity when onnxruntime is missing; (5) one scan test generator — `to_test_file` routes through `codegen.generate_test_file`, all 8 scanners emit contract-checked bodies (`check_snippet`), nested-def bug gone, end-to-end test runs a generated file under pytest; (6) BiasScanner auto-detected columns now yield INFO findings; (7) `assert_no_overfitting`/`assert_robust`/`assert_no_target_leakage` exported top-level. 5-worker Codex dispatch (gpt-5.6-luna) + orchestrator gate; orchestrator fixed error-failure messages, run-level `fail_if_all` in the CLI scan, the e2e assertion and the missing exports (with a mirror test); Opus review found 9 issues, 8 fixed in-PR (CLI strict verdict + JSON error fields, plugin kwarg leak from `defaults.on_error`, reused-session `fail_if_all` scope, generated-file loaders for ONNX/torch/keras + parquet, docstring escaping, per-finding snippet fallback, calibration/robustness/leakage snippet fidelity). Suite **5009 green** (+86).
@@ -71,7 +71,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 243 assertions, 5086+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 243 assertions, 5224+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -243,7 +243,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] `assert_pipeline_stages_compatible` — dtype canonicalization (`np.dtype(x).name` + alias map + lowercase fallback) so `int64`/`Int64`/`int` compare equal (2026-07-05, codex-worker pilot; widening-aware predicate still open below)
 - [ ] `assert_pipeline_stages_compatible` — optional widening-aware predicate (e.g. `int32` satisfies `int64` requirement)
 - [ ] `assert_pipeline_resilient` — optional `validate_output: Callable[[Any], bool]` so silent `None`/garbage output counts as a failure (currently "graceful == no exception raised" only)
-- [ ] `assert_no_unicode_attacks` — single-script confusable detection (whole-word Cyrillic/Greek spoofs, e.g. an all-Cyrillic lookalike) + widen confusable set beyond Cyrillic/Greek (fullwidth, mathematical-alphanumeric)
+- [x] `assert_no_unicode_attacks` — single-script confusable detection (whole-word Cyrillic/Greek spoofs) + widened confusable set (fullwidth, mathematical-alphanumeric). Context-gated per UTS #39 via `single_script_spoofs="auto"|"always"|"never"`, so ordinary Russian/Greek words built entirely from Latin twins (МОСКВА, СССР, και) are not flagged inside their own script (2026-09-18, PR #28 review fix)
 
 ### Structured Output & Cost Tracking (S96 — DONE)
 *Source: roadmap.md Tier 2-3, Competitors & Positioning*
@@ -257,7 +257,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 5086+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 5224+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).
