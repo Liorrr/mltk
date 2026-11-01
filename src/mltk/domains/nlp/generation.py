@@ -1,4 +1,4 @@
-"""NLP generation quality testing -- BLEU and ROUGE scores."""
+"""NLP generation quality testing -- BLEU, ROUGE, and chrF scores."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ def assert_bleu(
 
     Args:
         references: Reference translations/texts. Must have the same length as
-            hypotheses; if lengths differ, the shorter list determines the count
-            of pairs evaluated (extra items in the longer list are ignored).
+            hypotheses; mismatched lengths raise ``ValueError``. An empty
+            corpus fails rather than scoring.
         hypotheses: Model-generated translations/texts.
         min_score: Minimum required BLEU score (0-1).
 
@@ -30,6 +30,24 @@ def assert_bleu(
         >>> hyps = ["the cat is on the mat"]
         >>> assert_bleu(refs, hyps, min_score=0.2)
     """
+    require_same_length(
+        "assert_bleu", references=references, hypotheses=hypotheses,
+    )
+    # Two empty lists have the same length, so they reach corpus_bleu
+    # and divide by zero. Fail as an assertion, the way assert_chrf and
+    # assert_rouge already do, rather than raising out of nltk.
+    if len(references) == 0:
+        return assert_true(
+            False,
+            name="nlp.bleu",
+            message="BLEU: empty corpus",
+            severity=Severity.CRITICAL,
+            score=None,
+            min_score=min_score,
+            num_references=0,
+            num_hypotheses=0,
+        )
+
     try:
         from nltk.translate.bleu_score import SmoothingFunction, corpus_bleu
     except ImportError as err:
@@ -111,4 +129,78 @@ def assert_rouge(
         passed, name=f"nlp.rouge.{variant}", message=message,
         severity=Severity.CRITICAL,
         score=avg_score, variant=variant, min_score=min_score,
+    )
+
+
+@timed_assertion
+def assert_chrf(
+    references: list[str],
+    hypotheses: list[str],
+    min_score: float = 0.3,
+    *,
+    word_order: int = 0,
+) -> TestResult:
+    """Assert corpus chrF (Popović 2015) meets minimum threshold.
+
+    Score is reported in ``[0, 1]``. ``word_order=2`` is chrF++.
+
+    Args:
+        references: Reference texts. Must have the same length as hypotheses.
+        hypotheses: Model-generated texts.
+        min_score: Minimum required chrF score (0-1).
+        word_order: Character n-gram order extra word n-grams. ``0`` is
+            chrF; ``2`` is chrF++.
+
+    Returns:
+        TestResult with chrF score.
+
+    Example:
+        >>> refs = ["the cat sat on the mat"]
+        >>> hyps = ["the cat is on the mat"]
+        >>> assert_chrf(refs, hyps, min_score=0.2)
+    """
+    require_same_length(
+        "assert_chrf", references=references, hypotheses=hypotheses,
+    )
+    name = "nlp.chrfpp" if word_order == 2 else "nlp.chrf"
+    if len(references) == 0:
+        return assert_true(
+            False,
+            name=name,
+            message="chrF: empty corpus",
+            severity=Severity.CRITICAL,
+            score=None,
+            min_score=min_score,
+            word_order=word_order,
+        )
+
+    try:
+        from sacrebleu.metrics import CHRF
+    except ImportError as err:
+        raise ImportError(
+            "sacrebleu is required for chrF scoring. "
+            "Install: pip install mlspec[nlp]"
+        ) from err
+
+    raw = CHRF(word_order=word_order).corpus_score(
+        hypotheses, [references],
+    ).score
+    score = float(raw) / 100.0
+    passed = score >= min_score
+    label = "chrF++" if word_order == 2 else "chrF"
+    message = (
+        f"{label}: {score:.4f} >= {min_score}"
+        if passed
+        else f"{label}: {score:.4f} < {min_score}"
+    )
+    return assert_true(
+        passed,
+        name=name,
+        message=message,
+        severity=Severity.CRITICAL,
+        score=score,
+        min_score=min_score,
+        word_order=word_order,
+        num_references=len(references),
+        num_hypotheses=len(hypotheses),
     )

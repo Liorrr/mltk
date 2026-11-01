@@ -1,5 +1,12 @@
 """Compliance — EU AI Act, NIST AI RMF, ISO 42001, OWASP, FDA, HIPAA, Custom, PDF."""
 
+from mltk.compliance.drift import (
+    FRAMEWORK_VERSIONS,
+    assert_no_compliance_drift,
+    load_coverage_baseline,
+    snapshot_coverage,
+    write_coverage_baseline,
+)
 from mltk.compliance.eu_ai_act import classify_risk, find_gaps, map_results_to_articles
 from mltk.compliance.fda import generate_fda_audit_trail
 from mltk.compliance.generator import generate_compliance_report
@@ -26,6 +33,12 @@ from mltk.compliance.sr_11_7 import find_gaps as find_sr_11_7_gaps
 
 __all__ = [
     "generate_compliance_report",
+    # Drift
+    "FRAMEWORK_VERSIONS",
+    "assert_no_compliance_drift",
+    "load_coverage_baseline",
+    "snapshot_coverage",
+    "write_coverage_baseline",
     # OWASP
     "owasp_llm_scan",
     "assert_owasp_coverage",

@@ -9,6 +9,7 @@ Covers:
 
 from __future__ import annotations
 
+import sys
 import warnings
 from unittest.mock import MagicMock, patch
 
@@ -160,23 +161,51 @@ class TestToxicityMethodDispatch:
     @patch(
         "mltk.domains.llm.safety._load_toxicity_pipeline"
     )
-    def test_classifier_import_error(
+    def test_classifier_import_error_propagates(
         self, mock_load: MagicMock,
     ) -> None:
-        """Missing transformers gives clear error message."""
+        """A loader ImportError surfaces as a failing assertion."""
+        # SCENARIO: the pipeline loader raises ImportError.
+        # WHY: assert_no_toxicity must convert it into an
+        #   MltkAssertionError carrying the loader's text, rather than
+        #   passing (which would report clean text as verified).
+        # EXPECTED: the loader's own message reaches result.message.
+        #   The text below is this mock's invention, so the assertion
+        #   checks it round-trips — it does NOT pin the real install
+        #   hint. That is
+        #   test_classifier_guard_names_the_install_extra's job.
         mock_load.side_effect = ImportError(
-            "transformers + torch are required for "
-            "method='classifier'. Install with: "
-            "pip install mltk[classifier] "
-            "or pip install transformers torch"
+            "loader unavailable (test sentinel)"
         )
         with pytest.raises(MltkAssertionError) as exc:
             assert_no_toxicity(
                 CLEAN_TEXTS, method="classifier",
             )
-        msg = exc.value.result.message
-        assert "transformers" in msg
-        assert "classifier" in msg.lower()
+        assert "test sentinel" in exc.value.result.message
+
+    def test_classifier_guard_names_the_install_extra(self) -> None:
+        """The real import guard names the real PyPI extra."""
+        # SCENARIO: transformers genuinely unimportable.
+        # WHY: the guard exists to hand the user a working install
+        #   command. The propagation test above asserts a string it
+        #   made up, so only this one would fail if the extra or the
+        #   distribution name were renamed.
+        # EXPECTED: ImportError naming mlspec[classifier].
+        from mltk.domains.llm.safety import _load_toxicity_pipeline
+
+        _load_toxicity_pipeline.cache_clear()
+        try:
+            with patch.dict(sys.modules, {"transformers": None}):
+                with pytest.raises(ImportError) as exc:
+                    _load_toxicity_pipeline(
+                        "unitary/toxic-bert", "main",
+                    )
+        finally:
+            _load_toxicity_pipeline.cache_clear()
+
+        msg = str(exc.value)
+        assert "mlspec[classifier]" in msg
+        assert "mltk[" not in msg
 
     def test_method_in_details(self) -> None:
         """method key present in TestResult.details."""

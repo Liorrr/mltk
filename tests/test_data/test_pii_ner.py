@@ -11,7 +11,8 @@ are fully mocked -- no network or model downloads required.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+import sys
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -323,12 +324,19 @@ class TestScanPiiNer:
                 f"{expected}"
             )
 
-    def test_scan_ner_import_error(self, monkeypatch):
-        """ImportError raised when presidio not installed."""
+    def test_scan_ner_propagates_import_error(self, monkeypatch):
+        """scan_pii_ner surfaces the loader's ImportError to the caller."""
+        # SCENARIO: the analyzer loader raises ImportError.
+        # WHY: scan_pii_ner must not swallow it into an empty match
+        #   list, which would read as "no PII found".
+        # EXPECTED: the ImportError reaches the caller unchanged.
+        #   The message is deliberately NOT asserted here — it is
+        #   invented by this mock. The real message is pinned by
+        #   test_presidio_guard_names_the_install_extra below.
+        sentinel = ImportError("presidio missing (test sentinel)")
+
         def _raise_import():
-            raise ImportError(
-                "pip install mltk[ner]"
-            )
+            raise sentinel
 
         monkeypatch.setattr(
             "mltk.data.pii_ner._get_presidio_analyzer",
@@ -337,8 +345,31 @@ class TestScanPiiNer:
 
         from mltk.data.pii_ner import scan_pii_ner
 
-        with pytest.raises(ImportError, match="mltk"):
+        with pytest.raises(ImportError) as exc:
             scan_pii_ner("Hello world")
+        assert exc.value is sentinel
+
+    def test_presidio_guard_names_the_install_extra(self):
+        """The real import guard names the real PyPI extra."""
+        # SCENARIO: presidio_analyzer genuinely unimportable.
+        # WHY: the guard's whole purpose is handing the user a working
+        #   install command. Asserting a message a mock invented pins
+        #   nothing — this blocks the real import instead, so a rename
+        #   of the extra (or the distribution) fails here.
+        # EXPECTED: ImportError naming mlspec[ner], not mltk[ner].
+        from mltk.data.pii_ner import _get_presidio_analyzer
+
+        _get_presidio_analyzer.cache_clear()
+        try:
+            with patch.dict(sys.modules, {"presidio_analyzer": None}):
+                with pytest.raises(ImportError) as exc:
+                    _get_presidio_analyzer()
+        finally:
+            _get_presidio_analyzer.cache_clear()
+
+        msg = str(exc.value)
+        assert "mlspec[ner]" in msg
+        assert "mltk[" not in msg
 
     def test_scan_ner_respects_language(
         self, mock_presidio
@@ -508,14 +539,19 @@ class TestScanPiiGliner:
             for c in calls
         )
 
-    def test_scan_gliner_import_error(
+    def test_scan_gliner_propagates_import_error(
         self, monkeypatch
     ):
-        """ImportError raised when gliner not installed."""
+        """scan_pii_gliner surfaces the loader's ImportError."""
+        # SCENARIO: the GLiNER model loader raises ImportError.
+        # WHY: it must not be swallowed into an empty match list,
+        #   which would read as "no PII found".
+        # EXPECTED: the ImportError reaches the caller unchanged.
+        #   Message not asserted — see the guard test below.
+        sentinel = ImportError("gliner missing (test sentinel)")
+
         def _raise_import(model_name):
-            raise ImportError(
-                "pip install gliner"
-            )
+            raise sentinel
 
         monkeypatch.setattr(
             "mltk.data.pii_ner._get_gliner_model",
@@ -524,10 +560,31 @@ class TestScanPiiGliner:
 
         from mltk.data.pii_ner import scan_pii_gliner
 
-        with pytest.raises(
-            ImportError, match="gliner"
-        ):
+        with pytest.raises(ImportError) as exc:
             scan_pii_gliner("Hello world")
+        assert exc.value is sentinel
+
+    def test_gliner_guard_names_the_install_extra(self):
+        """The real import guard names the real PyPI extra."""
+        # SCENARIO: gliner genuinely unimportable.
+        # WHY: the previous version of this test matched on "gliner",
+        #   a substring of the bare "pip install gliner" message it
+        #   invented. That matches the real message too, by accident,
+        #   so it pinned nothing about the extra.
+        # EXPECTED: ImportError naming mlspec[gliner].
+        from mltk.data.pii_ner import _get_gliner_model
+
+        _get_gliner_model.cache_clear()
+        try:
+            with patch.dict(sys.modules, {"gliner": None}):
+                with pytest.raises(ImportError) as exc:
+                    _get_gliner_model("urchade/gliner_medium-v2.1")
+        finally:
+            _get_gliner_model.cache_clear()
+
+        msg = str(exc.value)
+        assert "mlspec[gliner]" in msg
+        assert "mltk[" not in msg
 
     def test_scan_gliner_returns_pii_match(
         self, mock_gliner

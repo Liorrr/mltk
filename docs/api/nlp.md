@@ -1,6 +1,6 @@
 # NLP Testing
 
-NLP-specific assertions for text generation (BLEU, ROUGE), named entity recognition (NER F1), and security (prompt injection detection).
+NLP-specific assertions for text generation (BLEU, ROUGE, chrF), named entity recognition (NER F1), and security (prompt injection detection).
 
 **Module:** `mltk.domains.nlp`
 
@@ -63,6 +63,40 @@ assert_rouge(references, hypotheses, variant="rougeL", min_score=0.3)
 - `score` -- average ROUGE F-measure across all pairs
 - `variant` -- ROUGE variant used
 - `min_score` -- configured threshold
+
+---
+
+### assert_chrf
+
+Assert corpus chrF (Popović 2015) meets a minimum threshold. Uses
+`sacrebleu`. The reported score is in `[0, 1]` (sacrebleu's 0–100 scale
+divided by 100). `word_order=2` is chrF++.
+
+Mismatched `references` / `hypotheses` lengths raise `ValueError`. An
+empty parallel corpus fails rather than scoring 1.0.
+
+```python
+from mltk.domains.nlp import assert_chrf
+
+assert_chrf(references, hypotheses, min_score=0.3)
+assert_chrf(references, hypotheses, min_score=0.3, word_order=2)  # chrF++
+```
+
+#### Parameters
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `references` | `list[str]` | *(required)* | Reference texts |
+| `hypotheses` | `list[str]` | *(required)* | Model-generated texts |
+| `min_score` | `float` | `0.3` | Minimum required chrF score (0-1) |
+| `word_order` | `int` | `0` | `0` = chrF, `2` = chrF++ |
+
+#### Returns
+
+`TestResult` with details:
+- `score` -- corpus chrF in `[0, 1]`
+- `min_score` -- configured threshold
+- `word_order` -- chrF word-order parameter
 
 ---
 

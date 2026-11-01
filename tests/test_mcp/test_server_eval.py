@@ -238,6 +238,116 @@ class TestMltkEval:
         assert_error(result)
         assert "model_mode" in result["error"].lower()
 
+    def test_unknown_scorer_refuses(self, tmp_path) -> None:
+        # SCENARIO: scorer name is not supported.
+        # WHY: it previously fell back to ExactMatchScorer while
+        #   echoing the *requested* name back, so an agent reported
+        #   ExactMatch numbers as though the asked-for scorer had run.
+        # EXPECTED: recoverable error listing the supported names.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval", dataset_path=str(ds), scorer="bleu",
+        )
+        assert_error(result)
+        assert "scorer" in result["error"].lower()
+        assert "exact_match" in result["error"]
+
+    def test_unknown_solver_refuses(self, tmp_path) -> None:
+        # SCENARIO: solver name is not supported.
+        # WHY: same silent-fallback shape as scorer — it defaulted to
+        #   GenerateSolver while echoing the requested name.
+        # EXPECTED: recoverable error listing the supported names.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval", dataset_path=str(ds), solver="tree_of_thought",
+        )
+        assert_error(result)
+        assert "solver" in result["error"].lower()
+        assert "generate" in result["error"]
+
+    def test_llm_judge_scorer_refuses_with_reason(self, tmp_path) -> None:
+        # SCENARIO: scorer="llm_judge" — a real scorer that mltk ships,
+        #   and which docs/api/mcp-server.md used to advertise here.
+        # WHY: LLMJudgeScorer takes a mandatory judge_fn callable and
+        #   every MCP parameter is a string, so it cannot be built from
+        #   this surface. The caller has not made a typo, so the error
+        #   must explain that rather than say "unknown scorer".
+        # EXPECTED: error naming judge_fn and pointing to the Python API.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval", dataset_path=str(ds), scorer="llm_judge",
+        )
+        assert_error(result)
+        assert "judge_fn" in result["error"]
+        assert "llm_judge" in result["error"]
+
+    def test_few_shot_solver_refuses_with_reason(self, tmp_path) -> None:
+        # SCENARIO: solver="few_shot" — a real solver that mltk ships,
+        #   and which docs/api/mcp-server.md used to advertise here.
+        # WHY: FewShotSolver takes a mandatory examples list of
+        #   (input, output) pairs and every MCP parameter is a string,
+        #   so it cannot be built from this surface. It previously
+        #   passed name validation and then raised a raw TypeError
+        #   ("missing 1 required positional argument: 'examples'") out
+        #   of the generic handler. Same shape as llm_judge: the caller
+        #   has not made a typo, so the error must say why.
+        # EXPECTED: error naming examples and pointing to the Python API.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        result = call_tool(
+            "mltk_eval", dataset_path=str(ds), solver="few_shot",
+        )
+        assert_error(result)
+        assert "examples" in result["error"]
+        assert "few_shot" in result["error"]
+        assert "TypeError" not in result["error"]
+
+    def test_blank_scorer_and_solver_use_documented_defaults(
+        self, tmp_path,
+    ) -> None:
+        # SCENARIO: explicit empty strings for both names.
+        # WHY: refusing unknowns must not also refuse "omitted" —
+        #   blank means "use the default", matching how model_mode
+        #   already treats "".
+        # EXPECTED: ok, echoing the documented defaults.
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        with patch(_PATCH_LOAD, return_value=[_make_sample()]), \
+             patch(_PATCH_TASK, _make_task_cls()):
+            result = call_tool(
+                "mltk_eval", dataset_path=str(ds),
+                scorer="", solver="",
+            )
+        assert_ok(result)
+        assert result["scorer"] == "exact_match"
+        assert result["solver"] == "generate"
+
+    def test_echoed_scorer_names_the_scorer_that_ran(
+        self, tmp_path,
+    ) -> None:
+        # SCENARIO: a supported non-default scorer.
+        # WHY: the response's "scorer" field is what an agent reports
+        #   onward. It must name the class actually constructed, which
+        #   is only guaranteed now that unknowns refuse.
+        # EXPECTED: echoed name matches the scorer passed to EvalTask.
+        from mltk.eval import PatternScorer
+
+        ds = tmp_path / "data.csv"
+        ds.write_text("input,target\na,b\n", encoding="utf-8")
+        task_cls = _make_task_cls()
+        with patch(_PATCH_LOAD, return_value=[_make_sample()]), \
+             patch(_PATCH_TASK, task_cls):
+            result = call_tool(
+                "mltk_eval", dataset_path=str(ds), scorer="pattern",
+            )
+        assert_ok(result)
+        assert result["scorer"] == "pattern"
+        passed_scorer = task_cls.call_args.kwargs["scorers"]
+        assert isinstance(passed_scorer, PatternScorer)
+
     def test_module_mode_requires_model_ref(self, tmp_path) -> None:
         # SCENARIO: model_mode=module without model_ref.
         # EXPECTED: recoverable error, no eval run.

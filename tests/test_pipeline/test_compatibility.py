@@ -172,6 +172,47 @@ class TestDtypeMismatches:
         assert mismatch["required"] == "float64"
         assert mismatch["available"] == "int32"
 
+    def test_widening_off_rejects_int32_for_int64(self) -> None:
+        """FAIL: int32 does not match int64 when allow_widening is False (default)."""
+        stage1 = StageSpec("stage1", produces={"x": "int32"})
+        stage2 = StageSpec("stage2", requires={"x": "int64"})
+        with pytest.raises(MltkAssertionError):
+            assert_pipeline_stages_compatible([stage1, stage2], check_dtypes=True)
+
+    def test_widening_allows_int32_for_int64(self) -> None:
+        """PASS: int32 can be promoted to int64 when allow_widening=True."""
+        stage1 = StageSpec("stage1", produces={"x": "int32"})
+        stage2 = StageSpec("stage2", requires={"x": "int64"})
+        result = assert_pipeline_stages_compatible(
+            [stage1, stage2], check_dtypes=True, allow_widening=True
+        )
+        assert result.passed is True
+
+    def test_widening_rejects_int64_for_int32(self) -> None:
+        """FAIL: int64 cannot safely cast to int32 even with allow_widening."""
+        stage1 = StageSpec("stage1", produces={"x": "int64"})
+        stage2 = StageSpec("stage2", requires={"x": "int32"})
+        with pytest.raises(MltkAssertionError):
+            assert_pipeline_stages_compatible(
+                [stage1, stage2], check_dtypes=True, allow_widening=True
+            )
+
+    def test_widening_allows_float32_for_float64(self) -> None:
+        """PASS: float32 safely casts to float64."""
+        stage1 = StageSpec("stage1", produces={"x": "float32"})
+        stage2 = StageSpec("stage2", requires={"x": "float64"})
+        result = assert_pipeline_stages_compatible(
+            [stage1, stage2], check_dtypes=True, allow_widening=True
+        )
+        assert result.passed is True
+
+    def test_details_include_allow_widening_flag(self) -> None:
+        """Details always carry allow_widening."""
+        result = assert_pipeline_stages_compatible(
+            [_ingest(), _preprocess()], allow_widening=True
+        )
+        assert result.details["allow_widening"] is True
+
 
 # ---------------------------------------------------------------------------
 # First-stage exemption
