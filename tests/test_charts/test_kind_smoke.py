@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -28,4 +27,8 @@ def test_kind_smoke_refuses_without_env(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_kind_smoke_is_not_default_ci() -> None:
-    assert os.environ.get("MLTK_KIND_SMOKE", "") != "1"
+    workflows = ROOT / ".github" / "workflows"
+    for workflow in sorted(workflows.glob("*.y*ml")):
+        text = workflow.read_text(encoding="utf-8")
+        assert "kind_smoke" not in text, workflow.name
+        assert "MLTK_KIND_SMOKE" not in text, workflow.name

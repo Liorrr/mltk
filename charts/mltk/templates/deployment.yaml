@@ -1,3 +1,6 @@
+{{- if not (isAbs .Values.server.dbPath) }}
+{{- fail "server.dbPath must be an absolute path; its directory is the PVC mount point" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,6 +9,9 @@ metadata:
     {{- include "mltk.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  # SQLite on a ReadWriteOnce PVC: never run the old and new pod at once.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "mltk.selectorLabels" . | nindent 6 }}
@@ -14,9 +20,14 @@ spec:
       labels:
         {{- include "mltk.selectorLabels" . | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: mltk-server
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - server
@@ -34,7 +45,7 @@ spec:
               value: {{ .Values.server.dbPath | quote }}
           volumeMounts:
             - name: data
-              mountPath: /data
+              mountPath: {{ dir .Values.server.dbPath | quote }}
           livenessProbe:
             httpGet:
               path: /api/health/live

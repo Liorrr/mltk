@@ -13,6 +13,7 @@ import sys
 CLUSTER = "mltk-smoke"
 RELEASE = "mltk"
 CHART_DIR = os.path.dirname(os.path.abspath(__file__))
+TIMEOUT = os.environ.get("MLTK_KIND_SMOKE_TIMEOUT", "15m")
 
 
 def _need(binary: str) -> str:
@@ -33,7 +34,7 @@ def main() -> None:
     subprocess.run([kind, "create", "cluster", "--name", CLUSTER], check=True)
     try:
         subprocess.run(
-            [helm, "install", RELEASE, CHART_DIR, "--wait", "--timeout", "120s"],
+            [helm, "install", RELEASE, CHART_DIR, "--wait", "--timeout", TIMEOUT],
             check=True,
         )
         subprocess.run(
@@ -42,7 +43,7 @@ def main() -> None:
                 "wait",
                 "--for=condition=available",
                 f"deployment/{RELEASE}",
-                "--timeout=120s",
+                f"--timeout={TIMEOUT}",
             ],
             check=True,
         )
