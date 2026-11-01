@@ -53,6 +53,7 @@ strategies.
 | `--output` | `path` | stdout | Write results to a file instead of stdout. |
 | `--categories-only` | flag | off | Print available category names and exit. No scan runs. |
 | `--verbose` | flag | off | Print each payload and response as they are evaluated. |
+| `--on-error` | `fail_if_all \| strict \| resist` | `fail_if_all` | Error policy: fail only when every model call raises, fail on any error, or count errors as resisted. |
 
 ---
 
@@ -64,6 +65,14 @@ strategies.
 # Single-turn OWASP top-4 scan, text output
 mltk security-scan myapp.llm:chat_fn
 ```
+
+By default, `--on-error fail_if_all` fails only when every model call raises,
+which identifies a dead endpoint. Use `--on-error strict` to fail on any model
+error, or `--on-error resist` to count errors as resisted. Results include
+`errored_count` and `error_rate` details per category.
+
+**Behaviour change:** a guardrail that raises on every attack payload now
+fails by default. Use `--on-error resist` for the old result.
 
 ### With encoding mutations
 

@@ -171,16 +171,12 @@ class CalibrationScanner(Scanner):
     ) -> str:
         """Generate a pytest snippet for calibration."""
         return (
-            "def test_calibration():\n"
-            "    \"\"\"Predicted probabilities must"
-            " be well-calibrated.\"\"\"\n"
-            "    y_prob = model.predict_proba("
-            "X_test)[:, 1]\n"
-            "    assert_calibration(\n"
-            "        y_test, y_prob,\n"
+            "y_prob = model.predict_proba(X)[:, 1]\n"
+            "assert_calibration(\n"
+            "    y, y_prob,\n"
             f"        max_error={max_ece},\n"
             f"        n_bins={n_bins},\n"
-            "    )\n"
+            ")\n"
         )
 
     @staticmethod

@@ -66,7 +66,7 @@ def assert_onnx_valid(
             False,
             name="pipeline.onnx_valid",
             message="onnxruntime not installed -- pip install onnxruntime",
-            severity=Severity.WARNING,
+            severity=severity,
         )
 
     # Load model and create session

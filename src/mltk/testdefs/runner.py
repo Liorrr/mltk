@@ -304,6 +304,11 @@ def _merge_defaults(
     elif defaults.mutations:
         merged["mutations"] = defaults.mutations
 
+    if "on_error" in params:
+        merged["on_error"] = params["on_error"]
+    elif defaults.on_error != "fail_if_all":
+        merged["on_error"] = defaults.on_error
+
     # Pass through remaining per-test params
     for k, v in params.items():
         if k not in merged:
@@ -375,6 +380,7 @@ def _dispatch_red_team(
             "categories": categories,
             "threshold": threshold,
             "purpose": purpose,
+            "on_error": params.get("on_error", suite.defaults.on_error),
         }
 
         # Convert custom_attacks from defaults to AttackPayload
@@ -467,6 +473,7 @@ def _dispatch_red_team(
             model_fn=model_fn,
             techniques=techniques,
             threshold=threshold,
+            on_error=params.get("on_error", suite.defaults.on_error),
         )
 
     # ------------------------------------------------------------------
@@ -491,6 +498,7 @@ def _dispatch_red_team(
             model_fn=model_fn,
             messages=messages,
             threshold=threshold,
+            on_error=params.get("on_error", suite.defaults.on_error),
         )
 
     # ------------------------------------------------------------------

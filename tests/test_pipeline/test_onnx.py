@@ -5,12 +5,13 @@ loading, inference, and output comparison. Uses pytest.importorskip
 to skip when onnxruntime is not installed.
 """
 
+import sys
+
 import numpy as np
 import pytest
 
-ort = pytest.importorskip("onnxruntime", reason="onnxruntime required for ONNX tests")
-
 from mltk.core.assertion import MltkAssertionError  # noqa: E402
+from mltk.core.result import Severity  # noqa: E402
 from mltk.pipeline.onnx import assert_onnx_valid  # noqa: E402
 
 
@@ -46,6 +47,7 @@ class TestAssertOnnxValid:
         WHY: The most common case -- model exported correctly, inference
         produces results matching the source framework within tolerance.
         """
+        pytest.importorskip("onnxruntime", reason="onnxruntime required")
         model_path = tmp_path / "identity.onnx"
         _create_simple_onnx_model(model_path, input_dim=5)
 
@@ -77,6 +79,7 @@ class TestAssertOnnxValid:
         WHY: Detects numerical divergence between source framework and
         ONNX export (e.g., quantization artifacts, op-level differences).
         """
+        pytest.importorskip("onnxruntime", reason="onnxruntime required")
         model_path = tmp_path / "identity.onnx"
         _create_simple_onnx_model(model_path, input_dim=3)
 
@@ -89,3 +92,19 @@ class TestAssertOnnxValid:
                 model_path, test_input, expected_output=wrong_expected, tolerance=0.01
             )
         assert "diverged" in str(exc.value)
+
+    def test_missing_onnxruntime_uses_requested_severity(
+        self, tmp_path, monkeypatch,
+    ) -> None:
+        model_path = tmp_path / "dummy.onnx"
+        model_path.write_bytes(b"not a real model")
+        monkeypatch.setitem(sys.modules, "onnxruntime", None)
+
+        with pytest.raises(MltkAssertionError, match="onnxruntime"):
+            assert_onnx_valid(model_path, np.zeros((1, 2), dtype=np.float32))
+
+        result = assert_onnx_valid(
+            model_path, np.zeros((1, 2), dtype=np.float32),
+            severity=Severity.WARNING,
+        )
+        assert result.passed is False

@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import TinyModel, execute_finding_snippet
+
 try:
     from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.calibration import (
@@ -95,6 +97,29 @@ class TestCalibrationScannerDetection:
         scanner = CalibrationScanner()
         findings = scanner.scan(ctx)
         assert len(findings) >= 1
+
+    def test_suggested_body_contract_and_execution(self) -> None:
+        """A calibration finding emits an executable test body."""
+        rng = np.random.default_rng(42)
+        y = rng.integers(0, 2, 300)
+        X = pd.DataFrame({"a": rng.normal(0, 1, len(y))})
+        probabilities = np.column_stack([
+            np.full(len(y), 0.05),
+            np.full(len(y), 0.95),
+        ])
+
+        def bad_proba(_x):
+            return probabilities
+
+        findings = CalibrationScanner().scan(
+            _build_context(bad_proba, X, y),
+        )
+        execute_finding_snippet(
+            findings[0],
+            X,
+            y,
+            model=TinyModel(y, probabilities),
+        )
 
     def test_well_calibrated_no_findings(self) -> None:
         """Well-calibrated model yields no findings."""

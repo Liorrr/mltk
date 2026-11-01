@@ -338,24 +338,18 @@ class DataScanner(Scanner):
     def _gen_null_test(col: str) -> str:
         """Generate a pytest snippet for null check."""
         return (
-            f"def test_no_nulls_{col}():\n"
-            f"    \"\"\"Column '{col}' must have"
-            f" no nulls.\"\"\"\n"
-            f"    assert_no_nulls(\n"
-            f"        X_test,\n"
-            f"        columns=['{col}'],\n"
-            f"    )\n"
+            "assert_no_nulls(\n"
+            "    X,\n"
+            f"    columns=[{col!r}],\n"
+            ")\n"
         )
 
     @staticmethod
     def _gen_pii_test(col: str) -> str:
         """Generate a pytest snippet for PII check."""
         return (
-            f"def test_no_pii_{col}():\n"
-            f"    \"\"\"Column '{col}' must have"
-            f" no PII.\"\"\"\n"
-            f"    assert_no_pii(\n"
-            f"        X_test,\n"
-            f"        columns=['{col}'],\n"
-            f"    )\n"
+            "assert_no_pii(\n"
+            "    X,\n"
+            f"    columns=[{col!r}],\n"
+            ")\n"
         )

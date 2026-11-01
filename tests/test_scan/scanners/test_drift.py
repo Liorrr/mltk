@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import TinyModel, execute_finding_snippet
+
 try:
     from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.drift import DriftScanner
@@ -87,6 +89,15 @@ class TestDriftScannerDetection:
             )
             for f in findings
         )
+
+    def test_suggested_body_contract_and_execution(self) -> None:
+        """A drift finding emits an executable test body."""
+        X = pd.DataFrame({
+            "feature": np.array([0.0] * 200 + [5.0] * 200),
+        })
+        y = np.zeros(len(X), dtype=int)
+        findings = DriftScanner().scan(_build_context(X))
+        execute_finding_snippet(findings[0], X, y, model=TinyModel(y))
 
     def test_no_drift_stable_column(self) -> None:
         """Stable distribution yields no findings."""

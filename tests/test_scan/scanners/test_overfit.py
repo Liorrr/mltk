@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import FunctionModel, execute_finding_snippet
+
 sklearn = pytest.importorskip(
     "sklearn",
     reason="sklearn required for overfit scanner tests",
@@ -100,6 +102,29 @@ class TestOverfitScannerDetection:
             "overfit" in f.result.name.lower()
             or "overfit" in f.result.message.lower()
             for f in findings
+        )
+
+    def test_suggested_body_contract_and_execution(
+        self, overfit_model,
+    ) -> None:
+        """An overfit finding emits an executable test body."""
+        model_fn, X_train, y_train, X_test, y_test = overfit_model
+        findings = OverfitScanner().scan(
+            _build_context(
+                model_fn,
+                X_test,
+                y_test,
+                X_train=X_train,
+                y_train=y_train,
+            ),
+        )
+        execute_finding_snippet(
+            findings[0],
+            X_test,
+            y_test,
+            model=FunctionModel(model_fn),
+            X_train=X_train,
+            y_train=y_train,
         )
 
     def test_accuracy_raises_for_shape_mismatch(self) -> None:

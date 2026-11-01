@@ -184,6 +184,11 @@ assert_onnx_valid("model.onnx", test_input, expected_output=expected, tolerance=
 - `max_diff` -- maximum element-wise difference (when `expected_output` provided)
 - `tolerance` -- configured tolerance
 
+If `onnxruntime` is not installed, the assertion uses the caller's
+`severity` for that failure. The default is `CRITICAL`, so the missing
+dependency raises; pass a non-raising severity explicitly if an advisory
+result is desired.
+
 ### Edge Cases
 
 - **File not found**: Returns a failing `TestResult` with CRITICAL severity.

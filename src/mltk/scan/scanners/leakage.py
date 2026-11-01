@@ -376,31 +376,25 @@ class LeakageScanner(Scanner):
     ) -> str:
         """Generate a pytest snippet for one feature."""
         return (
-            f"def test_no_leakage_{col}():\n"
-            f"    \"\"\"Feature '{col}' must not "
-            f"leak target info.\"\"\"\n"
-            f"    df = X_test.copy()\n"
-            f"    df['target'] = y_test\n"
-            f"    assert_no_target_leakage(\n"
-            f"        df,\n"
-            f"        target_col='target',\n"
-            f"        feature_cols=['{col}'],\n"
-            f"        corr_threshold={threshold},\n"
-            f"    )\n"
+            "df = X.copy()\n"
+            "df['target'] = y\n"
+            "assert_no_target_leakage(\n"
+            "    df,\n"
+            "    target_col='target',\n"
+            f"    feature_cols=[{col!r}],\n"
+            f"    corr_threshold={threshold},\n"
+            ")\n"
         )
 
     @staticmethod
     def _gen_test_all(threshold: float) -> str:
         """Generate a pytest snippet for all features."""
         return (
-            "def test_no_leakage_all_features():\n"
-            "    \"\"\"No feature should leak "
-            "target information.\"\"\"\n"
-            "    df = X_test.copy()\n"
-            "    df['target'] = y_test\n"
-            "    assert_no_target_leakage(\n"
-            "        df,\n"
-            "        target_col='target',\n"
+            "df = X.copy()\n"
+            "df['target'] = y\n"
+            "assert_no_target_leakage(\n"
+            "    df,\n"
+            "    target_col='target',\n"
             f"        corr_threshold={threshold},\n"
-            "    )\n"
+            ")\n"
         )

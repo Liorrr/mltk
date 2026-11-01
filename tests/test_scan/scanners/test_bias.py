@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import TinyModel, execute_finding_snippet
+
 sklearn = pytest.importorskip(
     "sklearn",
     reason="sklearn required for bias scanner tests",
@@ -134,3 +136,69 @@ class TestBiasScannerDetection:
         scanner = BiasScanner()
         findings = scanner.scan(ctx)
         assert len(findings) == 0
+
+    def test_auto_detected_bias_is_advisory_finding(self) -> None:
+        """Detected sensitive columns retain violations at INFO severity."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.ones(200, dtype=int)
+        preds = np.array([1] * 100 + [0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(_build_context(model_fn, X, y))
+        gender_findings = [
+            f for f in findings
+            if f.result.details["column"] == "gender"
+        ]
+        assert gender_findings
+        assert all(f.result.severity.value == "info" for f in gender_findings)
+
+    def test_auto_detected_fair_column_has_no_finding(self) -> None:
+        """Auto-detection does not report a fair sensitive column."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.array([1, 0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return y[x.index]
+
+        findings = BiasScanner().scan(_build_context(model_fn, X, y))
+        assert not findings
+
+    def test_user_specified_bias_remains_critical(self) -> None:
+        """Explicit sensitive columns keep the critical policy."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.ones(200, dtype=int)
+        preds = np.array([1] * 100 + [0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(
+            _build_context(model_fn, X, y, sensitive_columns=["gender"]),
+        )
+        assert findings
+        assert any(f.result.severity.value == "critical" for f in findings)
+
+    def test_suggested_body_contract_and_execution(self) -> None:
+        """A critical bias finding emits an executable test body."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.ones(200, dtype=int)
+        preds = np.array([1] * 100 + [0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(
+            _build_context(model_fn, X, y, sensitive_columns=["gender"]),
+        )
+        execute_finding_snippet(
+            findings[0],
+            X,
+            y,
+            model=TinyModel(preds),
+        )

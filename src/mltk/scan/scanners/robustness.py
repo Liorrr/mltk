@@ -211,14 +211,10 @@ class RobustnessScanner(Scanner):
     ) -> str:
         """Generate a pytest snippet for robustness."""
         return (
-            "def test_robustness():\n"
-            "    \"\"\"Model must be stable under"
-            " small noise.\"\"\"\n"
-            "    assert_robust(\n"
-            "        model_fn,\n"
-            "        X_test.select_dtypes("
-            "'number').values,\n"
+            "assert_robust(\n"
+            "    model_fn,\n"
+            "    X.select_dtypes('number').values,\n"
             f"        epsilon={epsilon},\n"
             f"        stability={stability},\n"
-            "    )\n"
+            ")\n"
         )
