@@ -1,0 +1,38 @@
+# SQLite supports a single writer. replicaCount > 1 is unsupported.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/liorrr/mltk
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# ENTRYPOINT is `mltk`; args become `mltk server --host ...`
+server:
+  host: 0.0.0.0
+  port: 8080
+  dbPath: /data/mltk_server.db
+
+service:
+  type: ClusterIP
+  port: 8080
+
+persistence:
+  enabled: true
+  size: 1Gi
+  accessMode: ReadWriteOnce
+  storageClassName: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
