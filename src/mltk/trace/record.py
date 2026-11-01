@@ -25,6 +25,7 @@ class SubagentCall:
 
     name: str
     duration_ms: float | None = None
+    parent: int | None = None
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class RetryEvent:
 
     error: str
     attempt: int
+    duration_ms: float | None = None
 
 
 @dataclass(frozen=True)

@@ -112,3 +112,21 @@ def test_tool_call_only_session_still_reports_a_total() -> None:
     rec = cap.finish()
     assert rec.round_trip_count is None
     assert rec.total_duration_ms == 42.0
+
+
+def test_fanout_reaches_total_and_api_count() -> None:
+    with CaptureSession(tier=ClearanceTier.T1) as cap:
+        cap.record_round_trip(latency_ms=100.0)
+        cap.record_fanout(3, duration_ms=600.0)
+    rec = cap.finish()
+    assert rec.total_duration_ms == 700.0
+    assert rec.api_call_count == 4
+
+
+def test_failed_attempt_duration_reaches_total() -> None:
+    with CaptureSession(tier=ClearanceTier.T1) as cap:
+        cap.record_error_retry("timed out", duration_ms=300.0)
+    rec = cap.finish()
+    assert rec.total_duration_ms == 300.0
+    assert rec.error_retry_chain is not None
+    assert rec.error_retry_chain[0].duration_ms == 300.0

@@ -26,9 +26,9 @@ class CaptureSession:
     the matching ``record_*`` method runs at least once.
 
     ``total_duration_ms`` sums every observed segment -- round-trip
-    latencies plus any tool-call ``duration_ms``. Time the caller never
-    recorded is not in it, so treat it as "observed duration", not
-    wall clock.
+    latencies plus timed tool calls, fan-outs, and failed attempts. Time
+    the caller never recorded is not in it, so treat it as "observed
+    duration", not wall clock.
     """
 
     def __init__(self, *, tier: ClearanceTier) -> None:
@@ -49,7 +49,7 @@ class CaptureSession:
         self._finished: CaptureRecord | None = None
 
     def _require_t1(self) -> None:
-        if self.tier is not ClearanceTier.T1:
+        if not self.tier.permits(ClearanceTier.T1):
             raise ValueError(
                 "T1 observations require CaptureSession(tier=ClearanceTier.T1)"
             )
@@ -105,22 +105,35 @@ class CaptureSession:
         """Record one underlying API call when it is not 1:1 with round trips."""
         self._api_explicit = (self._api_explicit or 0) + 1
 
-    def record_subagent(self, name: str, *, duration_ms: float | None = None) -> None:
+    def record_subagent(
+        self,
+        name: str,
+        *,
+        duration_ms: float | None = None,
+        parent: int | None = None,
+    ) -> int:
         """Record a nested sub-agent start (T1)."""
         self._require_t1()
-        self._subagents.append(SubagentCall(name=name, duration_ms=duration_ms))
+        self._subagents.append(
+            SubagentCall(name=name, duration_ms=duration_ms, parent=parent)
+        )
+        return len(self._subagents) - 1
 
     def record_fanout(self, count: int, *, duration_ms: float | None = None) -> None:
         """Record a fan-out of API calls (T1)."""
         self._require_t1()
         self._fanouts.append(FanoutCall(count=int(count), duration_ms=duration_ms))
 
-    def record_error_retry(self, error: str) -> None:
+    def record_error_retry(
+        self, error: str, *, duration_ms: float | None = None
+    ) -> None:
         """Record an error hop in the retry chain (T1) and bump T0 retry count."""
         self._require_t1()
         self.record_retry()
         self._retry_events.append(
-            RetryEvent(error=error, attempt=self._retries)
+            RetryEvent(
+                error=error, attempt=self._retries, duration_ms=duration_ms
+            )
         )
 
     def record_cache_hit(self) -> None:
@@ -141,7 +154,11 @@ class CaptureSession:
         if self._api_explicit is not None:
             api_call_count: int | None = self._api_explicit
         else:
-            api_call_count = round_trip_count
+            api_call_count = (
+                (round_trip_count or 0) + sum(f.count for f in self._fanouts)
+                if self._fanouts
+                else round_trip_count
+            )
         # Total spans every observed segment, not just round trips.
         # record_tool_call and record_round_trip are distinct APIs -- a
         # tool call is never also a hop -- so summing both cannot double
@@ -150,8 +167,20 @@ class CaptureSession:
         tool_ms = sum(
             c.duration_ms for c in self._calls if c.duration_ms is not None
         )
-        observed_ms = sum(self._hops) + tool_ms
-        total_duration_ms = observed_ms if (self._hops or tool_ms) else None
+        fanout_ms = [
+            f.duration_ms for f in self._fanouts if f.duration_ms is not None
+        ]
+        retry_ms = [
+            e.duration_ms
+            for e in self._retry_events
+            if e.duration_ms is not None
+        ]
+        observed_ms = sum(self._hops) + tool_ms + sum(fanout_ms) + sum(retry_ms)
+        total_duration_ms = (
+            observed_ms
+            if (self._hops or tool_ms or fanout_ms or retry_ms)
+            else None
+        )
         self._finished = CaptureRecord(
             tier=self.tier,
             tool_call_count=len(self._calls) if self._calls else None,

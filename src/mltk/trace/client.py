@@ -19,12 +19,13 @@ class InstrumentedClient:
     """
 
     def __init__(self, inner: Callable[..., Any], *, session: CaptureSession) -> None:
-        if session.tier is not ClearanceTier.T1:
+        if not session.tier.permits(ClearanceTier.T1):
             raise ValueError(
                 "InstrumentedClient requires CaptureSession(tier=ClearanceTier.T1)"
             )
         self._inner = inner
         self.session = session
+        self._agent_idx: int | None = None
 
     def call(self, *args: Any, **kwargs: Any) -> Any:
         """Invoke ``inner`` and record one round trip (or a retry hop on error)."""
@@ -33,7 +34,8 @@ class InstrumentedClient:
         try:
             result = self._inner(*args, **kwargs)
         except Exception as exc:
-            self.session.record_error_retry(str(exc))
+            failed_ms = (time.perf_counter() - start) * 1000.0
+            self.session.record_error_retry(str(exc), duration_ms=failed_ms)
             raise
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         self.session.record_round_trip(latency_ms=elapsed_ms)
@@ -43,16 +45,28 @@ class InstrumentedClient:
         """Call ``inner`` once per request and record the fan-out."""
         self.session.record_action("fanout")
         start = time.perf_counter()
-        results = [self._inner(req) for req in requests]
-        elapsed_ms = (time.perf_counter() - start) * 1000.0
-        self.session.record_fanout(len(requests), duration_ms=elapsed_ms)
+        issued = 0
+        results: list[Any] = []
+        try:
+            for req in requests:
+                issued += 1
+                try:
+                    results.append(self._inner(req))
+                except Exception as exc:
+                    self.session.record_error_retry(str(exc))
+                    raise
+        finally:
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
+            self.session.record_fanout(issued, duration_ms=elapsed_ms)
         return results
 
     def subagent(self, name: str) -> InstrumentedClient:
         """Return a child client bound to the same session."""
         self.session.record_action(f"subagent:{name}")
-        self.session.record_subagent(name)
-        return InstrumentedClient(self._inner, session=self.session)
+        idx = self.session.record_subagent(name, parent=self._agent_idx)
+        child = InstrumentedClient(self._inner, session=self.session)
+        child._agent_idx = idx
+        return child
 
     def cache_hit(self) -> None:
         """Record a cache hit without invoking ``inner``."""

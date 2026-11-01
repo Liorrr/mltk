@@ -58,8 +58,11 @@ still applies.
 ## What `total_duration_ms` means
 
 It is the sum of every **observed** segment: each `record_round_trip`
-latency plus any `record_tool_call(duration_ms=...)`. A tool call is never
-also a round trip, so the two cannot double count.
+latency plus any `record_tool_call(duration_ms=...)`,
+`record_fanout(..., duration_ms=...)`, and failed-attempt
+`record_error_retry(..., duration_ms=...)`. A tool call or fan-out is never
+also a round trip, so these observations cannot double count. Fan-out calls
+must not also be recorded as round trips.
 
 It is *observed* duration, not wall clock. Time the caller never recorded
 — think between hops, or a tool call logged without `duration_ms` — is not
@@ -74,8 +77,10 @@ Record the durations you want that gate to see.
 
 ## T1 instrumented client
 
-Wrap any callable. Nested sub-agents share the session. Unobserved T1
-fields stay `None`. T2 fields stay `None`.
+Wrap any callable. Nested sub-agents share the session; each
+`SubagentCall.parent` is the index of its parent in `subagent_calls`, or
+`None` for a root sub-agent. Unobserved T1 fields stay `None`. A T2 session
+accepts T1 observations while retaining its T2 tier.
 
 ```python
 from mltk.trace import CaptureSession, ClearanceTier, InstrumentedClient

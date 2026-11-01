@@ -13,6 +13,14 @@ def test_t0_session_rejects_t1_client() -> None:
             InstrumentedClient(lambda x: x, session=cap)
 
 
+def test_t2_session_accepts_t1_client_and_observations() -> None:
+    with CaptureSession(tier=ClearanceTier.T2) as cap:
+        client = InstrumentedClient(lambda x: x, session=cap)
+        client.cache_hit()
+    rec = cap.finish()
+    assert rec.cache_hits == 1
+
+
 def test_call_records_round_trip_and_action_log() -> None:
     with CaptureSession(tier=ClearanceTier.T1) as cap:
         client = InstrumentedClient(lambda prompt: f"out:{prompt}", session=cap)
@@ -37,7 +45,19 @@ def test_subagent_nesting_is_recorded() -> None:
     assert rec.subagent_calls is not None
     names = tuple(c.name for c in rec.subagent_calls)
     assert names == ("researcher", "writer")
+    assert rec.subagent_calls[0].parent is None
+    assert rec.subagent_calls[1].parent == 0
     assert rec.action_log == ("subagent:researcher", "subagent:writer", "call")
+
+
+def test_sibling_subagents_have_root_parent() -> None:
+    with CaptureSession(tier=ClearanceTier.T1) as cap:
+        client = InstrumentedClient(lambda x: x, session=cap)
+        client.subagent("researcher")
+        client.subagent("writer")
+    rec = cap.finish()
+    assert rec.subagent_calls is not None
+    assert rec.subagent_calls[1].parent is None
 
 
 def test_fanout_records_count() -> None:
@@ -63,7 +83,27 @@ def test_error_retry_chain_on_failure() -> None:
     assert rec.error_retry_chain is not None
     assert rec.error_retry_chain[0].error == "upstream 503"
     assert rec.error_retry_chain[0].attempt == 1
+    assert rec.error_retry_chain[0].duration_ms is not None
+    assert rec.total_duration_ms is not None
     assert rec.retry_count == 1
+
+
+def test_fanout_failure_records_issued_calls_and_error() -> None:
+    def fail_middle(request: str) -> str:
+        if request == "b":
+            raise RuntimeError("upstream 503")
+        return request
+
+    with CaptureSession(tier=ClearanceTier.T1) as cap:
+        client = InstrumentedClient(fail_middle, session=cap)
+        with pytest.raises(RuntimeError, match="503"):
+            client.fanout(["a", "b", "c"])
+    rec = cap.finish()
+    assert rec.fanout_api_calls is not None
+    assert rec.fanout_api_calls[0].count == 2
+    assert rec.error_retry_chain is not None
+    assert rec.error_retry_chain[0].error == "upstream 503"
+    assert rec.error_retry_chain[0].duration_ms is None
 
 
 def test_cache_hits_are_none_until_recorded() -> None:
