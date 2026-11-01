@@ -4,6 +4,10 @@ Test AI agent execution traces -- verify tool chains, detect forbidden actions, 
 
 **Module:** `mltk.domains.llm`
 
+To *record* a run at a clearance tier (unobserved fields stay `None`),
+use [`mltk.trace`](trace-capture.md) and adapt with
+`mltk.domains.llm.from_capture.to_agent_trace`.
+
 ---
 
 ## AgentTrace Data Model

@@ -92,6 +92,7 @@ nav:
       - Domain Overview: api/domain-overview.md
       - Computer Vision: api/cv.md
       - NLP: api/nlp.md
+      - Language Identification: api/language-id.md
       - Speech: api/speech.md
       - Tabular: api/tabular.md
       - Monitoring: api/monitor.md
@@ -101,6 +102,7 @@ nav:
       - LLM Evaluation: api/llm.md
       - RAG, Agentic & Text Quality: api/rag-evaluation.md
       - Agent Trace Testing: api/agentic-trace.md
+      - Agent Trace Capture: api/trace-capture.md
       - MCP Evaluation: api/mcp-evaluation.md
       - Multi-Agent Testing: api/multi-agent.md
       - Text Noise Robustness: api/nlp-robustness.md
