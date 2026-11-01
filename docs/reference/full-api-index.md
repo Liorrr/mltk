@@ -1,11 +1,11 @@
 # mltk Full API Index
-> Generated 2026-07-21 by scripts/generate_skill_index.py
+> Generated 2026-09-19 by scripts/generate_skill_index.py
 
-**241** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
+**243** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
 
 ---
 
-## Assertion Signatures (241)
+## Assertion Signatures (243)
 
 ### compliance
 
@@ -32,6 +32,12 @@ def assert_iso_42001_coverage(results: list[dict], min_coverage: float=0.8)
 def assert_nist_rmf_coverage(results: list[dict], min_coverage: float=0.8)
 ```
 > Assert minimum NIST AI RMF function coverage.
+
+**`assert_no_compliance_drift`** (compliance/drift.py:139)
+```python
+def assert_no_compliance_drift(results: list[dict], baseline_path: str | Path, *, framework: str, confirmed_framework_version: str | None=None)
+```
+> Fail if coverage mapping drifted internally or the framework version did.
 
 **`assert_owasp_coverage`** (compliance/owasp_llm.py:261)
 ```python
@@ -661,9 +667,9 @@ def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str=
 ```
 > Assert LLM outputs are not toxic.
 
-**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:201)
+**`assert_no_unicode_attacks`** (domains/llm/unicode_attacks.py:620)
 ```python
-def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), severity: Severity=Severity.CRITICAL)
+def assert_no_unicode_attacks(text: str, *, checks: tuple[str, ...]=('zero_width', 'bidi', 'homoglyph'), single_script_spoofs: str='auto', severity: Severity=Severity.CRITICAL)
 ```
 > Assert that *text* contains no unicode-based attack characters.
 
@@ -1177,6 +1183,12 @@ def assert_bleu(references: list[str], hypotheses: list[str], min_score: float=0
 ```
 > Assert BLEU score meets minimum threshold.
 
+**`assert_chrf`** (domains/nlp/generation.py:136)
+```python
+def assert_chrf(references: list[str], hypotheses: list[str], min_score: float=0.3, *, word_order: int=0)
+```
+> Assert corpus chrF (Popović 2015) meets minimum threshold.
+
 **`assert_ner_f1`** (domains/nlp/ner.py:11)
 ```python
 def assert_ner_f1(y_true_entities: list[list[tuple[str, int, int]]], y_pred_entities: list[list[tuple[str, int, int]]], min_f1: float=0.8)
@@ -1195,7 +1207,7 @@ def assert_no_sentiment_drift(ref_texts: list[str], cur_texts: list[str], max_dr
 ```
 > Assert sentiment distribution hasn't shifted between datasets.
 
-**`assert_rouge`** (domains/nlp/generation.py:63)
+**`assert_rouge`** (domains/nlp/generation.py:81)
 ```python
 def assert_rouge(references: list[str], hypotheses: list[str], variant: str='rougeL', min_score: float=0.3)
 ```
@@ -1261,13 +1273,13 @@ def assert_pipeline(steps: list[Callable[..., Any]], input_data: Any, expected_o
 
 **`assert_pipeline_resilient`** (pipeline/resilience.py:93)
 ```python
-def assert_pipeline_resilient(pipeline_fn: Callable[[pd.DataFrame], Any], baseline_input: pd.DataFrame, *, faults: list[str] | None=None, max_failure_rate: float=0.0, severity: Severity=Severity.CRITICAL, seed: int=42)
+def assert_pipeline_resilient(pipeline_fn: Callable[[pd.DataFrame], Any], baseline_input: pd.DataFrame, *, faults: list[str] | None=None, max_failure_rate: float=0.0, validate_output: Callable[[Any], bool] | None=None, severity: Severity=Severity.CRITICAL, seed: int=42)
 ```
 > Assert that *pipeline_fn* degrades gracefully under fault injection.
 
-**`assert_pipeline_stages_compatible`** (pipeline/compatibility.py:50)
+**`assert_pipeline_stages_compatible`** (pipeline/compatibility.py:69)
 ```python
-def assert_pipeline_stages_compatible(stages: list[StageSpec], *, check_dtypes: bool=True, severity: Severity=Severity.CRITICAL)
+def assert_pipeline_stages_compatible(stages: list[StageSpec], *, check_dtypes: bool=True, allow_widening: bool=False, severity: Severity=Severity.CRITICAL)
 ```
 > Assert that consecutive pipeline stages are schema-compatible.
 
@@ -1502,7 +1514,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ## MCP Tools (13)
 
-### `mltk_scan` (server.py:184)
+### `mltk_scan` (server.py:374)
 
 > Return findings from a JSON scan report or a static Python file listing.
 
@@ -1511,7 +1523,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | path | `str` | *required* |
 | scanners | `str` | `'all'` |
 
-### `mltk_test` (server.py:255)
+### `mltk_test` (server.py:445)
 
 > Run .py tests via pytest, or parse a YAML suite (no execution).
 
@@ -1520,7 +1532,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | suite_path | `str` | *required* |
 | verbose | `bool` | `False` |
 
-### `mltk_list` (server.py:353)
+### `mltk_list` (server.py:543)
 
 > List available mltk assertions for ML testing.
 
@@ -1529,17 +1541,19 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | filter_text | `str` | `''` |
 | domain | `str` | `''` |
 
-### `mltk_eval` (server.py:398)
+### `mltk_eval` (server.py:588)
 
-> Run a scorer-pipeline smoke eval with an identity passthrough model.
+> Run a scorer-pipeline eval with an explicit model mode.
 
 | Param | Type | Default |
 |-------|------|---------|
 | dataset_path | `str` | *required* |
 | scorer | `str` | `'exact_match'` |
 | solver | `str` | `'generate'` |
+| model_mode | `str` | `'passthrough'` |
+| model_ref | `str` | `''` |
 
-### `mltk_dataset` (server.py:483)
+### `mltk_dataset` (server.py:705)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1548,7 +1562,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:536)
+### `mltk_report` (server.py:758)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1558,7 +1572,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:609)
+### `mltk_suggest` (server.py:831)
 
 > Get fix suggestions already attached to a finding JSON.
 
@@ -1568,7 +1582,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:696)
+### `mltk_experiment` (server.py:918)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1579,13 +1593,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:845)
+### `mltk_workflow` (server.py:1067)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:895)
+### `mltk_create_pr` (server.py:1117)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1597,7 +1611,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:938)
+### `mltk_create_issue` (server.py:1160)
 
 > Create an issue ticket from a scan finding.
 
@@ -1609,7 +1623,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:977)
+### `mltk_container_scan` (server.py:1199)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1619,7 +1633,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
 
-### `mltk_import` (server.py:1037)
+### `mltk_import` (server.py:1259)
 
 > Import a dataset into an mltk pytest suite and eval dataset.
 
@@ -2000,6 +2014,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 | Test Directory | Source Module |
 |----------------|---------------|
+| test_charts/ | src/mltk/charts/ |
 | test_chat/ | src/mltk/chat/ |
 | test_cli/ | src/mltk/cli/ |
 | test_compliance/ | src/mltk/compliance/ |
@@ -2027,4 +2042,5 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | test_server/ | src/mltk/server/ |
 | test_testdefs/ | src/mltk/testdefs/ |
 | test_testing/ | src/mltk/testing/ |
+| test_trace/ | src/mltk/trace/ |
 | test_training/ | src/mltk/training/ |
