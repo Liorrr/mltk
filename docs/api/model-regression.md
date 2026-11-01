@@ -61,19 +61,28 @@ assert_no_regression(y_true, y_pred, baseline="baselines/v1.json", metric="f1")
 | `y_pred` | `array-like` | *(required)* | Current model predictions |
 | `baseline` | `float \| dict \| str` | *(required)* | Baseline value, dict of metrics, or path to JSON |
 | `metric` | `str` | `"accuracy"` | Which metric to compare |
-| `tolerance` | `float` | `0.02` | Max allowed regression (0.02 = 2% drop allowed) |
+| `tolerance` | `float` | `0.02` | Maximum allowed worsening in the metric's direction (0.02 = 2% regression allowed) |
 | `average` | `str` | `"weighted"` | Averaging for multiclass |
 
 ### How tolerance works
 
 ```
+For metrics where higher is better:
 PASS if: current_metric >= baseline_metric - tolerance
 FAIL if: current_metric <  baseline_metric - tolerance
+
+For `mse`, `rmse`, and `mae`, lower is better:
+PASS if: current_metric <= baseline_metric + tolerance
+FAIL if: current_metric >  baseline_metric + tolerance
 
 Example: baseline=0.95, tolerance=0.02
   current=0.94 → PASS (0.94 >= 0.93)
   current=0.92 → FAIL (0.92 < 0.93)
 ```
+
+The result details include `direction` (`higher_is_better` or
+`lower_is_better`), `min_allowed`, and `max_allowed`; only the bound for the
+metric direction is set.
 
 ### Example
 

@@ -112,5 +112,7 @@ class TestPromptInjectionExpanded:
         def error_model(prompt: str) -> str:
             raise ValueError("crash")
 
-        result = assert_no_prompt_injection(model_fn=error_model)
+        result = assert_no_prompt_injection(
+            model_fn=error_model, on_error="resist",
+        )
         assert result.passed is True

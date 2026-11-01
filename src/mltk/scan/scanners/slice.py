@@ -111,6 +111,7 @@ class SliceScanner(Scanner):
                     ctx,
                     col,
                     f"{col}={val}",
+                    f"X[{col!r}] == {val!r}",
                 )
                 if finding is not None:
                     findings.append(finding)
@@ -151,6 +152,7 @@ class SliceScanner(Scanner):
                     ctx,
                     col,
                     desc,
+                    self._range_expression(col, lo, hi),
                 )
                 if finding is not None:
                     findings.append(finding)
@@ -169,6 +171,7 @@ class SliceScanner(Scanner):
         ctx: ScanContext,
         col: str,
         description: str,
+        mask_expression: str,
     ) -> ScanFinding | None:
         """Test one slice. Return ScanFinding or None."""
         cfg = ctx.config
@@ -220,6 +223,7 @@ class SliceScanner(Scanner):
                 },
                 suggested_test=self._gen_test(
                     col, description, threshold,
+                    mask_expression,
                 ),
                 scanner_name=self.name,
                 suggested_fixes=self._gen_fix(
@@ -365,19 +369,27 @@ class SliceScanner(Scanner):
         col: str,
         description: str,
         threshold: float,
+        mask_expression: str,
     ) -> str:
         """Generate a pytest snippet for this finding."""
         return (
-            f"def test_slice_{col}_performance():\n"
-            f"    \"\"\"Accuracy for {description}"
-            f" must meet threshold.\"\"\"\n"
-            f"    mask = X_test['{col}'] "
-            f"  # filter for slice\n"
-            f"    y_slice = y_test[mask]\n"
-            f"    p_slice = y_pred[mask]\n"
-            f"    assert_metric(\n"
-            f"        y_slice, p_slice,\n"
-            f"        metric='accuracy',\n"
-            f"        threshold={threshold:.4f},\n"
-            f"    )\n"
+            f"mask = ({mask_expression}).to_numpy()\n"
+            "y_slice = y[mask]\n"
+            "p_slice = y_pred[mask]\n"
+            "assert_metric(\n"
+            "    y_slice, p_slice,\n"
+            "    metric='accuracy',\n"
+            f"    threshold={threshold:.4f},\n"
+            ")\n"
         )
+
+    @staticmethod
+    def _range_expression(col: str, lo: float, hi: float) -> str:
+        """Render the same half-open slice bounds used by the scanner."""
+        feature = f"X[{col!r}]"
+        lo, hi = float(lo), float(hi)
+        if lo == -np.inf:
+            return f"{feature} <= {hi!r}"
+        if hi == np.inf:
+            return f"{feature} > {lo!r}"
+        return f"({feature} > {lo!r}) & ({feature} <= {hi!r})"

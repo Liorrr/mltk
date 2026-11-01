@@ -9,6 +9,7 @@ error handling, filtering, and report structure.
 from __future__ import annotations
 
 import time
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -21,7 +22,7 @@ sklearn = pytest.importorskip(
 
 try:
     from mltk.scan.config import ScanConfig
-    from mltk.scan.engine import ScanEngine
+    from mltk.scan.engine import ScanEngine, ScanReport
     from mltk.scan.finding import ScanFinding  # noqa: F401
     _HAS_SCAN = True
 except ImportError:
@@ -141,6 +142,30 @@ class TestScanEngineIntegration:
 
 class TestScanReportProperties:
     """Verify ScanReport exit_code and summary()."""
+
+    def test_to_test_file_delegates_to_codegen(self, tmp_path) -> None:
+        report = ScanReport(findings=[])
+        output = tmp_path / "generated.py"
+        with patch(
+            "mltk.scan.codegen.generate_test_file",
+            return_value="code",
+        ) as generate:
+            result = report.to_test_file(
+                str(output),
+                model_path="model.pkl",
+                data_path="data.csv",
+                target_col="label",
+                train_data_path="train.csv",
+            )
+        generate.assert_called_once_with(
+            [],
+            model_path="model.pkl",
+            data_path="data.csv",
+            target_col="label",
+            output_path=str(output.resolve()),
+            train_data_path="train.csv",
+        )
+        assert result == str(output.resolve())
 
     def test_exit_code_zero_clean(
         self, clean_model,

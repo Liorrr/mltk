@@ -31,9 +31,12 @@ from mltk.model import (
     assert_intersectional_fairness,
     assert_metric,
     assert_no_bias,
+    assert_no_overfitting,
     assert_no_regression,
+    assert_robust,
     assert_slice_performance,
 )
+from mltk.training import assert_no_target_leakage
 
 __all__ = [
     "__version__",
@@ -54,6 +57,10 @@ __all__ = [
     "assert_calibration",
     "assert_intersectional_fairness",
     "assert_no_bias",
+    "assert_no_overfitting",
+    "assert_robust",
+    # Training
+    "assert_no_target_leakage",
     # Container
     "assert_container_vulnerabilities",
     "assert_no_secrets_in_image",

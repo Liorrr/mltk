@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import FunctionModel, execute_finding_snippet
+
 sklearn = pytest.importorskip(
     "sklearn",
     reason="sklearn required for slice scanner tests",
@@ -100,6 +102,30 @@ class TestSliceScannerDetection:
         scanner = SliceScanner()
         findings = scanner.scan(ctx)
         assert len(findings) > 0
+
+    def test_suggested_body_contract_and_execution(self) -> None:
+        """A slice finding emits an executable test body."""
+        rng = np.random.default_rng(42)
+        n = 300
+        group = np.array(["good"] * 200 + ["bad"] * 100)
+        y = rng.integers(0, 2, n)
+        X = pd.DataFrame({
+            "group": group,
+            "feat": rng.normal(0, 1, n),
+        })
+        predictions = y.copy()
+        predictions[group == "bad"] = 1 - predictions[group == "bad"]
+
+        def model_fn(x):
+            return predictions[x.index]
+
+        findings = SliceScanner().scan(_build_context(model_fn, X, y))
+        execute_finding_snippet(
+            findings[0],
+            X,
+            y,
+            model=FunctionModel(model_fn),
+        )
 
     def test_respects_min_slice_samples(self) -> None:
         """Slices smaller than min_slice_samples are

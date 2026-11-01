@@ -146,5 +146,5 @@ class TestPromptInjection:
         def error_model(prompt: str) -> str:
             raise ValueError("Invalid input")
 
-        result = assert_no_prompt_injection(error_model)
+        result = assert_no_prompt_injection(error_model, on_error="resist")
         assert result.passed is True

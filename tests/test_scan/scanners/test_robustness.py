@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import FunctionModel, execute_finding_snippet
+
 try:
     from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.robustness import (
@@ -98,6 +100,29 @@ class TestRobustnessScannerDetection:
         scanner = RobustnessScanner()
         findings = scanner.scan(ctx)
         assert len(findings) >= 1
+
+    def test_suggested_body_contract_and_execution(self) -> None:
+        """A robustness finding emits an executable test body."""
+        rng = np.random.default_rng(42)
+        X = pd.DataFrame({
+            "x1": rng.uniform(-0.01, 0.01, 400),
+            "x2": rng.uniform(-0.01, 0.01, 400),
+        })
+        y = (X["x1"] + X["x2"] > 0).astype(int).values
+
+        def fragile_fn(inputs):
+            values = np.asarray(inputs)
+            return (values.sum(axis=1) > 0).astype(int)
+
+        findings = RobustnessScanner().scan(
+            _build_context(fragile_fn, X, y),
+        )
+        execute_finding_snippet(
+            findings[0],
+            X,
+            y,
+            model=FunctionModel(fragile_fn),
+        )
 
     def test_robust_model_no_findings(self) -> None:
         """Robust model yields no findings."""

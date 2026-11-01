@@ -195,7 +195,7 @@ class BiasScanner(Scanner):
             else Severity.INFO
         )
         try:
-            assert_no_bias(
+            assertion_result = assert_no_bias(
                 y_true,
                 y_pred,
                 sensitive_feature=groups,
@@ -203,48 +203,52 @@ class BiasScanner(Scanner):
                 severity=severity,
             )
         except MltkAssertionError as exc:
-            # Determine severity from the drop magnitude.
-            actual_sev = self._classify_severity(
-                exc.result, is_user_specified,
-            )
-            result = TestResult(
-                name=f"scan.bias.{col}.{method}",
-                passed=False,
-                severity=actual_sev,
-                message=(
-                    f"{method.replace('_', ' ').title()}"
-                    f" violation on '{col}'"
-                    f" ({self._stat_summary(exc.result)})"
-                ),
-                details={
-                    "column": col,
-                    "method": method,
-                    "user_specified": is_user_specified,
-                    **exc.result.details,
-                },
-            )
-            return ScanFinding(
-                result=result,
-                assertion_fn=assert_no_bias,
-                assertion_args=(
-                    y_true.copy(),
-                    y_pred.copy(),
-                    groups.copy(),
-                ),
-                assertion_kwargs={
-                    "method": method,
-                    "severity": severity,
-                },
-                suggested_test=self._gen_test(
-                    col, method,
-                ),
-                suggested_fixes=self._gen_fix(
-                    col, method,
-                    exc.result.details,
-                ),
-                scanner_name=self.name,
-            )
-        return None
+            assertion_result = exc.result
+
+        # Critical failures raise, while advisory INFO failures return a
+        # failing TestResult.  Both paths must produce the same finding.
+        if assertion_result.passed is not False:
+            return None
+        actual_sev = self._classify_severity(
+            assertion_result, is_user_specified,
+        )
+        result = TestResult(
+            name=f"scan.bias.{col}.{method}",
+            passed=False,
+            severity=actual_sev,
+            message=(
+                f"{method.replace('_', ' ').title()}"
+                f" violation on '{col}'"
+                f" ({self._stat_summary(assertion_result)})"
+            ),
+            details={
+                "column": col,
+                "method": method,
+                "user_specified": is_user_specified,
+                **assertion_result.details,
+            },
+        )
+        return ScanFinding(
+            result=result,
+            assertion_fn=assert_no_bias,
+            assertion_args=(
+                y_true.copy(),
+                y_pred.copy(),
+                groups.copy(),
+            ),
+            assertion_kwargs={
+                "method": method,
+                "severity": severity,
+            },
+            suggested_test=self._gen_test(
+                col, method,
+            ),
+            suggested_fixes=self._gen_fix(
+                col, method,
+                assertion_result.details,
+            ),
+            scanner_name=self.name,
+        )
 
     # ----------------------------------------------------------
     # helpers
@@ -276,15 +280,11 @@ class BiasScanner(Scanner):
     def _gen_test(col: str, method: str) -> str:
         """Generate a pytest snippet for this finding."""
         return (
-            f"def test_bias_{col}_{method}():\n"
-            f"    \"\"\"No {method.replace('_', ' ')}"
-            f" bias on '{col}'.\"\"\"\n"
-            f"    assert_no_bias(\n"
-            f"        y_test, y_pred,\n"
-            f"        sensitive_feature="
-            f"X_test['{col}'],\n"
-            f"        method='{method}',\n"
-            f"    )\n"
+            "assert_no_bias(\n"
+            "    y, y_pred,\n"
+            f"    sensitive_feature=X[{col!r}],\n"
+            f"    method={method!r},\n"
+            ")\n"
         )
 
     @staticmethod

@@ -387,9 +387,8 @@ class TestFixesSurviveOutputFormats:
         #   succeeds).
         fix = _make_fix(title="Add threshold check")
         suggested_test = (
-            "def test_drift_age():\n"
-            "    \"\"\"Age column must not drift.\"\"\"\n"
-            "    assert True\n"
+            "# Age column must not drift.\n"
+            "assert True\n"
         )
         finding = _make_finding(
             fixes=[fix],
@@ -409,8 +408,8 @@ class TestFixesSurviveOutputFormats:
             code = fh.read()
         ast.parse(code)
 
-        # File contains the test function
-        assert "def test_drift_age" in code
+        # File contains the generated method
+        assert "def test_001_test_check" in code
 
 
 # ---------------------------------------------------------------

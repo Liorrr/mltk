@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-09-19 by scripts/generate_skill_index.py
+> Generated 2026-11-02 by scripts/generate_skill_index.py
 
 **243** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
 
@@ -863,27 +863,27 @@ def assert_semantic_equivalence(text_a: str, text_b: str, method: str='nli', min
 
 ### llm.red_team
 
-**`assert_encoding_mutation_resilience`** (domains/llm/red_team/assertions.py:460)
+**`assert_encoding_mutation_resilience`** (domains/llm/red_team/assertions.py:538)
 ```python
-def assert_encoding_mutation_resilience(model_fn: Callable[[str], str], payloads: list[AttackPayload] | None=None, techniques: list[MutationTechnique] | None=None, threshold: float=0.9)
+def assert_encoding_mutation_resilience(model_fn: Callable[[str], str], payloads: list[AttackPayload] | None=None, techniques: list[MutationTechnique] | None=None, threshold: float=0.9, *, on_error: OnError='fail_if_all')
 ```
 > Assert model resists encoded variants of attacks.
 
-**`assert_no_session_jailbreak`** (domains/llm/red_team/assertions.py:281)
+**`assert_no_session_jailbreak`** (domains/llm/red_team/assertions.py:346)
 ```python
-def assert_no_session_jailbreak(model_fn: Callable[[str], str], messages: list[str], threshold: float=1.0)
+def assert_no_session_jailbreak(model_fn: Callable[[str], str], messages: list[str], threshold: float=1.0, *, on_error: OnError='fail_if_all')
 ```
 > Assert model is not jailbroken by a multi-turn sequence.
 
-**`assert_owasp_llm_coverage`** (domains/llm/red_team/assertions.py:386)
+**`assert_owasp_llm_coverage`** (domains/llm/red_team/assertions.py:464)
 ```python
 def assert_owasp_llm_coverage(categories: list[AttackCategory], min_categories: int=5)
 ```
 > Assert test suite covers enough OWASP LLM categories.
 
-**`assert_red_team_resilient`** (domains/llm/red_team/assertions.py:124)
+**`assert_red_team_resilient`** (domains/llm/red_team/assertions.py:176)
 ```python
-def assert_red_team_resilient(model_fn: Callable[[str], str], categories: list[AttackCategory] | None=None, threshold: float=0.8, llm_attacker: Callable[[str], str] | None=None, purpose: str='general-purpose', custom_payloads: list[AttackPayload] | None=None)
+def assert_red_team_resilient(model_fn: Callable[[str], str], categories: list[AttackCategory] | None=None, threshold: float=0.8, llm_attacker: Callable[[str], str] | None=None, purpose: str='general-purpose', custom_payloads: list[AttackPayload] | None=None, *, on_error: OnError='fail_if_all')
 ```
 > Assert model resists adversarial red team attacks.
 
@@ -1195,9 +1195,9 @@ def assert_ner_f1(y_true_entities: list[list[tuple[str, int, int]]], y_pred_enti
 ```
 > Assert entity-level F1 score meets threshold.
 
-**`assert_no_prompt_injection`** (domains/nlp/security.py:321)
+**`assert_no_prompt_injection`** (domains/nlp/security.py:323)
 ```python
-def assert_no_prompt_injection(model_fn: Callable[..., Any], payloads: list[str] | list[dict[str, str]] | None=None, forbidden_patterns: list[str] | None=None)
+def assert_no_prompt_injection(model_fn: Callable[..., Any], payloads: list[str] | list[dict[str, str]] | None=None, forbidden_patterns: list[str] | None=None, *, on_error: OnError='fail_if_all')
 ```
 > Assert model doesn't comply with prompt injection attempts.
 
@@ -1680,7 +1680,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | 15 | `mltk grafana-export` | 984 | Export a Grafana dashboard JSON for mltk metrics. |
 | 16 | `mltk import` | 673 | Import a dataset, preview mapping, build a suite, and emit pytest. |
 | 17 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
-| 18 | `mltk list` | 1191 | List all available mltk assertions. |
+| 18 | `mltk list` | 1196 | List all available mltk assertions. |
 | 19 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
 | 20 | `mltk notify slack` | 601 | Send test results (or a custom message) to Slack. |
 | 21 | `mltk registry list` | 579 | List all collections in the registry. |
@@ -1964,7 +1964,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | config | `ScanConfig` |  |
 | seed | `int` |  |
 
-### `ScanReport` (scan/engine.py:73)
+### `ScanReport` (scan/engine.py:72)
 > Aggregated output of a scan run.
 
 | Field | Type | Default |
@@ -1979,7 +1979,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | n_features | `int` | `0` |
 | config | `ScanConfig` | `field(default_factory=ScanConfig)` |
 
-### `ScanEngine` (scan/engine.py:457)
+### `ScanEngine` (scan/engine.py:430)
 > Orchestrates scanners and produces a ScanReport.
 
 *(no dataclass fields)*
@@ -2014,7 +2014,6 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 | Test Directory | Source Module |
 |----------------|---------------|
-| test_charts/ | src/mltk/charts/ |
 | test_chat/ | src/mltk/chat/ |
 | test_cli/ | src/mltk/cli/ |
 | test_compliance/ | src/mltk/compliance/ |

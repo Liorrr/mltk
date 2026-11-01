@@ -170,22 +170,15 @@ class OverfitScanner(Scanner):
     def _gen_test(max_gap: float) -> str:
         """Generate a pytest snippet for overfitting."""
         return (
-            "def test_no_overfitting():\n"
-            "    \"\"\"Train-test gap must be"
-            " bounded.\"\"\"\n"
-            "    train_acc = accuracy_score(\n"
-            "        y_train, model.predict("
-            "X_train),\n"
-            "    )\n"
-            "    test_acc = accuracy_score(\n"
-            "        y_test, model.predict("
-            "X_test),\n"
-            "    )\n"
-            "    assert_no_overfitting(\n"
-            "        train_score=train_acc,\n"
-            "        test_score=test_acc,\n"
+            "train_acc = (np.asarray(y_train) == "
+            "np.asarray(model.predict(X_train))).mean()\n"
+            "test_acc = (np.asarray(y) == "
+            "np.asarray(model.predict(X))).mean()\n"
+            "assert_no_overfitting(\n"
+            "    train_score=train_acc,\n"
+            "    test_score=test_acc,\n"
             f"        max_gap={max_gap},\n"
-            "    )\n"
+            ")\n"
         )
 
     @staticmethod

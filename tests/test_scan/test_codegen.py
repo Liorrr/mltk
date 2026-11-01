@@ -14,9 +14,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from mltk.core.result import Severity
+from mltk.scan.engine import ScanReport
 
 try:
-    from mltk.scan.codegen import generate_test_file
+    from mltk.scan.codegen import (
+        SNIPPET_PROVIDED_NAMES,
+        check_snippet,
+        generate_test_file,
+    )
     _HAS_CODEGEN = True
 except ImportError:
     _HAS_CODEGEN = False
@@ -33,7 +38,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _mock_finding(
-    test_code: str = "def test_x(): assert True",
+    test_code: str = "assert True",
     scanner: str = "slice",
 ):
     """Build a mock ScanFinding with suggested_test."""
@@ -93,16 +98,106 @@ class TestGenerateTestFile:
         generated code."""
         findings = [
             _mock_finding(
-                "def test_slice(): pass",
+                "assert True",
                 scanner="slice",
             ),
             _mock_finding(
-                "def test_bias(): pass",
+                "assert True",
                 scanner="bias",
             ),
         ]
         code = generate_test_file(findings)
         ast.parse(code)
-        # Both test functions should be in the output
-        assert "test_slice" in code
-        assert "test_bias" in code
+        # Both scanner findings should be represented in the output
+        assert "Scanner: slice" in code
+        assert "Scanner: bias" in code
+
+    def test_prelude_is_conditional_and_imports_are_exact(self) -> None:
+        finding = _mock_finding(
+            "assert_metric(y, y_pred, metric='accuracy')\n"
+            "assert model_fn(X) is not None\n"
+            "assert X_train is not None"
+        )
+        code = generate_test_file([finding], target_col="label")
+        assert "X, y = data" in code
+        assert "y_pred = model.predict(X)" in code
+        assert "model_fn = model.predict" in code
+        assert "X_train, y_train = train_data" in code
+        assert "def test_001_scan_test(self, model, data, train_data):" in code
+        assert "from mltk import assert_metric" in code
+        assert SNIPPET_PROVIDED_NAMES
+
+        plain = generate_test_file([_mock_finding("assert True")])
+        assert "y_pred = model.predict(X)" not in plain
+        assert "model_fn = model.predict" not in plain
+        assert "train_data" not in plain
+        assert "from mltk import" not in plain
+
+    @pytest.mark.parametrize(
+        ("body", "message"),
+        [
+            ("def test_nested(): pass", "top-level"),
+            ("import pathlib", "import"),
+            ("assert (", "syntax"),
+            ("assert mystery", "mystery"),
+        ],
+    )
+    def test_check_snippet_rejects_contract_violations(
+        self, body: str, message: str,
+    ) -> None:
+        with pytest.raises(ValueError, match=message):
+            check_snippet(body)
+
+    def test_check_snippet_accepts_provided_names(self) -> None:
+        check_snippet(
+            "X, y = data\n"
+            "y_pred = model.predict(X)\n"
+            "model_fn(X)\n"
+            "assert X_train is not None\n"
+            "np.asarray(y)\n"
+            "pd.DataFrame(X)\n"
+            "pytest.skip('ok')"
+        )
+
+    def test_bad_scanner_snippet_degrades_to_failing_body(self, tmp_path) -> None:
+        """A contract-violating snippet must not abort the whole file.
+
+        It becomes the generic failing body (reason in a comment), and a
+        valid sibling finding keeps its own body.
+        """
+        output = tmp_path / "generated.py"
+        code = generate_test_file(
+            [
+                _mock_finding("def test_broken(): pass"),
+                _mock_finding("assert X is not None"),
+            ],
+            output_path=str(output),
+        )
+        assert output.exists()
+        assert "# Scanner snippet rejected:" in code
+        assert "top-level" in code
+        assert "def test_broken" not in code
+        assert "assert X is not None" in code
+
+    def test_message_with_backslash_and_quotes_stays_valid(self) -> None:
+        finding = _mock_finding("assert True")
+        finding.result.message = 'slice C:\\Users \\U0001 """x"""'
+        code = generate_test_file([finding])
+        ast.parse(code)
+
+    def test_report_output_matches_direct_codegen(self, tmp_path) -> None:
+        findings = [_mock_finding("assert True")]
+        expected = generate_test_file(
+            findings,
+            model_path="model.pkl",
+            data_path="data.csv",
+            target_col="label",
+        )
+        output = tmp_path / "generated.py"
+        ScanReport(findings=findings).to_test_file(
+            str(output),
+            model_path="model.pkl",
+            data_path="data.csv",
+            target_col="label",
+        )
+        assert output.read_text(encoding="utf-8") == expected
