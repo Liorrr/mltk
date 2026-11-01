@@ -20,6 +20,30 @@ class CapturedCall:
 
 
 @dataclass(frozen=True)
+class SubagentCall:
+    """A nested sub-agent invocation observed at T1."""
+
+    name: str
+    duration_ms: float | None = None
+
+
+@dataclass(frozen=True)
+class FanoutCall:
+    """A fan-out of concurrent API calls observed at T1."""
+
+    count: int
+    duration_ms: float | None = None
+
+
+@dataclass(frozen=True)
+class RetryEvent:
+    """One error/retry hop observed at T1."""
+
+    error: str
+    attempt: int
+
+
+@dataclass(frozen=True)
 class CaptureRecord:
     """Canonical capture record for one model/agent run.
 
@@ -41,9 +65,9 @@ class CaptureRecord:
     per_hop_latency_ms: tuple[float, ...] | None = None
     total_duration_ms: float | None = None
     # T1
-    subagent_calls: tuple[Any, ...] | None = None
-    fanout_api_calls: tuple[Any, ...] | None = None
-    error_retry_chain: tuple[Any, ...] | None = None
+    subagent_calls: tuple[SubagentCall, ...] | None = None
+    fanout_api_calls: tuple[FanoutCall, ...] | None = None
+    error_retry_chain: tuple[RetryEvent, ...] | None = None
     cache_hits: int | None = None
     action_log: tuple[str, ...] | None = None
     # T2
