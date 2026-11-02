@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
-- **`MLTK_DB_PATH` is honoured by `mltk server`, `server-create-key` and `server-backup`** — the docs, the Helm chart and `server/docker-compose.yml` set it, but the CLI ignored it. The compose setup therefore wrote its database to `/app/mltk_server.db` in the container layer instead of the `/app/data` volume, and lost it whenever the container was recreated. An explicit `--db` still wins. Deployments that set `MLTK_DB_PATH` without `--db` (the `server/` compose file and the Docker, Compose and Kubernetes examples in the docs) must move that database onto the volume immediately before upgrading; "Moving a database written outside the volume" in `docs/guides/devops-guide.md` has a script that refuses a missing source and never overwrites a database that already holds runs.
+- **Server Dockerfiles install `mlspec[server]`** — `server/Dockerfile` and the Dockerfile examples in `docs/guides/devops-guide.md` and `docs/api/server-platform.md` ran `pip install mltk[server]`, which installs an unrelated PyPI package named `mltk`, so the image had no mltk server. The distribution is `mlspec`; `mltk` is the import and CLI name.
+- **`MLTK_DB_PATH` is honoured by `mltk server`, `server-create-key` and `server-backup`** — the docs, the Helm chart and `server/docker-compose.yml` set it, but the CLI ignored it. The compose setup therefore wrote its database to `/app/mltk_server.db` in the container layer instead of the `/app/data` volume, and lost it whenever the container was recreated. An explicit `--db` still wins. If you changed one of those setups to install `mlspec` and relied on `MLTK_DB_PATH`, copy `/app/mltk_server.db` (and its `-wal`) out of the stopped container before upgrading; see "Database written outside the volume" in `docs/guides/devops-guide.md`.
 
 ## [0.14.0] — 2026-11-02
 ### Added

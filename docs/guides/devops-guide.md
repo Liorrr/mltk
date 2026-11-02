@@ -1361,7 +1361,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir mltk[server]
+RUN pip install --no-cache-dir mlspec[server]
 
 # Create data directory
 RUN mkdir -p /app/data
@@ -1604,37 +1604,20 @@ Automate with a cron job:
 0 3 * * * root mltk server-backup --db /data/mltk_server.db --out /backups/mltk_server_$(date +\%Y\%m\%d).db && find /backups -name "mltk_server_*.db" -mtime +30 -delete
 ```
 
-### Moving a database written outside the volume
+### Database written outside the volume
 
-mltk 0.14.0 and earlier ignored `MLTK_DB_PATH`. A deployment that set it without passing `--db` to `mltk server` kept its database at `mltk_server.db` in the server's working directory (`/app` in these images), outside the mounted volume. That covers the `server/` compose file and the Docker, Compose and Kubernetes examples in this guide and in the server platform docs. Recreating the container discards that file.
+mltk 0.14.0 and earlier ignored `MLTK_DB_PATH`. A server started with that variable but without `--db` kept its database at `mltk_server.db` in its working directory (`/app` in the images above), outside the mounted volume, and recreating the container discards it. The Dockerfiles in this guide used to install an unrelated PyPI package (`mltk`) instead of `mlspec`, so this only affects a deployment whose install line you changed yourself.
 
-The copy is a snapshot: runs posted after it are not carried over, and the script refuses to run a second time once the destination holds runs. So do it immediately before the upgrade:
-
-1. Pull or build the new image first (`docker compose pull` or `docker compose build`), so the recreate in step 3 is quick.
-2. Pause anything that posts runs to the server, if you can, and run the script below in the running (old) container.
-3. Recreate the container right away (`docker compose up -d`).
+If that is your case, copy the database out before upgrading. Stop the container first; a stopped container keeps its files until it is removed:
 
 ```bash
-docker compose exec -T mltk-server python - <<'PY'
-import os, sqlite3
-src = sqlite3.connect("file:/app/mltk_server.db?mode=ro", uri=True)
-src.execute("SELECT COUNT(*) FROM runs")  # fails if the file is missing or not an mltk database
-dst_path = os.environ["MLTK_DB_PATH"]
-if os.path.exists(dst_path):
-    existing = sqlite3.connect(dst_path)
-    runs = existing.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
-    existing.close()
-    if runs:
-        raise SystemExit(f"{dst_path} already holds {runs} runs; not overwriting it")
-dst = sqlite3.connect(dst_path)
-src.backup(dst)
-dst.close()
-src.close()
-print("copied /app/mltk_server.db to", dst_path)
-PY
+docker compose stop mltk-server
+CID=$(docker compose ps -a -q mltk-server)
+docker cp "$CID:/app/mltk_server.db" ./mltk_server.db
+docker cp "$CID:/app/mltk_server.db-wal" ./mltk_server.db-wal   # only if it exists; it holds the latest commits
 ```
 
-For a container started with `docker run`, use `docker exec -i <container> python - <<'PY'`; for Kubernetes, `kubectl exec -i <pod> -- python - <<'PY'`. The script stops if `/app/mltk_server.db` is missing, and it never overwrites a destination that already holds runs. A destination with no runs, such as one that only holds keys from `mltk server-create-key --db /app/data/mltk_server.db`, is replaced. Skip this step if your server command already passes `--db` with the volume path.
+Then put both files on the volume under the `MLTK_DB_PATH` file name, keeping the `-wal` name paired with the database. Nothing here overwrites a file for you: if the volume already has a database at that path (for example one holding keys from `mltk server-create-key --db /app/data/mltk_server.db`), decide which one to keep first.
 
 ### Log Rotation
 
