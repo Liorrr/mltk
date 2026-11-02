@@ -48,14 +48,7 @@ def test_release_dry_run_touches_chart_and_prose_targets(
     bump: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Avoid the pytest --collect-only subprocess; counts are irrelevant here.
-    monkeypatch.setattr(
-        bump,
-        "get_live_counts",
-        lambda *a, **k: bump.LiveCounts(
-            assertions=0, cli=0, cli_summary="", mcp=0, scanners=0, tests=0,
-            version="0.0.0",
-        ),
-    )
+    monkeypatch.setattr(bump, "get_live_counts", lambda *a, **k: _zero_counts(bump))
     printed: list[str] = []
     monkeypatch.setattr(bump, "_print_utf8", printed.append)
     writes: list[Path] = []
@@ -70,6 +63,58 @@ def test_release_dry_run_touches_chart_and_prose_targets(
     assert "+++ b/charts/mltk/README.md" in out
     assert "+++ b/docs/guides/container-deployment.md" in out
     assert writes == []
+
+
+def _zero_counts(bump: ModuleType) -> object:
+    return bump.LiveCounts(
+        assertions=0, cli=0, cli_summary="", mcp=0, scanners=0, tests=0,
+        version="0.0.0",
+    )
+
+
+def test_release_keeps_backlog_header_bump_through_count_refresh(
+    bump: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # BACKLOG is both a header-bump and a count target. The count step used to
+    # re-read the file from disk and overwrite the header bump.
+    monkeypatch.setattr(bump, "get_live_counts", lambda *a, **k: _zero_counts(bump))
+    monkeypatch.setattr(bump, "_git_add", lambda files: None)
+    written: dict[Path, str] = {}
+    monkeypatch.setattr(
+        Path, "write_text", lambda self, data, *a, **k: written.__setitem__(self, data)
+    )
+
+    assert bump.cmd_release("9.9.9", dry_run=False) == 0
+
+    backlog = written[ROOT / "BACKLOG.md"]
+    header = next(line for line in backlog.splitlines() if line.startswith("## DONE (S0-S"))
+    assert header.endswith("— v9.9.9")
+    assert 'appVersion: "9.9.9"' in written[ROOT / "charts" / "mltk" / "Chart.yaml"]
+
+
+def test_test_count_collects_against_this_checkout(
+    bump: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # In a git worktree the editable install points at another checkout; the
+    # collection subprocess must import this checkout's src/ first.
+    seen: dict[str, object] = {}
+
+    class _Done:
+        stdout = "7 tests collected in 0.01s"
+        stderr = ""
+
+    def _run(cmd: list[str], **kwargs: object) -> _Done:
+        seen.update(kwargs)
+        return _Done()
+
+    monkeypatch.setattr(bump.subprocess, "run", _run)
+    monkeypatch.setenv("PYTHONPATH", "elsewhere")
+
+    assert bump.get_test_count() == 7
+    env = seen["env"]
+    assert isinstance(env, dict)
+    parts = env["PYTHONPATH"].split(bump.os.pathsep)
+    assert parts == [str(ROOT / "src"), "elsewhere"]
 
 
 def test_kind_smoke_preloads_between_create_and_install(

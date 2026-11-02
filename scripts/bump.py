@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import os
 import re
 import subprocess
 import sys
@@ -106,6 +107,13 @@ class LiveCounts:
 
 
 def get_test_count() -> int:
+    # Collect against THIS checkout's src/. Without it, a git worktree imports
+    # the editable install's tree (another checkout), so test modules for code
+    # that exists only here fail to import and the count silently drops.
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        p for p in (str(SRC_ROOT.parent), env.get("PYTHONPATH", "")) if p
+    )
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pytest", "--collect-only", "-q",
@@ -113,6 +121,7 @@ def get_test_count() -> int:
             capture_output=True,
             text=True,
             cwd=str(REPO_ROOT),
+            env=env,
             timeout=120,
         )
         output = (result.stdout + result.stderr).strip()
@@ -397,29 +406,37 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
     counts.version = new_ver
 
     diffs: list[str] = []
-    writes: list[tuple[Path, str]] = []
+    # Pending content per path. Steps read through it, so a later step (count
+    # refresh) builds on an earlier one (BACKLOG header) instead of re-reading
+    # the unchanged file from disk and overwriting it.
+    writes: dict[Path, str] = {}
+
+    def _read(path: Path) -> str:
+        if path in writes:
+            return writes[path]
+        return path.read_text(encoding="utf-8")
 
     # Version file updates
     for rel in VERSION_TARGETS:
         path = REPO_ROOT / rel
         if not path.exists():
             continue
-        original = path.read_text(encoding="utf-8")
+        original = _read(path)
         updated = _replace_version_in_text(original, old_ver, new_ver, rel)
         if updated != original:
             diffs.append(_unified_diff(path, original, updated))
-            writes.append((path, updated))
+            writes[path] = updated
 
     # Helm chart appVersion (tests/test_charts pins it to pyproject's version)
     if CHART_YAML.exists():
-        chart_orig = CHART_YAML.read_text(encoding="utf-8")
+        chart_orig = _read(CHART_YAML)
         chart_new = _bump_chart_app_version(chart_orig, new_ver)
         if chart_new != chart_orig:
             diffs.append(_unified_diff(CHART_YAML, chart_orig, chart_new))
-            writes.append((CHART_YAML, chart_new))
+            writes[CHART_YAML] = chart_new
 
     # CHANGELOG roll
-    changelog_orig = CHANGELOG.read_text(encoding="utf-8")
+    changelog_orig = _read(CHANGELOG)
     try:
         changelog_new = _roll_changelog(changelog_orig, new_ver)
     except ValueError as exc:
@@ -427,16 +444,16 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
         return 1
     if changelog_new != changelog_orig:
         diffs.append(_unified_diff(CHANGELOG, changelog_orig, changelog_new))
-        writes.append((CHANGELOG, changelog_new))
+        writes[CHANGELOG] = changelog_new
 
     # BACKLOG DONE header version
     backlog_path = REPO_ROOT / "BACKLOG.md"
     if backlog_path.exists():
-        backlog_orig = backlog_path.read_text(encoding="utf-8")
+        backlog_orig = _read(backlog_path)
         backlog_new = _update_backlog_header(backlog_orig, new_ver)
         if backlog_new != backlog_orig:
             diffs.append(_unified_diff(backlog_path, backlog_orig, backlog_new))
-            writes.append((backlog_path, backlog_new))
+            writes[backlog_path] = backlog_new
 
     # Count refresh + prose version bump for doc targets
     count_modified_paths: list[Path] = []
@@ -445,13 +462,13 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
         path = REPO_ROOT / rel
         if not path.exists():
             continue
-        original = path.read_text(encoding="utf-8")
+        original = _read(path)
         updated = _replace_counts_in_text(original, counts)
         if rel in prose_ver_set:
             updated = _replace_prose_version_in_text(updated, old_ver, new_ver)
         if updated != original:
             diffs.append(_unified_diff(path, original, updated))
-            writes.append((path, updated))
+            writes[path] = updated
             count_modified_paths.append(path)
 
     # Prose-version targets that carry no counts (the loop above only walks
@@ -463,11 +480,11 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
         path = REPO_ROOT / rel
         if not path.exists():
             continue
-        original = path.read_text(encoding="utf-8")
+        original = _read(path)
         updated = _replace_prose_version_in_text(original, old_ver, new_ver)
         if updated != original:
             diffs.append(_unified_diff(path, original, updated))
-            writes.append((path, updated))
+            writes[path] = updated
 
     if dry_run:
         for diff in diffs:
@@ -476,7 +493,7 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
 
     # Apply all writes
     all_changed: list[Path] = []
-    for path, content in writes:
+    for path, content in writes.items():
         path.write_text(content, encoding="utf-8")
         all_changed.append(path)
 
