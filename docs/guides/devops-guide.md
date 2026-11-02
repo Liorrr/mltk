@@ -1579,21 +1579,29 @@ idx_api_keys_hash  → api_keys(key_hash)        — API key verification
 
 ### Backup Strategy
 
-SQLite databases can be backed up with a simple file copy while the server is idle, or with `sqlite3 .backup` for a safe online backup:
+WAL mode means a live copy of the `.db` file alone can lose recent commits. Use `mltk server-backup` for an online backup:
 
 ```bash
-# Simple file copy (stop server first, or accept minimal risk)
-cp /data/mltk_server.db /backups/mltk_server_$(date +%Y%m%d).db
+mltk server-backup --db /data/mltk_server.db --out /backups/mltk_server_$(date +%Y%m%d).db
 
-# Online backup using sqlite3 CLI (safe while server is running)
-sqlite3 /data/mltk_server.db ".backup '/backups/mltk_server_$(date +%Y%m%d).db'"
+# Docker Compose
+docker compose exec mltk-server mltk server-backup --db /app/data/mltk_server.db --out /app/data/mltk_server_backup.db
 ```
+
+Copying the `.db` file directly is safe only while the server is stopped.
+
+To restore:
+
+1. Stop the server.
+2. Delete `mltk_server.db-wal` and `mltk_server.db-shm` if they exist. A leftover WAL from the old database must not be applied to the restored file.
+3. Copy the backup over the database path.
+4. Start the server.
 
 Automate with a cron job:
 
 ```bash
 # /etc/cron.d/mltk-backup
-0 3 * * * root sqlite3 /data/mltk_server.db ".backup '/backups/mltk_server_$(date +\%Y\%m\%d).db'" && find /backups -name "mltk_server_*.db" -mtime +30 -delete
+0 3 * * * root mltk server-backup --db /data/mltk_server.db --out /backups/mltk_server_$(date +\%Y\%m\%d).db && find /backups -name "mltk_server_*.db" -mtime +30 -delete
 ```
 
 ### Log Rotation

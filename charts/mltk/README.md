@@ -23,6 +23,43 @@ The server router is mounted at `/api`:
 - liveness: `GET /api/health/live`
 - readiness: `GET /api/health/ready`
 
+## Back up before uninstalling
+
+Uninstalling the release deletes the PVC and the database on it.
+
+```bash
+kubectl exec deploy/mltk -- mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db
+POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk -o jsonpath='{.items[0].metadata.name}')
+kubectl cp "$POD:/tmp/mltk-backup.db" ./mltk-backup.db
+helm uninstall mltk
+```
+
+The backup goes to the container's `/tmp`, so it doesn't use PVC space, and it disappears when the pod restarts.
+
+Add `-n <namespace>` to each command if the release is not in the current namespace.
+
+For images that do not have `server-backup` yet, when `kubectl exec deploy/mltk -- mltk server-backup --help` fails, use:
+
+```bash
+kubectl exec deploy/mltk -- python -c "import sqlite3; s = sqlite3.connect('file:/data/mltk_server.db?mode=ro', uri=True); d = sqlite3.connect('/tmp/mltk-backup.db'); s.backup(d); d.execute('PRAGMA journal_mode=DELETE'); d.close(); s.close()"
+```
+
+Then run the same `kubectl cp` step.
+
+## Restore from a backup
+
+```bash
+helm install mltk charts/mltk
+kubectl rollout status deploy/mltk
+POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk -o jsonpath='{.items[0].metadata.name}')
+kubectl cp ./mltk-backup.db "$POD:/data/mltk_restored.db"
+helm upgrade mltk charts/mltk --reuse-values --set server.dbPath=/data/mltk_restored.db
+```
+
+The `Recreate` rollout stops the pod running on the new, empty database and starts one on the restored file.
+
+Keep `server.dbPath` set in later upgrades with `--reuse-values` or a values file; dropping it points the server back at the empty default database.
+
 ## KinD smoke (optional, not CI)
 
 Requires `kind`, `helm`, and `kubectl` on PATH. This is **not** a default

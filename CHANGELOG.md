@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`mltk server-backup` — online backup of the server database** (`mltk.server.backup.backup_database`) — copies the SQLite database through SQLite's backup API, so it is safe while `mltk server` is running. The server keeps its database in WAL mode, and a plain copy of the `.db` file can miss recent commits that are still in the `-wal` file. The backup is one self-contained file (rollback-journal mode, no `-wal` beside it), passes `PRAGMA integrity_check` before it replaces anything, and is written to a temp file that is renamed into place, so a failed backup leaves no partial file. `--out` is required; an existing `--out` is kept unless `--force` is passed. The Helm chart README documents backing up before `helm uninstall` (which deletes the PVC) and restoring through `server.dbPath`. `devops-guide.md` no longer recommends the `sqlite3` CLI, which the image does not include.
 
 ### Changed
 

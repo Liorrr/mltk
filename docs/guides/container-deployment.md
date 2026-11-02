@@ -146,6 +146,17 @@ helm install mltk charts/mltk --set image.tag=v0.14.0
 `replicaCount` defaults to `1` (SQLite single writer). Ingress is off
 until you set `ingress.enabled=true`.
 
+Back up the database before uninstalling because uninstalling the release deletes the PVC.
+
+```bash
+kubectl exec deploy/mltk -- mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db
+POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk -o jsonpath='{.items[0].metadata.name}')
+kubectl cp "$POD:/tmp/mltk-backup.db" ./mltk-backup.db
+helm uninstall mltk
+```
+
+See `charts/mltk/README.md` for restoring a backup and for images without `server-backup`.
+
 KinD is **not** a CI job. To smoke-test locally:
 
 ```bash

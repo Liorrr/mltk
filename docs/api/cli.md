@@ -468,6 +468,22 @@ mltk server-create-key --project my-project
 | `--project` | `default` | Project name to associate with the key |
 | `--db` | `mltk_server.db` | SQLite database path |
 
+### mltk server-backup
+Create a self-contained online backup of the SQLite server database. It is safe while the server is running.
+
+```bash
+mltk server-backup --out backup.db
+# Backed up mltk_server.db to backup.db (<N> bytes)
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--db` | `mltk_server.db` | SQLite database path |
+| `--out` | *(required)* | Backup output path |
+| `--force` | `false` | Overwrite an existing output file |
+
 ---
 
 ## Chat Subcommand

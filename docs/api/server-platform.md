@@ -482,6 +482,13 @@ docker-compose exec mltk-server \
   mltk server-create-key --project prod --db /app/data/mltk_server.db
 ```
 
+Use `mltk server-backup` for a backup that is safe while the server is running:
+
+```bash
+docker-compose exec mltk-server \
+  mltk server-backup --db /app/data/mltk_server.db --out /app/data/mltk_server_backup.db
+```
+
 ### Dockerfile (standalone)
 
 ```dockerfile
