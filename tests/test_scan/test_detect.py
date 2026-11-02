@@ -174,6 +174,8 @@ class TestDetectSensitiveColumns:
         "marital_status", "nationality", "native_country", "native-country",
         "skin_color", "sexual_orientation", "veteran_status", "is_pregnant",
         "annual_income", "income_bracket", "race_ethnicity",
+        "transgender", "is_transgender", "sexuality", "sexual_identity",
+        "SkinColor", "NativeCountry", "native_american",
     ])
     def test_detects_sensitive_whole_tokens(self, column: str) -> None:
         assert detect_sensitive_columns(
@@ -185,6 +187,8 @@ class TestDetectSensitiveColumns:
         "page_views", "message_count", "average_spend", "percentage",
         "trace_id", "alternative_id", "storage_gb", "mileage",
         "image_count", "package", "wage", "ages", "maritalstatus", "agegroup",
+        "color", "product_color", "car_color", "device_orientation",
+        "screen_orientation", "is_native_ad", "native_app", "sexual_explicit",
     ])
     def test_does_not_match_substrings_or_residuals(self, column: str) -> None:
         assert detect_sensitive_columns(

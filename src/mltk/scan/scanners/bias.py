@@ -42,8 +42,9 @@ def _detect_sensitive_columns(
     """Return column names that look like sensitive attrs.
 
     Matches sensitive keywords as whole case-insensitive tokens.
-    This avoids incidental substring matches, but plurals and
-    run-together lowercase names must be specified explicitly.
+    This avoids incidental substring matches, but names where a
+    keyword is only part of a longer word (plurals, run-together
+    names) must be specified explicitly.
 
     Args:
         columns: All column names in the dataset.

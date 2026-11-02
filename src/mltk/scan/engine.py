@@ -765,8 +765,9 @@ class ScanEngine:
     ) -> list[str]:
         """Auto-detect whole-token sensitive columns within the group cap.
 
-        Whole-token matching avoids incidental substring matches, but
-        plurals and run-together lowercase names must be specified explicitly.
+        Whole-token matching avoids incidental substring matches, but names
+        where a keyword is only part of a longer word (plurals, run-together
+        names) must be specified explicitly.
         """
         found: list[str] = []
         for col in X.columns:

@@ -36,33 +36,54 @@ _SENSITIVE_KEYWORDS: frozenset[str] = frozenset({
     "religion",
     "disability",
     "zipcode",
-    "zip_code",
     "zip",
     "marital",
     "nationality",
-    "native",
-    "color",
-    "orientation",
     "veteran",
     "pregnant",
     "income",
+    # Derived forms a whole-token match would otherwise miss.
+    "transgender",
+    "sexuality",
+})
+
+# Words that name a protected attribute only next to a qualifier:
+# "skin_color" is sensitive, a product's "color" is not; likewise a
+# toxicity label "sexual_explicit" is not "sexual_orientation".
+_SENSITIVE_PAIRS: frozenset[tuple[str, str]] = frozenset({
+    ("skin", "color"),
+    ("sexual", "orientation"),
+    ("sexual", "identity"),
+    ("native", "country"),
+    ("native", "american"),
 })
 
 _MAX_AUTO_GROUPS = 20
 
 
 def _is_sensitive_name(name: object) -> bool:
-    """Return whether a name contains a whole sensitive keyword token.
+    """Return whether a name contains a sensitive keyword token or pair.
 
     Tokens are split on non-alphanumeric characters and camelCase
-    boundaries. This avoids false positives from incidental substrings,
-    at the cost of missing plurals and run-together lowercase names.
+    boundaries. A name matches when one token is a keyword, or two
+    adjacent tokens form a qualified pair (``skin_color``). This avoids
+    false positives from incidental substrings, at the cost of missing
+    names where a keyword is only part of a longer word, such as plurals
+    (``ages``) and run-together names (``agegroup``).
     """
-    tokens = re.findall(
-        r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+",
-        str(name),
+    tokens = [
+        token.lower()
+        for token in re.findall(
+            r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+",
+            str(name),
+        )
+    ]
+    if any(token in _SENSITIVE_KEYWORDS for token in tokens):
+        return True
+    return any(
+        pair in _SENSITIVE_PAIRS
+        for pair in zip(tokens, tokens[1:], strict=False)
     )
-    return any(token.lower() in _SENSITIVE_KEYWORDS for token in tokens)
 
 
 # -------------------------------------------------------------------
@@ -267,14 +288,17 @@ def detect_sensitive_columns(
 
     Matching is case-insensitive and whole-token based: a column
     named ``applicant_gender`` or ``ApplicantGender`` matches keyword
-    ``gender``. This avoids incidental substring matches, but plurals
-    and run-together lowercase names such as ``ages`` and ``agegroup``
-    are not matched; pass those columns explicitly.
+    ``gender``. ``color``, ``orientation`` and ``native`` count only in
+    qualified pairs (``skin_color``, ``sexual_orientation``,
+    ``native_country``). This avoids incidental substring matches, but a
+    name where a keyword is only part of a longer word, such as a plural
+    (``ages``) or a run-together name (``agegroup``), is not matched;
+    pass such columns explicitly.
 
     The keyword set covers common US and EU protected classes:
     gender, sex, race, ethnicity, age, religion, disability,
-    zipcode, marital status, nationality, income, color,
-    orientation, veteran status, and pregnancy.
+    zipcode, marital status, nationality, income, skin color,
+    sexual orientation, native country, veteran status, and pregnancy.
 
     Args:
         X: Feature DataFrame whose column names are inspected.
