@@ -58,8 +58,11 @@ still applies.
 ## What `total_duration_ms` means
 
 It is the sum of every **observed** segment: each `record_round_trip`
-latency plus any `record_tool_call(duration_ms=...)`. A tool call is never
-also a round trip, so the two cannot double count.
+latency plus any `record_tool_call(duration_ms=...)`,
+`record_fanout(..., duration_ms=...)`, and failed-attempt
+`record_error_retry(..., duration_ms=...)`. A tool call or fan-out is never
+also a round trip, so these observations cannot double count. Fan-out calls
+must not also be recorded as round trips.
 
 It is *observed* duration, not wall clock. Time the caller never recorded
 — think between hops, or a tool call logged without `duration_ms` — is not
@@ -69,3 +72,29 @@ than reporting `0.0`.
 This matters because `to_quality_dict` publishes it as `latency_ms`, which
 is the only key `assert_trace_quality` compares against `max_latency_ms`.
 Record the durations you want that gate to see.
+
+---
+
+## T1 instrumented client
+
+Wrap any callable. Nested sub-agents share the session; each
+`SubagentCall.parent` is the index of its parent in `subagent_calls`, or
+`None` for a root sub-agent. Unobserved T1 fields stay `None`. A T2 session
+accepts T1 observations while retaining its T2 tier.
+
+```python
+from mltk.trace import CaptureSession, ClearanceTier, InstrumentedClient
+
+with CaptureSession(tier=ClearanceTier.T1) as cap:
+    client = InstrumentedClient(model_fn, session=cap)
+    writer = client.subagent("writer")
+    writer.call("draft this")
+    client.fanout(["q1", "q2"])
+    client.cache_hit()
+record = cap.finish()
+assert record.subagent_calls[0].name == "writer"
+assert record.cache_hits == 1
+assert record.logprobs is None
+```
+
+A T0 session cannot construct `InstrumentedClient` (raises `ValueError`).
