@@ -114,6 +114,10 @@ class CaptureSession:
     ) -> int:
         """Record a nested sub-agent start (T1)."""
         self._require_t1()
+        if parent is not None and not 0 <= parent < len(self._subagents):
+            raise ValueError(
+                f"parent={parent} is not the index of an already-recorded sub-agent"
+            )
         self._subagents.append(
             SubagentCall(name=name, duration_ms=duration_ms, parent=parent)
         )

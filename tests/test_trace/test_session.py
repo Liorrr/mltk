@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from mltk.trace import CaptureSession, ClearanceTier, capture
 
 
@@ -130,3 +132,15 @@ def test_failed_attempt_duration_reaches_total() -> None:
     assert rec.total_duration_ms == 300.0
     assert rec.error_retry_chain is not None
     assert rec.error_retry_chain[0].duration_ms == 300.0
+
+
+def test_record_subagent_rejects_unknown_parent() -> None:
+    with CaptureSession(tier=ClearanceTier.T1) as cap:
+        with pytest.raises(ValueError, match="parent"):
+            cap.record_subagent("a", parent=0)  # would point at itself
+        root = cap.record_subagent("a")
+        with pytest.raises(ValueError, match="parent"):
+            cap.record_subagent("b", parent=-1)
+        with pytest.raises(ValueError, match="parent"):
+            cap.record_subagent("b", parent=7)
+        assert cap.record_subagent("b", parent=root) == 1
