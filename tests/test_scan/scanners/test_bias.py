@@ -137,6 +137,19 @@ class TestBiasScannerDetection:
         findings = scanner.scan(ctx)
         assert len(findings) == 0
 
+    def test_language_is_not_auto_detected(self) -> None:
+        """Whole-token matching ignores an unrelated language feature."""
+        n = 200
+        language = np.array(["en"] * 100 + ["fr"] * 50 + ["de"] * 50)
+        y = np.ones(n, dtype=int)
+        preds = np.array([1] * 100 + [0] * 50 + [1] * 50)
+        X = pd.DataFrame({"language": language, "feature": np.arange(n)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        assert not BiasScanner().scan(_build_context(model_fn, X, y))
+
     def test_auto_detected_bias_is_advisory_finding(self) -> None:
         """Detected sensitive columns retain violations at INFO severity."""
         gender = np.array(["M"] * 100 + ["F"] * 100)
@@ -158,10 +171,10 @@ class TestBiasScannerDetection:
     def test_auto_detected_high_cardinality_column_is_skipped(self) -> None:
         """Auto-detected continuous columns do not form raw-value groups."""
         n = 100
-        usage_minutes = np.arange(n, dtype=float)
+        applicant_age = np.arange(n, dtype=float)
         y = np.ones(n, dtype=int)
         preds = np.array([1, 0] * (n // 2))
-        X = pd.DataFrame({"usage_minutes": usage_minutes})
+        X = pd.DataFrame({"applicant_age": applicant_age})
 
         def model_fn(x):
             return preds[x.index]
@@ -172,10 +185,10 @@ class TestBiasScannerDetection:
     def test_user_specified_high_cardinality_column_is_still_analysed(self) -> None:
         """Explicit columns retain raw-value grouping behavior."""
         n = 100
-        usage_minutes = np.arange(n, dtype=float)
+        applicant_age = np.arange(n, dtype=float)
         y = np.ones(n, dtype=int)
         preds = np.array([1, 0] * (n // 2))
-        X = pd.DataFrame({"usage_minutes": usage_minutes})
+        X = pd.DataFrame({"applicant_age": applicant_age})
 
         def model_fn(x):
             return preds[x.index]
@@ -185,12 +198,12 @@ class TestBiasScannerDetection:
                 model_fn,
                 X,
                 y,
-                sensitive_columns=["usage_minutes"],
+                sensitive_columns=["applicant_age"],
             ),
         )
         assert findings
         assert all(
-            f.result.details["column"] == "usage_minutes"
+            f.result.details["column"] == "applicant_age"
             for f in findings
         )
 

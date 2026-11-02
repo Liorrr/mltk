@@ -8,6 +8,7 @@ Used by ScanEngine to build ScanContext without manual configuration.
 from __future__ import annotations
 
 import logging
+import re
 import warnings
 from collections.abc import Callable
 
@@ -46,6 +47,22 @@ _SENSITIVE_KEYWORDS: frozenset[str] = frozenset({
     "pregnant",
     "income",
 })
+
+_MAX_AUTO_GROUPS = 20
+
+
+def _is_sensitive_name(name: object) -> bool:
+    """Return whether a name contains a whole sensitive keyword token.
+
+    Tokens are split on non-alphanumeric characters and camelCase
+    boundaries. This avoids false positives from incidental substrings,
+    at the cost of missing plurals and run-together lowercase names.
+    """
+    tokens = re.findall(
+        r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+",
+        str(name),
+    )
+    return any(token.lower() in _SENSITIVE_KEYWORDS for token in tokens)
 
 
 # -------------------------------------------------------------------
@@ -248,8 +265,11 @@ def detect_sensitive_columns(
 ) -> list[str]:
     """Auto-detect likely sensitive / protected-attribute columns.
 
-    Matching is case-insensitive and substring-based: a column
-    named ``applicant_gender`` matches keyword ``gender``.
+    Matching is case-insensitive and whole-token based: a column
+    named ``applicant_gender`` or ``ApplicantGender`` matches keyword
+    ``gender``. This avoids incidental substring matches, but plurals
+    and run-together lowercase names such as ``ages`` and ``agegroup``
+    are not matched; pass those columns explicitly.
 
     The keyword set covers common US and EU protected classes:
     gender, sex, race, ethnicity, age, religion, disability,
@@ -270,11 +290,8 @@ def detect_sensitive_columns(
 
     matches: list[str] = []
     for col in X.columns:
-        col_lower = str(col).lower().replace("-", "_")
-        for kw in _SENSITIVE_KEYWORDS:
-            if kw in col_lower:
-                matches.append(str(col))
-                break
+        if _is_sensitive_name(col):
+            matches.append(str(col))
 
     matches.sort()
     logger.debug(

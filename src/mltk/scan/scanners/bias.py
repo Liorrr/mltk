@@ -29,14 +29,11 @@ from mltk.core.assertion import MltkAssertionError
 from mltk.core.result import Severity, TestResult
 from mltk.model.bias import assert_no_bias
 from mltk.scan.config import ScanContext
-from mltk.scan.detect import _SENSITIVE_KEYWORDS
+from mltk.scan.detect import _MAX_AUTO_GROUPS, _is_sensitive_name
 from mltk.scan.finding import FixSuggestion, ScanFinding
 from mltk.scan.scanners.base import Scanner
 
 __all__ = ["BiasScanner"]
-
-# Column names that suggest sensitive attributes.
-_MAX_AUTO_GROUPS = 20
 
 
 def _detect_sensitive_columns(
@@ -44,8 +41,9 @@ def _detect_sensitive_columns(
 ) -> list[str]:
     """Return column names that look like sensitive attrs.
 
-    Matches against ``_SENSITIVE_KEYWORDS`` using
-    case-insensitive substring matching.
+    Matches sensitive keywords as whole case-insensitive tokens.
+    This avoids incidental substring matches, but plurals and
+    run-together lowercase names must be specified explicitly.
 
     Args:
         columns: All column names in the dataset.
@@ -55,11 +53,8 @@ def _detect_sensitive_columns(
     """
     detected: list[str] = []
     for col in columns:
-        col_lower = col.lower().replace("-", "_")
-        for kw in _SENSITIVE_KEYWORDS:
-            if kw in col_lower:
-                detected.append(col)
-                break
+        if _is_sensitive_name(col):
+            detected.append(col)
     return detected
 
 

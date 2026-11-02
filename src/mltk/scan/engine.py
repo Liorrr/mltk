@@ -21,7 +21,6 @@ XML, or run directly as an :class:`~mltk.core.suite.MltkSuite`.
 Usage::
 
     from mltk.scan.engine import ScanEngine
-    from mltk.scan.detect import _SENSITIVE_KEYWORDS
     from mltk.scan.config import ScanConfig
 
     engine = ScanEngine(ScanConfig(seed=42))
@@ -47,9 +46,7 @@ import pandas as pd
 from mltk.core.result import Severity
 from mltk.core.suite import MltkSuite
 from mltk.scan.config import ScanConfig, ScanContext
-from mltk.scan.detect import (
-    _SENSITIVE_KEYWORDS,
-)
+from mltk.scan.detect import _MAX_AUTO_GROUPS, _is_sensitive_name
 from mltk.scan.finding import ScanFinding
 from mltk.scan.scanners import BUILTIN_SCANNERS
 from mltk.scan.scanners.base import Scanner
@@ -766,14 +763,18 @@ class ScanEngine:
     def _detect_sensitive(
         X: pd.DataFrame,
     ) -> list[str]:
-        """Auto-detect sensitive columns by name keywords."""
+        """Auto-detect whole-token sensitive columns within the group cap.
+
+        Whole-token matching avoids incidental substring matches, but
+        plurals and run-together lowercase names must be specified explicitly.
+        """
         found: list[str] = []
         for col in X.columns:
-            lower = str(col).lower().replace("-", "_")
-            for keyword in _SENSITIVE_KEYWORDS:
-                if keyword in lower:
-                    found.append(str(col))
-                    break
+            if (
+                _is_sensitive_name(col)
+                and X[col].nunique(dropna=False) <= _MAX_AUTO_GROUPS
+            ):
+                found.append(str(col))
         return found
 
     def _model_probe_timeout(self) -> float:
