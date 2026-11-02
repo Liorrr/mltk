@@ -155,6 +155,45 @@ class TestBiasScannerDetection:
         assert gender_findings
         assert all(f.result.severity.value == "info" for f in gender_findings)
 
+    def test_auto_detected_high_cardinality_column_is_skipped(self) -> None:
+        """Auto-detected continuous columns do not form raw-value groups."""
+        n = 100
+        usage_minutes = np.arange(n, dtype=float)
+        y = np.ones(n, dtype=int)
+        preds = np.array([1, 0] * (n // 2))
+        X = pd.DataFrame({"usage_minutes": usage_minutes})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(_build_context(model_fn, X, y))
+        assert not findings
+
+    def test_user_specified_high_cardinality_column_is_still_analysed(self) -> None:
+        """Explicit columns retain raw-value grouping behavior."""
+        n = 100
+        usage_minutes = np.arange(n, dtype=float)
+        y = np.ones(n, dtype=int)
+        preds = np.array([1, 0] * (n // 2))
+        X = pd.DataFrame({"usage_minutes": usage_minutes})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(
+            _build_context(
+                model_fn,
+                X,
+                y,
+                sensitive_columns=["usage_minutes"],
+            ),
+        )
+        assert findings
+        assert all(
+            f.result.details["column"] == "usage_minutes"
+            for f in findings
+        )
+
     def test_auto_detected_fair_column_has_no_finding(self) -> None:
         """Auto-detection does not report a fair sensitive column."""
         gender = np.array(["M"] * 100 + ["F"] * 100)

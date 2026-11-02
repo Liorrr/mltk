@@ -13,6 +13,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import mltk
+from mltk.scan.codegen import check_snippet
+
 from ._snippet_helpers import TinyModel, execute_finding_snippet
 
 try:
@@ -98,6 +101,37 @@ class TestDriftScannerDetection:
         y = np.zeros(len(X), dtype=int)
         findings = DriftScanner().scan(_build_context(X))
         execute_finding_snippet(findings[0], X, y, model=TinyModel(y))
+
+    def test_nan_block_finding_is_reproduced_by_generated_snippet(self) -> None:
+        """Generated drift checks split the same non-null series as scan."""
+        rng = np.random.default_rng(42)
+        values = np.concatenate([
+            rng.normal(0, 1, 50),
+            rng.normal(5, 1, 50),
+            np.full(50, np.nan),
+            rng.normal(0, 1, 25),
+            rng.normal(5, 1, 25),
+        ])
+        X = pd.DataFrame({"sensor": values})
+        y = np.zeros(len(X), dtype=int)
+        findings = DriftScanner().scan(_build_context(X))
+
+        assert findings
+        execute_finding_snippet(
+            findings[0], X, y, model=TinyModel(y),
+        )
+
+    def test_clean_column_generated_snippet_passes(self) -> None:
+        """Generated drift check passes for a clean column."""
+        rng = np.random.default_rng(42)
+        X = pd.DataFrame({"feature": rng.normal(0, 1, 400)})
+        body = DriftScanner._gen_test("feature", "ks")
+        check_snippet(body)
+        namespace = {
+            "X": X,
+            "assert_no_drift": mltk.assert_no_drift,
+        }
+        exec(compile(body, "<drift_snippet>", "exec"), namespace)  # noqa: S102
 
     def test_no_drift_stable_column(self) -> None:
         """Stable distribution yields no findings."""

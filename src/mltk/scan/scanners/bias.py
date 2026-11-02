@@ -36,6 +36,7 @@ from mltk.scan.scanners.base import Scanner
 __all__ = ["BiasScanner"]
 
 # Column names that suggest sensitive attributes.
+_MAX_AUTO_GROUPS = 20
 
 
 def _detect_sensitive_columns(
@@ -146,9 +147,14 @@ class BiasScanner(Scanner):
         """Test one sensitive column with all methods."""
         findings: list[ScanFinding] = []
         groups = np.asarray(ctx.X[col])
+        n_groups = len(np.unique(groups))
 
         # Skip columns with fewer than 2 unique groups.
-        if len(np.unique(groups)) < 2:
+        if n_groups < 2:
+            return findings
+        # Auto-detection is a name heuristic; raw values in a high-cardinality
+        # column create singleton groups and a meaningless parity gap.
+        if not is_user_specified and n_groups > _MAX_AUTO_GROUPS:
             return findings
 
         # demographic_parity always runs.

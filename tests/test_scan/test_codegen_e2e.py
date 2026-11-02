@@ -79,5 +79,5 @@ def test_generated_scan_file_runs_as_collected_tests(tmp_path) -> None:
     assert int(suite.get("tests", "0")) == len(report.findings), output
     assert int(suite.get("errors", "0")) == 0, output
     assert "NameError" not in output
-    # The findings are real, so at least one generated test reproduces one.
-    assert int(suite.get("failures", "0")) >= 1, output
+    # Every finding must be reproduced by its generated test.
+    assert int(suite.get("failures", "0")) == len(report.findings), output
