@@ -26,6 +26,7 @@ PYPROJECT = REPO_ROOT / "pyproject.toml"
 CARGO_TOML = REPO_ROOT / "rust" / "Cargo.toml"
 INIT_PY = SRC_ROOT / "__init__.py"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
+CHART_YAML = REPO_ROOT / "charts" / "mltk" / "Chart.yaml"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from generate_skill_index import (  # noqa: E402
@@ -45,6 +46,7 @@ PROSE_VERSION_TARGETS: list[str] = [
     "docs/index.md",
     "docs/guides/demo-script.md",
     "docs/guides/container-deployment.md",
+    "charts/mltk/README.md",
 ]
 
 COUNT_TARGETS: list[str] = [
@@ -72,6 +74,9 @@ VERSION_TARGETS: list[str] = [
 _VER_RE = re.compile(r'version\s*=\s*"(\d+\.\d+\.\d+)"')
 _INIT_VER_RE = re.compile(r'__version__\s*=\s*"(\d+\.\d+\.\d+)"')
 _VALID_VER = re.compile(r"^\d+\.\d+\.\d+$")
+# Chart.yaml: only appVersion tracks the package; the chart's own `version:`
+# is a separate chart-release number and is never touched here.
+_CHART_APPVER_RE = re.compile(r'^(appVersion:\s*")\d+\.\d+\.\d+(")', re.MULTILINE)
 
 _CHANGELOG_UNRELEASED = re.compile(
     r"^(##\s*\[Unreleased\]\s*)$", re.MULTILINE
@@ -275,6 +280,11 @@ _BACKLOG_HEADER_RE = re.compile(
 )
 
 
+def _bump_chart_app_version(text: str, new_ver: str) -> str:
+    """Set the Helm chart's ``appVersion`` (the default image is ``v`` + it)."""
+    return _CHART_APPVER_RE.sub(rf"\g<1>{new_ver}\g<2>", text, count=1)
+
+
 def _update_backlog_header(text: str, new_ver: str) -> str:
     """Replace the current (topmost) DONE header's version suffix.
 
@@ -400,6 +410,14 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
             diffs.append(_unified_diff(path, original, updated))
             writes.append((path, updated))
 
+    # Helm chart appVersion (tests/test_charts pins it to pyproject's version)
+    if CHART_YAML.exists():
+        chart_orig = CHART_YAML.read_text(encoding="utf-8")
+        chart_new = _bump_chart_app_version(chart_orig, new_ver)
+        if chart_new != chart_orig:
+            diffs.append(_unified_diff(CHART_YAML, chart_orig, chart_new))
+            writes.append((CHART_YAML, chart_new))
+
     # CHANGELOG roll
     changelog_orig = CHANGELOG.read_text(encoding="utf-8")
     try:
@@ -435,6 +453,21 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
             diffs.append(_unified_diff(path, original, updated))
             writes.append((path, updated))
             count_modified_paths.append(path)
+
+    # Prose-version targets that carry no counts (the loop above only walks
+    # COUNT_TARGETS, so these were never bumped before).
+    count_set = set(COUNT_TARGETS)
+    for rel in PROSE_VERSION_TARGETS:
+        if rel in count_set:
+            continue
+        path = REPO_ROOT / rel
+        if not path.exists():
+            continue
+        original = path.read_text(encoding="utf-8")
+        updated = _replace_prose_version_in_text(original, old_ver, new_ver)
+        if updated != original:
+            diffs.append(_unified_diff(path, original, updated))
+            writes.append((path, updated))
 
     if dry_run:
         for diff in diffs:

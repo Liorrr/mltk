@@ -17,7 +17,7 @@ def test_chart_metadata() -> None:
     text = (CHART / "Chart.yaml").read_text(encoding="utf-8")
     assert "apiVersion: v2" in text
     assert "name: mltk" in text
-    assert 'appVersion: "0.13.0"' in text
+    assert "appVersion:" in text
 
 
 def test_chart_app_version_matches_pyproject() -> None:

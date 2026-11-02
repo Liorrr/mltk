@@ -156,11 +156,15 @@ python charts/mltk/kind_smoke.py
 The script waits until the Deployment is Available (the readiness probe on
 `/api/health/ready` has passed). Its install timeout defaults to 15 minutes;
 set `MLTK_KIND_SMOKE_TIMEOUT` to override it. For repeated runs, pull the
-image once and load it into the KinD node first:
+image once; the script then copies it into each fresh KinD node instead of
+pulling it in-cluster:
 
 ```bash
 docker pull ghcr.io/liorrr/mltk:v0.13.0
-kind load docker-image ghcr.io/liorrr/mltk:v0.13.0 --name mltk-smoke
+MLTK_KIND_SMOKE=1 MLTK_KIND_SMOKE_PRELOAD=ghcr.io/liorrr/mltk:v0.13.0 python charts/mltk/kind_smoke.py
 ```
+
+The preloaded tag must match the chart's default image (`v` + the chart's
+`appVersion`), or the pod pulls the image anyway.
 
 See `charts/mltk/README.md` for details.
