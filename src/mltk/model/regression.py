@@ -16,7 +16,7 @@ import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
-from mltk.model.metrics import _compute_metric
+from mltk.model.metrics import _LOWER_IS_BETTER, _compute_metric
 
 
 def save_baseline(
@@ -113,7 +113,8 @@ def assert_no_regression(
         y_pred: Current model predictions.
         baseline: Baseline value (float), dict of metrics, or path to JSON.
         metric: Which metric to compare.
-        tolerance: Max allowed drop (0.02 = 2% regression allowed).
+        tolerance: Maximum allowed worsening in the metric's direction
+            (0.02 = 2% regression allowed).
         average: Averaging for multiclass metrics.
 
     Returns:
@@ -144,15 +145,26 @@ def assert_no_regression(
         )
 
     current_value = _compute_metric(y_t, y_p, metric, average)
-    min_allowed = baseline_value - tolerance
-    passed = current_value >= min_allowed
+    lower_is_better = metric in _LOWER_IS_BETTER
+    min_allowed = None if lower_is_better else baseline_value - tolerance
+    max_allowed = baseline_value + tolerance if lower_is_better else None
+    passed = (
+        current_value <= max_allowed
+        if lower_is_better
+        else current_value >= min_allowed
+    )
 
     message = (
         f"{metric}: current={current_value:.4f} vs baseline={baseline_value:.4f} "
         f"(tolerance={tolerance})"
         if passed
-        else f"Regression: {metric} dropped from {baseline_value:.4f} to "
-        f"{current_value:.4f} (tolerance={tolerance}, min={min_allowed:.4f})"
+        else (
+            f"Regression: {metric} rose from {baseline_value:.4f} to "
+            f"{current_value:.4f} (tolerance={tolerance}, max={max_allowed:.4f})"
+            if lower_is_better
+            else f"Regression: {metric} dropped from {baseline_value:.4f} to "
+            f"{current_value:.4f} (tolerance={tolerance}, min={min_allowed:.4f})"
+        )
     )
 
     return assert_true(
@@ -165,5 +177,9 @@ def assert_no_regression(
         baseline_value=baseline_value,
         tolerance=tolerance,
         min_allowed=min_allowed,
+        max_allowed=max_allowed,
+        direction=(
+            "lower_is_better" if lower_is_better else "higher_is_better"
+        ),
         regression_detected=not passed,
     )

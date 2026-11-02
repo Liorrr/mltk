@@ -304,6 +304,11 @@ def _merge_defaults(
     elif defaults.mutations:
         merged["mutations"] = defaults.mutations
 
+    # on_error is NOT merged from defaults: the built-in dispatch branches
+    # read suite.defaults.on_error themselves, and injecting it here would
+    # pass an unexpected kwarg to plugin assertions.  An explicit per-test
+    # on_error still passes through below.
+
     # Pass through remaining per-test params
     for k, v in params.items():
         if k not in merged:
@@ -375,6 +380,7 @@ def _dispatch_red_team(
             "categories": categories,
             "threshold": threshold,
             "purpose": purpose,
+            "on_error": params.get("on_error", suite.defaults.on_error),
         }
 
         # Convert custom_attacks from defaults to AttackPayload
@@ -467,6 +473,7 @@ def _dispatch_red_team(
             model_fn=model_fn,
             techniques=techniques,
             threshold=threshold,
+            on_error=params.get("on_error", suite.defaults.on_error),
         )
 
     # ------------------------------------------------------------------
@@ -491,6 +498,7 @@ def _dispatch_red_team(
             model_fn=model_fn,
             messages=messages,
             threshold=threshold,
+            on_error=params.get("on_error", suite.defaults.on_error),
         )
 
     # ------------------------------------------------------------------

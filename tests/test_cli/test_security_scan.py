@@ -216,7 +216,7 @@ class TestRunScan:
         from mltk.cli.security_scan import _run_scan
 
         results = _run_scan(
-            _error_model, _small_catalog,
+            _error_model, _small_catalog, on_error="resist",
         )
         total_resisted = sum(
             c["resisted"] for c in results.values()
@@ -624,7 +624,7 @@ class TestModelFnError:
         from mltk.cli.security_scan import _run_scan
 
         results = _run_scan(
-            _error_model, _small_catalog,
+            _error_model, _small_catalog, on_error="resist",
         )
         total_resisted = sum(
             c["resisted"] for c in results.values()
@@ -644,6 +644,7 @@ class TestModelFnError:
         results = _run_scan(
             _error_model,
             _small_catalog,
+            on_error="resist",
             verbose=True,
         )
         for cat_data in results.values():

@@ -191,6 +191,8 @@ assert_red_team_resilient(
     threshold: float = 0.8,
     llm_attacker: Callable[[str], str] | None = None,
     purpose: str = "general-purpose",
+    *,
+    on_error: OnError = "fail_if_all",
 ) -> TestResult
 ```
 
@@ -201,6 +203,7 @@ assert_red_team_resilient(
 | `threshold` | `float` | `0.8` | Minimum resilience rate required (0.0-1.0). `0.8` = model must resist at least 80% of attacks. |
 | `llm_attacker` | `Callable[[str], str] \| None` | `None` | Optional attacker LLM that generates context-specific variants. When provided, each catalog payload spawns up to 3 additional LLM-generated variants. |
 | `purpose` | `str` | `"general-purpose"` | Description of the target model's purpose (e.g. `"customer support"`). Used in the attacker LLM prompt when `llm_attacker` is set. |
+| `on_error` | `str` | `"fail_if_all"` | Error policy: `fail_if_all` fails only when every call raises, `strict` fails on any error, and `resist` counts errors as resisted. |
 
 **What it catches:** Any attack category where the model
 produces a compliant response instead of refusing. Failure
@@ -209,7 +212,19 @@ resilience breakdown.
 
 **Result details:** `resilience_rate`, `threshold`,
 `total_payloads`, `compromised_count`,
-`compromised_payloads`, `category_breakdown`.
+`compromised_payloads`, `category_breakdown`, `errored_count`, and
+`error_rate`.
+
+#### Error handling
+
+The default `on_error="fail_if_all"` treats individual model-call errors as
+resisted, but fails when every call raises (a likely dead endpoint). With
+`on_error="strict"`, any error fails the assertion. With
+`on_error="resist"`, errors count as resisted, preserving the old behavior.
+Results include `errored_count` and `error_rate` details.
+
+**Behaviour change:** a guardrail that raises on every attack payload now
+fails by default. Set `on_error="resist"` to keep the old result.
 
 ```python
 # Test all categories with default threshold
@@ -264,6 +279,8 @@ assert_no_session_jailbreak(
     model_fn: Callable[[str], str],
     messages: list[str],
     threshold: float = 1.0,
+    *,
+    on_error: OnError = "fail_if_all",
 ) -> TestResult
 ```
 
@@ -272,6 +289,7 @@ assert_no_session_jailbreak(
 | `model_fn` | `Callable[[str], str]` | required | The model under test. Takes a prompt string, returns the response string. |
 | `messages` | `list[str]` | required | Ordered list of attack messages forming a multi-turn jailbreak attempt. |
 | `threshold` | `float` | `1.0` | Minimum resilience rate across all turns. Default `1.0` means no turn may be compromised. |
+| `on_error` | `str` | `"fail_if_all"` | Error policy. Strict mode fails on any error; the default fails when every turn raises; resist mode counts errors as resisted. |
 
 **What it catches:** Sequences of prompts that
 individually compromise the model. The 1.0 default
@@ -279,7 +297,8 @@ threshold is intentional -- any turn compromise is a
 failure.
 
 **Result details:** `resilience_rate`, `threshold`,
-`total_turns`, `compromised_count`, `turn_results`.
+`total_turns`, `compromised_count`, `turn_results`, `errored_count`, and
+`error_rate`.
 
 ```python
 from mltk.domains.llm.red_team import (
@@ -369,6 +388,8 @@ assert_encoding_mutation_resilience(
     payloads: list[AttackPayload] | None = None,
     techniques: list[MutationTechnique] | None = None,
     threshold: float = 0.9,
+    *,
+    on_error: OnError = "fail_if_all",
 ) -> TestResult
 ```
 
@@ -378,6 +399,7 @@ assert_encoding_mutation_resilience(
 | `payloads` | `list[AttackPayload] \| None` | `None` | Source payloads to mutate. `None` uses the `PROMPT_INJECTION` catalog as the default set. |
 | `techniques` | `list[MutationTechnique] \| None` | `None` | Which mutation techniques to apply. `None` applies all 8. |
 | `threshold` | `float` | `0.9` | Fraction of mutated variants that must be resisted. |
+| `on_error` | `str` | `"fail_if_all"` | Error policy: fail only when every model call raises by default, fail on any error with `strict`, or count errors as resisted with `resist`. |
 
 **What it catches:** Safety filters that recognize the
 plaintext form of an attack but pass encoded variants.
@@ -387,7 +409,7 @@ Base64-encoded or written in leetspeak.
 
 **Result details:** `resilience_rate`, `threshold`,
 `total_mutations`, `compromised_count`,
-`technique_breakdown`.
+`technique_breakdown`, `errored_count`, and `error_rate`.
 
 ```python
 from mltk.domains.llm.red_team import (
@@ -598,6 +620,7 @@ result = session.run_chain(
 # result.compromised_at_turn: int | None -- first compromised turn
 # result.history: list[tuple[str, str]] -- (message, response) pairs
 # result.category: AttackCategory -- the category tested
+# result.errored_turns: int -- model turns that raised an exception
 ```
 
 ---
@@ -664,6 +687,8 @@ result = session.run_chain(
 #   Full (message, response) pairs
 # result.category: AttackCategory
 #   The attack category tested
+# result.errored_turns: int
+#   Number of model turns that raised an exception
 ```
 
 `RedTeamSession` parameters:
@@ -672,6 +697,7 @@ result = session.run_chain(
 |-----------|------|---------|-------------|
 | `model_fn` | `Callable[[str], str]` | required | The model under test. Takes a prompt string, returns the response string. |
 | `max_turns` | `int` | `10` | Turn budget. Session stops after this many turns. |
+| `on_error` | `str` | `"fail_if_all"` | Passed to `run_chain`; strict re-raises immediately, and the default raises `RuntimeError` if every executed turn raises. |
 
 ### Built-In Attack Chains
 

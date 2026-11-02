@@ -8,6 +8,7 @@ Used by ScanEngine to build ScanContext without manual configuration.
 from __future__ import annotations
 
 import logging
+import re
 import warnings
 from collections.abc import Callable
 
@@ -35,17 +36,54 @@ _SENSITIVE_KEYWORDS: frozenset[str] = frozenset({
     "religion",
     "disability",
     "zipcode",
-    "zip_code",
     "zip",
     "marital",
     "nationality",
-    "native",
-    "color",
-    "orientation",
     "veteran",
     "pregnant",
     "income",
+    # Derived forms a whole-token match would otherwise miss.
+    "transgender",
+    "sexuality",
 })
+
+# Words that name a protected attribute only next to a qualifier:
+# "skin_color" is sensitive, a product's "color" is not; likewise a
+# toxicity label "sexual_explicit" is not "sexual_orientation".
+_SENSITIVE_PAIRS: frozenset[tuple[str, str]] = frozenset({
+    ("skin", "color"),
+    ("sexual", "orientation"),
+    ("sexual", "identity"),
+    ("native", "country"),
+    ("native", "american"),
+})
+
+_MAX_AUTO_GROUPS = 20
+
+
+def _is_sensitive_name(name: object) -> bool:
+    """Return whether a name contains a sensitive keyword token or pair.
+
+    Tokens are split on non-alphanumeric characters and camelCase
+    boundaries. A name matches when one token is a keyword, or two
+    adjacent tokens form a qualified pair (``skin_color``). This avoids
+    false positives from incidental substrings, at the cost of missing
+    names where a keyword is only part of a longer word, such as plurals
+    (``ages``) and run-together names (``agegroup``).
+    """
+    tokens = [
+        token.lower()
+        for token in re.findall(
+            r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+",
+            str(name),
+        )
+    ]
+    if any(token in _SENSITIVE_KEYWORDS for token in tokens):
+        return True
+    return any(
+        pair in _SENSITIVE_PAIRS
+        for pair in zip(tokens, tokens[1:], strict=False)
+    )
 
 
 # -------------------------------------------------------------------
@@ -248,13 +286,19 @@ def detect_sensitive_columns(
 ) -> list[str]:
     """Auto-detect likely sensitive / protected-attribute columns.
 
-    Matching is case-insensitive and substring-based: a column
-    named ``applicant_gender`` matches keyword ``gender``.
+    Matching is case-insensitive and whole-token based: a column
+    named ``applicant_gender`` or ``ApplicantGender`` matches keyword
+    ``gender``. ``color``, ``orientation`` and ``native`` count only in
+    qualified pairs (``skin_color``, ``sexual_orientation``,
+    ``native_country``). This avoids incidental substring matches, but a
+    name where a keyword is only part of a longer word, such as a plural
+    (``ages``) or a run-together name (``agegroup``), is not matched;
+    pass such columns explicitly.
 
     The keyword set covers common US and EU protected classes:
     gender, sex, race, ethnicity, age, religion, disability,
-    zipcode, marital status, nationality, income, color,
-    orientation, veteran status, and pregnancy.
+    zipcode, marital status, nationality, income, skin color,
+    sexual orientation, native country, veteran status, and pregnancy.
 
     Args:
         X: Feature DataFrame whose column names are inspected.
@@ -270,11 +314,8 @@ def detect_sensitive_columns(
 
     matches: list[str] = []
     for col in X.columns:
-        col_lower = str(col).lower().replace("-", "_")
-        for kw in _SENSITIVE_KEYWORDS:
-            if kw in col_lower:
-                matches.append(str(col))
-                break
+        if _is_sensitive_name(col):
+            matches.append(str(col))
 
     matches.sort()
     logger.debug(

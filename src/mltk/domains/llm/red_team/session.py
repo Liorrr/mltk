@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Literal
 
 from mltk.domains.llm.red_team._grading import (
     _check_compromised,
@@ -33,6 +34,9 @@ class ChainCategory(Enum):
     CONTEXT_POISONING = "context_poisoning"
 
 
+OnError = Literal["fail_if_all", "strict", "resist"]
+
+
 @dataclass
 class MultiTurnResult:
     """Result of a multi-turn red team attack chain.
@@ -46,6 +50,7 @@ class MultiTurnResult:
         history: List of ``(user_message, model_response)``
             tuples for every turn in the session.
         category: The attack category tested by this chain.
+        errored_turns: Number of model turns that raised an exception.
     """
 
     turns: int
@@ -53,6 +58,7 @@ class MultiTurnResult:
     compromised_at_turn: int | None
     history: list[tuple[str, str]]
     category: AttackCategory
+    errored_turns: int = 0
 
 
 # ============================================================
@@ -249,6 +255,8 @@ class RedTeamSession:
         self,
         messages: list[str],
         category: AttackCategory = AttackCategory.JAILBREAK,
+        *,
+        on_error: OnError = "fail_if_all",
     ) -> MultiTurnResult:
         """Run a full attack chain and check for compromise.
 
@@ -261,6 +269,7 @@ class RedTeamSession:
             messages: Ordered list of attack messages.
             category: The attack category for grading
                 each response. Defaults to JAILBREAK.
+            on_error: ``fail_if_all`` (default), ``strict``, or ``resist``.
 
         Returns:
             ``MultiTurnResult`` with turn count, compromise
@@ -276,7 +285,14 @@ class RedTeamSession:
             >>> result.compromised
             False
         """
+        if on_error not in {"fail_if_all", "strict", "resist"}:
+            raise ValueError(
+                "Unknown on_error. Valid values: fail_if_all, strict, resist"
+            )
         compromised_at: int | None = None
+        start_len = len(self.history)
+        errored_turns = 0
+        last_error: Exception | None = None
 
         for i, msg in enumerate(messages):
             if len(self.history) >= self.max_turns:
@@ -284,22 +300,35 @@ class RedTeamSession:
 
             try:
                 response = self.send(msg)
-            except Exception:
+            except Exception as exc:
                 # Model error -- record empty response,
                 # treat as not compromised for this turn.
                 self.history.append((msg, ""))
+                errored_turns += 1
+                last_error = exc
+                if on_error == "strict":
+                    raise
                 continue
 
             if _check_compromised(response, category):
                 compromised_at = i
                 break
 
+        # Only turns run by THIS chain count -- a reused session may
+        # already hold successful turns from earlier send() calls.
+        executed = len(self.history) - start_len
+        if (on_error == "fail_if_all" and executed > 0
+                and errored_turns == executed and last_error is not None):
+            raise RuntimeError(
+                f"all {executed} turns raised — endpoint unreachable?"
+            ) from last_error
         return MultiTurnResult(
             turns=len(self.history),
             compromised=compromised_at is not None,
             compromised_at_turn=compromised_at,
             history=list(self.history),
             category=category,
+            errored_turns=errored_turns,
         )
 
     def is_compromised(
@@ -332,6 +361,8 @@ def run_builtin_chain(
     model_fn: Callable[[str], str],
     chain: ChainCategory,
     max_turns: int = 10,
+    *,
+    on_error: OnError = "fail_if_all",
 ) -> MultiTurnResult:
     """Run a built-in attack chain against a model.
 
@@ -344,6 +375,7 @@ def run_builtin_chain(
             returns the model response string.
         chain: Which built-in chain to run.
         max_turns: Maximum turns for the session.
+        on_error: Error policy passed to :meth:`RedTeamSession.run_chain`.
 
     Returns:
         ``MultiTurnResult`` with the chain execution results.
@@ -361,4 +393,4 @@ def run_builtin_chain(
     session = RedTeamSession(
         model_fn=model_fn, max_turns=max_turns,
     )
-    return session.run_chain(messages, category)
+    return session.run_chain(messages, category, on_error=on_error)

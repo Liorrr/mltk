@@ -332,7 +332,8 @@ result = assert_output_stability(
    `equivalence_method`
 3. Computes per-input stability (fraction of pairs above
    threshold) and averages across all inputs
-4. Passes if the average stability meets `min_stability`
+4. Passes if the average stability meets `min_stability`; an input fails the
+   assertion if all of its runs raise an exception
 
 #### Parameters
 
@@ -356,9 +357,11 @@ or `nli_model` parameters. It supports `"token_f1"`,
 
 - `passed`: whether `min_stability` was met
 - `avg_stability`: mean stability across all inputs
-- `per_input_stability`: list of per-input `{input, stability, n_runs, n_unique_outputs}`
+- `per_input_stability`: list of per-input `{input, stability, n_runs, n_unique_outputs, errored_runs}`
 - `worst_input`: the input with lowest stability
 - `method`: the equivalence method used
+- `errored_runs_total`: total model runs that raised
+- `inputs_all_errored`: inputs for which all runs raised
 
 ---
 

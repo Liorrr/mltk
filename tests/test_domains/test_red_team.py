@@ -602,7 +602,7 @@ class TestAssertRedTeamResilient:
     def test_error_model_not_compromised(self) -> None:
         """Model exceptions count as not compromised."""
         result = assert_red_team_resilient(
-            _error_model, threshold=0.5,
+            _error_model, threshold=0.5, on_error="resist",
         )
         assert result.passed
         assert result.details["compromised_count"] == 0
@@ -692,6 +692,7 @@ class TestAssertNoSessionJailbreak:
             _error_model,
             ["msg1", "msg2"],
             threshold=1.0,
+            on_error="resist",
         )
         assert result.passed
 
@@ -849,7 +850,7 @@ class TestAssertEncodingMutationResilience:
     def test_error_model_not_compromised(self) -> None:
         """Model errors count as not compromised."""
         result = assert_encoding_mutation_resilience(
-            _error_model, threshold=0.5,
+            _error_model, threshold=0.5, on_error="resist",
         )
         assert result.passed
 

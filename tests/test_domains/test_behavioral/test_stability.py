@@ -288,7 +288,7 @@ class TestOutputStability:
         """Model exceptions count as different outputs."""
         global _ERR_COUNT  # noqa: PLW0603
         _ERR_COUNT = 0
-        with pytest.raises(MltkAssertionError):
+        with pytest.raises(MltkAssertionError) as exc:
             assert_output_stability(
                 model_fn=error_model,
                 inputs=SINGLE_INPUT,
@@ -296,6 +296,55 @@ class TestOutputStability:
                 equivalence_method="token_f1",
                 min_stability=1.0,
             )
+
+        result = exc.value.result
+        assert result.details["errored_runs_total"] == 3
+        assert result.details["inputs_all_errored"] == []
+        assert result.details["per_input_stability"][0]["errored_runs"] == 3
+        assert "3 run(s) raised" in result.message
+
+    def test_all_runs_raising_fails_and_reports_input(self) -> None:
+        def dead_model(text: str) -> str:
+            raise RuntimeError("dead")
+
+        with pytest.raises(MltkAssertionError, match="all 5 runs raised") as exc:
+            assert_output_stability(
+                dead_model, ["hello"], n_runs=5,
+                equivalence_method="label_match", min_stability=0.0,
+            )
+        assert exc.value.result.details["inputs_all_errored"] == ["hello"]
+        assert exc.value.result.details["errored_runs_total"] == 5
+
+    def test_all_runs_raising_for_one_of_many_inputs_fails(self) -> None:
+        def partly_dead_model(text: str) -> str:
+            if text == "dead":
+                raise RuntimeError("dead")
+            return "stable"
+
+        with pytest.raises(MltkAssertionError, match="for 1 input"):
+            assert_output_stability(
+                partly_dead_model, ["hello", "dead"], n_runs=5,
+                equivalence_method="label_match", min_stability=0.0,
+            )
+
+    def test_some_runs_raising_can_pass_and_reports_count(self) -> None:
+        calls = 0
+
+        def occasionally_dead_model(text: str) -> str:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("transient")
+            return "stable"
+
+        result = assert_output_stability(
+            occasionally_dead_model, ["hello"], n_runs=5,
+            equivalence_method="label_match", min_stability=0.5,
+        )
+        assert result.passed is True
+        assert result.details["errored_runs_total"] == 1
+        assert result.details["per_input_stability"][0]["errored_runs"] == 1
+        assert "1 run(s) raised" in result.message
 
     def test_empty_inputs_fails(self) -> None:
         """Empty inputs list produces a failing result."""
@@ -324,6 +373,7 @@ class TestOutputStability:
         per_input = details["per_input_stability"]
         assert len(per_input) > 0
         assert "n_unique_outputs" in per_input[0]
+        assert "errored_runs" in per_input[0]
 
     def test_method_in_details(self) -> None:
         """Details include the method used."""

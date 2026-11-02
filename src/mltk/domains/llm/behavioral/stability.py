@@ -167,6 +167,8 @@ def assert_output_stability(
         threshold = 0.8
 
     per_input: list[dict[str, object]] = []
+    inputs_all_errored: list[str] = []
+    errored_runs_total = 0
     worst_stability = 1.0
     worst_input: str | None = None
 
@@ -175,12 +177,18 @@ def assert_output_stability(
     for inp in inputs:
         inp = normalize_unicode(inp)
         outputs: list[str] = []
+        errored_runs = 0
         for _ in range(n_runs):
             try:
                 out = str(model_fn(inp))
             except Exception:
                 out = ""
+                errored_runs += 1
             outputs.append(out)
+
+        errored_runs_total += errored_runs
+        if errored_runs == n_runs:
+            inputs_all_errored.append(inp)
 
         n_unique = len({o.strip() for o in outputs})
 
@@ -211,6 +219,7 @@ def assert_output_stability(
             "stability": round(stability, 4),
             "n_runs": n_runs,
             "n_unique_outputs": n_unique,
+            "errored_runs": errored_runs,
         })
 
         if stability < worst_stability:
@@ -227,17 +236,32 @@ def assert_output_stability(
     )
 
     passed = avg_stability >= min_stability
+    all_errored = bool(inputs_all_errored)
+    if all_errored:
+        passed = False
 
-    message = (
-        f"Output stability ({equivalence_method}): "
-        f"{avg_stability:.4f} >= {min_stability} "
-        f"across {len(inputs)} inputs"
-        if passed
-        else f"Output stability too low "
-        f"({equivalence_method}): "
-        f"{avg_stability:.4f} < {min_stability} "
-        f"(worst input: {worst_input!r})"
-    )
+    if all_errored:
+        message = (
+            f"Output stability: all {n_runs} runs raised for "
+            f"{len(inputs_all_errored)} input(s) "
+            f"(first: {inputs_all_errored[0]!r}) — model unreachable?"
+        )
+    elif passed:
+        message = (
+            f"Output stability ({equivalence_method}): "
+            f"{avg_stability:.4f} >= {min_stability} "
+            f"across {len(inputs)} inputs"
+        )
+        if errored_runs_total > 0:
+            message += f"; {errored_runs_total} run(s) raised"
+    else:
+        message = (
+            f"Output stability too low ({equivalence_method}): "
+            f"{avg_stability:.4f} < {min_stability} "
+            f"(worst input: {worst_input!r})"
+        )
+        if errored_runs_total > 0:
+            message += f"; {errored_runs_total} run(s) raised"
 
     return assert_true(
         passed,
@@ -251,4 +275,6 @@ def assert_output_stability(
         method=equivalence_method,
         n_runs=n_runs,
         n_inputs=len(inputs),
+        errored_runs_total=errored_runs_total,
+        inputs_all_errored=inputs_all_errored,
     )

@@ -1151,7 +1151,12 @@ quality:
         # -- Optional: write test file --------------------
         if output:
             try:
-                report.to_test_file(output)
+                report.to_test_file(
+                    output,
+                    model_path=str(model_path),
+                    data_path=str(data_path),
+                    target_col=target,
+                )
                 print(  # noqa: T201
                     f"Test file written: {output}"
                 )

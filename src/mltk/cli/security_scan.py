@@ -169,6 +169,7 @@ def _run_scan(
     model_fn: Callable[..., Any],
     catalog: list[AttackPayload] | list[dict[str, str]],
     verbose: bool = False,
+    on_error: str = "fail_if_all",
 ) -> dict[str, Any]:
     """Run payloads against *model_fn* and return results.
 
@@ -187,12 +188,17 @@ def _run_scan(
     with ``tested``, ``resisted``, and ``details`` per
     category.
     """
+    if on_error not in {"fail_if_all", "strict", "resist"}:
+        raise ValueError(
+            "Unknown on_error. Valid values: fail_if_all, strict, resist"
+        )
     typed_catalog = _coerce_catalog(catalog)
 
     categories: dict[str, dict[str, Any]] = defaultdict(
         lambda: {
             "tested": 0,
             "resisted": 0,
+            "errored_count": 0,
             "details": [],
         }
     )
@@ -205,14 +211,17 @@ def _run_scan(
         try:
             response = str(model_fn(payload_text))
         except Exception:
-            # Model error counts as resisted (not
-            # exploitable via this payload).
-            categories[cat_name]["resisted"] += 1
+            categories[cat_name]["errored_count"] += 1
+            # strict: an error is never a resist.  fail_if_all is
+            # undone after the loop if every call raised.
+            counts_as_resisted = on_error != "strict"
+            if counts_as_resisted:
+                categories[cat_name]["resisted"] += 1
             if verbose:
                 categories[cat_name]["details"].append({
                     "payload": payload_text[:60],
                     "result": "ERROR",
-                    "resisted": True,
+                    "resisted": counts_as_resisted,
                 })
             continue
 
@@ -233,6 +242,20 @@ def _run_scan(
                 "resisted": not vulnerable,
             })
 
+    total_tested = 0
+    total_errored = 0
+    for category in categories.values():
+        tested = category["tested"]
+        errored = category["errored_count"]
+        category["error_rate"] = errored / tested if tested else 0.0
+        total_tested += tested
+        total_errored += errored
+    # fail_if_all: only a run where EVERY call raised (dead endpoint)
+    # stops counting errors as resisted.
+    if (on_error == "fail_if_all" and total_tested > 0
+            and total_errored == total_tested):
+        for category in categories.values():
+            category["resisted"] = 0
     return dict(categories)
 
 
@@ -240,12 +263,34 @@ def _run_scan(
 # Output formatters
 # -------------------------------------------------------------------
 
+def _scan_passed(
+    categories: dict[str, dict[str, Any]],
+    threshold: float,
+    on_error: str = "fail_if_all",
+) -> bool:
+    """Overall verdict: resilience rate vs *threshold* plus error policy.
+
+    ``fail_if_all`` is already applied by :func:`_run_scan` (every call
+    raised -> nothing resisted).  ``strict`` additionally fails on any
+    errored call, matching the red-team assertions.
+    """
+    total_tested = sum(c["tested"] for c in categories.values())
+    total_resisted = sum(c["resisted"] for c in categories.values())
+    rate = total_resisted / total_tested if total_tested > 0 else 1.0
+    if on_error == "strict" and any(
+        c.get("errored_count", 0) for c in categories.values()
+    ):
+        return False
+    return rate >= threshold
+
+
 def _format_table(
     target: str,
     categories: dict[str, dict[str, Any]],
     threshold: float,
     mutations_on: bool,
     verbose: bool,
+    on_error: str = "fail_if_all",
 ) -> str:
     """Format scan results as a human-readable table."""
     total_tested = sum(
@@ -258,7 +303,7 @@ def _format_table(
         total_resisted / total_tested
         if total_tested > 0 else 1.0
     )
-    passed = overall_rate >= threshold
+    passed = _scan_passed(categories, threshold, on_error)
 
     lines: list[str] = []
     lines.append("mltk Security Scan Report")
@@ -330,6 +375,7 @@ def _format_json(
     target: str,
     categories: dict[str, dict[str, Any]],
     threshold: float,
+    on_error: str = "fail_if_all",
 ) -> str:
     """Format scan results as a JSON string."""
     total_tested = sum(
@@ -342,7 +388,7 @@ def _format_json(
         total_resisted / total_tested
         if total_tested > 0 else 1.0
     )
-    passed = overall_rate >= threshold
+    passed = _scan_passed(categories, threshold, on_error)
 
     cat_out: dict[str, Any] = {}
     for name, data in sorted(categories.items()):
@@ -355,6 +401,8 @@ def _format_json(
             "tested": tested,
             "resisted": resisted,
             "rate": round(rate, 4),
+            "errored_count": data.get("errored_count", 0),
+            "error_rate": round(data.get("error_rate", 0.0), 4),
         }
 
     report = {
@@ -364,6 +412,7 @@ def _format_json(
         "resilience_rate": round(overall_rate, 4),
         "threshold": threshold,
         "passed": passed,
+        "on_error": on_error,
         "categories": cat_out,
     }
     return json.dumps(report, indent=2)
@@ -379,6 +428,7 @@ def register_security_scan(app: Any) -> None:
     Called by the orchestrator in ``app.py``.  Keeps
     this file self-contained and avoids circular imports.
     """
+    import click
     import typer
 
     # Build the valid category names string for help text
@@ -445,6 +495,14 @@ def register_security_scan(app: Any) -> None:
                 "RESISTED/VULNERABLE results"
             ),
         ),
+        on_error: str = typer.Option(
+            "fail_if_all",
+            "--on-error",
+            click_type=click.Choice(
+                ["fail_if_all", "strict", "resist"],
+            ),
+            help="Error policy: fail_if_all, strict, or resist.",
+        ),
     ) -> None:
         """Red team security scan against a model.
 
@@ -505,13 +563,13 @@ def register_security_scan(app: Any) -> None:
 
         # -- Run scan ------------------------------------
         results = _run_scan(
-            model_fn, catalog, verbose=verbose,
+            model_fn, catalog, verbose=verbose, on_error=on_error,
         )
 
         # -- Format output --------------------------------
         if output == "json":
             text = _format_json(
-                target, results, threshold,
+                target, results, threshold, on_error=on_error,
             )
         else:
             text = _format_table(
@@ -520,20 +578,11 @@ def register_security_scan(app: Any) -> None:
                 threshold,
                 mutations_on=mutations,
                 verbose=verbose,
+                on_error=on_error,
             )
 
         print(text)  # noqa: T201
 
         # -- Exit code ------------------------------------
-        total_tested = sum(
-            c["tested"] for c in results.values()
-        )
-        total_resisted = sum(
-            c["resisted"] for c in results.values()
-        )
-        rate = (
-            total_resisted / total_tested
-            if total_tested > 0 else 1.0
-        )
-        if rate < threshold:
+        if not _scan_passed(results, threshold, on_error):
             raise typer.Exit(1)

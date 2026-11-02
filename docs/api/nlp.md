@@ -207,7 +207,10 @@ Test model against prompt injection attack patterns. Checks that model responses
 ```python
 from mltk.domains.nlp import assert_no_prompt_injection
 
-assert_no_prompt_injection(model_fn, payloads=None, forbidden_patterns=None)
+assert_no_prompt_injection(
+    model_fn, payloads=None, forbidden_patterns=None,
+    *, on_error="fail_if_all",
+)
 ```
 
 #### Parameters
@@ -217,6 +220,7 @@ assert_no_prompt_injection(model_fn, payloads=None, forbidden_patterns=None)
 | `model_fn` | `Callable` | *(required)* | Function that takes a string prompt and returns string response |
 | `payloads` | `list[str] \| list[dict] \| None` | `None` | Injection payloads. `None` = 50 built-in categorized payloads. Accepts plain strings (backward compatible) or dicts with `category` and `payload` keys. |
 | `forbidden_patterns` | `list[str] \| None` | `None` | Regex patterns that should NOT appear in responses. `None` = 11 built-in patterns |
+| `on_error` | `str` | `"fail_if_all"` | Error policy: fail only when every model call raises, fail on any error with `strict`, or count errors as resisted with `resist`. |
 
 #### Returns
 
@@ -225,6 +229,13 @@ assert_no_prompt_injection(model_fn, payloads=None, forbidden_patterns=None)
 - `vulnerable_count` -- number of payloads that triggered injection
 - `vulnerable_payloads` -- list of `[category] payload_snippet` strings
 - `categories_hit` -- deduplicated list of vulnerable categories
+- `errored_count` -- number of model calls that raised
+- `error_rate` -- fraction of payload calls that raised
+
+The default `on_error="fail_if_all"` fails when every model call raises,
+which indicates an unreachable endpoint. A guardrail that raises on every
+attack payload therefore fails by default. Set `on_error="resist"` for the
+old result; use `strict` to fail on any error.
 
 #### Built-in Payloads (50)
 

@@ -159,18 +159,14 @@ class DriftScanner(Scanner):
     def _gen_test(col: str, method: str) -> str:
         """Generate a pytest snippet for drift check."""
         return (
-            f"def test_no_drift_{col}():\n"
-            f"    \"\"\"Column '{col}' must not"
-            f" drift.\"\"\"\n"
-            f"    mid = len(X_test) // 2\n"
-            f"    reference = "
-            f"X_test['{col}'].iloc[:mid]\n"
-            f"    current = "
-            f"X_test['{col}'].iloc[mid:]\n"
-            f"    assert_no_drift(\n"
-            f"        reference, current,\n"
-            f"        method='{method}',\n"
-            f"    )\n"
+            f"series = X[{col!r}].dropna()\n"
+            "mid = len(series) // 2\n"
+            "reference = series.iloc[:mid]\n"
+            "current = series.iloc[mid:]\n"
+            "assert_no_drift(\n"
+            "    reference, current,\n"
+            f"    method={method!r},\n"
+            ")\n"
         )
 
     @staticmethod

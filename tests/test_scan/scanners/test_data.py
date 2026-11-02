@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import TinyModel, execute_finding_snippet
+
 try:
     from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.data import DataScanner
@@ -138,6 +140,29 @@ class TestDataScannerPII:
             if "pii" in f.result.name
         ]
         assert len(pii_findings) >= 1
+
+    def test_suggested_bodies_contract_and_execution(self) -> None:
+        """Null and PII findings emit executable test bodies."""
+        X = pd.DataFrame({
+            "nullable": [1.0, np.nan, 3.0],
+            "notes": [
+                "contact user@example.com",
+                "plain text",
+                "another@example.com",
+            ],
+        })
+        findings = DataScanner().scan(_build_context(X))
+        null_finding = next(
+            finding for finding in findings
+            if ".nulls." in finding.result.name
+        )
+        pii_finding = next(
+            finding for finding in findings
+            if ".pii." in finding.result.name
+        )
+        y = np.array([0, 1, 0])
+        execute_finding_snippet(null_finding, X, y, model=TinyModel(y))
+        execute_finding_snippet(pii_finding, X, y, model=TinyModel(y))
 
     def test_no_pii_clean(self) -> None:
         """Clean string data yields no PII findings."""

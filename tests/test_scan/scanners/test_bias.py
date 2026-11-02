@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import TinyModel, execute_finding_snippet
+
 sklearn = pytest.importorskip(
     "sklearn",
     reason="sklearn required for bias scanner tests",
@@ -134,3 +136,121 @@ class TestBiasScannerDetection:
         scanner = BiasScanner()
         findings = scanner.scan(ctx)
         assert len(findings) == 0
+
+    def test_language_is_not_auto_detected(self) -> None:
+        """Whole-token matching ignores an unrelated language feature."""
+        n = 200
+        language = np.array(["en"] * 100 + ["fr"] * 50 + ["de"] * 50)
+        y = np.ones(n, dtype=int)
+        preds = np.array([1] * 100 + [0] * 50 + [1] * 50)
+        X = pd.DataFrame({"language": language, "feature": np.arange(n)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        assert not BiasScanner().scan(_build_context(model_fn, X, y))
+
+    def test_auto_detected_bias_is_advisory_finding(self) -> None:
+        """Detected sensitive columns retain violations at INFO severity."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.ones(200, dtype=int)
+        preds = np.array([1] * 100 + [0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(_build_context(model_fn, X, y))
+        gender_findings = [
+            f for f in findings
+            if f.result.details["column"] == "gender"
+        ]
+        assert gender_findings
+        assert all(f.result.severity.value == "info" for f in gender_findings)
+
+    def test_auto_detected_high_cardinality_column_is_skipped(self) -> None:
+        """Auto-detected continuous columns do not form raw-value groups."""
+        n = 100
+        applicant_age = np.arange(n, dtype=float)
+        y = np.ones(n, dtype=int)
+        preds = np.array([1, 0] * (n // 2))
+        X = pd.DataFrame({"applicant_age": applicant_age})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(_build_context(model_fn, X, y))
+        assert not findings
+
+    def test_user_specified_high_cardinality_column_is_still_analysed(self) -> None:
+        """Explicit columns retain raw-value grouping behavior."""
+        n = 100
+        applicant_age = np.arange(n, dtype=float)
+        y = np.ones(n, dtype=int)
+        preds = np.array([1, 0] * (n // 2))
+        X = pd.DataFrame({"applicant_age": applicant_age})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(
+            _build_context(
+                model_fn,
+                X,
+                y,
+                sensitive_columns=["applicant_age"],
+            ),
+        )
+        assert findings
+        assert all(
+            f.result.details["column"] == "applicant_age"
+            for f in findings
+        )
+
+    def test_auto_detected_fair_column_has_no_finding(self) -> None:
+        """Auto-detection does not report a fair sensitive column."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.array([1, 0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return y[x.index]
+
+        findings = BiasScanner().scan(_build_context(model_fn, X, y))
+        assert not findings
+
+    def test_user_specified_bias_remains_critical(self) -> None:
+        """Explicit sensitive columns keep the critical policy."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.ones(200, dtype=int)
+        preds = np.array([1] * 100 + [0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(
+            _build_context(model_fn, X, y, sensitive_columns=["gender"]),
+        )
+        assert findings
+        assert any(f.result.severity.value == "critical" for f in findings)
+
+    def test_suggested_body_contract_and_execution(self) -> None:
+        """A critical bias finding emits an executable test body."""
+        gender = np.array(["M"] * 100 + ["F"] * 100)
+        y = np.ones(200, dtype=int)
+        preds = np.array([1] * 100 + [0] * 100)
+        X = pd.DataFrame({"gender": gender, "feature": np.arange(200)})
+
+        def model_fn(x):
+            return preds[x.index]
+
+        findings = BiasScanner().scan(
+            _build_context(model_fn, X, y, sensitive_columns=["gender"]),
+        )
+        execute_finding_snippet(
+            findings[0],
+            X,
+            y,
+            model=TinyModel(preds),
+        )

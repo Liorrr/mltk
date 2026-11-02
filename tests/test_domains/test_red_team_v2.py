@@ -307,6 +307,7 @@ class TestRunChain:
         result = session.run_chain(
             ["a", "b", "c"],
             AttackCategory.JAILBREAK,
+            on_error="resist",
         )
         assert not result.compromised
         # Each error appends an empty-response entry.
@@ -798,6 +799,7 @@ class TestEdgeCasesV2:
         result = session.run_chain(
             ["a", "b"],
             AttackCategory.JAILBREAK,
+            on_error="resist",
         )
         assert not result.compromised
         assert result.turns == 2

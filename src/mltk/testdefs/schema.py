@@ -144,6 +144,8 @@ class RedTeamDefaults:
             resistance.
         custom_attacks: Additional user-supplied attack payloads that
             augment the built-in generators.
+        on_error: Error policy for model calls: ``fail_if_all``,
+            ``strict``, or ``resist``.
 
     Example:
         >>> defs = RedTeamDefaults(
@@ -158,6 +160,7 @@ class RedTeamDefaults:
     category_thresholds: dict[str, float] = field(default_factory=dict)
     mutations: bool = False
     custom_attacks: list[CustomAttack] = field(default_factory=list)
+    on_error: str = "fail_if_all"
 
 
 @dataclass
@@ -357,6 +360,18 @@ def _parse_red_team_defaults(
                 f"got {type(mutations).__name__}: {file_path}"
             )
         defaults.mutations = mutations
+
+    # --- on_error ---
+    if "on_error" in raw_defaults:
+        on_error = str(raw_defaults["on_error"])
+        valid = {"fail_if_all", "strict", "resist"}
+        if on_error not in valid:
+            raise ValueError(
+                f"Unknown defaults.on_error '{on_error}'. "
+                "Valid values: fail_if_all, strict, resist: "
+                f"{file_path}"
+            )
+        defaults.on_error = on_error
 
     # --- custom_attacks ---
     if "custom_attacks" in raw_defaults:

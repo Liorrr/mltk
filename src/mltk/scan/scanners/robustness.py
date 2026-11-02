@@ -118,7 +118,7 @@ class RobustnessScanner(Scanner):
                     "stability": stability,
                 },
                 suggested_test=self._gen_test(
-                    epsilon, stability,
+                    epsilon, stability, numeric_cols,
                 ),
                 scanner_name=self.name,
                 suggested_fixes=self._gen_fix(),
@@ -207,18 +207,20 @@ class RobustnessScanner(Scanner):
 
     @staticmethod
     def _gen_test(
-        epsilon: float, stability: float,
+        epsilon: float,
+        stability: float,
+        numeric_cols: list[str],
     ) -> str:
-        """Generate a pytest snippet for robustness."""
+        """Generate a pytest snippet for robustness.
+
+        Uses the exact column set and perturbation the scan used.
+        """
         return (
-            "def test_robustness():\n"
-            "    \"\"\"Model must be stable under"
-            " small noise.\"\"\"\n"
-            "    assert_robust(\n"
-            "        model_fn,\n"
-            "        X_test.select_dtypes("
-            "'number').values,\n"
-            f"        epsilon={epsilon},\n"
-            f"        stability={stability},\n"
-            "    )\n"
+            "assert_robust(\n"
+            "    model_fn,\n"
+            f"    X[{list(numeric_cols)!r}].values.astype(np.float64),\n"
+            "    perturbation='gaussian',\n"
+            f"    epsilon={epsilon},\n"
+            f"    stability={stability},\n"
+            ")\n"
         )

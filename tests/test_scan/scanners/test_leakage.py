@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from ._snippet_helpers import TinyModel, execute_finding_snippet
+
 try:
     from mltk.scan.config import ScanConfig, ScanContext
     from mltk.scan.scanners.leakage import LeakageScanner
@@ -93,6 +95,26 @@ class TestLeakageScannerDetection:
         )
         combined = (msgs + details).lower()
         assert "leaky" in combined
+
+    def test_suggested_bodies_contract_and_execution(self) -> None:
+        """Per-feature and all-feature findings emit executable bodies."""
+        y = np.array([0, 1] * 150)
+        X = pd.DataFrame({
+            "leaky": y.astype(float),
+            "other": np.arange(len(y), dtype=float),
+        })
+        findings = LeakageScanner().scan(_build_context(X, y))
+        per_feature = next(
+            finding for finding in findings
+            if finding.result.name == "scan.leakage.leaky"
+        )
+        all_features = next(
+            finding for finding in findings
+            if finding.result.name == "scan.leakage.all_features"
+        )
+        model = TinyModel(y)
+        execute_finding_snippet(per_feature, X, y, model=model)
+        execute_finding_snippet(all_features, X, y, model=model)
 
     def test_no_findings_for_clean_data(self) -> None:
         """Independent features produce no leakage

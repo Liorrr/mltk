@@ -70,6 +70,50 @@ class TestAssertNoRegression:
             assert_no_regression(y_true, y_pred, baseline=0.95, metric="accuracy", tolerance=0.02)
         assert "Regression" in str(exc.value)
 
+    @pytest.mark.parametrize("metric", ["mse", "rmse", "mae"])
+    def test_error_metric_improvement_passes(self, metric: str) -> None:
+        result = assert_no_regression(
+            [1.0, 2.0], [1.0, 2.0], baseline=0.02, metric=metric,
+            tolerance=0.01,
+        )
+        assert result.passed is True
+        assert result.details["direction"] == "lower_is_better"
+        assert result.details["min_allowed"] is None
+        assert result.details["max_allowed"] == pytest.approx(0.03)
+
+    @pytest.mark.parametrize("metric", ["mse", "rmse", "mae"])
+    def test_error_metric_within_tolerance_passes(self, metric: str) -> None:
+        result = assert_no_regression(
+            [0.0, 0.0], [0.0, 0.01], baseline=0.01, metric=metric,
+            tolerance=0.01,
+        )
+        assert result.passed is True
+
+    @pytest.mark.parametrize("metric", ["mse", "rmse", "mae"])
+    def test_error_metric_rise_beyond_tolerance_fails(self, metric: str) -> None:
+        with pytest.raises(MltkAssertionError, match=f"Regression: {metric} rose"):
+            assert_no_regression(
+                [0.0, 0.0], [0.0, 1.0], baseline=0.01, metric=metric,
+                tolerance=0.01,
+            )
+
+    def test_accuracy_direction_details(self) -> None:
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_regression(
+                [0, 0, 1, 1], [0, 1, 0, 1], baseline=0.9,
+                metric="accuracy", tolerance=0.01,
+            )
+        details = exc.value.result.details
+        assert details["direction"] == "higher_is_better"
+        assert details["min_allowed"] == pytest.approx(0.89)
+        assert details["max_allowed"] is None
+
+        result = assert_no_regression(
+            [0, 0, 1, 1], [0, 0, 1, 1], baseline=0.9,
+            metric="accuracy", tolerance=0.01,
+        )
+        assert result.passed is True
+
     def test_baseline_from_float(
         self, binary_classification: tuple[np.ndarray, np.ndarray, np.ndarray]
     ) -> None:
