@@ -1608,7 +1608,11 @@ Automate with a cron job:
 
 mltk 0.14.0 and earlier ignored `MLTK_DB_PATH`. A deployment that set it without passing `--db` to `mltk server` kept its database at `mltk_server.db` in the server's working directory (`/app` in these images), outside the mounted volume. That covers the `server/` compose file and the Docker, Compose and Kubernetes examples in this guide and in the server platform docs. Recreating the container discards that file.
 
-Before you upgrade or recreate such a container, copy the database onto the volume from the running container:
+The copy is a snapshot: runs posted after it are not carried over, and the script refuses to run a second time once the destination holds runs. So do it immediately before the upgrade:
+
+1. Pull or build the new image first (`docker compose pull` or `docker compose build`), so the recreate in step 3 is quick.
+2. Pause anything that posts runs to the server, if you can, and run the script below in the running (old) container.
+3. Recreate the container right away (`docker compose up -d`).
 
 ```bash
 docker compose exec -T mltk-server python - <<'PY'
@@ -1630,7 +1634,7 @@ print("copied /app/mltk_server.db to", dst_path)
 PY
 ```
 
-For Kubernetes, run the same script with `kubectl exec -i <pod> -- python - <<'PY'`. The script stops if `/app/mltk_server.db` is missing, and it never overwrites a destination that already holds runs. A destination with no runs, such as one that only holds keys from `mltk server-create-key --db /app/data/mltk_server.db`, is replaced. Skip this step if your server command already passes `--db` with the volume path.
+For a container started with `docker run`, use `docker exec -i <container> python - <<'PY'`; for Kubernetes, `kubectl exec -i <pod> -- python - <<'PY'`. The script stops if `/app/mltk_server.db` is missing, and it never overwrites a destination that already holds runs. A destination with no runs, such as one that only holds keys from `mltk server-create-key --db /app/data/mltk_server.db`, is replaced. Skip this step if your server command already passes `--db` with the volume path.
 
 ### Log Rotation
 
