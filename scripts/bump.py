@@ -27,7 +27,6 @@ PYPROJECT = REPO_ROOT / "pyproject.toml"
 CARGO_TOML = REPO_ROOT / "rust" / "Cargo.toml"
 INIT_PY = SRC_ROOT / "__init__.py"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
-CHART_YAML = REPO_ROOT / "charts" / "mltk" / "Chart.yaml"
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from generate_skill_index import (  # noqa: E402
@@ -112,7 +111,7 @@ def get_test_count() -> int:
     # that exists only here fail to import and the count silently drops.
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join(
-        p for p in (str(SRC_ROOT.parent), env.get("PYTHONPATH", "")) if p
+        p for p in (str(REPO_ROOT / "src"), env.get("PYTHONPATH", "")) if p
     )
     try:
         result = subprocess.run(
@@ -427,13 +426,16 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
             diffs.append(_unified_diff(path, original, updated))
             writes[path] = updated
 
-    # Helm chart appVersion (tests/test_charts pins it to pyproject's version)
-    if CHART_YAML.exists():
-        chart_orig = _read(CHART_YAML)
+    # Helm chart appVersion (tests/test_charts pins it to pyproject's version).
+    # Resolved under REPO_ROOT at call time, like every other target, so a
+    # caller that repoints REPO_ROOT never reads or diffs the real chart.
+    chart_yaml = REPO_ROOT / "charts" / "mltk" / "Chart.yaml"
+    if chart_yaml.exists():
+        chart_orig = _read(chart_yaml)
         chart_new = _bump_chart_app_version(chart_orig, new_ver)
         if chart_new != chart_orig:
-            diffs.append(_unified_diff(CHART_YAML, chart_orig, chart_new))
-            writes[CHART_YAML] = chart_new
+            diffs.append(_unified_diff(chart_yaml, chart_orig, chart_new))
+            writes[chart_yaml] = chart_new
 
     # CHANGELOG roll
     changelog_orig = _read(CHANGELOG)

@@ -92,6 +92,31 @@ def test_release_keeps_backlog_header_bump_through_count_refresh(
     assert 'appVersion: "9.9.9"' in written[ROOT / "charts" / "mltk" / "Chart.yaml"]
 
 
+def test_release_resolves_the_chart_under_a_repointed_repo_root(
+    bump: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Callers (scripts/tests/test_bump.py) repoint REPO_ROOT at a temp tree;
+    # the chart must be looked up there too, never in the real checkout.
+    (tmp_path / "pyproject.toml").write_text('version = "1.0.0"\n', encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text("## [Unreleased]\n", encoding="utf-8")
+    chart = tmp_path / "charts" / "mltk" / "Chart.yaml"
+    chart.parent.mkdir(parents=True)
+    chart.write_text('name: mltk\nversion: 0.1.0\nappVersion: "1.0.0"\n', encoding="utf-8")
+    monkeypatch.setattr(bump, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(bump, "CHANGELOG", tmp_path / "CHANGELOG.md")
+    monkeypatch.setattr(bump, "VERSION_TARGETS", ["pyproject.toml"])
+    monkeypatch.setattr(bump, "COUNT_TARGETS", [])
+    monkeypatch.setattr(bump, "PROSE_VERSION_TARGETS", [])
+    monkeypatch.setattr(bump, "get_live_counts", lambda *a, **k: _zero_counts(bump))
+    monkeypatch.setattr(bump, "get_current_version", lambda: "1.0.0")
+    monkeypatch.setattr(bump, "_git_add", lambda files: None)
+
+    assert bump.cmd_release("1.1.0", dry_run=False) == 0
+
+    assert 'appVersion: "1.1.0"' in chart.read_text(encoding="utf-8")
+    assert "version: 0.1.0" in chart.read_text(encoding="utf-8")
+
+
 def test_test_count_collects_against_this_checkout(
     bump: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
