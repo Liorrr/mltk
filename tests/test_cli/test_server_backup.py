@@ -99,7 +99,9 @@ def test_server_backup_reads_mltk_db_path(tmp_path):
     db = tmp_path / "from_env.db"
     out = tmp_path / "backup.db"
     _make_db(db)
-    result = _run_cli("server-backup", "--out", str(out), env={"MLTK_DB_PATH": str(db)})
+    result = _run_cli(
+        "server-backup", "--out", str(out), env={"MLTK_DB_PATH": str(db)}, cwd=str(tmp_path)
+    )
     assert result.returncode == 0, result.stderr
     assert result.stdout.startswith(f"Backed up {db} to {out} (")
 
@@ -111,6 +113,7 @@ def test_explicit_db_wins_over_mltk_db_path(tmp_path):
     result = _run_cli(
         "server-backup", "--db", str(db), "--out", str(out),
         env={"MLTK_DB_PATH": str(tmp_path / "missing.db")},
+        cwd=str(tmp_path),
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.startswith(f"Backed up {db} to {out} (")
@@ -126,14 +129,18 @@ def test_server_reads_mltk_db_path(tmp_path):
         "import mltk.server as s; "
         "s.create_app = lambda db_path: print('DB=' + db_path); "
     )
-    result = _run_cli("server", env={"MLTK_DB_PATH": str(db)}, prelude=prelude)
+    result = _run_cli(
+        "server", env={"MLTK_DB_PATH": str(db)}, prelude=prelude, cwd=str(tmp_path)
+    )
     assert result.returncode == 0, result.stderr
     assert f"DB={db}" in result.stdout
 
 
 def test_server_create_key_reads_mltk_db_path(tmp_path):
     db = tmp_path / "keys.db"
-    result = _run_cli("server-create-key", "--project", "p", env={"MLTK_DB_PATH": str(db)})
+    result = _run_cli(
+        "server-create-key", "--project", "p", env={"MLTK_DB_PATH": str(db)}, cwd=str(tmp_path)
+    )
     assert result.returncode == 0, result.stderr
     with closing(sqlite3.connect(db)) as conn:
         assert conn.execute("SELECT COUNT(*) FROM api_keys").fetchone()[0] == 1

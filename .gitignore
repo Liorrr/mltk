@@ -65,3 +65,7 @@ Thumbs.db
 
 # Battle-test run artifacts (commit manifests/notes, not generated outputs)
 tests/training/*
+
+# Local mltk server database created by `mltk server` / `server-create-key` in the repo root
+/mltk_server.db
+/mltk_server.db-*
