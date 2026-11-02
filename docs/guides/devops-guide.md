@@ -1604,6 +1604,34 @@ Automate with a cron job:
 0 3 * * * root mltk server-backup --db /data/mltk_server.db --out /backups/mltk_server_$(date +\%Y\%m\%d).db && find /backups -name "mltk_server_*.db" -mtime +30 -delete
 ```
 
+### Moving a database written outside the volume
+
+mltk 0.14.0 and earlier ignored `MLTK_DB_PATH`. A deployment that set it without passing `--db` to `mltk server` kept its database at `mltk_server.db` in the server's working directory (`/app` in these images), outside the mounted volume. That covers the `server/` compose file and the Docker, Compose and Kubernetes examples in this guide and in the server platform docs. Recreating the container discards that file.
+
+Before you upgrade or recreate such a container, copy the database onto the volume from the running container:
+
+```bash
+docker compose exec -T mltk-server python - <<'PY'
+import os, sqlite3
+src = sqlite3.connect("file:/app/mltk_server.db?mode=ro", uri=True)
+src.execute("SELECT COUNT(*) FROM runs")  # fails if the file is missing or not an mltk database
+dst_path = os.environ["MLTK_DB_PATH"]
+if os.path.exists(dst_path):
+    existing = sqlite3.connect(dst_path)
+    runs = existing.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+    existing.close()
+    if runs:
+        raise SystemExit(f"{dst_path} already holds {runs} runs; not overwriting it")
+dst = sqlite3.connect(dst_path)
+src.backup(dst)
+dst.close()
+src.close()
+print("copied /app/mltk_server.db to", dst_path)
+PY
+```
+
+For Kubernetes, run the same script with `kubectl exec -i <pod> -- python - <<'PY'`. The script stops if `/app/mltk_server.db` is missing, and it never overwrites a destination that already holds runs. A destination with no runs, such as one that only holds keys from `mltk server-create-key --db /app/data/mltk_server.db`, is replaced. Skip this step if your server command already passes `--db` with the volume path.
+
 ### Log Rotation
 
 mltk server logs to stdout. Use your container runtime or systemd for log management:

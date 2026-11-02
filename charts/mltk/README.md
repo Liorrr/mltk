@@ -30,11 +30,13 @@ Uninstalling the release deletes the PVC and the database on it.
 ```bash
 POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}') &&
   test -n "$POD" &&
-  kubectl exec "$POD" -- mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db --force &&
+  kubectl exec "$POD" -- mltk server-backup --out /tmp/mltk-backup.db --force &&
   kubectl cp "$POD:/tmp/mltk-backup.db" ./mltk-backup.db &&
   test -s ./mltk-backup.db &&
   helm uninstall mltk
 ```
+
+`server-backup` reads the database path from the pod's `MLTK_DB_PATH`, which the chart sets to `server.dbPath`, so it backs up the database the server is actually using, including one restored as described below.
 
 The commands are chained with `&&`, so `helm uninstall` runs only after the backup and the copy succeed. `--force` replaces a backup left in `/tmp` by an earlier run, so you never copy out a stale file.
 
@@ -45,7 +47,7 @@ Add `-n <namespace>` to each command if the release is not in the current namesp
 For images that do not have `server-backup` yet, when `kubectl exec "$POD" -- mltk server-backup --help` fails, use:
 
 ```bash
-kubectl exec "$POD" -- python -c "import sqlite3; s = sqlite3.connect('file:/data/mltk_server.db?mode=ro', uri=True); d = sqlite3.connect('/tmp/mltk-backup.db'); s.backup(d); d.execute('PRAGMA journal_mode=DELETE'); d.close(); s.close()"
+kubectl exec "$POD" -- python -c "import os, pathlib, sqlite3; s = sqlite3.connect(pathlib.Path(os.environ['MLTK_DB_PATH']).as_uri() + '?mode=ro', uri=True); d = sqlite3.connect('/tmp/mltk-backup.db'); s.backup(d); d.execute('PRAGMA journal_mode=DELETE'); d.close(); s.close()"
 ```
 
 Then run the same `kubectl cp`, `test -s` and `helm uninstall` steps.

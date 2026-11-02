@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
-- **`MLTK_DB_PATH` is honoured by `mltk server`, `server-create-key` and `server-backup`** — the docs, the Helm chart and `server/docker-compose.yml` set it, but the CLI ignored it. The compose setup therefore wrote its database to `/app/mltk_server.db` in the container layer instead of the `/app/data` volume, and lost it whenever the container was recreated. An explicit `--db` still wins. Before upgrading a compose deployment, copy the database onto the volume from the running container, because recreating it discards `/app/mltk_server.db`: `docker compose exec mltk-server python -c "import sqlite3; s = sqlite3.connect('/app/mltk_server.db'); d = sqlite3.connect('/app/data/mltk_server.db'); s.backup(d); d.close(); s.close()"`.
+- **`MLTK_DB_PATH` is honoured by `mltk server`, `server-create-key` and `server-backup`** — the docs, the Helm chart and `server/docker-compose.yml` set it, but the CLI ignored it. The compose setup therefore wrote its database to `/app/mltk_server.db` in the container layer instead of the `/app/data` volume, and lost it whenever the container was recreated. An explicit `--db` still wins. Deployments that set `MLTK_DB_PATH` without `--db` (the `server/` compose file and the Docker, Compose and Kubernetes examples in the docs) must move that database onto the volume before upgrading; "Moving a database written outside the volume" in `docs/guides/devops-guide.md` has a script that refuses a missing source and never overwrites a database that already holds runs.
 
 ## [0.14.0] — 2026-11-02
 ### Added
