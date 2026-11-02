@@ -1373,7 +1373,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"
 
-CMD ["mltk", "server", "--host", "0.0.0.0", "--port", "8080"]
+# Pass --db explicitly: mlspec 0.14.0 and earlier ignore MLTK_DB_PATH.
+CMD ["sh", "-c", "exec mltk server --host 0.0.0.0 --port 8080 --db \"$MLTK_DB_PATH\""]
 ```
 
 ### docker-compose (Full Stack)
