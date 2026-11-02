@@ -10,7 +10,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S100: 244 assertions, 5335+ tests, 38 Rust tests) — v0.13.0
+## DONE (S0-S105: 244 assertions, 5335+ tests, 38 Rust tests) — v0.14.0
+
+### v0.14.0 release — PRs merged since v0.13.0
+- [x] Cut **v0.14.0**: rolled CHANGELOG (`[Unreleased]` → `[0.14.0]`), bundling S101–S105 and every PR merged since v0.13.0 (#7–#33; #32 stays held). Added CHANGELOG entries for the PRs that shipped without one (#14, #16, #20, #23, #24, #26, #27, #29, #30, #31). Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`). `bump.py release` now syncs the Helm chart and the container-doc image tags, counts tests against its own checkout, and keeps the BACKLOG header bump (#31).
 
 ### S103 — Silent-pass fix batch (full-source contract audit)
 - [x] Seven assertions/tools that passed when they should fail, found by the full-source README contract audit: (1) **BREAKING** tiered `on_error="fail_if_all" | "strict" | "resist"` across all 4 red-team "error = resisted" copies (3 red-team assertions, `RedTeamSession.run_chain` + `MultiTurnResult.errored_turns`, `assert_no_prompt_injection`, `security-scan --on-error`) plus YAML `defaults.on_error` — the default fails only when every model call raised; legacy test-encoded cases opt in to `resist`; (2) `assert_no_regression` honours lower-is-better for mse/rmse/mae; (3) `assert_output_stability` fails when any input's runs all raise; (4) `assert_onnx_valid` uses the caller severity when onnxruntime is missing; (5) one scan test generator — `to_test_file` routes through `codegen.generate_test_file`, all 8 scanners emit contract-checked bodies (`check_snippet`), nested-def bug gone, end-to-end test runs a generated file under pytest; (6) BiasScanner auto-detected columns now yield INFO findings; (7) `assert_no_overfitting`/`assert_robust`/`assert_no_target_leakage` exported top-level. 5-worker Codex dispatch (gpt-5.6-luna) + orchestrator gate; orchestrator fixed error-failure messages, run-level `fail_if_all` in the CLI scan, the e2e assertion and the missing exports (with a mirror test); Opus review found 9 issues, 8 fixed in-PR (CLI strict verdict + JSON error fields, plugin kwarg leak from `defaults.on_error`, reused-session `fail_if_all` scope, generated-file loaders for ONNX/torch/keras + parquet, docstring escaping, per-finding snippet fallback, calibration/robustness/leakage snippet fidelity). Suite **5009 green** (+86).
@@ -182,6 +185,16 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## BACKLOG (not yet scheduled)
 
+### Follow-ups from the v0.14.0 PR train — found 2026-11-02
+- [ ] **CI skips the language-ID and chrF tests.** The CI test matrix (`ci.yml`) installs neither the `langdetect` nor the `nlp` extra, so `assert_language` and the chrF tests skip in CI and run only locally.
+- [ ] **`scripts/tests/` is not collected by CI** (`testpaths = ["tests"]`), so the `bump.py` unit tests never run there. A `bump.py` regression in #31 was caught only by review.
+- [ ] **Docker Hub image name in the docs.** 18 doc references say `liorrr/mltk:<tag>`, but `docker-publish.yml` publishes Docker Hub images as `liorcohenil/mltk` (GHCR is `ghcr.io/liorrr/mltk`). `docs/guides/container-deployment.md` also pins stale `v0.12.0` examples.
+- [ ] **Helm: `helm uninstall` deletes the chart-created PVC** (no `helm.sh/resource-policy: keep`, no `persistence.existingClaim`). Decide whether the SQLite data should survive an uninstall.
+- [ ] **Bias severity depends on the entry point.** `mltk.scan.scan()` without `sensitive_columns` treats engine-detected columns as user-specified (CRITICAL), while `mltk scan-model` reports auto-detected columns as INFO.
+- [ ] **`bump.py refresh` rewrites historical DONE headers' test counts** (the v0.12.4 bucket shows today's count). Exclude frozen headers from the count regex.
+- [ ] **`mltk.__version__` prefers the `mltk` distribution's metadata over `mlspec`** (`src/mltk/__init__.py`). An environment with a stale dev `mltk` dist, or the unrelated PyPI `mltk` package, reports that version instead of the installed `mlspec` one. Look up `mlspec` first.
+- [ ] **Four `tests/test_cli` tests fail locally on Windows** with a cp1252 decode of subprocess output (`test_import_help_does_not_require_importer_extra`, `TestScanModelHelp` ×2, `test_missing_data_file`). They are green in CI.
+
 ### Adversarial-review follow-ups
 - [x] ~~Dedup the ~6 cosine/jaccard/token-overlap similarity reimplementations flagged by the Minimalist (residual half of S102 finding #10).~~ **WON'T-FIX (2026-07-21):** on inspection these are similar-looking but semantically distinct, not copies — `agentic._token_overlap` returns 1.0 for two-empty vs `behavioral/retrieval._jaccard` 0.0 (documented "two empty retrievals share nothing") vs `coherence` 0.0 for either-empty; `judge_defaults` is an asymmetric overlap ratio `|A∩B|/|A|`, a different formula; the cosines differ in zero-norm handling (`== 0.0` vs `< 1e-10`) and input type (list vs ndarray), and `bertscore._cosine` runs in an O(n·m) hot loop where routing through a shared/`_rust` helper risks a perf regression. No shared helper preserves all behavior as a net win, so the sites stay separate by design.
 
@@ -290,28 +303,28 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 *Roadmap entry: `docs/roadmap.md` → Tier 1. Gap: mltk grades traces but cannot record them — callers hand-assemble every trace.*
 - [ ] **PREREQUISITE FINDING — three incompatible trace schemas exist today, nothing converts between them:** `AgentTrace`/`McpTrace` (`domains/llm/trace.py`, `.mcp`; 7 agentic + 4 `assert_mcp_*` — the fifth, `assert_mcp_tool_schema_conformance`, takes no trace), `SpanTrace`/`Span` (`domains/llm/span.py`; 4 `assert_span_*`), and a flat `dict` (`integrations/trace_quality.py`; `assert_trace_quality`, which does not import `AgentTrace`). Emitting any one of them activates only that slice.
 - [ ] **DECIDED 2026-08-08 — capture owns its own record type.** New `mltk.trace` package defines one canonical record; the three schemas above become adapter *outputs*, not what capture emits natively. Dependency inverts to `domains/llm → mltk.trace`. Rejected alternative: extending one existing schema (adds a fourth de-facto shape, caps the concept at the LLM domain)
-- [ ] Trace recorder that wraps live API calls and emits the canonical capture record
-- [ ] Adapter layer projecting the capture record into `AgentTrace`/`McpTrace`, `SpanTrace`, and the `trace_quality` dict — makes all 16 existing trace assertions reachable
-- [ ] **T0 (closed inference)** — request/response pairs, tool-use blocks, tool-call count + names + arguments, total API-call/round-trip count, retries, token usage, stop reason, per-hop latency
-- [ ] **T1 (instrumented client)** — nested sub-agent calls, additional/fan-out API calls, per-hop timing, error and retry chains, cache hits, ordered detailed action log
+- [x] Trace recorder that wraps live API calls and emits the canonical capture record **DONE (#23 `CaptureSession`/`@capture`, #30 `InstrumentedClient`)**
+- [x] Adapter layer projecting the capture record into `AgentTrace`/`McpTrace`, `SpanTrace`, and the `trace_quality` dict — makes all 16 existing trace assertions reachable **DONE (#23)**
+- [x] **T0 (closed inference)** — request/response pairs, tool-use blocks, tool-call count + names + arguments, total API-call/round-trip count, retries, token usage, stop reason, per-hop latency **DONE (#23)**
+- [x] **T1 (instrumented client)** — nested sub-agent calls, additional/fan-out API calls, per-hop timing, error and retry chains, cache hits, ordered detailed action log **DONE (#30)**
 - [ ] **T2 (open inference)** — logprobs + top-k alternatives, sampling parameters, refusal/guard internals, hidden-state hooks where the runtime exposes them
-- [ ] **GATE — honesty rule:** unobservable fields are `None` with the clearance tier recorded, never `0` or a plausible default (follows the S102 fairness `None`-propagation precedent). Tier is a **typed field on the capture record**, not an `AgentTrace.metadata` dict entry — an untyped catch-all makes the guarantee unenforceable. T2 data (logprobs, top-k, sampling params) likewise has no home in any of the three existing schemas
+- [x] **GATE — honesty rule:** unobservable fields are `None` with the clearance tier recorded, never `0` or a plausible default (follows the S102 fairness `None`-propagation precedent). Tier is a **typed field on the capture record**, not an `AgentTrace.metadata` dict entry — an untyped catch-all makes the guarantee unenforceable. T2 data (logprobs, top-k, sampling params) likewise has no home in any of the three existing schemas **DONE (#23: unobserved fields stay `None`)**
 - [ ] Export captured traces through the shipped `mltk.integrations` Phoenix/Langfuse/OTel adapters; reuse `mltk.cost` for token/cost fields — no new backend
 - [ ] **DECIDE at planning:** provider coverage order; decorator vs context manager vs client proxy; T2 degradation when the runtime lacks hooks; whether the three existing schemas are eventually deprecated or kept indefinitely as projections
 
 ### Compliance Drift Auto-Sync — proposed 2026-08-08
 *Roadmap entry: `docs/roadmap.md` → Tier 2. Gap: all 8 frameworks in `mltk.compliance` are point-in-time; nothing watches coverage change over time.*
-- [ ] Versioned, committed coverage baseline (reviewable in a PR, snapshot-test style)
-- [ ] **Internal drift** — detect controls that silently lost coverage (assertion renamed, deleted, skipped, or now failing)
-- [ ] `assert_no_compliance_drift` pytest gate + CI job (not a dashboard)
-- [ ] **External drift** — detect framework definition changes (renumbered articles, new controls); separate track, needs a maintained framework-version source
-- [ ] **GATE:** internal and external drift stay separate categories in reports, never merged; external re-mapping requires a human-confirmed framework version bump — no silent self-update of an audit artifact
+- [x] Versioned, committed coverage baseline (reviewable in a PR, snapshot-test style) **DONE (#24)**
+- [x] **Internal drift** — detect controls that silently lost coverage (assertion renamed, deleted, skipped, or now failing) **DONE (#24: a covered control lost all covering assertions, or left the mapper)**
+- [x] `assert_no_compliance_drift` pytest gate + CI job (not a dashboard) **DONE (#24)**
+- [x] **External drift** — detect framework definition changes (renumbered articles, new controls); separate track, needs a maintained framework-version source **DONE (#24: `confirmed_framework_version`)**
+- [x] **GATE:** internal and external drift stay separate categories in reports, never merged; external re-mapping requires a human-confirmed framework version bump — no silent self-update of an audit artifact **DONE (#24)**
 - [ ] **DECIDE at planning:** baseline storage format/location; whether external drift is in the first cut; whether to reuse the `DatasetRegistry` versioning pattern
 
 ### Metric Coverage Expansion (6 external-lib metrics) — proposed 2026-08-08
 *Roadmap entry: `docs/roadmap.md` → Tier 2. Each metric = one optional-extra dependency + assertion wiring (import guard w/ install hint, deterministic base case, populated `.details`). Ship in the order below, not as one batch.*
-- [ ] **chrF** (`sacrebleu`) — character n-gram F-score for `mltk.domains.nlp`; lowest effort, and `sacrebleu` gives a canonical BLEU to cross-check `assert_bleu` against
-- [ ] **langdetect** (`langdetect`; alternatives `py3langid`, fastText LID) — enables `assert_output_language`, a real multilingual gap
+- [x] **chrF** (`sacrebleu`) — character n-gram F-score for `mltk.domains.nlp`; lowest effort, and `sacrebleu` gives a canonical BLEU to cross-check `assert_bleu` against **DONE (#25 `assert_chrf`)**
+- [x] **langdetect** (`langdetect`; alternatives `py3langid`, fastText LID) — enables `assert_output_language`, a real multilingual gap **DONE (#29 as `assert_language`, extra `mlspec[langdetect]`)**
 - [ ] **DER** (`pyannote.metrics`) — diarization error rate for `mltk.domains.speech`, joins `assert_wer`
 - [ ] **CIDEr / METEOR** (`pycocoevalcap`) — caption/generation quality for `mltk.domains.multimodal` + nlp; **SPICE from the same package needs a Java runtime** — gate it behind an explicit availability check or defer
 - [ ] **COMET** (`unbabel-comet`) — neural MT quality; heavy (torch + model download), must be strictly optional and offline-testable; own scoping pass

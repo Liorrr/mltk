@@ -140,7 +140,7 @@ A chart lives at `charts/mltk`. It deploys `mltk server` with SQLite on a
 PVC. Health probes hit `/api/health/live` and `/api/health/ready`.
 
 ```bash
-helm install mltk charts/mltk --set image.tag=v0.13.0
+helm install mltk charts/mltk --set image.tag=v0.14.0
 ```
 
 `replicaCount` defaults to `1` (SQLite single writer). Ingress is off
@@ -160,8 +160,8 @@ image once; the script then copies it into each fresh KinD node instead of
 pulling it in-cluster:
 
 ```bash
-docker pull ghcr.io/liorrr/mltk:v0.13.0
-MLTK_KIND_SMOKE=1 MLTK_KIND_SMOKE_PRELOAD=ghcr.io/liorrr/mltk:v0.13.0 python charts/mltk/kind_smoke.py
+docker pull ghcr.io/liorrr/mltk:v0.14.0
+MLTK_KIND_SMOKE=1 MLTK_KIND_SMOKE_PRELOAD=ghcr.io/liorrr/mltk:v0.14.0 python charts/mltk/kind_smoke.py
 ```
 
 The preloaded tag must match the chart's default image (`v` + the chart's

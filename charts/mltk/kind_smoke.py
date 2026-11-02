@@ -14,7 +14,7 @@ CLUSTER = "mltk-smoke"
 RELEASE = "mltk"
 CHART_DIR = os.path.dirname(os.path.abspath(__file__))
 TIMEOUT = os.environ.get("MLTK_KIND_SMOKE_TIMEOUT", "15m")
-# Optional image already pulled on the host, e.g. ghcr.io/liorrr/mltk:v0.13.0.
+# Optional image already pulled on the host, e.g. ghcr.io/liorrr/mltk:v<appVersion>.
 # The cluster is created and deleted on every run, so the load happens here,
 # after `kind create` and before `helm install`.
 PRELOAD = os.environ.get("MLTK_KIND_SMOKE_PRELOAD", "")
