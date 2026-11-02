@@ -1,11 +1,11 @@
 # mltk Full API Index
 > Generated 2026-11-02 by scripts/generate_skill_index.py
 
-**243** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
+**244** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
 
 ---
 
-## Assertion Signatures (243)
+## Assertion Signatures (244)
 
 ### compliance
 
@@ -1189,6 +1189,12 @@ def assert_chrf(references: list[str], hypotheses: list[str], min_score: float=0
 ```
 > Assert corpus chrF (Popović 2015) meets minimum threshold.
 
+**`assert_language`** (domains/nlp/language.py:12)
+```python
+def assert_language(text: str, expected: str, *, min_prob: float | None=None, severity: Severity=Severity.CRITICAL)
+```
+> Assert that *text* is detected as *expected* (ISO 639-1).
+
 **`assert_ner_f1`** (domains/nlp/ner.py:11)
 ```python
 def assert_ner_f1(y_true_entities: list[list[tuple[str, int, int]]], y_pred_entities: list[list[tuple[str, int, int]]], min_f1: float=0.8)
@@ -1700,7 +1706,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 | Scanner | File | Line |
 |---------|------|------|
-| BiasScanner | scan/scanners/bias.py | 65 |
+| BiasScanner | scan/scanners/bias.py | 62 |
 | CalibrationScanner | scan/scanners/calibration.py | 32 |
 | DataScanner | scan/scanners/data.py | 35 |
 | DriftScanner | scan/scanners/drift.py | 31 |
@@ -1964,7 +1970,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | config | `ScanConfig` |  |
 | seed | `int` |  |
 
-### `ScanReport` (scan/engine.py:72)
+### `ScanReport` (scan/engine.py:69)
 > Aggregated output of a scan run.
 
 | Field | Type | Default |
@@ -1979,7 +1985,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | n_features | `int` | `0` |
 | config | `ScanConfig` | `field(default_factory=ScanConfig)` |
 
-### `ScanEngine` (scan/engine.py:430)
+### `ScanEngine` (scan/engine.py:427)
 > Orchestrates scanners and produces a ScanReport.
 
 *(no dataclass fields)*
@@ -2014,6 +2020,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 | Test Directory | Source Module |
 |----------------|---------------|
+| test_charts/ | src/mltk/charts/ |
 | test_chat/ | src/mltk/chat/ |
 | test_cli/ | src/mltk/cli/ |
 | test_compliance/ | src/mltk/compliance/ |
