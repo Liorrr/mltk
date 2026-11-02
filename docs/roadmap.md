@@ -120,7 +120,7 @@ One-click onboarding: point mltk at a dataset (HuggingFace Hub or local CSV/Parq
 
 **Not in scope for this epic:** a URL-fetch adapter (raises `NotImplementedError` for now — download locally first), a SQL/database source, and HuggingFace's `streaming=True` mode (large-dataset streaming is deferred past S99; `DatasetImporter` always fully materializes the source).
 
-**Effort:** 2-3 sprints | **Dependencies:** `datasets`, `pyarrow` (optional `mltk[importer]` extra) | **Priority:** High — lowers time-to-first-eval to near zero
+**Effort:** 2-3 sprints | **Dependencies:** `datasets`, `pyarrow` (optional `mlspec[importer]` extra) | **Priority:** High — lowers time-to-first-eval to near zero
 
 #### Agent Trace Capture (Clearance-Tiered)
 *Status: Proposed — new `mltk.trace` package owning a single capture record; the existing trace schemas become adapter targets*

@@ -37,7 +37,7 @@ def export_compliance_pdf(
     """Convert an HTML compliance report to PDF or print-ready HTML.
 
     Strategy:
-    1. Try weasyprint (if installed via ``mltk[pdf]``)
+    1. Try weasyprint (if installed via ``mlspec[pdf]``)
     2. Fallback: inject ``@media print`` CSS for browser Print-to-PDF
 
     Args:

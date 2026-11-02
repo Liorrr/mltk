@@ -7,7 +7,7 @@ root `Dockerfile` in this repository.
 
 | Image | Base | Extra tooling | Use case |
 | --- | --- | --- | --- |
-| `liorrr/mltk:latest` | `python:3.12-slim` + `mltk[all]` | none | General CLI, scans, MCP server, CI jobs |
+| `liorrr/mltk:latest` | `python:3.12-slim` + `mlspec[all]` | none | General CLI, scans, MCP server, CI jobs |
 | `liorrr/mltk:full` | `latest` + Trivy 0.60.0 | `/usr/local/bin/trivy` | Container security scanning |
 
 Version-pinned tags (`liorrr/mltk:v0.12.0`, `...:v0.12.0-full`) are published

@@ -580,7 +580,7 @@ MLTK_PREDICT_FN=module:callable or edit the fixture.
 
 Mapping problems are printed as warnings; if no column maps to `INPUT`
 (so no `EvalDataset` can be built), the command exits non-zero instead
-of guessing. The command works without the `mltk[importer]` extra
+of guessing. The command works without the `mlspec[importer]` extra
 installed only for `--help`; actual imports need
 `pip install mlspec[importer]` for HuggingFace sources.
 

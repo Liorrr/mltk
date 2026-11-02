@@ -54,7 +54,7 @@ def create_app(db_path: str = "mltk_server.db") -> FastAPI:
 
     @app.get("/metrics", include_in_schema=False)
     def get_metrics() -> Response:
-        """Expose Prometheus metrics. Returns 404 if mltk[metrics] not installed."""
+        """Expose Prometheus metrics. Returns 404 if mlspec[metrics] not installed."""
         result = metrics_response()
         if result is None:
             return Response(

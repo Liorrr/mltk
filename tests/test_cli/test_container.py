@@ -263,3 +263,42 @@ class TestContainerScanCLI:
                 container_app, ["scan", "alpine:3.18"],
             )
         assert result.exit_code == 2
+
+    def test_missing_extra_hint_names_the_extra(self):
+        # SCENARIO: the container extra is not installed
+        # WHY: the hint used to go through Rich markup, which read "[container]"
+        #      as a style tag and printed "Run: pip install mlspec" -- a command
+        #      that does not install the extra, so the error just repeats
+        # EXPECTED: exit 1, and the hint keeps "mlspec[container]" intact
+        with patch.dict(sys.modules, {"mltk.container.assertions": None}):
+            result = runner.invoke(container_app, ["scan", "alpine:3.18"])
+        assert result.exit_code == 1
+        assert "mlspec[container]" in result.output
+        assert "container extra is not installed" in result.output
+
+    def test_trivy_missing_hint_names_the_extra(self):
+        # SCENARIO: the container extra is missing, so no Trivy binary is found
+        # WHY: this is the path a missing extra really takes -- the import of
+        #      mltk.container.assertions succeeds and the scan raises the
+        #      locator's ImportError. Its message was printed through Rich
+        #      markup, which dropped "[container]" from "pip install mlspec[container]"
+        # EXPECTED: exit 2, and the real locator message keeps "mlspec[container]"
+        from mltk.container import _binary
+
+        with patch.object(_binary.shutil, "which", return_value=None), patch.dict(
+            sys.modules, {"trivy": None}
+        ):
+            try:
+                _binary.find_trivy_binary()
+            except ImportError as exc:
+                real_error = exc
+            else:  # pragma: no cover - only if a trivy binary is found anyway
+                raise AssertionError("find_trivy_binary() did not raise")
+
+        with patch(
+            "mltk.container.assertions.assert_container_vulnerabilities",
+            side_effect=real_error,
+        ):
+            result = runner.invoke(container_app, ["scan", "alpine:3.18"])
+        assert result.exit_code == 2
+        assert "mlspec[container]" in result.output

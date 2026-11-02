@@ -17,7 +17,7 @@ from mltk.core.result import Severity, TestResult
 def _get_boto3_client(service: str, region: str | None) -> Any:
     """Lazy-import boto3 and return a client for *service*.
 
-    Raises a clear ImportError when the optional ``mltk[aws]`` extra is not
+    Raises a clear ImportError when the optional ``mlspec[aws]`` extra is not
     installed so the user gets an actionable message rather than a bare
     ModuleNotFoundError.
     """

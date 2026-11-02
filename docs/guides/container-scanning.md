@@ -9,11 +9,11 @@ exceeded.
 ## Installation
 
 ```bash
-pip install mlspec[container]
+pip install "mlspec[container,cli]"   # cli provides the mltk command
 ```
 
 !!! info "Trivy binary"
-    The `mltk[container]` extra pulls in the `trivy-py` wrapper, which
+    The `mlspec[container]` extra pulls in the `trivy-py` wrapper, which
     bundles the Trivy binary. If a system-wide `trivy` is already on
     `PATH`, mltk uses it instead. Override explicitly by setting
     `TRIVY_BIN=/path/to/trivy`.
@@ -76,7 +76,7 @@ CI systems need to fail a build.
 container_scan:
   image: python:3.11-slim
   script:
-    - pip install mlspec[container]
+    - pip install "mlspec[container,cli]"
     - mltk container scan $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --max-critical 0 --junit-xml scan.xml
   artifacts:
     when: always
@@ -141,7 +141,7 @@ format. This lets you alert on "a new CRITICAL vulnerability appeared in a
 deployed image" without waiting for the next CI run.
 
 ```bash
-pip install mlspec[metrics]
+pip install "mlspec[server,cli,metrics]"
 mltk server  # exposes /metrics on the server port
 ```
 
@@ -163,7 +163,7 @@ Metrics exposed:
 | `mltk_container_scan_vulnerabilities_total` | Counter | `severity` |
 
 !!! note "Metrics are opt-in"
-    Without the `mltk[metrics]` extra, `/metrics` returns HTTP 404 with an
+    Without the `mlspec[metrics]` extra, `/metrics` returns HTTP 404 with an
     install hint. The rest of the server is unaffected.
 
 ## Environment Variables

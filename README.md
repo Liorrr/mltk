@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-5352%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-5354%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 <!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
@@ -86,7 +86,7 @@ pytest --mltk-report
 
 **Behavioral consistency testing** — 6 assertions (paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency) plus built-in `ParaphraseGenerator` that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation: lexical (token F1), embedding, NLI, LLM-as-Judge. No other ML testing tool ships these as pytest assertions.
 
-**NER PII detection** — `assert_no_pii(method="ner"|"gliner"|"hybrid")` adds Named Entity Recognition to PII scanning. Presidio + spaCy catches names, organizations, and locations that regex cannot find. GLiNER provides zero-shot detection for domain-specific entities (healthcare MRN, legal case numbers). Hybrid mode runs regex + NER with intelligent deduplication. Install with `pip install mltk[ner]`.
+**NER PII detection** — `assert_no_pii(method="ner"|"gliner"|"hybrid")` adds Named Entity Recognition to PII scanning. Presidio + spaCy catches names, organizations, and locations that regex cannot find. GLiNER provides zero-shot detection for domain-specific entities (healthcare MRN, legal case numbers). Hybrid mode runs regex + NER with intelligent deduplication. Install with `pip install mlspec[ner]`.
 
 **YAML test definitions** — write ML tests in YAML, no Python required. Run with `mltk test tests.yaml`. Supports 11 data assertions with `env:VAR_NAME` data source for CI/CD.
 
@@ -181,39 +181,39 @@ pytest --mltk-report
 
 ```bash
 # Core (data + model assertions)
-pip install mltk
+pip install mlspec
 
 # With CLI
-pip install mltk[cli]
+pip install mlspec[cli]
 
 # With HTML reports
-pip install mltk[report]
+pip install mlspec[report]
 
-# With server platform
-pip install mltk[server]
+# With server platform (and the mltk command)
+pip install mlspec[server,cli]
 
 # NER PII detection
-pip install mltk[ner]         # Presidio + spaCy NER
+pip install mlspec[ner]         # Presidio + spaCy NER
 
 # Domain kits
-pip install mltk[cv]          # Computer Vision
-pip install mltk[nlp]         # NLP
-pip install mltk[speech]      # Speech Recognition
-pip install mltk[contracts]   # Data contracts (YAML)
-pip install mltk[torch]       # Gradient inspection
-pip install mltk[llm]         # LLM evaluation
+pip install mlspec[cv]          # Computer Vision
+pip install mlspec[nlp]         # NLP
+pip install mlspec[speech]      # Speech Recognition
+pip install mlspec[contracts]   # Data contracts (YAML)
+pip install mlspec[torch]       # Gradient inspection
+pip install mlspec[llm]         # LLM evaluation
 
 # Integrations
-pip install mltk[integrations]  # Jira adapter
-pip install mltk[mlflow]        # MLflow logging
-pip install mltk[aws]           # AWS SageMaker/CloudWatch
-pip install mltk[gcp]           # GCP Vertex AI
-pip install mltk[azure]         # Azure ML monitoring
-pip install mltk[pdf]           # Compliance PDF export
-pip install mltk[server]        # Self-hosted server platform
+pip install mlspec[integrations]  # Jira adapter
+pip install mlspec[mlflow]        # MLflow logging
+pip install mlspec[aws]           # AWS SageMaker/CloudWatch
+pip install mlspec[gcp]           # GCP Vertex AI
+pip install mlspec[azure]         # Azure ML monitoring
+pip install mlspec[pdf]           # Compliance PDF export
+pip install mlspec[server,cli]    # Self-hosted server platform
 
 # Everything
-pip install mltk[all]
+pip install mlspec[all]
 ```
 
 ## CLI

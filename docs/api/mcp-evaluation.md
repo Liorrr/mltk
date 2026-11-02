@@ -1383,7 +1383,7 @@ management.
 `jsonschema` is ~100KB with minimal transitive
 dependencies. But mltk's core install (`numpy` +
 `pandas`) should not grow for a feature that only
-MCP-focused users need. The `mltk[mcp]` extra group
+MCP-focused users need. The `mlspec[mcp]` extra group
 keeps the core lightweight while giving MCP users
 everything they need in one command.
 

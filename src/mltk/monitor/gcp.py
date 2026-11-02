@@ -3,7 +3,7 @@
 Verifies that Vertex AI endpoints have live deployed models and that
 prediction latency reported by Cloud Monitoring stays within SLA thresholds.
 All Google Cloud SDK imports are lazy so this module is importable without
-the ``mltk[gcp]`` extras installed.
+the ``mlspec[gcp]`` extras installed.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ def _require_aiplatform() -> Any:
     """Lazy-import ``google.cloud.aiplatform``.
 
     Raises:
-        ImportError: When the optional ``mltk[gcp]`` extra is not installed.
+        ImportError: When the optional ``mlspec[gcp]`` extra is not installed.
     """
     try:
         from google.cloud import aiplatform  # type: ignore[import]
@@ -34,7 +34,7 @@ def _require_monitoring() -> Any:
     """Lazy-import ``google.cloud.monitoring_v3``.
 
     Raises:
-        ImportError: When the optional ``mltk[gcp]`` extra is not installed.
+        ImportError: When the optional ``mlspec[gcp]`` extra is not installed.
     """
     try:
         from google.cloud import monitoring_v3  # type: ignore[import]

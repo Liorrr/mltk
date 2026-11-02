@@ -9,8 +9,8 @@ The definitive guide for deploying, operating, and monitoring mltk in production
 ### Quick Start
 
 ```bash
-# Install server extras (FastAPI + uvicorn)
-pip install mlspec[server]
+# Install server extras (FastAPI + uvicorn) and the mltk command (typer + rich)
+pip install "mlspec[server,cli]"
 
 # Generate an API key
 mltk server-create-key --project my-project
@@ -1338,7 +1338,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install mltk with all extras
-RUN pip install --no-cache-dir mltk[all]
+RUN pip install --no-cache-dir mlspec[all]
 
 # Copy project files
 COPY requirements.txt .
@@ -1692,7 +1692,7 @@ sqlite3 /data/mltk_server.db "SELECT version, applied_at FROM schema_versions OR
 
 ```bash
 # Upgrade the package
-pip install --upgrade mltk[server]
+pip install --upgrade "mlspec[server,cli]"
 
 # Check version
 mltk version
@@ -1878,7 +1878,7 @@ pip install mlspec  # binary wheel includes Rust extension on supported platform
 
 ```bash
 # Install
-pip install mlspec[server]            # server + dashboard
+pip install "mlspec[server,cli]"     # server + dashboard + mltk command
 pip install mlspec[all]               # everything
 
 # Server

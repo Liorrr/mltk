@@ -27,8 +27,8 @@ The mltk server platform provides:
 ## Quick Start
 
 ```bash
-# Install with server extras
-pip install mlspec[server]
+# Install with server extras and the mltk command
+pip install "mlspec[server,cli]"
 
 # Generate an API key (run once)
 mltk server-create-key --project my-project
@@ -659,8 +659,8 @@ storage.save_api_key(key_hash, "my-project")
 ## Requirements
 
 ```bash
-pip install mlspec[server]
-# Installs: fastapi, uvicorn, pydantic (in addition to mltk core)
+pip install "mlspec[server,cli]"
+# Installs: fastapi, uvicorn, pydantic, typer, rich (in addition to mltk core)
 ```
 
 Python 3.10+ required.

@@ -2,7 +2,7 @@
 
 Validates Azure managed online endpoints are healthy and that request
 latency measured by Azure Monitor stays within SLA thresholds. All Azure SDK
-imports are lazy so this module is importable without the ``mltk[azure]``
+imports are lazy so this module is importable without the ``mlspec[azure]``
 extras installed.
 """
 
@@ -30,7 +30,7 @@ def _require_ml_client(
             when *None*.
 
     Raises:
-        ImportError: When the optional ``mltk[azure]`` extra is not installed.
+        ImportError: When the optional ``mlspec[azure]`` extra is not installed.
         ValueError: When required parameters cannot be resolved.
     """
     try:
