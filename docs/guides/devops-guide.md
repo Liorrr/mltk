@@ -1588,7 +1588,7 @@ mltk server-backup --db /data/mltk_server.db --out /backups/mltk_server_$(date +
 docker compose exec mltk-server mltk server-backup --db /app/data/mltk_server.db --out /app/data/mltk_server_backup.db
 ```
 
-Copying the `.db` file directly is safe only while the server is stopped.
+Copying the `.db` file directly is safe only after a clean shutdown that leaves no `mltk_server.db-wal` beside it. After a crash, committed writes can still be in that file; run `mltk server-backup` against the stopped database instead, which reads them.
 
 To restore:
 

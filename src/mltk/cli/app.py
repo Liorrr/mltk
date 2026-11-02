@@ -688,7 +688,9 @@ quality:
     def server(
         host: str = typer.Option("127.0.0.1", help="Host"),
         port: int = typer.Option(8080, help="Port"),
-        db: str = typer.Option("mltk_server.db", help="SQLite database path"),
+        db: str = typer.Option(
+            "mltk_server.db", envvar="MLTK_DB_PATH", help="SQLite database path"
+        ),
     ) -> None:
         """Start the mltk server platform."""
         try:
@@ -708,7 +710,9 @@ quality:
     @app.command("server-create-key")
     def server_create_key(
         project: str = typer.Option("default", help="Project name to associate with this key"),
-        db: str = typer.Option("mltk_server.db", help="SQLite database path"),
+        db: str = typer.Option(
+            "mltk_server.db", envvar="MLTK_DB_PATH", help="SQLite database path"
+        ),
     ) -> None:
         """Generate an API key for the mltk server.
 
@@ -734,7 +738,9 @@ quality:
 
     @app.command("server-backup")
     def server_backup(
-        db: str = typer.Option("mltk_server.db", help="SQLite database path"),
+        db: str = typer.Option(
+            "mltk_server.db", envvar="MLTK_DB_PATH", help="SQLite database path"
+        ),
         out: str = typer.Option(..., help="Backup file to write"),
         force: bool = typer.Option(False, help="Overwrite an existing backup file"),
     ) -> None:

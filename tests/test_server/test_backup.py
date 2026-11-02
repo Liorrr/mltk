@@ -4,6 +4,8 @@ from __future__ import annotations
 import os
 import shutil
 import sqlite3
+import subprocess
+import sys
 from contextlib import closing
 
 import pytest
@@ -120,3 +122,31 @@ def test_failed_backup_removes_temp_file(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="backup failed"):
         backup_database(db, out)
     assert list(tmp_path.glob(".mltk-backup-*.tmp")) == []
+
+
+def test_backup_recovers_wal_left_by_a_crashed_writer(tmp_path):
+    """A writer killed without closing leaves its commits in -wal; the backup must keep them."""
+    db = tmp_path / "crashed.db"
+    code = "; ".join([
+        "import os, sqlite3",
+        f"c = sqlite3.connect({str(db)!r})",
+        "c.execute('PRAGMA journal_mode=WAL')",
+        "c.execute('PRAGMA wal_autocheckpoint=0')",
+        "c.execute('CREATE TABLE items (value TEXT)')",
+        "c.executemany('INSERT INTO items VALUES (?)', [(str(i),) for i in range(50)])",
+        "c.commit()",
+        "os._exit(0)",
+    ])
+    subprocess.run([sys.executable, "-c", code], check=True)
+    assert db.with_name(db.name + "-wal").exists()  # guard: the commits are only in -wal
+
+    plain = tmp_path / "plain.db"
+    shutil.copyfile(db, plain)
+    with closing(sqlite3.connect(plain)) as conn, conn:
+        with pytest.raises(sqlite3.OperationalError):
+            conn.execute("SELECT COUNT(*) FROM items")
+
+    out = tmp_path / "out.db"
+    backup_database(db, out)
+    with closing(sqlite3.connect(out)) as conn, conn:
+        assert conn.execute("SELECT COUNT(*) FROM items").fetchone()[0] == 50

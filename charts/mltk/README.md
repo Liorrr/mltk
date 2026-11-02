@@ -28,32 +28,37 @@ The server router is mounted at `/api`:
 Uninstalling the release deletes the PVC and the database on it.
 
 ```bash
-kubectl exec deploy/mltk -- mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db
-POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk -o jsonpath='{.items[0].metadata.name}')
-kubectl cp "$POD:/tmp/mltk-backup.db" ./mltk-backup.db
-helm uninstall mltk
+POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}') &&
+  test -n "$POD" &&
+  kubectl exec "$POD" -- mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db --force &&
+  kubectl cp "$POD:/tmp/mltk-backup.db" ./mltk-backup.db &&
+  test -s ./mltk-backup.db &&
+  helm uninstall mltk
 ```
+
+The commands are chained with `&&`, so `helm uninstall` runs only after the backup and the copy succeed. `--force` replaces a backup left in `/tmp` by an earlier run, so you never copy out a stale file.
 
 The backup goes to the container's `/tmp`, so it doesn't use PVC space, and it disappears when the pod restarts.
 
 Add `-n <namespace>` to each command if the release is not in the current namespace.
 
-For images that do not have `server-backup` yet, when `kubectl exec deploy/mltk -- mltk server-backup --help` fails, use:
+For images that do not have `server-backup` yet, when `kubectl exec "$POD" -- mltk server-backup --help` fails, use:
 
 ```bash
-kubectl exec deploy/mltk -- python -c "import sqlite3; s = sqlite3.connect('file:/data/mltk_server.db?mode=ro', uri=True); d = sqlite3.connect('/tmp/mltk-backup.db'); s.backup(d); d.execute('PRAGMA journal_mode=DELETE'); d.close(); s.close()"
+kubectl exec "$POD" -- python -c "import sqlite3; s = sqlite3.connect('file:/data/mltk_server.db?mode=ro', uri=True); d = sqlite3.connect('/tmp/mltk-backup.db'); s.backup(d); d.execute('PRAGMA journal_mode=DELETE'); d.close(); s.close()"
 ```
 
-Then run the same `kubectl cp` step.
+Then run the same `kubectl cp`, `test -s` and `helm uninstall` steps.
 
 ## Restore from a backup
 
 ```bash
-helm install mltk charts/mltk
-kubectl rollout status deploy/mltk
-POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk -o jsonpath='{.items[0].metadata.name}')
-kubectl cp ./mltk-backup.db "$POD:/data/mltk_restored.db"
-helm upgrade mltk charts/mltk --reuse-values --set server.dbPath=/data/mltk_restored.db
+helm install mltk charts/mltk &&
+  kubectl rollout status deploy/mltk &&
+  POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}') &&
+  test -n "$POD" &&
+  kubectl cp ./mltk-backup.db "$POD:/data/mltk_restored.db" &&
+  helm upgrade mltk charts/mltk --reuse-values --set server.dbPath=/data/mltk_restored.db
 ```
 
 The `Recreate` rollout stops the pod running on the new, empty database and starts one on the restored file.

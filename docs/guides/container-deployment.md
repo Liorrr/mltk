@@ -149,13 +149,15 @@ until you set `ingress.enabled=true`.
 Back up the database before uninstalling because uninstalling the release deletes the PVC.
 
 ```bash
-kubectl exec deploy/mltk -- mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db
-POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk -o jsonpath='{.items[0].metadata.name}')
-kubectl cp "$POD:/tmp/mltk-backup.db" ./mltk-backup.db
-helm uninstall mltk
+POD=$(kubectl get pod -l app.kubernetes.io/instance=mltk --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}') &&
+  test -n "$POD" &&
+  kubectl exec "$POD" -- mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db --force &&
+  kubectl cp "$POD:/tmp/mltk-backup.db" ./mltk-backup.db &&
+  test -s ./mltk-backup.db &&
+  helm uninstall mltk
 ```
 
-See `charts/mltk/README.md` for restoring a backup and for images without `server-backup`.
+`helm uninstall` runs only after the backup and the copy succeed. See `charts/mltk/README.md` for restoring a backup and for images without `server-backup`.
 
 KinD is **not** a CI job. To smoke-test locally:
 
