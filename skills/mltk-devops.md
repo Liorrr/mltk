@@ -22,7 +22,7 @@ manual intervention.
 ```yaml
 - name: ML Quality Gate
   run: |
-    pip install mltk[all]
+    pip install mlspec[all]
     mltk scan --path ./data --model model.pkl --fail-on critical
     mltk test --fail-on-error
     mltk score --min-score 70
@@ -37,7 +37,7 @@ Exit codes: `0` = pass, `1` = blocked. `--fail-on critical` blocks only on criti
 ml_quality:
   stage: test
   script:
-    - pip install mltk[all]
+    - pip install mlspec[all]
     - mltk scan --path ./data --fail-on critical
     - mltk compliance --framework eu_ai_act --fail-on-gap
   artifacts:
@@ -92,7 +92,7 @@ Dashboard: `http://localhost:8000/dashboard` | API docs: `http://localhost:8000/
 **Docker:**
 ```dockerfile
 FROM python:3.11-slim
-RUN pip install mltk[server,all]
+RUN pip install mlspec[server,all]
 EXPOSE 8000
 CMD ["uvicorn", "mltk.server.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 ```
@@ -187,7 +187,7 @@ Use in CI to version-pin reference datasets and models for gate comparisons.
 
 ## Observability
 
-Extras: `mltk[otel]` (OTLP), `mltk[phoenix]` (Arize Phoenix), `mltk[langfuse]` (Langfuse).
+Extras: `mlspec[otel]` (OTLP), `mlspec[phoenix]` (Arize Phoenix), `mlspec[langfuse]` (Langfuse).
 
 ```python
 from __future__ import annotations
@@ -207,16 +207,16 @@ Source: `src/mltk/eval/` (span evaluation, trace scoring).
 
 | Use Case | Install Extra |
 |----------|--------------|
-| CLI tools | `mltk[cli]` |
-| HTML/JSON reports | `mltk[report]` |
-| PDF export | `mltk[pdf]` |
-| LLM eval (embeddings) | `mltk[embedding]` |
-| NLI eval | `mltk[nli]` |
-| PII detection | `mltk[ner]` |
-| Toxicity classifier | `mltk[classifier]` |
-| MCP server | `mltk[mcp]` |
-| FastAPI server | `mltk[server]` |
-| AWS monitoring | `mltk[aws]` |
-| GCP monitoring | `mltk[gcp]` |
-| Azure monitoring | `mltk[azure]` |
-| Everything | `mltk[all]` |
+| CLI tools | `mlspec[cli]` |
+| HTML/JSON reports | `mlspec[report]` |
+| PDF export | `mlspec[pdf]` |
+| LLM eval (embeddings) | `mlspec[embedding]` |
+| NLI eval | `mlspec[nli]` |
+| PII detection | `mlspec[ner]` |
+| Toxicity classifier | `mlspec[classifier]` |
+| MCP server | `mlspec[mcp]` |
+| FastAPI server | `mlspec[server]` |
+| AWS monitoring | `mlspec[aws]` |
+| GCP monitoring | `mlspec[gcp]` |
+| Azure monitoring | `mlspec[azure]` |
+| Everything | `mlspec[all]` |

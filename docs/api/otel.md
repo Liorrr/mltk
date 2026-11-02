@@ -75,7 +75,7 @@ ML testing runs in diverse environments: CI pipelines, local laptops, air-gapped
 - **Without OTEL**: all methods silently no-op, `export_json` still works (pure dict → JSON)
 - **Your code stays the same** — instrument once, activate when ready
 
-This follows the same pattern as `mltk[embedding]` (sentence-transformers) and `mltk[aws]` (boto3): optional extras that enhance functionality without burdening the core install.
+This follows the same pattern as `mlspec[embedding]` (sentence-transformers) and `mlspec[aws]` (boto3): optional extras that enhance functionality without burdening the core install.
 
 ---
 

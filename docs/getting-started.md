@@ -48,8 +48,8 @@ pip install "mlspec[nli]"
 # Toxicity classifier (transformer-based)
 pip install "mlspec[classifier]"
 
-# Server platform (dashboard + REST API)
-pip install "mlspec[server]"
+# Server platform (dashboard + REST API) and the mltk command
+pip install "mlspec[server,cli]"
 
 # All optional dependencies
 pip install "mlspec[all]"

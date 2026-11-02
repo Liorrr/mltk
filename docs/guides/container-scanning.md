@@ -13,7 +13,7 @@ pip install mlspec[container]
 ```
 
 !!! info "Trivy binary"
-    The `mltk[container]` extra pulls in the `trivy-py` wrapper, which
+    The `mlspec[container]` extra pulls in the `trivy-py` wrapper, which
     bundles the Trivy binary. If a system-wide `trivy` is already on
     `PATH`, mltk uses it instead. Override explicitly by setting
     `TRIVY_BIN=/path/to/trivy`.
@@ -163,7 +163,7 @@ Metrics exposed:
 | `mltk_container_scan_vulnerabilities_total` | Counter | `severity` |
 
 !!! note "Metrics are opt-in"
-    Without the `mltk[metrics]` extra, `/metrics` returns HTTP 404 with an
+    Without the `mlspec[metrics]` extra, `/metrics` returns HTTP 404 with an
     install hint. The rest of the server is unaffected.
 
 ## Environment Variables

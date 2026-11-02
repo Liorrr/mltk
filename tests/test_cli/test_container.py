@@ -263,3 +263,15 @@ class TestContainerScanCLI:
                 container_app, ["scan", "alpine:3.18"],
             )
         assert result.exit_code == 2
+
+    def test_missing_extra_hint_names_the_extra(self):
+        # SCENARIO: the container extra is not installed
+        # WHY: the hint used to go through Rich markup, which read "[container]"
+        #      as a style tag and printed "Run: pip install mlspec" -- a command
+        #      that does not install the extra, so the error just repeats
+        # EXPECTED: exit 1, and the hint keeps "mlspec[container]" intact
+        with patch.dict(sys.modules, {"mltk.container.assertions": None}):
+            result = runner.invoke(container_app, ["scan", "alpine:3.18"])
+        assert result.exit_code == 1
+        assert "mlspec[container]" in result.output
+        assert "container extra is not installed" in result.output

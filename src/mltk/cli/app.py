@@ -10,7 +10,7 @@ def main() -> None:
 
     Initializes the Typer application and registers all subcommands
     (version, init, scan, drift, score, doctor, test, compliance).
-    Requires ``typer`` to be installed via the ``mltk[cli]`` extra.
+    Requires ``typer`` to be installed via the ``mlspec[cli]`` extra.
     """
     try:
         import typer

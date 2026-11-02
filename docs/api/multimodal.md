@@ -521,9 +521,9 @@ embeddings) requires no extra install.
 
 | Extra | Installs | Enables |
 |-------|----------|---------|
-| `mltk[multimodal]` | Pillow, scikit-image | All v1+v2 assertions with raw image input |
-| `mltk[clip]` | open-clip-torch, Pillow | `assert_clip_score` live CLIP model path |
-| `mltk[classifier]` | transformers, torch | Planned `assert_no_nsfw` |
+| `mlspec[multimodal]` | Pillow, scikit-image | All v1+v2 assertions with raw image input |
+| `mlspec[clip]` | open-clip-torch, Pillow | `assert_clip_score` live CLIP model path |
+| `mlspec[classifier]` | transformers, torch | Planned `assert_no_nsfw` |
 
 All assertions work without extras when `image_description`
 is provided or pre-computed embeddings are passed.
@@ -575,9 +575,9 @@ All four are re-exported from `mltk.domains.multimodal`.
 
 | Assertion | Method | Extra needed |
 |-----------|--------|-------------|
-| `assert_clip_score` | CLIP cosine similarity | `mltk[clip]` (live path only) |
+| `assert_clip_score` | CLIP cosine similarity | `mlspec[clip]` (live path only) |
 | `assert_object_hallucination` | POPE binary probing | None |
-| `assert_edit_preservation` | SSIM or pixel diff | `mltk[multimodal]` (ssim path) |
+| `assert_edit_preservation` | SSIM or pixel diff | `mlspec[multimodal]` (ssim path) |
 | `assert_ocr_accuracy` | CER / WER | None (pure Python) |
 
 ---
@@ -620,7 +620,7 @@ assert_clip_score(
 
 - **Live path** (`image` + `text` provided): Lazy-imports
   `open-clip-torch`, encodes both inputs with ViT-B/32,
-  and computes cosine similarity. Requires `mltk[clip]`.
+  and computes cosine similarity. Requires `mlspec[clip]`.
 
 Raise `ValueError` if neither pair is complete.
 
@@ -653,7 +653,7 @@ assert_clip_score(
     min_score=0.25,
 )
 
-# Live path: raw inputs (requires mltk[clip])
+# Live path: raw inputs (requires mlspec[clip])
 assert_clip_score(
     image="outputs/generated.png",
     text="a golden retriever on a beach",
@@ -771,7 +771,7 @@ assert_edit_preservation(
 - **`method="ssim"`** (default): Uses
   `skimage.metrics.structural_similarity` — 11x11
   Gaussian windowing, correct boundary conditions,
-  multichannel RGB support. Requires `mltk[multimodal]`
+  multichannel RGB support. Requires `mlspec[multimodal]`
   (scikit-image). Spec-compliant per Wang et al. (2004).
 
 - **`method="pixel_diff"`**: Pure numpy. Computes

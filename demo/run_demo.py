@@ -7,7 +7,7 @@ No external APIs, no model downloads, no user
 interaction. Everything runs on built-in sample data
 and mock models.
 
-Requirements: pip install mltk[cli]
+Requirements: pip install mlspec[cli]
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ try:
 except ImportError:
     print(
         "\n[ERROR] mltk is not installed."
-        "\n  Run:  pip install mltk[cli]"
+        "\n  Run:  pip install mlspec[cli]"
         "\n  Then: python demo/run_demo.py\n"
     )
     sys.exit(1)
@@ -331,7 +331,7 @@ def beat_2() -> None:
         f"{_RESET}"
     )
     print(
-        f"    {_DIM}(requires pip install mltk[ner]"
+        f"    {_DIM}(requires pip install mlspec[ner]"
         f" -- skipped for zero-dep demo){_RESET}"
     )
 
@@ -899,7 +899,7 @@ def beat_6() -> None:
     print(f"  {_BOLD}{line_stars}{_RESET}")
     print()
     print(
-        f"    {_BOLD}$ pip install mltk[cli]{_RESET}"
+        f"    {_BOLD}$ pip install mlspec[cli]{_RESET}"
     )
     print()
     print(

@@ -90,9 +90,12 @@ def container_scan(
             assert_no_secrets_in_image,
         )
     except ImportError:
+        # markup=False: Rich would read "[container]" as a style tag and drop it.
         console.print(
-            "[red]mltk[container] not installed. "
-            "Run: pip install mlspec[container][/red]"
+            "The container extra is not installed. "
+            "Run: pip install 'mlspec[container]'",
+            style="red",
+            markup=False,
         )
         raise typer.Exit(1) from None
 
@@ -129,7 +132,7 @@ def container_scan(
 
     all_passed = all(r.passed for r in results)
 
-    # Record to Prometheus if available (no-op when mltk[metrics] not installed)
+    # Record to Prometheus if available (no-op when mlspec[metrics] not installed)
     try:
         from mltk.server.metrics import record_container_scan  # noqa: PLC0415
         vuln_details = next(
