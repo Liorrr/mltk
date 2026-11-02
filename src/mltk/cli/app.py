@@ -688,7 +688,9 @@ quality:
     def server(
         host: str = typer.Option("127.0.0.1", help="Host"),
         port: int = typer.Option(8080, help="Port"),
-        db: str = typer.Option("mltk_server.db", help="SQLite database path"),
+        db: str = typer.Option(
+            "mltk_server.db", envvar="MLTK_DB_PATH", help="SQLite database path"
+        ),
     ) -> None:
         """Start the mltk server platform."""
         try:
@@ -708,7 +710,9 @@ quality:
     @app.command("server-create-key")
     def server_create_key(
         project: str = typer.Option("default", help="Project name to associate with this key"),
-        db: str = typer.Option("mltk_server.db", help="SQLite database path"),
+        db: str = typer.Option(
+            "mltk_server.db", envvar="MLTK_DB_PATH", help="SQLite database path"
+        ),
     ) -> None:
         """Generate an API key for the mltk server.
 
@@ -731,6 +735,37 @@ quality:
         print(f"API key created for project '{project}':")  # noqa: T201
         print(f"  {raw_key}")  # noqa: T201
         print("Store this key securely — it will not be shown again.")  # noqa: T201
+
+    @app.command("server-backup")
+    def server_backup(
+        db: str = typer.Option(
+            "mltk_server.db", envvar="MLTK_DB_PATH", help="SQLite database path"
+        ),
+        out: str = typer.Option(..., help="Backup file to write"),
+        force: bool = typer.Option(False, help="Overwrite an existing backup file"),
+    ) -> None:
+        """Back up the server database (safe while the server is running).
+
+        Example::
+
+            mltk server-backup --db /data/mltk_server.db --out /tmp/mltk-backup.db
+        """
+        import sqlite3
+
+        from mltk.server.backup import backup_database
+
+        try:
+            size = backup_database(db, out, force=force)
+        except FileExistsError as exc:
+            typer.echo(f"Error: {exc} (pass --force to overwrite)", err=True)
+            raise typer.Exit(1) from exc
+        except sqlite3.Error as exc:
+            typer.echo(f"Error: cannot back up {db}: {exc}", err=True)
+            raise typer.Exit(1) from exc
+        except (OSError, ValueError, RuntimeError) as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(1) from exc
+        typer.echo(f"Backed up {db} to {out} ({size} bytes)")
 
     @app.command("fda-audit")
     def fda_audit(

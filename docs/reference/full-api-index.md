@@ -1,7 +1,7 @@
 # mltk Full API Index
 > Generated 2026-11-02 by scripts/generate_skill_index.py
 
-**244** assertions | **13** MCP tools | **19 top-level + 5 groups** CLI | **8** scanners
+**244** assertions | **13** MCP tools | **20 top-level + 5 groups** CLI | **8** scanners
 
 ---
 
@@ -1661,7 +1661,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ---
 
-## CLI Commands (19 top-level + 5 groups)
+## CLI Commands (20 top-level + 5 groups)
 
 Typer groups: `contract`, `docs`, `registry`, `notify`, `container`
 
@@ -1671,8 +1671,8 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 |---|---------|------|-------------|
 | 1 | `mltk chat` | 676 | Interactive Q&A about test results. |
 | 2 | `mltk compliance` | 321 | Generate EU AI Act compliance report. |
-| 3 | `mltk compliance-gap` | 775 | Run compliance gap analysis across frameworks. |
-| 4 | `mltk compliance-pdf` | 759 | Convert HTML compliance report to print-ready PDF. |
+| 3 | `mltk compliance-gap` | 804 | Run compliance gap analysis across frameworks. |
+| 4 | `mltk compliance-pdf` | 788 | Convert HTML compliance report to print-ready PDF. |
 | 5 | `mltk container scan` | 33 | Scan a container image for vulnerabilities and secrets. |
 | 6 | `mltk contract generate-tests` | 405 | Generate pytest test file from a data contract. |
 | 7 | `mltk contract init` | 356 | Scaffold an example data contract YAML file. |
@@ -1682,23 +1682,24 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | 11 | `mltk docs serve` | 426 | Serve documentation locally with hot reload. |
 | 12 | `mltk doctor` | 208 | Diagnose ML testing environment. |
 | 13 | `mltk drift` | 123 | Compare two datasets for distribution drift. |
-| 14 | `mltk fda-audit` | 736 | Generate FDA 21 CFR Part 11 audit trail. |
-| 15 | `mltk grafana-export` | 984 | Export a Grafana dashboard JSON for mltk metrics. |
+| 14 | `mltk fda-audit` | 765 | Generate FDA 21 CFR Part 11 audit trail. |
+| 15 | `mltk grafana-export` | 1013 | Export a Grafana dashboard JSON for mltk metrics. |
 | 16 | `mltk import` | 673 | Import a dataset, preview mapping, build a suite, and emit pytest. |
 | 17 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
-| 18 | `mltk list` | 1196 | List all available mltk assertions. |
+| 18 | `mltk list` | 1225 | List all available mltk assertions. |
 | 19 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
 | 20 | `mltk notify slack` | 601 | Send test results (or a custom message) to Slack. |
 | 21 | `mltk registry list` | 579 | List all collections in the registry. |
 | 22 | `mltk registry pull` | 564 | Pull a named collection from the registry into a local directory. |
 | 23 | `mltk registry push` | 543 | Push a directory of test files to the registry as a named collection. |
 | 24 | `mltk scan` | 80 | Quick data quality scan on a CSV/Parquet file. |
-| 25 | `mltk scan-model` | 1009 | Scan a model for issues and generate tests. |
+| 25 | `mltk scan-model` | 1038 | Scan a model for issues and generate tests. |
 | 26 | `mltk score` | 191 | Show the ML Test Score rubric and how to generate scores. |
 | 27 | `mltk server` | 688 | Start the mltk server platform. |
-| 28 | `mltk server-create-key` | 709 | Generate an API key for the mltk server. |
-| 29 | `mltk test` | 249 | Run YAML-defined test suite. |
-| 30 | `mltk version` | 35 | Show mltk version. |
+| 28 | `mltk server-backup` | 736 | Back up the server database (safe while the server is running). |
+| 29 | `mltk server-create-key` | 709 | Generate an API key for the mltk server. |
+| 30 | `mltk test` | 249 | Run YAML-defined test suite. |
+| 31 | `mltk version` | 35 | Show mltk version. |
 
 ---
 

@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`mltk server-backup` — online backup of the server database** (`mltk.server.backup.backup_database`) — copies the SQLite database through SQLite's backup API, so it is safe while `mltk server` is running. The server keeps its database in WAL mode, and a plain copy of the `.db` file can miss recent commits that are still in the `-wal` file. The backup is one self-contained file (rollback-journal mode, no `-wal` beside it), passes `PRAGMA integrity_check` before it replaces anything, and is written to a temp file that is renamed into place, so a failed backup leaves no partial file. `--out` is required; an existing `--out` is kept unless `--force` is passed. The Helm chart README documents backing up before `helm uninstall` (which deletes the PVC), with the steps chained so the uninstall runs only after the backup and copy succeed, and restoring onto the default `server.dbPath` through a staging database. `devops-guide.md` no longer recommends the `sqlite3` CLI, which the image does not include.
 
 ### Changed
 
 ### Fixed
+- **Server Dockerfiles install `mlspec[server,cli]`** — `server/Dockerfile` and the Dockerfile examples in `docs/guides/devops-guide.md` and `docs/api/server-platform.md` ran `pip install mltk[server]`, which installs an unrelated PyPI package named `mltk`, so the image had no mltk server. The distribution is `mlspec` (`mltk` is the import and CLI name), and the `mltk` command also needs the `cli` extra (`typer`), which `server` alone does not pull in. Their `CMD` now passes `--db "$MLTK_DB_PATH"` (default `/app/data/mltk_server.db`), so the database lands on the volume on every mlspec version, including 0.14.0, which ignores the variable.
+- **`MLTK_DB_PATH` is honoured by `mltk server`, `server-create-key` and `server-backup`** — the docs, the Helm chart and `server/docker-compose.yml` set it, but the CLI ignored it. The compose setup therefore wrote its database to `/app/mltk_server.db` in the container layer instead of the `/app/data` volume, and lost it whenever the container was recreated. An explicit `--db` still wins. If you changed one of those setups to install `mlspec` and relied on `MLTK_DB_PATH`, copy `/app/mltk_server.db` (and its `-wal`) out of the stopped container before upgrading; see "Database written outside the volume" in `docs/guides/devops-guide.md`.
 
 ## [0.14.0] — 2026-11-02
 ### Added

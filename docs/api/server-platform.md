@@ -482,14 +482,24 @@ docker-compose exec mltk-server \
   mltk server-create-key --project prod --db /app/data/mltk_server.db
 ```
 
+Use `mltk server-backup` for a backup that is safe while the server is running:
+
+```bash
+docker-compose exec mltk-server \
+  mltk server-backup --db /app/data/mltk_server.db --out /app/data/mltk_server_backup.db
+```
+
 ### Dockerfile (standalone)
 
 ```dockerfile
 FROM python:3.12-slim
 WORKDIR /app
-RUN pip install --no-cache-dir mltk[server]
+RUN pip install --no-cache-dir "mlspec[server,cli]"
+RUN mkdir -p /app/data
+ENV MLTK_DB_PATH=/app/data/mltk_server.db
 EXPOSE 8080
-CMD ["mltk", "server", "--host", "0.0.0.0", "--port", "8080"]
+# Pass --db explicitly: mlspec 0.14.0 and earlier ignore MLTK_DB_PATH.
+CMD ["sh", "-c", "exec mltk server --host 0.0.0.0 --port 8080 --db \"$MLTK_DB_PATH\""]
 ```
 
 ```bash

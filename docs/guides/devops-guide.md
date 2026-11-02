@@ -1361,7 +1361,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir mltk[server]
+RUN pip install --no-cache-dir "mlspec[server,cli]"
 
 # Create data directory
 RUN mkdir -p /app/data
@@ -1373,7 +1373,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"
 
-CMD ["mltk", "server", "--host", "0.0.0.0", "--port", "8080"]
+# Pass --db explicitly: mlspec 0.14.0 and earlier ignore MLTK_DB_PATH.
+CMD ["sh", "-c", "exec mltk server --host 0.0.0.0 --port 8080 --db \"$MLTK_DB_PATH\""]
 ```
 
 ### docker-compose (Full Stack)
@@ -1579,22 +1580,45 @@ idx_api_keys_hash  → api_keys(key_hash)        — API key verification
 
 ### Backup Strategy
 
-SQLite databases can be backed up with a simple file copy while the server is idle, or with `sqlite3 .backup` for a safe online backup:
+WAL mode means a live copy of the `.db` file alone can lose recent commits. Use `mltk server-backup` for an online backup:
 
 ```bash
-# Simple file copy (stop server first, or accept minimal risk)
-cp /data/mltk_server.db /backups/mltk_server_$(date +%Y%m%d).db
+mltk server-backup --db /data/mltk_server.db --out /backups/mltk_server_$(date +%Y%m%d).db
 
-# Online backup using sqlite3 CLI (safe while server is running)
-sqlite3 /data/mltk_server.db ".backup '/backups/mltk_server_$(date +%Y%m%d).db'"
+# Docker Compose
+docker compose exec mltk-server mltk server-backup --db /app/data/mltk_server.db --out /app/data/mltk_server_backup.db
 ```
+
+Copying the `.db` file directly is safe only after a clean shutdown that leaves no `mltk_server.db-wal` beside it. After a crash, committed writes can still be in that file; run `mltk server-backup` against the stopped database instead, which reads them.
+
+To restore:
+
+1. Stop the server.
+2. Delete `mltk_server.db-wal` and `mltk_server.db-shm` if they exist. A leftover WAL from the old database must not be applied to the restored file.
+3. Copy the backup over the database path.
+4. Start the server.
 
 Automate with a cron job:
 
 ```bash
 # /etc/cron.d/mltk-backup
-0 3 * * * root sqlite3 /data/mltk_server.db ".backup '/backups/mltk_server_$(date +\%Y\%m\%d).db'" && find /backups -name "mltk_server_*.db" -mtime +30 -delete
+0 3 * * * root mltk server-backup --db /data/mltk_server.db --out /backups/mltk_server_$(date +\%Y\%m\%d).db && find /backups -name "mltk_server_*.db" -mtime +30 -delete
 ```
+
+### Database written outside the volume
+
+mltk 0.14.0 and earlier ignored `MLTK_DB_PATH`. A server started with that variable but without `--db` kept its database at `mltk_server.db` in its working directory (`/app` in the images above), outside the mounted volume, and recreating the container discards it. The Dockerfiles in this guide used to install an unrelated PyPI package (`mltk`) instead of `mlspec`, so this only affects a deployment whose install line you changed yourself.
+
+If that is your case, copy the database out before upgrading. Stop the container first; a stopped container keeps its files until it is removed:
+
+```bash
+docker compose stop mltk-server
+CID=$(docker compose ps -a -q mltk-server)
+docker cp "$CID:/app/mltk_server.db" ./mltk_server.db
+docker cp "$CID:/app/mltk_server.db-wal" ./mltk_server.db-wal   # only if it exists; it holds the latest commits
+```
+
+Then put both files on the volume under the `MLTK_DB_PATH` file name, keeping the `-wal` name paired with the database. Nothing here overwrites a file for you: if the volume already has a database at that path (for example one holding keys from `mltk server-create-key --db /app/data/mltk_server.db`), decide which one to keep first.
 
 ### Log Rotation
 

@@ -82,6 +82,7 @@ Source: `src/mltk/server/`
 ```bash
 mltk server             # FastAPI server on :8000
 mltk server-create-key  # generate API key
+mltk server-backup --out backup.db  # online DB backup (safe while running)
 ```
 
 Dashboard: `http://localhost:8000/dashboard` | API docs: `http://localhost:8000/docs`

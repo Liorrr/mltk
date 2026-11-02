@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S105: 244 assertions, 5335+ tests, 38 Rust tests) — v0.14.0
+## DONE (S0-S105: 244 assertions, 5352+ tests, 38 Rust tests) — v0.14.0
 
 ### v0.14.0 release — PRs merged since v0.13.0
 - [x] Cut **v0.14.0**: rolled CHANGELOG (`[Unreleased]` → `[0.14.0]`), bundling S101–S105 and every PR merged since v0.13.0 (#7–#33; #32 stays held). Added CHANGELOG entries for the PRs that shipped without one (#14, #16, #20, #23, #24, #26, #27, #29, #30, #31). Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`). `bump.py release` now syncs the Helm chart and the container-doc image tags, counts tests against its own checkout, and keeps the BACKLOG header bump (#31).
@@ -74,7 +74,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 244 assertions, 5335+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 244 assertions, 5352+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -82,7 +82,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S2: 4 drift methods, 14 PII patterns, Rust KS/PSI
 - [x] S3: 9 model metrics, regression, slicing, calibration
 - [x] S4: 5 bias methods, adversarial, --mltk-report
-- [x] S5: Inference (latency, throughput, contract), 19 top-level + 5 groups CLI
+- [x] S5: Inference (latency, throughput, contract), 20 top-level + 5 groups CLI
 - [x] S6: HTML reports, ML Test Score, pipeline reproducibility
 - [x] S7: CV (IoU, mAP, frame accuracy, temporal consistency, top-K)
 - [x] S8: NLP (BLEU, ROUGE, NER, prompt injection), Speech (WER, CER, RTF)
@@ -128,7 +128,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] S38: FDA 21 CFR Part 11 audit trail, compliance PDF export, CLI commands (fda-audit, compliance-pdf)
 - [x] S39: Resource summarization (trend analysis, flaky detection, recommendations), visual diff reports
 - [x] S40: Linear adapter (GraphQL), Asana adapter (REST), data lineage tracking (assert_lineage_complete)
-- [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 19 top-level + 5 groups CLI total
+- [x] S41: VS Code extension (mltk-vscode), NLP/Speech module refactoring, 20 top-level + 5 groups CLI total
 
 ### Phase G: Audit & Research (S42-S46)
 - [x] S42-S46: Full audit (21 subagent review, 189 suggestions), P0/P1 fixes, 12-topic research offensive
@@ -188,8 +188,9 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Follow-ups from the v0.14.0 PR train — found 2026-11-02
 - [ ] **CI skips the language-ID and chrF tests.** The CI test matrix (`ci.yml`) installs neither the `langdetect` nor the `nlp` extra, so `assert_language` and the chrF tests skip in CI and run only locally.
 - [ ] **`scripts/tests/` is not collected by CI** (`testpaths = ["tests"]`), so the `bump.py` unit tests never run there. A `bump.py` regression in #31 was caught only by review.
+- [ ] **`pip install mltk[...]` in user docs installs an unrelated PyPI package.** The distribution is `mlspec`; PyPI `mltk` is someone else's 0.0.5. The README install section, `docs/index.md`, `docs/api/cloud-monitoring.md`, `demo/run_demo.py`, `skills/mltk-devops.md` and the `devops-guide.md` upgrade line still say `mltk[...]`. The three server Dockerfiles were fixed with the `server-backup` change. Server quick starts that install `mlspec[server]` without `cli` (`devops-guide.md` near lines 13 and 1880, `server-platform.md` near lines 31 and 659) leave the `mltk` command unable to start; use `mlspec[server,cli]`.
 - [ ] **Docker Hub image name in the docs.** 18 doc references say `liorrr/mltk:<tag>`, but `docker-publish.yml` publishes Docker Hub images as `liorcohenil/mltk` (GHCR is `ghcr.io/liorrr/mltk`). `docs/guides/container-deployment.md` also pins stale `v0.12.0` examples.
-- [ ] **Helm: `helm uninstall` deletes the chart-created PVC** (no `helm.sh/resource-policy: keep`, no `persistence.existingClaim`). Decide whether the SQLite data should survive an uninstall.
+- [x] **Helm: `helm uninstall` deletes the chart-created PVC** (no `helm.sh/resource-policy: keep`, no `persistence.existingClaim`). Decided 2026-11-02: keep the delete-on-uninstall behaviour and add a backup step instead. `mltk server-backup` (online, WAL-safe) plus documented backup-before-uninstall and restore-via-`server.dbPath` steps in the chart README.
 - [ ] **Bias severity depends on the entry point.** `mltk.scan.scan()` without `sensitive_columns` treats engine-detected columns as user-specified (CRITICAL), while `mltk scan-model` reports auto-detected columns as INFO.
 - [ ] **`bump.py refresh` rewrites historical DONE headers' test counts** (the v0.12.4 bucket shows today's count). Exclude frozen headers from the count regex.
 - [ ] **`mltk.__version__` prefers the `mltk` distribution's metadata over `mlspec`** (`src/mltk/__init__.py`). An environment with a stale dev `mltk` dist, or the unrelated PyPI `mltk` package, reports that version instead of the installed `mlspec` one. Look up `mlspec` first.
@@ -270,7 +271,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 5335+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 5352+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).
