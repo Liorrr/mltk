@@ -1361,7 +1361,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir mlspec[server]
+RUN pip install --no-cache-dir "mlspec[server,cli]"
 
 # Create data directory
 RUN mkdir -p /app/data
