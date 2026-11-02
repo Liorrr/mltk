@@ -1,0 +1,70 @@
+{{- if not (isAbs .Values.server.dbPath) }}
+{{- fail "server.dbPath must be an absolute path; its directory is the PVC mount point" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mltk.fullname" . }}
+  labels:
+    {{- include "mltk.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # SQLite on a ReadWriteOnce PVC: never run the old and new pod at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "mltk.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mltk.selectorLabels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mltk-server
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - server
+            - --host
+            - {{ .Values.server.host | quote }}
+            - --port
+            - {{ .Values.server.port | quote }}
+            - --db
+            - {{ .Values.server.dbPath | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+          env:
+            - name: MLTK_DB_PATH
+              value: {{ .Values.server.dbPath | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ dir .Values.server.dbPath | quote }}
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "mltk.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

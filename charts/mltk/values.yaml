@@ -1,0 +1,54 @@
+# SQLite supports a single writer. replicaCount > 1 is unsupported.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/liorrr/mltk
+  # Empty means "v" + Chart.appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Run the pod as the unprivileged image user and use the default seccomp profile.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+# Prevent privilege escalation and remove all Linux capabilities.
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+# ENTRYPOINT is `mltk`; args become `mltk server --host ...`
+server:
+  host: 0.0.0.0
+  port: 8080
+  dbPath: /data/mltk_server.db
+
+service:
+  type: ClusterIP
+  port: 8080
+
+persistence:
+  enabled: true
+  size: 1Gi
+  accessMode: ReadWriteOnce
+  storageClassName: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

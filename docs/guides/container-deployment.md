@@ -133,3 +133,38 @@ docker run --rm liorrr/mltk:full trivy --version
 ```
 
 Expected output begins with `Version: 0.60.0`.
+
+## 7. Helm chart
+
+A chart lives at `charts/mltk`. It deploys `mltk server` with SQLite on a
+PVC. Health probes hit `/api/health/live` and `/api/health/ready`.
+
+```bash
+helm install mltk charts/mltk --set image.tag=v0.13.0
+```
+
+`replicaCount` defaults to `1` (SQLite single writer). Ingress is off
+until you set `ingress.enabled=true`.
+
+KinD is **not** a CI job. To smoke-test locally:
+
+```bash
+export MLTK_KIND_SMOKE=1
+python charts/mltk/kind_smoke.py
+```
+
+The script waits until the Deployment is Available (the readiness probe on
+`/api/health/ready` has passed). Its install timeout defaults to 15 minutes;
+set `MLTK_KIND_SMOKE_TIMEOUT` to override it. For repeated runs, pull the
+image once; the script then copies it into each fresh KinD node instead of
+pulling it in-cluster:
+
+```bash
+docker pull ghcr.io/liorrr/mltk:v0.13.0
+MLTK_KIND_SMOKE=1 MLTK_KIND_SMOKE_PRELOAD=ghcr.io/liorrr/mltk:v0.13.0 python charts/mltk/kind_smoke.py
+```
+
+The preloaded tag must match the chart's default image (`v` + the chart's
+`appVersion`), or the pod pulls the image anyway.
+
+See `charts/mltk/README.md` for details.
