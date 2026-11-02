@@ -74,11 +74,6 @@ a report.
 The agent calls `mltk_scan`, `mltk_test`, and `mltk_report` in sequence —
 no additional instructions needed.
 
-!!! tip "Zero-install with uvx"
-    If you have `uv` installed, use `uvx mltk-mcp` as the command instead
-    of `python -m mltk.mcp`. No `pip install` required — `uvx` downloads
-    and caches the package on first use.
-
 ---
 
 ## Setup

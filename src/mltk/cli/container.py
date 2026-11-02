@@ -114,8 +114,10 @@ def container_scan(
     except MltkAssertionError as exc:
         results.append(exc.result)
     except Exception as exc:  # noqa: BLE001
+        # markup=False: the message can contain "mlspec[container]", which
+        # Rich would otherwise read as a style tag and drop.
         console.print(
-            f"[red]Vulnerability scan error: {exc}[/red]"
+            f"Vulnerability scan error: {exc}", style="red", markup=False
         )
         raise typer.Exit(2) from exc
 
@@ -126,7 +128,7 @@ def container_scan(
         results.append(exc.result)
     except Exception as exc:  # noqa: BLE001
         console.print(
-            f"[red]Secret scan error: {exc}[/red]"
+            f"Secret scan error: {exc}", style="red", markup=False
         )
         raise typer.Exit(2) from exc
 

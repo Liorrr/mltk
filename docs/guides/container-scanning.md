@@ -9,7 +9,7 @@ exceeded.
 ## Installation
 
 ```bash
-pip install mlspec[container]
+pip install "mlspec[container,cli]"   # cli provides the mltk command
 ```
 
 !!! info "Trivy binary"
@@ -76,7 +76,7 @@ CI systems need to fail a build.
 container_scan:
   image: python:3.11-slim
   script:
-    - pip install mlspec[container]
+    - pip install "mlspec[container,cli]"
     - mltk container scan $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --max-critical 0 --junit-xml scan.xml
   artifacts:
     when: always
@@ -141,7 +141,7 @@ format. This lets you alert on "a new CRITICAL vulnerability appeared in a
 deployed image" without waiting for the next CI run.
 
 ```bash
-pip install mlspec[metrics]
+pip install "mlspec[server,cli,metrics]"
 mltk server  # exposes /metrics on the server port
 ```
 
