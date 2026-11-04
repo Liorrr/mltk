@@ -19,9 +19,14 @@ from mltk.core.result import TestResult
 
 
 def _json_details(raw_details: object) -> dict[str, object]:
-    """Convert assertion details to JSON-compatible values."""
+    """Convert assertion details to strict-JSON-compatible values.
+
+    Non-JSON types become ``str``; NaN and +/-Infinity become the strings
+    ``"NaN"`` / ``"Infinity"`` / ``"-Infinity"``, because bare ``NaN`` is not
+    valid JSON and strict parsers reject the whole export file.
+    """
     try:
-        return json.loads(json.dumps(raw_details or {}, default=str))
+        return json.loads(json.dumps(raw_details or {}, default=str), parse_constant=str)
     except Exception:  # noqa: BLE001
         return {}
 

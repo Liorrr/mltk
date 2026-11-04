@@ -434,11 +434,14 @@ class LLMJudgeScorer(Scorer):
     def _parse_score(text: str) -> float:
         """Extract numeric score from judge response text.
 
-        Looks for the first number in the string, optionally
-        followed by ``/N`` (e.g., ``"3.5/5"`` -> ``3.5``).
+        Uses :func:`mltk.core.judge_parse.parse_judge_score`: when the
+        whole reply is a JSON object with a ``"score"`` key, that key is
+        authoritative; otherwise the first number in the text is used
+        (``"3.5/5"`` -> ``3.5``).
 
         Raises:
-            ValueError: If no numeric score is found.
+            ValueError: If no usable score is found (no number, or a JSON
+                ``score`` that is null or non-numeric).
         """
         parsed = parse_judge_score(text)
         if parsed is not None:

@@ -426,3 +426,33 @@ def test_html_error_prints_warning_without_propagating(
     pytest_sessionfinish(session, 0)
 
     assert "HTML report failed: disk full" in "\n".join(reporter._tw.lines)
+
+
+def test_non_finite_details_export_as_strict_json() -> None:
+    """NaN/Infinity in details must not make the export invalid JSON.
+
+    WHY: passing assertions are exported now, and some pass with non-finite
+    details (e.g. a divergence ratio of NaN). Bare ``NaN`` breaks strict JSON
+    parsers such as JavaScript's ``JSON.parse``, failing the whole file.
+    """
+    from mltk.core.result import Severity, TestResult
+
+    result = TestResult(
+        name="ratio.check",
+        passed=True,
+        severity=Severity.INFO,
+        message="ok",
+        details={"ratio": float("nan"), "hi": float("inf"), "lo": float("-inf")},
+    )
+    collector = MltkReportCollector()
+    collector.add("tests::t", "passed", 0.1, ml_result=None, ml_results=[result])
+    collector.add("tests::f", "failed", 0.1, ml_result=result, ml_results=[result])
+
+    records = collector.to_json_records()
+    json.dumps(records, allow_nan=False)  # raises ValueError on bare NaN/Infinity
+    assert records[0]["assertions"][0]["details"] == {
+        "ratio": "NaN",
+        "hi": "Infinity",
+        "lo": "-Infinity",
+    }
+    assert records[1]["details"]["ratio"] == "NaN"
