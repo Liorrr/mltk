@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-11-02 by scripts/generate_skill_index.py
+> Generated 2026-11-04 by scripts/generate_skill_index.py
 
 **244** assertions | **13** MCP tools | **20 top-level + 5 groups** CLI | **8** scanners
 
@@ -53,7 +53,7 @@ def assert_sr_11_7_coverage(results: list[dict], min_coverage: float=0.8)
 
 ### core
 
-**`assert_true`** (core/assertion.py:20)
+**`assert_true`** (core/assertion.py:21)
 ```python
 def assert_true(condition: bool, name: str, message: str, severity: Severity=Severity.CRITICAL, **details: Any)
 ```
@@ -553,13 +553,13 @@ def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:366)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:337)
 ```python
 def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None)
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:232)
+**`assert_llm_judge_score`** (domains/llm/judge.py:203)
 ```python
 def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None)
 ```
@@ -863,25 +863,25 @@ def assert_semantic_equivalence(text_a: str, text_b: str, method: str='nli', min
 
 ### llm.red_team
 
-**`assert_encoding_mutation_resilience`** (domains/llm/red_team/assertions.py:538)
+**`assert_encoding_mutation_resilience`** (domains/llm/red_team/assertions.py:510)
 ```python
 def assert_encoding_mutation_resilience(model_fn: Callable[[str], str], payloads: list[AttackPayload] | None=None, techniques: list[MutationTechnique] | None=None, threshold: float=0.9, *, on_error: OnError='fail_if_all')
 ```
 > Assert model resists encoded variants of attacks.
 
-**`assert_no_session_jailbreak`** (domains/llm/red_team/assertions.py:346)
+**`assert_no_session_jailbreak`** (domains/llm/red_team/assertions.py:318)
 ```python
 def assert_no_session_jailbreak(model_fn: Callable[[str], str], messages: list[str], threshold: float=1.0, *, on_error: OnError='fail_if_all')
 ```
 > Assert model is not jailbroken by a multi-turn sequence.
 
-**`assert_owasp_llm_coverage`** (domains/llm/red_team/assertions.py:464)
+**`assert_owasp_llm_coverage`** (domains/llm/red_team/assertions.py:436)
 ```python
 def assert_owasp_llm_coverage(categories: list[AttackCategory], min_categories: int=5)
 ```
 > Assert test suite covers enough OWASP LLM categories.
 
-**`assert_red_team_resilient`** (domains/llm/red_team/assertions.py:176)
+**`assert_red_team_resilient`** (domains/llm/red_team/assertions.py:148)
 ```python
 def assert_red_team_resilient(model_fn: Callable[[str], str], categories: list[AttackCategory] | None=None, threshold: float=0.8, llm_attacker: Callable[[str], str] | None=None, purpose: str='general-purpose', custom_payloads: list[AttackPayload] | None=None, *, on_error: OnError='fail_if_all')
 ```
@@ -1201,7 +1201,7 @@ def assert_ner_f1(y_true_entities: list[list[tuple[str, int, int]]], y_pred_enti
 ```
 > Assert entity-level F1 score meets threshold.
 
-**`assert_no_prompt_injection`** (domains/nlp/security.py:323)
+**`assert_no_prompt_injection`** (domains/nlp/security.py:329)
 ```python
 def assert_no_prompt_injection(model_fn: Callable[..., Any], payloads: list[str] | list[dict[str, str]] | None=None, forbidden_patterns: list[str] | None=None, *, on_error: OnError='fail_if_all')
 ```
@@ -1559,7 +1559,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | model_mode | `str` | `'passthrough'` |
 | model_ref | `str` | `''` |
 
-### `mltk_dataset` (server.py:705)
+### `mltk_dataset` (server.py:706)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1568,7 +1568,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:758)
+### `mltk_report` (server.py:759)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1578,7 +1578,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:831)
+### `mltk_suggest` (server.py:832)
 
 > Get fix suggestions already attached to a finding JSON.
 
@@ -1588,7 +1588,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:918)
+### `mltk_experiment` (server.py:919)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1599,13 +1599,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:1067)
+### `mltk_workflow` (server.py:1068)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:1117)
+### `mltk_create_pr` (server.py:1118)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1617,7 +1617,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:1160)
+### `mltk_create_issue` (server.py:1161)
 
 > Create an issue ticket from a scan finding.
 
@@ -1629,7 +1629,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:1199)
+### `mltk_container_scan` (server.py:1200)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1639,7 +1639,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
 
-### `mltk_import` (server.py:1259)
+### `mltk_import` (server.py:1260)
 
 > Import a dataset into an mltk pytest suite and eval dataset.
 
@@ -1671,8 +1671,8 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 |---|---------|------|-------------|
 | 1 | `mltk chat` | 676 | Interactive Q&A about test results. |
 | 2 | `mltk compliance` | 321 | Generate EU AI Act compliance report. |
-| 3 | `mltk compliance-gap` | 804 | Run compliance gap analysis across frameworks. |
-| 4 | `mltk compliance-pdf` | 788 | Convert HTML compliance report to print-ready PDF. |
+| 3 | `mltk compliance-gap` | 810 | Run compliance gap analysis across frameworks. |
+| 4 | `mltk compliance-pdf` | 794 | Convert HTML compliance report to print-ready PDF. |
 | 5 | `mltk container scan` | 33 | Scan a container image for vulnerabilities and secrets. |
 | 6 | `mltk contract generate-tests` | 405 | Generate pytest test file from a data contract. |
 | 7 | `mltk contract init` | 356 | Scaffold an example data contract YAML file. |
@@ -1682,22 +1682,22 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | 11 | `mltk docs serve` | 426 | Serve documentation locally with hot reload. |
 | 12 | `mltk doctor` | 208 | Diagnose ML testing environment. |
 | 13 | `mltk drift` | 123 | Compare two datasets for distribution drift. |
-| 14 | `mltk fda-audit` | 765 | Generate FDA 21 CFR Part 11 audit trail. |
-| 15 | `mltk grafana-export` | 1013 | Export a Grafana dashboard JSON for mltk metrics. |
+| 14 | `mltk fda-audit` | 771 | Generate FDA 21 CFR Part 11 audit trail. |
+| 15 | `mltk grafana-export` | 1019 | Export a Grafana dashboard JSON for mltk metrics. |
 | 16 | `mltk import` | 673 | Import a dataset, preview mapping, build a suite, and emit pytest. |
 | 17 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
-| 18 | `mltk list` | 1225 | List all available mltk assertions. |
+| 18 | `mltk list` | 1231 | List all available mltk assertions. |
 | 19 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
 | 20 | `mltk notify slack` | 601 | Send test results (or a custom message) to Slack. |
 | 21 | `mltk registry list` | 579 | List all collections in the registry. |
 | 22 | `mltk registry pull` | 564 | Pull a named collection from the registry into a local directory. |
 | 23 | `mltk registry push` | 543 | Push a directory of test files to the registry as a named collection. |
 | 24 | `mltk scan` | 80 | Quick data quality scan on a CSV/Parquet file. |
-| 25 | `mltk scan-model` | 1038 | Scan a model for issues and generate tests. |
+| 25 | `mltk scan-model` | 1044 | Scan a model for issues and generate tests. |
 | 26 | `mltk score` | 191 | Show the ML Test Score rubric and how to generate scores. |
 | 27 | `mltk server` | 688 | Start the mltk server platform. |
-| 28 | `mltk server-backup` | 736 | Back up the server database (safe while the server is running). |
-| 29 | `mltk server-create-key` | 709 | Generate an API key for the mltk server. |
+| 28 | `mltk server-backup` | 740 | Back up the server database (safe while the server is running). |
+| 29 | `mltk server-create-key` | 711 | Generate an API key for the mltk server. |
 | 30 | `mltk test` | 249 | Run YAML-defined test suite. |
 | 31 | `mltk version` | 35 | Show mltk version. |
 
@@ -1893,7 +1893,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | sample_count | `int` |  |
 | card | `DatasetCard` |  |
 
-### `EvalTask` (eval/task.py:92)
+### `EvalTask` (eval/task.py:94)
 > Composable evaluation task.
 
 *(no dataclass fields)*

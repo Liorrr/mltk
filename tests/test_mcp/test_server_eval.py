@@ -39,6 +39,7 @@ def _make_eval_result(
     r.metrics = metrics or {"accuracy": 0.95}
     r.total_samples = total_samples
     r.duration_ms = duration_ms
+    r.errors = {}
     return r
 
 

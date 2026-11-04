@@ -24,9 +24,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.error_policy import (
+    RED_TEAM_ON_ERROR,
+    RedTeamOnError,
+    apply_error_policy,
+    unknown_on_error_result,
+)
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm.red_team._grading import (
     _check_compromised,
@@ -41,56 +46,23 @@ from mltk.domains.llm.red_team.mutations import (
     mutate_payloads,
 )
 
-OnError = Literal["fail_if_all", "strict", "resist"]
-_VALID_ON_ERROR = {"fail_if_all", "strict", "resist"}
+OnError = RedTeamOnError
+_VALID_ON_ERROR = set(RED_TEAM_ON_ERROR)
 
 
 def _validate_on_error(on_error: str) -> TestResult | None:
     if on_error not in _VALID_ON_ERROR:
-        return assert_true(
-            False,
-            name="llm.red_team.error_policy",
-            message=f"Unknown on_error '{on_error}'. Valid values: "
-            "fail_if_all, strict, resist",
-            severity=Severity.CRITICAL,
+        return unknown_on_error_result(
+            "llm.red_team.error_policy",
+            on_error,
+            RED_TEAM_ON_ERROR,
             errored_count=0,
             error_rate=0.0,
         )
     return None
 
 
-def _apply_error_policy(
-    passed: bool,
-    message: str,
-    on_error: str,
-    errored_count: int,
-    total: int,
-) -> tuple[bool, str]:
-    """Apply *on_error* to a score-based verdict and its message.
-
-    Args:
-        passed: Verdict from the score alone (errors not considered).
-        message: Message matching that score-based verdict.
-        on_error: ``fail_if_all``, ``strict`` or ``resist``.
-        errored_count: Model calls that raised.
-        total: Model calls attempted.
-
-    Returns:
-        ``(passed, message)`` after the policy.  When errors cause the
-        failure, the message leads with the error reason.
-    """
-    if on_error == "strict" and errored_count:
-        reason = (
-            f"{errored_count}/{total} model calls raised "
-            "(on_error='strict')"
-        )
-    elif on_error == "fail_if_all" and total > 0 and errored_count == total:
-        reason = f"all {total} model calls raised — endpoint unreachable?"
-    else:
-        if errored_count:
-            message += f" ({errored_count}/{total} calls errored)"
-        return passed, message
-    return False, f"{reason}; {message}"
+_apply_error_policy = apply_error_policy
 
 
 @dataclass

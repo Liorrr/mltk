@@ -2,9 +2,57 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+_MAX_VALUE_CHARS = 120
+_MAX_DETAIL_KEYS = 20
+_MAX_ASSERTIONS = 50
+
+
+def _truncate(value: str) -> str:
+    """Limit a rendered value to the report's maximum display length."""
+    if len(value) > _MAX_VALUE_CHARS:
+        return f"{value[:_MAX_VALUE_CHARS - 1]}…"
+    return value
+
+
+def _format_detail_value(value: Any) -> str:
+    """Format a detail value without inventing or deriving report data."""
+    if isinstance(value, (dict, list)):
+        value = json.dumps(value, default=str)
+    else:
+        value = str(value)
+    return _truncate(value)
+
+
+def _assertions_for_record(record: dict[str, Any]) -> list[Any]:
+    """Return assertion objects using the current and legacy record contracts."""
+    if "ml_results" in record:
+        return list(record.get("ml_results") or [])
+    ml_result = record.get("ml_result")
+    return [ml_result] if ml_result is not None else []
+
+
+def _prepare_assertions(record: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    """Prepare bounded assertion data for the HTML template."""
+    assertions = _assertions_for_record(record)
+    prepared: list[dict[str, Any]] = []
+    for assertion in assertions[:_MAX_ASSERTIONS]:
+        details = getattr(assertion, "details", {}) or {}
+        detail_items = [
+            {"key": _truncate(str(key)), "value": _format_detail_value(value)}
+            for key, value in list(details.items())[:_MAX_DETAIL_KEYS]
+        ]
+        prepared.append({
+            "name": str(getattr(assertion, "name", "")),
+            "passed": bool(getattr(assertion, "passed", False)),
+            "details": detail_items,
+            "details_more": max(len(details) - _MAX_DETAIL_KEYS, 0),
+        })
+    return prepared, max(len(assertions) - _MAX_ASSERTIONS, 0)
 
 
 def generate_report(
@@ -36,7 +84,7 @@ def generate_report(
 
     # Load template
     template_path = Path(__file__).parent / "templates" / "report.html.j2"
-    template = Template(template_path.read_text(encoding="utf-8"))
+    template = Template(template_path.read_text(encoding="utf-8"), autoescape=True)
 
     # Compute summary stats
     total = len(results)
@@ -74,11 +122,14 @@ def generate_report(
         message = ""
         if ml_result and hasattr(ml_result, "message"):
             message = ml_result.message
+        assertions, assertions_more = _prepare_assertions(r)
         flat_results.append({
             "nodeid": r.get("nodeid", ""),
             "outcome": r.get("outcome", "unknown"),
             "duration": r.get("duration", 0),
             "message": message,
+            "assertions": assertions,
+            "assertions_more": assertions_more,
         })
 
     # Compute chart data for pure CSS/SVG charts (no external deps)

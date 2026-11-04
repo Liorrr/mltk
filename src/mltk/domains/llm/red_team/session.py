@@ -16,8 +16,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
 
+from mltk.core.error_policy import RED_TEAM_ON_ERROR, RedTeamOnError
 from mltk.domains.llm.red_team._grading import (
     _check_compromised,
 )
@@ -34,7 +34,7 @@ class ChainCategory(Enum):
     CONTEXT_POISONING = "context_poisoning"
 
 
-OnError = Literal["fail_if_all", "strict", "resist"]
+OnError = RedTeamOnError
 
 
 @dataclass
@@ -285,7 +285,7 @@ class RedTeamSession:
             >>> result.compromised
             False
         """
-        if on_error not in {"fail_if_all", "strict", "resist"}:
+        if on_error not in RED_TEAM_ON_ERROR:
             raise ValueError(
                 "Unknown on_error. Valid values: fail_if_all, strict, resist"
             )

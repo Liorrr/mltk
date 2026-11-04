@@ -68,6 +68,7 @@ from __future__ import annotations
 
 import csv
 import json
+import numbers
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -81,6 +82,7 @@ from mltk.eval._types import (
 )
 
 if TYPE_CHECKING:
+    from mltk.core.error_policy import EvalOnError
     from mltk.core.result import TestResult
     from mltk.eval.dataset import EvalDataset
     from mltk.eval.scorers import Scorer
@@ -199,7 +201,7 @@ class EvalTask:
 
         5. Compute aggregated metrics per scorer.
 
-        Scorer errors are caught and recorded as zero-score
+        Scorer errors are caught and recorded as errored zero-score
         results with an error explanation -- a single bad
         scorer does not crash the entire evaluation.
 
@@ -237,6 +239,7 @@ class EvalTask:
                 except Exception as exc:
                     score = Score(
                         value=0.0,
+                        errored=True,
                         explanation=(
                             f"Scorer error: {exc}"
                         ),
@@ -246,6 +249,17 @@ class EvalTask:
 
         # 5. Aggregate metrics
         metrics = self._aggregate_metrics(all_scores)
+        errors = {
+            name: {
+                "errored": sum(score.errored for score in scores),
+                "n_valid": sum(not score.errored for score in scores),
+                "error_rate": round(
+                    sum(score.errored for score in scores) / len(scores), 4
+                ),
+            }
+            for name, scores in all_scores.items()
+            if scores
+        }
 
         elapsed_ms = (time.perf_counter() - start) * 1000
 
@@ -255,11 +269,14 @@ class EvalTask:
             scores=all_scores,
             metrics=metrics,
             duration_ms=round(elapsed_ms, 2),
+            errors=errors,
         )
 
     def _aggregate_metrics(
         self,
         all_scores: dict[str, list[Score]],
+        *,
+        include_errored: bool = False,
     ) -> dict[str, float]:
         """Compute metrics for each scorer.
 
@@ -286,7 +303,9 @@ class EvalTask:
             if not scores:
                 continue
 
-            values = [s.value for s in scores]
+            values = [s.value for s in scores if include_errored or not s.errored]
+            if not values:
+                continue
 
             # accuracy: fraction scoring >= 0.5
             passing = sum(
@@ -309,6 +328,9 @@ class EvalTask:
         self,
         model_fn: Callable[[str], str],
         min_accuracy: float = 0.8,
+        *,
+        on_error: EvalOnError = "fail_if_all",
+        min_valid_fraction: float | None = None,
     ) -> TestResult:
         """Run evaluation and convert to mltk TestResult.
 
@@ -328,29 +350,80 @@ class EvalTask:
                 model and returns the response string.
             min_accuracy: Minimum accuracy threshold for
                 any scorer. Default 0.8 (80%).
+            on_error: ``"fail_if_all"`` fails only when every sample for a
+                scorer errored, ``"strict"`` fails on any error, and
+                ``"zero"`` includes errored zero values in the gate.
+            min_valid_fraction: Optional minimum fraction of valid samples,
+                enforced under every error policy.
 
         Returns:
             TestResult with pass/fail based on whether all
             accuracy metrics meet the threshold.
 
         Raises:
-            MltkAssertionError: If any scorer accuracy is
-                below ``min_accuracy`` (via assert_true).
+            MltkAssertionError: If a policy or accuracy gate fails, or if
+                ``on_error`` is unknown.
+            ValueError: If ``min_valid_fraction`` is not in ``(0, 1]``.
         """
         from mltk.core.assertion import assert_true
+        from mltk.core.error_policy import (
+            EVAL_ON_ERROR,
+            error_policy_verdict,
+            unknown_on_error_result,
+        )
         from mltk.core.result import Severity
+
+        if on_error not in EVAL_ON_ERROR:
+            return unknown_on_error_result(
+                f"eval.task.{self.name}", on_error, EVAL_ON_ERROR
+            )
+        if isinstance(min_valid_fraction, bool) or (
+            min_valid_fraction is not None
+            and (not isinstance(min_valid_fraction, numbers.Real)
+                 or not 0 < min_valid_fraction <= 1)
+        ):
+            raise ValueError("min_valid_fraction must be a real number in (0, 1]")
 
         eval_result = self.run(model_fn)
 
-        # Check if all accuracy metrics meet threshold
+        gate_metrics = eval_result.metrics
+        if on_error == "zero":
+            gate_metrics = self._aggregate_metrics(
+                eval_result.scores, include_errored=True
+            )
         accuracies = {
             k: v
-            for k, v in eval_result.metrics.items()
+            for k, v in gate_metrics.items()
             if k.endswith("/accuracy")
         }
-
-        all_pass = all(
-            v >= min_accuracy for v in accuracies.values()
+        error_failures: list[str] = []
+        for scorer_name, info in eval_result.errors.items():
+            verdict = error_policy_verdict(
+                on_error, int(info["errored"]), int(info["errored"] + info["n_valid"])
+            )
+            fraction = info["n_valid"] / (info["errored"] + info["n_valid"])
+            if verdict == "all_errored":
+                error_failures.append(
+                    f"{scorer_name}: all {int(info['errored']) + int(info['n_valid'])} "
+                    "samples errored (on_error='fail_if_all')"
+                )
+            elif verdict == "strict":
+                error_failures.append(
+                    f"{scorer_name}: {int(info['errored'])}/"
+                    f"{int(info['errored']) + int(info['n_valid'])} samples errored "
+                    "(on_error='strict')"
+                )
+            if min_valid_fraction is not None and fraction < min_valid_fraction:
+                error_failures.append(
+                    f"{scorer_name}: valid fraction {fraction:.4f} below "
+                    f"min_valid_fraction {min_valid_fraction:.4f}"
+                )
+        accuracy_failures = [
+            f"{k}={v:.4f}" for k, v in accuracies.items() if v < min_accuracy
+        ]
+        all_pass = not error_failures and not accuracy_failures
+        total_errored = sum(
+            int(info["errored"]) for info in eval_result.errors.values()
         )
 
         if all_pass:
@@ -358,15 +431,17 @@ class EvalTask:
                 f"Eval '{self.name}': all scorers above "
                 f"{min_accuracy:.0%} accuracy"
             )
+            if total_errored:
+                treatment = "scored 0.0" if on_error == "zero" else "excluded"
+                msg += f" ({total_errored} errored samples {treatment})"
+        elif error_failures:
+            reasons = list(error_failures)
+            if accuracy_failures:
+                reasons.append("below threshold: " + ", ".join(accuracy_failures))
+            msg = f"Eval '{self.name}': " + "; ".join(reasons)
         else:
-            failures = [
-                f"{k}={v:.4f}"
-                for k, v in accuracies.items()
-                if v < min_accuracy
-            ]
-            msg = (
-                f"Eval '{self.name}' below threshold: "
-                + ", ".join(failures)
+            msg = f"Eval '{self.name}' below threshold: " + ", ".join(
+                accuracy_failures
             )
 
         return assert_true(
@@ -374,9 +449,12 @@ class EvalTask:
             name=f"eval.task.{self.name}",
             message=msg,
             severity=Severity.CRITICAL,
-            metrics=eval_result.metrics,
+            metrics=gate_metrics,
             total_samples=eval_result.total_samples,
             duration_ms=eval_result.duration_ms,
+            errors=eval_result.errors,
+            on_error=on_error,
+            min_valid_fraction=min_valid_fraction,
         )
 
     def __repr__(self) -> str:

@@ -687,6 +687,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             )
             return _ok(_with_hint("mltk_eval", {
                 "metrics": result.metrics,
+                "errors": result.errors,
                 "sample_count": result.total_samples,
                 "duration_ms": result.duration_ms,
                 "solver": sk, "scorer": rk,

@@ -296,6 +296,11 @@ class TestEvalTaskRun:
         # Should not raise — error caught internally
         result = task.run(fixed_model)
         assert isinstance(result, EvalResult)
+        assert result.errors["BadScorer"]["n_valid"] == 0
+        assert result.errors["BadScorer"]["errored"] == len(_matching_dataset())
+        assert "BadScorer/accuracy" not in result.metrics
+        assert result.passed is False
+        assert all(score.errored for score in result.scores["BadScorer"])
 
 
 # ===============================================================

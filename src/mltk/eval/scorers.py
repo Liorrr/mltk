@@ -23,10 +23,12 @@ a callable, keeping provider, cost, and latency under their control.
 
 from __future__ import annotations
 
+import math
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
+from mltk.core.judge_parse import parse_judge_score
 from mltk.eval._types import EvalState, Score
 
 __all__ = [
@@ -311,9 +313,6 @@ class PatternScorer(Scorer):
 # LLMJudgeScorer
 # -------------------------------------------------------------------
 
-_SCORE_PATTERN = re.compile(r"(\d+(?:\.\d+)?)\s*(?:/\s*\d+)?")
-
-
 class LLMJudgeScorer(Scorer):
     """Score using an LLM judge function.
 
@@ -326,8 +325,8 @@ class LLMJudgeScorer(Scorer):
     the LLM call.  This means the scorer works with any provider:
     OpenAI, Anthropic, local Ollama, vLLM, or a custom wrapper.
 
-    If the judge raises an exception, the scorer returns 0.0 with the
-    error captured in ``Score.metadata["error"]``.
+    Judge failures return an errored zero score with the error captured in
+    ``Score.metadata["error"]``.
 
     Args:
         judge_fn: Callable that takes a prompt string and returns a
@@ -381,8 +380,17 @@ class LLMJudgeScorer(Scorer):
         except Exception as exc:
             return Score(
                 value=0.0,
+                errored=True,
                 explanation=f"Judge error: {exc}",
                 metadata={"error": str(exc)},
+            )
+
+        if not math.isfinite(score_val):
+            return Score(
+                value=0.0,
+                errored=True,
+                explanation=f"Judge error: non-finite score {score_val}",
+                metadata={"error": f"non-finite score: {score_val}"},
             )
 
         # Normalize to [0.0, 1.0]
@@ -432,9 +440,9 @@ class LLMJudgeScorer(Scorer):
         Raises:
             ValueError: If no numeric score is found.
         """
-        match = _SCORE_PATTERN.search(text)
-        if match:
-            return float(match.group(1))
+        parsed = parse_judge_score(text)
+        if parsed is not None:
+            return parsed
         raise ValueError(
             f"Could not parse numeric score from: "
             f"{text[:80]}"

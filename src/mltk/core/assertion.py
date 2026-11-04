@@ -6,6 +6,7 @@ import functools
 import time
 from typing import Any
 
+from mltk.core.recorder import record
 from mltk.core.result import Severity, TestResult
 
 
@@ -46,6 +47,7 @@ def assert_true(
         message=message,
         details=details,
     )
+    record(result)
     if not condition and severity == Severity.CRITICAL:
         raise MltkAssertionError(result)
     return result

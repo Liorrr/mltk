@@ -442,6 +442,9 @@ imported, since importing executes the target's top-level code.
     "ExactMatchScorer/passed_samples": 41,
     "ExactMatchScorer/total_samples": 50
   },
+  "errors": {
+    "ExactMatchScorer": {"errored": 0, "n_valid": 50, "error_rate": 0.0}
+  },
   "solver": "chain_of_thought",
   "scorer": "exact_match",
   "dataset_path": "data/qa_eval.csv",
