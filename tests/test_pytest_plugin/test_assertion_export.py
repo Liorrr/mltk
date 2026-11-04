@@ -246,8 +246,21 @@ async def test_three(shared):
 def test_nested_session_without_export_does_not_drain_outer_recording(
     tmp_path: Path,
 ) -> None:
+    # The inner session records nothing itself, and its own assertions (one
+    # passing, one caught) must not leak into the outer test either.
     inner_dir = tmp_path / "inner"
+    inner_dir.mkdir()
     inner_file = inner_dir / "test_inner.py"
+    inner_file.write_text(
+        "import pytest\n"
+        "from mltk.core.assertion import MltkAssertionError, assert_true\n"
+        "\n"
+        "def test_inner():\n"
+        "    assert_true(True, 'inner.pass', 'ok')\n"
+        "    with pytest.raises(MltkAssertionError):\n"
+        "        assert_true(False, 'inner.caught', 'boom')\n",
+        encoding="utf-8",
+    )
     source = f"""
 from pathlib import Path
 
@@ -257,8 +270,6 @@ from mltk.core.assertion import assert_true
 
 def test_outer():
     inner_file = Path({str(inner_file)!r})
-    inner_file.parent.mkdir()
-    inner_file.write_text("def test_inner(): pass\\n")
     assert_true(True, "outer.before", "before")
     assert pytest.main([str(inner_file), "-q", "-p", "no:cacheprovider"]) == 0
     assert_true(True, "outer.after", "after")
@@ -271,11 +282,17 @@ def test_outer():
     ]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires ExceptionGroup")
 def test_exception_group_critical_failures_are_not_caught(tmp_path: Path) -> None:
+    if sys.version_info < (3, 11):
+        pytest.importorskip("exceptiongroup")  # pytest's own backport on 3.10
     records = _exported(
         tmp_path,
         """
+try:
+    ExceptionGroup
+except NameError:  # Python 3.10: the backport pytest depends on
+    from exceptiongroup import ExceptionGroup
+
 from mltk.core.assertion import MltkAssertionError, assert_true
 
 def test_group():
@@ -562,3 +579,32 @@ def test_non_finite_details_export_as_strict_json() -> None:
         "lo": "-Infinity",
     }
     assert records[1]["details"]["ratio"] == "NaN"
+
+
+def test_foreign_result_attribute_is_not_an_assertion(tmp_path: Path) -> None:
+    """An exception whose ``result`` is not a TestResult adds no assertion entry.
+
+    WHY: other libraries' exceptions (or ones with ``result = None``) carry a
+    ``result`` attribute too; exporting it produced a nameless FAIL entry.
+    """
+    records = _exported(
+        tmp_path,
+        """
+class ForeignError(Exception):
+    def __init__(self, result):
+        super().__init__("foreign")
+        self.result = result
+
+def test_none_result():
+    raise ForeignError(None)
+
+def test_object_result():
+    raise ForeignError(object())
+""",
+        returncode=1,
+    )
+    for name in ("test_none_result", "test_object_result"):
+        record = _record_for(records, name)
+        assert record["passed"] is False
+        assert record["assertions"] == []
+        assert record["message"] == ""

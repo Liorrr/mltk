@@ -41,9 +41,14 @@ def _severity_string(raw_severity: object) -> str:
 
 
 def _raised_results(exc: BaseException) -> list[TestResult]:
-    """Extract assertion results from an exception or nested exception group."""
-    if hasattr(exc, "result"):
-        return [exc.result]
+    """Extract assertion results from an exception or nested exception group.
+
+    Only an actual :class:`TestResult` counts: other libraries' exceptions may
+    carry an unrelated (or ``None``) ``result`` attribute.
+    """
+    result = getattr(exc, "result", None)
+    if isinstance(result, TestResult):
+        return [result]
 
     group_types: list[type[BaseException]] = []
     native_group = getattr(builtins, "BaseExceptionGroup", None)
@@ -243,12 +248,15 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]
         config.getoption("--mltk-export-json", default=None)
         or config.getoption("--mltk-report", default=False)
     )
-    if config._mltk_recording_enabled:
-        config._mltk_recorder_token = recorder.arm()
+    # A non-recording session suspends recording, so when it runs nested inside
+    # a recording test (pytester, pytest.main) its results stay out of that test.
+    config._mltk_recorder_token = (
+        recorder.arm() if config._mltk_recording_enabled else recorder.suspend()
+    )
 
 
 def pytest_unconfigure(config):  # type: ignore[no-untyped-def]
-    """Disarm the session recorder when pytest shuts down."""
+    """Restore the recorder state from before this session started."""
     token = getattr(config, "_mltk_recorder_token", None)
     if token is not None:
         try:

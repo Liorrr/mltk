@@ -34,6 +34,15 @@ def arm() -> contextvars.Token[list[TestResult] | None]:
     return _current.set([])
 
 
+def suspend() -> contextvars.Token[list[TestResult] | None]:
+    """Stop recording until the returned token is passed to :func:`disarm`.
+
+    A pytest session that does not record calls this, so a session nested
+    inside a recording test does not add its own results to the outer test.
+    """
+    return _current.set(None)
+
+
 def disarm(token: contextvars.Token[list[TestResult] | None]) -> None:
     """Stop recording and restore the previous context-local state."""
     _current.reset(token)
