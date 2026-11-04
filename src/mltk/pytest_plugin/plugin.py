@@ -6,7 +6,9 @@ for generating test summaries, plus --mltk-export-json for JSON export.
 
 from __future__ import annotations
 
+import builtins
 import json
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -38,6 +40,28 @@ def _severity_string(raw_severity: object) -> str:
     return str(raw_severity)
 
 
+def _raised_results(exc: BaseException) -> list[TestResult]:
+    """Extract assertion results from an exception or nested exception group."""
+    if hasattr(exc, "result"):
+        return [exc.result]
+
+    group_types: list[type[BaseException]] = []
+    native_group = getattr(builtins, "BaseExceptionGroup", None)
+    if native_group is not None:
+        group_types.append(native_group)
+    backport = sys.modules.get("exceptiongroup")
+    backport_group = getattr(backport, "BaseExceptionGroup", None)
+    if backport_group is not None:
+        group_types.append(backport_group)
+
+    if isinstance(exc, tuple(group_types)):
+        raised: list[TestResult] = []
+        for child in exc.exceptions:
+            raised.extend(_raised_results(child))
+        return raised
+    return []
+
+
 @dataclass
 class MltkReportCollector:
     """Collects test results during a pytest session."""
@@ -49,6 +73,7 @@ class MltkReportCollector:
         self, nodeid: str, outcome: str, duration: float,
         ml_result: TestResult | None = None, *,
         ml_results: list[TestResult] | None = None,
+        raised: list[TestResult] | None = None,
     ) -> None:
         """Record a test result.
 
@@ -58,6 +83,7 @@ class MltkReportCollector:
             duration: Test duration in seconds.
             ml_result: Optional mltk TestResult with assertion details.
             ml_results: All assertion results built during the test.
+            raised: Assertion results carried by the test's raised exception.
         """
         self.results.append({
             "nodeid": nodeid,
@@ -65,6 +91,9 @@ class MltkReportCollector:
             "duration": duration,
             "ml_result": ml_result,
             "ml_results": list(ml_results or []),
+            "ml_raised": list(raised) if raised is not None else (
+                [ml_result] if ml_result is not None else []
+            ),
         })
 
     @property
@@ -101,6 +130,10 @@ class MltkReportCollector:
         for r in self.results:
             ml_result: TestResult | None = r.get("ml_result")  # type: ignore[assignment]
             ml_results: list[TestResult] = r.get("ml_results", [])  # type: ignore[assignment]
+            if "ml_raised" in r:
+                ml_raised: list[TestResult] = r.get("ml_raised", [])  # type: ignore[assignment]
+            else:
+                ml_raised = [ml_result] if ml_result is not None else []
             duration_s = float(r.get("duration", 0.0))  # type: ignore[arg-type]
 
             severity = "info"
@@ -123,7 +156,10 @@ class MltkReportCollector:
                 "details": details,
                 "duration_ms": round(duration_s * 1000, 3),
                 "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-                "assertions": [_assertion_json(assertion, ml_result) for assertion in ml_results],
+                "assertions": [
+                    _assertion_json(assertion, ml_result, {id(result) for result in ml_raised})
+                    for assertion in ml_results
+                ],
             })
         return records
 
@@ -131,6 +167,7 @@ class MltkReportCollector:
 def _assertion_json(
     assertion: TestResult,
     ml_result: TestResult | None,
+    raised_ids: set[int],
 ) -> dict[str, object]:
     """Serialize one assertion result defensively for JSON export."""
     passed = bool(getattr(assertion, "passed", False))
@@ -142,7 +179,7 @@ def _assertion_json(
         "message": getattr(assertion, "message", "") or "",
         "details": _json_details(getattr(assertion, "details", {}) or {}),
         "duration_ms": getattr(assertion, "duration_ms", 0.0),
-        "caught": not passed and severity == "critical" and assertion is not ml_result,
+        "caught": not passed and severity == "critical" and id(assertion) not in raised_ids,
     }
 
 
@@ -276,17 +313,13 @@ def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
 
     duration = call.duration if hasattr(call, "duration") else 0.0
 
-    # Extract MltkAssertionError result if available
-    ml_result = None
-    if call.excinfo is not None:
-        exc = call.excinfo.value
-        if hasattr(exc, "result"):
-            ml_result = exc.result
+    raised = _raised_results(call.excinfo.value) if call.excinfo is not None else []
+    ml_result = raised[0] if raised else None
 
-    recorded = recorder.drain()
+    recorded = recorder.drain() if getattr(item.config, "_mltk_recording_enabled", False) else []
     ml_results: list[TestResult] = []
     seen: set[int] = set()
-    for result in recorded:
+    for result in [*recorded, *raised]:
         result_id = id(result)
         if result_id not in seen:
             seen.add(result_id)
@@ -300,6 +333,7 @@ def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
         duration=duration,
         ml_result=ml_result,
         ml_results=ml_results,
+        raised=raised,
     )
 
 

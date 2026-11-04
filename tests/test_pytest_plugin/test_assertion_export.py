@@ -243,6 +243,111 @@ async def test_three(shared):
         assert [item["name"] for item in record["assertions"]] == [assertion_name]
 
 
+def test_nested_session_without_export_does_not_drain_outer_recording(
+    tmp_path: Path,
+) -> None:
+    inner_dir = tmp_path / "inner"
+    inner_file = inner_dir / "test_inner.py"
+    source = f"""
+from pathlib import Path
+
+import pytest
+
+from mltk.core.assertion import assert_true
+
+def test_outer():
+    inner_file = Path({str(inner_file)!r})
+    inner_file.parent.mkdir()
+    inner_file.write_text("def test_inner(): pass\\n")
+    assert_true(True, "outer.before", "before")
+    assert pytest.main([str(inner_file), "-q", "-p", "no:cacheprovider"]) == 0
+    assert_true(True, "outer.after", "after")
+"""
+    records = _exported(tmp_path, source)
+    outer = _record_for(records, "test_outer")
+    assert [item["name"] for item in outer["assertions"]] == [
+        "outer.before",
+        "outer.after",
+    ]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires ExceptionGroup")
+def test_exception_group_critical_failures_are_not_caught(tmp_path: Path) -> None:
+    records = _exported(
+        tmp_path,
+        """
+from mltk.core.assertion import MltkAssertionError, assert_true
+
+def test_group():
+    leaves = []
+    for name, message in (("check.1", "sample 1 wrong"), ("check.2", "sample 2 wrong")):
+        try:
+            assert_true(False, name, message)
+        except MltkAssertionError as exc:
+            leaves.append(exc)
+    raise ExceptionGroup("g", leaves)
+""",
+        returncode=1,
+    )
+    record = _record_for(records, "test_group")
+    assert record["passed"] is False
+    assert record["message"] == "sample 1 wrong"
+    assert [item["caught"] for item in record["assertions"]] == [False, False]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="requires TaskGroup")
+def test_task_group_critical_failures_are_not_caught(tmp_path: Path) -> None:
+    records = _exported(
+        tmp_path,
+        """
+import asyncio
+
+from mltk.core.assertion import assert_true
+
+async def fail(name):
+    assert_true(False, name, "task failed")
+
+async def main():
+    async with asyncio.TaskGroup() as group:
+        group.create_task(fail("task.1"))
+        group.create_task(fail("task.2"))
+
+def test_task_group():
+    asyncio.run(main())
+""",
+        returncode=1,
+    )
+    record = _record_for(records, "test_task_group")
+    assert all(item["caught"] is False for item in record["assertions"])
+
+
+def test_collector_fallback_marks_raised_critical_result_not_caught() -> None:
+    """Regression pin: callers that pass only ``ml_result`` keep ``caught: false`` for it.
+
+    Backward-compatibility check for the ``raised`` fallback; it also holds on the
+    code before ``raised`` existed.
+    """
+    from mltk.core.result import Severity, TestResult
+
+    result = TestResult(
+        name="fallback",
+        passed=False,
+        severity=Severity.CRITICAL,
+        message="failed",
+    )
+    collector = MltkReportCollector()
+    collector.add(
+        "tests::fallback",
+        "failed",
+        0.1,
+        ml_result=result,
+        ml_results=[result],
+    )
+
+    exported = collector.to_json_records()[0]
+    assert exported["assertions"][0]["caught"] is False
+
+
 def test_server_only_does_not_arm_recorder(tmp_path: Path) -> None:
     source = """
 from mltk.core import recorder
@@ -271,6 +376,7 @@ def test_makereport_deduplicates_large_result_list_in_order() -> None:
 
     class Config:
         _mltk_collector = MltkReportCollector()
+        _mltk_recording_enabled = True
 
     item = type("Item", (), {"config": Config(), "nodeid": "tests::large"})()
     call = type("Call", (), {"when": "call", "excinfo": None, "duration": 0.1})()
