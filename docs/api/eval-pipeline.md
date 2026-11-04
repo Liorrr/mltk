@@ -715,13 +715,18 @@ The raw score is normalized to `[0.0, 1.0]` by dividing by `max_score`.
     `metadata["error"]`. Errored samples are excluded from `mean` and
     `accuracy`; `0.0` is retained so metrics never contain `NaN`.
 
-String replies use JSON-first parsing: a JSON object's `score` key is
-authoritative, otherwise the first number in the text is used. For example,
-`{"reasoning_steps": 3, "score": 8}` is 8, while `"4/5"` is 4.
+String replies use JSON-first parsing. When the whole reply parses as a JSON
+object with a `score` key, that key is authoritative (a null or non-numeric
+value is an error). Any other reply falls back to the first number in the text,
+including JSON inside a Markdown code fence or after a lead-in sentence, so ask
+the judge for bare JSON. For example, `{"reasoning_steps": 3, "score": 8}` is 8,
+while `"4/5"` is 4.
 
 `EvalResult.errors` reports `errored`, `n_valid`, and `error_rate` for every
-scorer that produced scores. An all-errored scorer makes `EvalResult.passed`
-false; otherwise the existing empty-or-all-metrics-at-least-0.5 rule applies.
+scorer that produced scores. A scorer whose samples all errored has no
+`/accuracy` or `/mean` key in `metrics` (read `errors` for it), and it makes
+`EvalResult.passed` false; otherwise the existing empty-or-all-metrics-at-least-0.5
+rule applies.
 
 For pytest integration, `to_test_result` supports `on_error="fail_if_all"`
 (the default), `"strict"`, and `"zero"`. The first fails only when a scorer

@@ -200,8 +200,22 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]
     config._mltk_recording_enabled = bool(
         config.getoption("--mltk-export-json", default=None)
         or config.getoption("--mltk-report", default=False)
-        or config.getoption("--mltk-server", default=None)
     )
+    if config._mltk_recording_enabled:
+        config._mltk_recorder_token = recorder.arm()
+
+
+def pytest_unconfigure(config):  # type: ignore[no-untyped-def]
+    """Disarm the session recorder when pytest shuts down."""
+    token = getattr(config, "_mltk_recorder_token", None)
+    if token is not None:
+        try:
+            recorder.disarm(token)
+        except ValueError:
+            # The token may have been created in a different context.
+            pass
+        finally:
+            config._mltk_recorder_token = None
 
 
 @pytest.fixture
@@ -218,13 +232,13 @@ def ml_report(request) -> MltkReportCollector:  # type: ignore[no-untyped-def]
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(item, nextitem):  # type: ignore[no-untyped-def]
-    """Arm one assertion recorder for each test protocol."""
+    """Clear the shared assertion recorder around each test protocol."""
     if getattr(item.config, "_mltk_recording_enabled", False):
-        token = recorder.arm()
+        recorder.drain()
         try:
             yield
         finally:
-            recorder.disarm(token)
+            recorder.drain()
     else:
         yield
 
@@ -266,10 +280,13 @@ def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
 
     recorded = recorder.drain()
     ml_results: list[TestResult] = []
+    seen: set[int] = set()
     for result in recorded:
-        if not any(result is existing for existing in ml_results):
+        result_id = id(result)
+        if result_id not in seen:
+            seen.add(result_id)
             ml_results.append(result)
-    if ml_result is not None and not any(ml_result is existing for existing in ml_results):
+    if ml_result is not None and id(ml_result) not in seen:
         ml_results.append(ml_result)
 
     collector.add(
@@ -453,7 +470,10 @@ def _push_to_server(
     import urllib.parse
     import urllib.request
 
-    records = collector.to_json_records()
+    records = [
+        {key: value for key, value in record.items() if key != "assertions"}
+        for record in collector.to_json_records()
+    ]
     payload = json.dumps({"project": "default", "results": records}).encode("utf-8")
     endpoint = server_url.rstrip("/") + "/api/runs"
 

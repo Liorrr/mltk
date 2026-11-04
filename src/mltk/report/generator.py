@@ -22,7 +22,12 @@ def _truncate(value: str) -> str:
 def _format_detail_value(value: Any) -> str:
     """Format a detail value without inventing or deriving report data."""
     if isinstance(value, (dict, list)):
-        value = json.dumps(value, default=str)
+        try:
+            value = json.dumps(value, default=str)
+        except (TypeError, ValueError):
+            # Non-string keys (e.g. numpy ints, tuples) or circular structures:
+            # one odd value must not abort the whole report.
+            value = str(value)
     else:
         value = str(value)
     return _truncate(value)

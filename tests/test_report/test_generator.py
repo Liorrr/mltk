@@ -291,6 +291,27 @@ class TestAssertionDetails:
         assert "suppressed.assertion" not in html
         assert "hidden = value" not in html
 
+    def test_unencodable_detail_values_fall_back_to_str(self, tmp_path: Path) -> None:
+        """ROBUST: A detail json.dumps cannot encode renders via str() instead.
+
+        WHY: Tuple or numpy-int dict keys and circular structures raise in json.dumps;
+        one such custom detail must not abort the HTML report for the whole session.
+        """
+        circular: list[object] = []
+        circular.append(circular)
+        path = generate_report(
+            [{
+                "nodeid": "test_odd",
+                "outcome": "passed",
+                "ml_results": [_result(details={"per_pair": {(0, 1): 0.9}, "loop": circular})],
+            }],
+            output_dir=tmp_path,
+        )
+        html = path.read_text(encoding="utf-8")
+
+        assert "per_pair = {(0, 1): 0.9}" in html
+        assert "loop = [[...]]" in html
+
     def test_dict_and_list_details_render_as_json(self, tmp_path: Path) -> None:
         """FORMAT: Dict and list details use JSON serialization before escaping.
 

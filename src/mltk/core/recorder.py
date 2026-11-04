@@ -17,11 +17,12 @@ _current: contextvars.ContextVar[list[TestResult] | None] = contextvars.ContextV
 def record(result: TestResult) -> None:
     """Record a result when a test has armed the recorder.
 
-    The recorder is inert outside pytest recording. Results from threads spawned
-    by a test are not captured because threads do not inherit context variables.
-    Asyncio tasks share the list and are captured. Assertions in a session-scoped
-    fixture land in the first test that requests it. Teardown-phase assertions
-    are discarded.
+    The recorder is inert outside pytest recording. Tasks created during the
+    session, including a task shared across tests by an async fixture, append to
+    the same list and are captured. Results from threads spawned by a test are
+    not captured because threads do not inherit context variables. Assertions
+    in a session-scoped fixture land in the first test that requests it.
+    Teardown-phase assertions are discarded.
     """
     results = _current.get()
     if results is not None:

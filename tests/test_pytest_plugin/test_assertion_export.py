@@ -206,6 +206,149 @@ def test_recording_state():
     assert active.returncode == 0, active.stdout + active.stderr
 
 
+def test_shared_async_fixture_assertions_are_isolated_per_test(tmp_path: Path) -> None:
+    pytest.importorskip("anyio")
+    records = _exported(
+        tmp_path,
+        """
+import pytest
+from mltk.core.assertion import assert_true
+
+pytestmark = pytest.mark.anyio
+
+@pytest.fixture(scope="module")
+def anyio_backend():
+    return "asyncio"
+
+@pytest.fixture(scope="module")
+async def shared():
+    yield 1
+
+async def test_one(shared):
+    assert_true(True, "async.one", "ok")
+
+async def test_two(shared):
+    assert_true(True, "async.two", "ok")
+
+async def test_three(shared):
+    assert_true(True, "async.three", "ok")
+""",
+    )
+    for test_name, assertion_name in (
+        ("test_one", "async.one"),
+        ("test_two", "async.two"),
+        ("test_three", "async.three"),
+    ):
+        record = _record_for(records, test_name)
+        assert [item["name"] for item in record["assertions"]] == [assertion_name]
+
+
+def test_server_only_does_not_arm_recorder(tmp_path: Path) -> None:
+    source = """
+from mltk.core import recorder
+
+def test_server_recording_state():
+    assert recorder._current.get() is None
+"""
+    completed = _run_pytest(
+        tmp_path,
+        source,
+        "--mltk-server",
+        "http://127.0.0.1:9",
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_makereport_deduplicates_large_result_list_in_order() -> None:
+    """Regression pin: the linear id()-based dedup keeps order and identity semantics.
+
+    The previous quadratic dedup gave the same result (only slowly), so this pins
+    behaviour across the refactor rather than failing on the old code.
+    """
+    from mltk.core import recorder
+    from mltk.core.result import Severity, TestResult
+    from mltk.pytest_plugin.plugin import pytest_runtest_makereport
+
+    class Config:
+        _mltk_collector = MltkReportCollector()
+
+    item = type("Item", (), {"config": Config(), "nodeid": "tests::large"})()
+    call = type("Call", (), {"when": "call", "excinfo": None, "duration": 0.1})()
+    results = [
+        TestResult(
+            name=f"result.{index}",
+            passed=True,
+            severity=Severity.INFO,
+            message="ok",
+        )
+        for index in range(20_000)
+    ]
+    token = recorder.arm()
+    try:
+        for result in results:
+            recorder.record(result)
+        pytest_runtest_makereport(item, call)
+    finally:
+        recorder.disarm(token)
+
+    recorded = item.config._mltk_collector.results[0]["ml_results"]
+    assert len(recorded) == 20_000
+    assert [result.name for result in recorded] == [result.name for result in results]
+
+
+def test_server_payload_excludes_assertions_without_mutating_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mltk.core.result import Severity, TestResult
+    from mltk.pytest_plugin.plugin import _push_to_server
+
+    collector = MltkReportCollector()
+    assertion = TestResult(
+        name="server.check",
+        passed=True,
+        severity=Severity.INFO,
+        message="ok",
+        details={"value": 1},
+    )
+    collector.add(
+        "tests::server",
+        "passed",
+        0.1,
+        ml_result=assertion,
+        ml_results=[assertion],
+    )
+    captured: dict[str, object] = {}
+
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b'{"run_id": "run"}'
+
+    def fake_urlopen(request: object, timeout: int) -> Response:
+        captured["payload"] = json.loads(request.data.decode("utf-8"))
+        return Response()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    class Session:
+        class config:
+            class pluginmanager:
+                @staticmethod
+                def get_plugin(name: str) -> None:
+                    return None
+
+    _push_to_server(collector, "http://server", Session())
+
+    pushed_record = captured["payload"]["results"][0]
+    assert "assertions" not in pushed_record
+    assert "assertions" in collector.to_json_records()[0]
+
+
 class _Writer:
     def __init__(self) -> None:
         self.lines: list[str] = []

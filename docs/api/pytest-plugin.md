@@ -96,19 +96,22 @@ Output includes:
 
 ## Assertion export
 
-Use `--mltk-export-json PATH`, `--mltk-report`, or `--mltk-server URL` to enable
+Use `--mltk-export-json PATH` or `--mltk-report` to enable
 per-test assertion recording. Each exported test record includes an additive
 `assertions` list. Every entry contains `name`, `passed`, `severity`, `message`,
 `details`, and `duration_ms`. The `caught` field is `true` when a critical
 failed assertion raised `MltkAssertionError` but was caught by the test; a
 critical failure that failed the test has `caught: false`.
 
-Recording is inactive unless one of those three flags is set. Assertions made
+Recording is inactive unless one of those two flags is set. Assertions made
 in threads spawned by a test are not captured because threads do not inherit
 the recording context. Asyncio tasks share the context and are captured.
+Async fixtures or tasks shared across tests are captured separately for each
+test.
 Assertions from a session-scoped fixture land in the first test that requests
 that fixture, and teardown-phase assertions are discarded. The plugin does not
-collect assertion results under pytest-xdist.
+collect assertion results under pytest-xdist. The server push intentionally
+contains only each test's headline result and does not include `assertions`.
 
 If the optional HTML-report dependency is unavailable, pytest prints a visible
 warning with the missing module and `pip install mlspec[report]`. Other HTML
