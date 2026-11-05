@@ -608,3 +608,32 @@ def test_object_result():
         assert record["passed"] is False
         assert record["assertions"] == []
         assert record["message"] == ""
+
+
+def test_configured_but_unrun_config_keeps_outer_recording() -> None:
+    """A config that is configured but never run must not suspend the outer recording.
+
+    WHY: ``pytester.parseconfigure()`` / ``getitem()`` configure a config (the mltk
+    plugin loads via its entry point) and unconfigure it only at the outer test's
+    teardown; suspending at configure time emptied the outer test's assertions.
+    """
+    from types import SimpleNamespace
+
+    from mltk.core import recorder
+    from mltk.core.assertion import assert_true
+    from mltk.core.result import Severity
+    from mltk.pytest_plugin import plugin
+
+    token = recorder.arm()
+    try:
+        inner = SimpleNamespace(
+            addinivalue_line=lambda *a: None,
+            getoption=lambda name, default=None: default,
+        )
+        before = assert_true(True, "outer.before", "ok", severity=Severity.INFO)
+        plugin.pytest_configure(inner)
+        after = assert_true(True, "outer.after", "ok", severity=Severity.INFO)
+        assert recorder.drain() == [before, after]
+        plugin.pytest_unconfigure(inner)
+    finally:
+        recorder.disarm(token)

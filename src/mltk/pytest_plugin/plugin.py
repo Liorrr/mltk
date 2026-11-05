@@ -248,10 +248,11 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]
         config.getoption("--mltk-export-json", default=None)
         or config.getoption("--mltk-report", default=False)
     )
-    # A non-recording session suspends recording, so when it runs nested inside
-    # a recording test (pytester, pytest.main) its results stay out of that test.
+    # A non-recording config leaves the recorder alone here: it suspends recording
+    # only while it collects and runs tests (see the hookwrappers below), so a
+    # config that is configured but never run (pytester.getitem) changes nothing.
     config._mltk_recorder_token = (
-        recorder.arm() if config._mltk_recording_enabled else recorder.suspend()
+        recorder.arm() if config._mltk_recording_enabled else None
     )
 
 
@@ -281,6 +282,19 @@ def ml_report(request) -> MltkReportCollector:  # type: ignore[no-untyped-def]
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_collection(session):  # type: ignore[no-untyped-def]
+    """Keep a non-recording session's collection out of an outer recording."""
+    if getattr(session.config, "_mltk_recording_enabled", False):
+        yield
+        return
+    token = recorder.suspend()
+    try:
+        yield
+    finally:
+        recorder.disarm(token)
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(item, nextitem):  # type: ignore[no-untyped-def]
     """Clear the shared assertion recorder around each test protocol."""
     if getattr(item.config, "_mltk_recording_enabled", False):
@@ -290,7 +304,13 @@ def pytest_runtest_protocol(item, nextitem):  # type: ignore[no-untyped-def]
         finally:
             recorder.drain()
     else:
-        yield
+        # A non-recording session (e.g. nested in a recording test) keeps its
+        # tests out of the outer test only while they run.
+        token = recorder.suspend()
+        try:
+            yield
+        finally:
+            recorder.disarm(token)
 
 
 def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
