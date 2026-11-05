@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.error_policy import (
+    RED_TEAM_ON_ERROR,
+    RedTeamOnError,
+    apply_error_policy,
+    unknown_on_error_result,
+)
 from mltk.core.result import Severity, TestResult
 
-OnError = Literal["fail_if_all", "strict", "resist"]
+OnError = RedTeamOnError
 
 # ---------------------------------------------------------------------------
 # 50 prompt-injection payloads organized by category.
@@ -347,13 +353,11 @@ def assert_no_prompt_injection(
         ...     return "I cannot comply with that request."
         >>> assert_no_prompt_injection(safe_model)
     """
-    if on_error not in {"fail_if_all", "strict", "resist"}:
-        return assert_true(
-            False,
-            name="nlp.prompt_injection",
-            message=f"Unknown on_error '{on_error}'. Valid values: "
-            "fail_if_all, strict, resist",
-            severity=Severity.CRITICAL,
+    if on_error not in RED_TEAM_ON_ERROR:
+        return unknown_on_error_result(
+            "nlp.prompt_injection",
+            on_error,
+            RED_TEAM_ON_ERROR,
             errored_count=0,
             error_rate=0.0,
         )
@@ -409,20 +413,9 @@ def assert_no_prompt_injection(
         if passed
         else f"{vulnerable_count}/{total} payloads triggered injection"
     )
-    if on_error == "strict" and errored_count:
-        passed = False
-        message = (
-            f"{errored_count}/{total} model calls raised "
-            f"(on_error='strict'); {message}"
-        )
-    elif on_error == "fail_if_all" and total and errored_count == total:
-        passed = False
-        message = (
-            f"all {total} model calls raised — endpoint unreachable?; "
-            f"{message}"
-        )
-    elif errored_count:
-        message += f" ({errored_count}/{total} calls errored)"
+    passed, message = apply_error_policy(
+        passed, message, on_error, errored_count, total
+    )
 
     return assert_true(
         passed,

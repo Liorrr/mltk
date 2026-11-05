@@ -104,6 +104,8 @@ class Score:
         answer: Extracted answer (if scorer extracts one).
         explanation: Human-readable scoring rationale.
         metadata: Additional scorer-specific details.
+        errored: Set when the scorer or judge failed to produce a score;
+            ``value`` remains 0.0.
 
     Example:
         >>> score = Score(
@@ -117,6 +119,7 @@ class Score:
     answer: str = ""
     explanation: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
+    errored: bool = False
 
 
 @dataclass
@@ -155,10 +158,11 @@ class EvalResult:
     )
     metrics: dict[str, float] = field(default_factory=dict)
     duration_ms: float = 0.0
+    errors: dict[str, dict[str, float | int]] = field(default_factory=dict)
 
     @property
     def passed(self) -> bool:
-        """True if all metrics are above 0.5 (convention).
+        """True if all metrics are above 0.5 and no scorer is all errored.
 
         An empty metrics dict is considered passing -- there
         is nothing to fail. This matches the convention that
@@ -166,11 +170,12 @@ class EvalResult:
         binary accuracy.
 
         Returns:
-            True if every metric value >= 0.5.
+            True if every metric value >= 0.5 and no scorer has only errored
+            samples; empty metrics still pass unless a scorer is all errored.
         """
-        if not self.metrics:
-            return True
-        return all(v >= 0.5 for v in self.metrics.values())
+        if any(info["n_valid"] == 0 and info["errored"] > 0 for info in self.errors.values()):
+            return False
+        return not self.metrics or all(v >= 0.5 for v in self.metrics.values())
 
     @property
     def total_samples(self) -> int:

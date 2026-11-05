@@ -709,10 +709,40 @@ The raw score is normalized to `[0.0, 1.0]` by dividing by `max_score`.
     clipped to 1.0. Always verify the score range your judge uses before
     running evaluation.
 
-!!! note "Judge errors are caught"
-    If `judge_fn` raises an exception, the scorer returns
-    `Score(value=0.0)` with the error in `metadata["error"]`. A single
-    bad judge call does not crash the evaluation.
+!!! note "Judge errors are tracked"
+    If `judge_fn` raises, or its reply has no usable finite score,
+    the scorer returns `Score(value=0.0, errored=True)` with the error in
+    `metadata["error"]`. Errored samples are excluded from `mean` and
+    `accuracy`; `0.0` is retained so metrics never contain `NaN`.
+
+String replies use JSON-first parsing. When the whole reply parses as a JSON
+object with a `score` key, that key is authoritative (a null or non-numeric
+value is an error). Any other reply falls back to the first number in the text,
+including JSON inside a Markdown code fence or after a lead-in sentence, so ask
+the judge for bare JSON. For example, `{"reasoning_steps": 3, "score": 8}` is 8,
+while `"4/5"` is 4.
+
+`EvalResult.errors` reports `errored`, `n_valid`, and `error_rate` for every
+scorer that produced scores. A scorer whose samples all errored has no
+`/accuracy` or `/mean` key in `metrics` (read `errors` for it), and it makes
+`EvalResult.passed` false; otherwise the existing empty-or-all-metrics-at-least-0.5
+rule applies.
+
+For pytest integration, `to_test_result` supports `on_error="fail_if_all"`
+(the default), `"strict"`, and `"zero"`. The first fails only when a scorer
+has no valid samples, the second fails on any errored sample, and `zero`
+reproduces the previous averaging exactly when errors came from exceptions or
+replies with no number. `min_valid_fraction` optionally requires a minimum
+valid fraction under every policy. `zero` changes only the `to_test_result`
+gate and its `details["metrics"]`; `run()` and `EvalResult.metrics` always
+exclude errored samples. For example:
+
+```python
+task.to_test_result(model_fn, on_error="strict", min_valid_fraction=0.8)
+```
+
+The red-team policy `resist` leans toward a pass for errors; eval's `zero`
+leans toward a fail because errored zero values participate in its gate.
 
 See [llm-judge.md](llm-judge.md) for the full `judge_fn` pattern,
 provider examples (OpenAI, Anthropic, Ollama), and mock patterns for unit
@@ -797,14 +827,14 @@ result = task.run(model_fn)
 2. Runs each solver in the pipeline. If any solver sets
    `state.completed = True`, the pipeline short-circuits.
 3. Runs every scorer on the final state. Scorer exceptions are caught and
-   recorded as `Score(value=0.0, explanation="Scorer error: ...")`.
+   recorded as `Score(value=0.0, errored=True, explanation="Scorer error: ...")`.
 4. Collects all scores.
 
 After all samples:
 
-5. Computes two aggregate metrics per scorer:
-   - `{name}/accuracy` — fraction of scores >= 0.5
-   - `{name}/mean` — arithmetic mean of score values
+5. Computes two aggregate metrics per scorer from valid scores:
+   - `{name}/accuracy` — fraction of valid scores >= 0.5
+   - `{name}/mean` — arithmetic mean of valid score values
 
 ```python
 result.metrics  # {"ExactMatchScorer/accuracy": 0.92, ...}

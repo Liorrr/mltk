@@ -29,8 +29,13 @@ Single self-contained HTML file with:
 - **Pass/fail donut chart** (SVG ring with green/red segments, percentage in center)
 - **Module breakdown bar chart** (horizontal stacked bars per module, pass/fail counts)
 - Per-module breakdown
-- Test details table with severity, duration, messages
+- Test details table with assertion names, pass/fail status, recorded detail values, duration, and messages
 - Dark theme (slate background, purple accent)
+
+Assertion details are rendered as compact `key = value` lines. The report shows at most 50
+assertions per test and 20 detail keys per assertion; values and keys are limited to 120
+characters, with JSON formatting for dict and list values. Every value is HTML-escaped.
+The HTML report does not require the server extra (fastapi).
 
 Charts are pure CSS/SVG — no external dependencies, no CDN scripts, no Plotly. The report is fully self-contained and works offline.
 

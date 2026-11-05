@@ -6,15 +6,65 @@ for generating test summaries, plus --mltk-export-json for JSON export.
 
 from __future__ import annotations
 
+import builtins
 import json
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import pytest
 
+from mltk.core import recorder
 from mltk.core.config import MltkConfig
 from mltk.core.result import TestResult
+
+
+def _json_details(raw_details: object) -> dict[str, object]:
+    """Convert assertion details to strict-JSON-compatible values.
+
+    Non-JSON types become ``str``; NaN and +/-Infinity become the strings
+    ``"NaN"`` / ``"Infinity"`` / ``"-Infinity"``, because bare ``NaN`` is not
+    valid JSON and strict parsers reject the whole export file.
+    """
+    try:
+        return json.loads(json.dumps(raw_details or {}, default=str), parse_constant=str)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _severity_string(raw_severity: object) -> str:
+    """Return a severity enum's value or its string representation."""
+    if hasattr(raw_severity, "value"):
+        return str(raw_severity.value)
+    return str(raw_severity)
+
+
+def _raised_results(exc: BaseException) -> list[TestResult]:
+    """Extract assertion results from an exception or nested exception group.
+
+    Only an actual :class:`TestResult` counts: other libraries' exceptions may
+    carry an unrelated (or ``None``) ``result`` attribute.
+    """
+    result = getattr(exc, "result", None)
+    if isinstance(result, TestResult):
+        return [result]
+
+    group_types: list[type[BaseException]] = []
+    native_group = getattr(builtins, "BaseExceptionGroup", None)
+    if native_group is not None:
+        group_types.append(native_group)
+    backport = sys.modules.get("exceptiongroup")
+    backport_group = getattr(backport, "BaseExceptionGroup", None)
+    if backport_group is not None:
+        group_types.append(backport_group)
+
+    if isinstance(exc, tuple(group_types)):
+        raised: list[TestResult] = []
+        for child in exc.exceptions:
+            raised.extend(_raised_results(child))
+        return raised
+    return []
 
 
 @dataclass
@@ -26,7 +76,9 @@ class MltkReportCollector:
 
     def add(
         self, nodeid: str, outcome: str, duration: float,
-        ml_result: TestResult | None = None,
+        ml_result: TestResult | None = None, *,
+        ml_results: list[TestResult] | None = None,
+        raised: list[TestResult] | None = None,
     ) -> None:
         """Record a test result.
 
@@ -35,12 +87,18 @@ class MltkReportCollector:
             outcome: "passed" or "failed".
             duration: Test duration in seconds.
             ml_result: Optional mltk TestResult with assertion details.
+            ml_results: All assertion results built during the test.
+            raised: Assertion results carried by the test's raised exception.
         """
         self.results.append({
             "nodeid": nodeid,
             "outcome": outcome,
             "duration": duration,
             "ml_result": ml_result,
+            "ml_results": list(ml_results or []),
+            "ml_raised": list(raised) if raised is not None else (
+                [ml_result] if ml_result is not None else []
+            ),
         })
 
     @property
@@ -76,6 +134,11 @@ class MltkReportCollector:
         records = []
         for r in self.results:
             ml_result: TestResult | None = r.get("ml_result")  # type: ignore[assignment]
+            ml_results: list[TestResult] = r.get("ml_results", [])  # type: ignore[assignment]
+            if "ml_raised" in r:
+                ml_raised: list[TestResult] = r.get("ml_raised", [])  # type: ignore[assignment]
+            else:
+                ml_raised = [ml_result] if ml_result is not None else []
             duration_s = float(r.get("duration", 0.0))  # type: ignore[arg-type]
 
             severity = "info"
@@ -86,16 +149,9 @@ class MltkReportCollector:
                 message = getattr(ml_result, "message", "") or ""
                 raw_details = getattr(ml_result, "details", {}) or {}
                 # Ensure details is JSON-serializable (convert non-basic types)
-                try:
-                    details = json.loads(json.dumps(raw_details, default=str))
-                except Exception:  # noqa: BLE001
-                    details = {}
+                details = _json_details(raw_details)
                 raw_severity = getattr(ml_result, "severity", "info") or "info"
-                # Extract string value from Severity enum if needed
-                if hasattr(raw_severity, "value"):
-                    severity = raw_severity.value
-                else:
-                    severity = str(raw_severity)
+                severity = _severity_string(raw_severity)
 
             records.append({
                 "name": str(r["nodeid"]),
@@ -105,8 +161,31 @@ class MltkReportCollector:
                 "details": details,
                 "duration_ms": round(duration_s * 1000, 3),
                 "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+                "assertions": [
+                    _assertion_json(assertion, ml_result, {id(result) for result in ml_raised})
+                    for assertion in ml_results
+                ],
             })
         return records
+
+
+def _assertion_json(
+    assertion: TestResult,
+    ml_result: TestResult | None,
+    raised_ids: set[int],
+) -> dict[str, object]:
+    """Serialize one assertion result defensively for JSON export."""
+    passed = bool(getattr(assertion, "passed", False))
+    severity = _severity_string(getattr(assertion, "severity", "info") or "info")
+    return {
+        "name": getattr(assertion, "name", ""),
+        "passed": passed,
+        "severity": severity,
+        "message": getattr(assertion, "message", "") or "",
+        "details": _json_details(getattr(assertion, "details", {}) or {}),
+        "duration_ms": getattr(assertion, "duration_ms", 0.0),
+        "caught": not passed and severity == "critical" and id(assertion) not in raised_ids,
+    }
 
 
 def pytest_addoption(parser):  # type: ignore[no-untyped-def]
@@ -165,6 +244,29 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]
 
     # Initialize report collector
     config._mltk_collector = MltkReportCollector()
+    config._mltk_recording_enabled = bool(
+        config.getoption("--mltk-export-json", default=None)
+        or config.getoption("--mltk-report", default=False)
+    )
+    # A non-recording config leaves the recorder alone here: it suspends recording
+    # only while it collects and runs tests (see the hookwrappers below), so a
+    # config that is configured but never run (pytester.getitem) changes nothing.
+    config._mltk_recorder_token = (
+        recorder.arm() if config._mltk_recording_enabled else None
+    )
+
+
+def pytest_unconfigure(config):  # type: ignore[no-untyped-def]
+    """Restore the recorder state from before this session started."""
+    token = getattr(config, "_mltk_recorder_token", None)
+    if token is not None:
+        try:
+            recorder.disarm(token)
+        except ValueError:
+            # The token may have been created in a different context.
+            pass
+        finally:
+            config._mltk_recorder_token = None
 
 
 @pytest.fixture
@@ -177,6 +279,38 @@ def ml_config() -> MltkConfig:
 def ml_report(request) -> MltkReportCollector:  # type: ignore[no-untyped-def]
     """Access the session-level report collector."""
     return request.config._mltk_collector
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_collection(session):  # type: ignore[no-untyped-def]
+    """Keep a non-recording session's collection out of an outer recording."""
+    if getattr(session.config, "_mltk_recording_enabled", False):
+        yield
+        return
+    token = recorder.suspend()
+    try:
+        yield
+    finally:
+        recorder.disarm(token)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):  # type: ignore[no-untyped-def]
+    """Clear the shared assertion recorder around each test protocol."""
+    if getattr(item.config, "_mltk_recording_enabled", False):
+        recorder.drain()
+        try:
+            yield
+        finally:
+            recorder.drain()
+    else:
+        # A non-recording session (e.g. nested in a recording test) keeps its
+        # tests out of the outer test only while they run.
+        token = recorder.suspend()
+        try:
+            yield
+        finally:
+            recorder.disarm(token)
 
 
 def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
@@ -207,18 +341,27 @@ def pytest_runtest_makereport(item, call):  # type: ignore[no-untyped-def]
 
     duration = call.duration if hasattr(call, "duration") else 0.0
 
-    # Extract MltkAssertionError result if available
-    ml_result = None
-    if call.excinfo is not None:
-        exc = call.excinfo.value
-        if hasattr(exc, "result"):
-            ml_result = exc.result
+    raised = _raised_results(call.excinfo.value) if call.excinfo is not None else []
+    ml_result = raised[0] if raised else None
+
+    recorded = recorder.drain() if getattr(item.config, "_mltk_recording_enabled", False) else []
+    ml_results: list[TestResult] = []
+    seen: set[int] = set()
+    for result in [*recorded, *raised]:
+        result_id = id(result)
+        if result_id not in seen:
+            seen.add(result_id)
+            ml_results.append(result)
+    if ml_result is not None and id(ml_result) not in seen:
+        ml_results.append(ml_result)
 
     collector.add(
         nodeid=item.nodeid,
         outcome=outcome,
         duration=duration,
         ml_result=ml_result,
+        ml_results=ml_results,
+        raised=raised,
     )
 
 
@@ -309,8 +452,14 @@ def pytest_sessionfinish(session, exitstatus):  # type: ignore[no-untyped-def]
 
         report_path = generate_report(collector.results, output_dir=output_dir)
         writer.line(f"HTML report: {report_path}")
-    except ImportError:
-        pass  # plotly/jinja2 not installed — skip HTML report
+    except ImportError as exc:
+        missing = exc.name or getattr(exc.__cause__, "name", None) or str(exc)
+        writer.line(
+            f"mltk: HTML report unavailable (missing {missing}); "
+            "install with pip install mlspec[report]"
+        )
+    except Exception as exc:  # noqa: BLE001
+        writer.line(f"mltk: HTML report failed: {exc}")
 
 
 def _log_mlflow(
@@ -388,7 +537,10 @@ def _push_to_server(
     import urllib.parse
     import urllib.request
 
-    records = collector.to_json_records()
+    records = [
+        {key: value for key, value in record.items() if key != "assertions"}
+        for record in collector.to_json_records()
+    ]
     payload = json.dumps({"project": "default", "results": records}).encode("utf-8")
     endpoint = server_url.rstrip("/") + "/api/runs"
 

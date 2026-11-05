@@ -7,38 +7,11 @@ lands everywhere at once instead of drifting across per-module copies.
 
 from __future__ import annotations
 
-import json
-import re
-
 import numpy as np
 
-_FLOAT_PATTERN = re.compile(r"(\d+(?:\.\d+)?)")
+from mltk.core.judge_parse import parse_judge_score
 
-
-def _parse_score(raw: str) -> float | None:
-    """Extract the numeric score from a judge response.
-
-    A JSON object with a ``"score"`` key is honored first, so extra
-    numeric fields cannot shadow the actual score. An explicit
-    ``score`` field is authoritative — if it cannot be converted
-    (null, "N/A"), grading failed and None is returned rather than
-    scraping an unrelated number from the raw JSON. Non-JSON
-    responses fall back to the first number in the text. Returns
-    None if no number is found.
-    """
-    try:
-        data = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
-        data = None
-    if isinstance(data, dict) and "score" in data:
-        try:
-            return float(data["score"])
-        except (ValueError, TypeError):
-            return None
-    match = _FLOAT_PATTERN.search(raw.strip())
-    if match:
-        return float(match.group(1))
-    return None
+_parse_score = parse_judge_score
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:

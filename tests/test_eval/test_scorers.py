@@ -331,6 +331,7 @@ class TestLLMJudgeScorer:
         state = _make_state(output="answer")
         result = scorer.score(state)
         assert result.value == 0.0
+        assert result.errored is True
         assert "error" in result.metadata
 
     def test_custom_criterion(self):

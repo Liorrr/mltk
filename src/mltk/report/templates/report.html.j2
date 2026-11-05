@@ -38,6 +38,13 @@
   .badge.warn { background: rgba(210,153,34,0.15); color: var(--yellow); }
   .module-row td:first-child { font-weight: 600; }
   .duration { color: var(--text2); font-size: 12px; }
+  .assertions { display: flex; flex-direction: column; gap: 6px; }
+  .assertion { padding: 5px 0; }
+  .assertion-header { display: flex; align-items: center; gap: 6px; }
+  .assertion-name { color: var(--text); font-weight: 600; }
+  .assertion-details { margin: 3px 0 0 8px; color: var(--text2); font-family: monospace; font-size: 12px; }
+  .assertion-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .assertion-more { color: var(--text2); font-style: italic; }
   footer { text-align: center; color: var(--text2); font-size: 12px; padding: 24px; }
   footer a { color: var(--purple); text-decoration: none; }
 
@@ -181,7 +188,34 @@
         <td>{{ r.nodeid }}</td>
         <td><span class="badge {{ r.outcome }}">{{ r.outcome | upper }}</span></td>
         <td class="duration">{{ "%.3f"|format(r.duration) }}s</td>
-        <td>{{ r.message or '' }}</td>
+        <td>
+          {{ r.message or '' }}
+          {% if r.assertions %}
+          <div class="assertions">
+            {% for assertion in r.assertions %}
+            <div class="assertion">
+              <div class="assertion-header">
+                <span class="assertion-name">{{ assertion.name }}</span>
+                <span class="badge {{ 'pass' if assertion.passed else 'fail' }}">{{ 'PASS' if assertion.passed else 'FAIL' }}</span>
+              </div>
+              {% if assertion.details %}
+              <div class="assertion-details">
+                {% for detail in assertion.details %}
+                <div class="assertion-detail">{{ detail.key }} = {{ detail.value }}</div>
+                {% endfor %}
+                {% if assertion.details_more %}
+                <div class="assertion-more">… and {{ assertion.details_more }} more</div>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+            {% if r.assertions_more %}
+            <div class="assertion-more">… and {{ r.assertions_more }} more assertions</div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </table>
