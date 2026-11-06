@@ -10,9 +10,12 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S106: 244 assertions, 5437+ tests, 38 Rust tests) — v0.14.0
+## DONE (S0-S106: 244 assertions, 5437+ tests, 38 Rust tests) — v0.15.0
 
-### S106 — Eval judge errors, assertion export, HTML report fixes (unreleased)
+### v0.15.0 release — PRs merged since v0.14.0
+- [x] Cut **v0.15.0**: rolled CHANGELOG (`[Unreleased]` → `[0.15.0]`), bundling S106 (#37), `mltk server-backup` (#35) and the `mlspec` install-command sweep (#36). Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`, container-doc image tags). Eval metrics change when a scorer or judge errors (see the CHANGELOG "Changed" section).
+
+### S106 — Eval judge errors, assertion export, HTML report fixes (#37)
 - [x] Errored eval samples (scorer or judge exception, unparseable or non-finite judge reply) are flagged `Score.errored`, keep value 0.0 and leave `/mean` and `/accuracy`; per-scorer counts in `EvalResult.errors` and the MCP `mltk_eval` response; `EvalResult.passed` fails an all-errored scorer. `EvalTask.to_test_result(on_error="fail_if_all"|"strict"|"zero", min_valid_fraction=None)`, validated before any model call.
 - [x] One JSON-first judge-score parser (`mltk.core.judge_parse`) shared by `LLMJudgeScorer`, the LLM-judge assertions and the multimodal judges; the red-team/prompt-injection `on_error` policy moved to `mltk.core.error_policy` (re-exported, no behaviour change).
 - [x] `mltk.core.recorder` + plugin: passing tests' assertion results reach `--mltk-export-json` (`assertions`, with `caught`), only when `--mltk-export-json` or `--mltk-report` is set.
