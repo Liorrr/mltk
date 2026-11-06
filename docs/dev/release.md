@@ -35,17 +35,22 @@ See `CONTRIBUTING.md` in the repo root for the full workflow.
 ## Before tagging
 
 1. Open a release PR with the bump. Its CI must pass on a run newer than master's head.
-2. Rehearse the Release workflow locally. The workflow runs only on a tag push and publishes every time, so there is no CI dry run. Build from a clean export of the release commit, so local build artifacts cannot end up in the wheel:
+2. Rehearse the Release workflow locally. The workflow runs only on a tag push and publishes every time, so there is no CI dry run. Build from a clean export of the release commit, so local build artifacts cannot end up in the wheel. The subshell stops at the first failing step, so a failed export never falls through to building the current checkout, and it leaves your shell where it was:
 
     ```bash
-    git archive <release-commit> | tar -x -C /tmp/mltk-release
-    cd /tmp/mltk-release
-    maturin build --release --out dist
-    maturin sdist --out dist
-    twine check dist/*
+    (
+      set -euo pipefail
+      rm -rf /tmp/mltk-release
+      mkdir -p /tmp/mltk-release
+      git archive <release-commit> | tar -x -C /tmp/mltk-release
+      cd /tmp/mltk-release
+      maturin build --release --out dist
+      maturin sdist --out dist
+      twine check dist/*
+    )
     ```
 
-    Then repeat the `test-wheels` job: install the wheel into a fresh Python 3.12 venv together with `pytest scipy` only, check `python -c "import mltk; print(mltk.__version__)"`, and run `python -m pytest tests/test_rust_bridge.py -q` from the clean tree. Install the sdist into a fresh venv on another supported Python version too; that builds the Rust extension from source, the way users on other versions and Homebrew install it.
+    Then, in `/tmp/mltk-release`, repeat the `test-wheels` job: install the wheel into a fresh Python 3.12 venv together with `pytest scipy` only, check `python -c "import mltk; print(mltk.__version__)"`, and run `python -m pytest tests/test_rust_bridge.py -q` from the clean tree. Install the sdist into a fresh venv on another supported Python version too; that builds the Rust extension from source, the way users on other versions and Homebrew install it.
 3. Merge the release PR with a merge commit, and wait for master CI to pass on the merge commit.
 
 ## Publishing
