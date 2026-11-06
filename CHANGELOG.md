@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **GitHub Releases** — each `v*` tag gets a GitHub Release whose notes are the tag's CHANGELOG section, plus the PyPI and Docker install lines. The Release workflow checks for a non-empty section before it publishes anything. `python scripts/bump.py notes <version>` prints the same notes.
 
 ### Changed
 
 ### Fixed
+- **The package's Documentation link** pointed at a docs site that is not published. It now points at the `docs/` folder on GitHub; PyPI shows the new link from the next release.
+- **Docs fixes** — the CHANGELOG link on the docs home page pointed at a `main` branch (the branch is `master`); the LLM-judge pages now say that a JSON reply's `"score"` key is read before the first number; the dataset importer page gives the release it shipped in (v0.13.0) instead of "Unreleased"; the MCP server page links the MCP specification instead of files that are not in the repo, so `mkdocs build --strict` passes.
 
 ## [0.15.0] — 2026-11-06
 ### Added

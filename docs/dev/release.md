@@ -11,6 +11,7 @@ See `CONTRIBUTING.md` in the repo root for the full workflow.
 | Preview a version bump | `python scripts/bump.py release --dry-run <version>` |
 | Bump version + roll CHANGELOG | `python scripts/bump.py release <version>` |
 | Full release make target | `make bump-release VERSION=<version>` |
+| Print a version's GitHub Release notes | `python scripts/bump.py notes <version>` |
 
 ## What gets updated
 
@@ -56,10 +57,10 @@ git tag -a vX.Y.Z <merge-commit> -m "vX.Y.Z — <highlights>"
 git push origin vX.Y.Z
 ```
 
-- **Release** (`.github/workflows/release.yml`, on the tag): builds CPython 3.12 wheels for Linux x86_64 and arm64, macOS arm64 and Windows, plus the sdist; runs `test-wheels` on Linux, macOS and Windows; then publishes to TestPyPI and to PyPI (`mlspec`).
+- **Release** (`.github/workflows/release.yml`, on the tag): builds CPython 3.12 wheels for Linux x86_64 and arm64, macOS arm64 and Windows, plus the sdist; runs `test-wheels` on Linux, macOS and Windows; then publishes to TestPyPI and to PyPI (`mlspec`). Its `release-notes` job fails the run before anything is published if `CHANGELOG.md` has no section with entries for the tag's version. After PyPI, `github-release` creates the GitHub Release with the output of `bump.py notes` (a re-run updates the notes). If that job fails, re-run it: Docker publishing starts only when the whole workflow succeeds.
 - **Publish Docker images** (`.github/workflows/docker-publish.yml`) starts when Release completes. It waits until the version is on PyPI, builds `runtime-slim` and `runtime-full` for amd64 and arm64, pushes `ghcr.io/liorrr/mltk:vX.Y.Z`, `:latest`, `:vX.Y.Z-full` and `:full`, and mirrors them to Docker Hub as `liorcohenil/mltk`. Its runs are listed under the default branch, not the tag. The Docker Hub mirror job is `continue-on-error`, so check the registry rather than the job status.
 
 ## After publishing
 
-- Check that `https://pypi.org/pypi/mlspec/X.Y.Z/json` (and the same path on `test.pypi.org`) lists the four wheels and the sdist, and that the GHCR and Docker Hub `vX.Y.Z` digests equal `latest` (`vX.Y.Z-full` equals `full`).
+- Check that `https://pypi.org/pypi/mlspec/X.Y.Z/json` (and the same path on `test.pypi.org`) lists the four wheels and the sdist, that `gh release view vX.Y.Z` shows the notes, and that the GHCR and Docker Hub `vX.Y.Z` digests equal `latest` (`vX.Y.Z-full` equals `full`).
 - Bump the Homebrew tap (`Liorrr/homebrew-mltk`): set the formula's `url` and `sha256` to the PyPI sdist, through a pull request. On a push to `main`, `brew test-bot` builds and tests nothing; on a PR it builds, audits and tests the formula. Read the `brew test` step itself: a failed or skipped step still leaves the check green.

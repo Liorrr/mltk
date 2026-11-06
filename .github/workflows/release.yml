@@ -69,12 +69,26 @@ jobs:
       - name: Run bridge smoke test
         run: python -m pytest tests/test_rust_bridge.py -q
 
+  # Fails the run before anything is published when CHANGELOG.md has no
+  # section (or only empty headings) for the tag's version. Uploads nothing:
+  # the publish jobs download every artifact into dist/.
+  release-notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the CHANGELOG section for the tag
+        run: python scripts/bump.py notes "$GITHUB_REF_NAME"
+
   # Publishes to TestPyPI on every tag push.
   # Requires Trusted Publisher configured at test.pypi.org (project: mlspec, owner: Liorrr,
   # repo: mltk, workflow: release.yml) before the first tag push.
-  # Note: docs still reference `pip install mltk` while PEP 541 claim (mltk name) is pending.
   test-pypi:
-    needs: [test-wheels]
+    needs: [test-wheels, release-notes]
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:
@@ -107,3 +121,29 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+  # Creates the GitHub Release from the tag's CHANGELOG section once PyPI has
+  # the version; a re-run updates the existing Release's notes. Docker
+  # publishing starts only when this whole workflow succeeds, so if this job
+  # fails, re-run it.
+  github-release:
+    needs: [pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/bump.py notes "$GITHUB_REF_NAME" --out release-notes.md
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag \
+              --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+          fi
