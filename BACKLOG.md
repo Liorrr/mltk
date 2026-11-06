@@ -371,6 +371,12 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **COMET** (`unbabel-comet`) — neural MT quality; heavy (torch + model download), must be strictly optional and offline-testable; own scoping pass
 - [ ] **TEDS / GriTS** — table structure recognition. **No canonical PyPI package**: TEDS reference impl is in IBM's PubTabNet repo, GriTS in Microsoft's table-transformer repo; `zss`/`easyted` are generic tree-edit-distance libs, not the table metric. Needs a vendored implementation over `zss` — highest effort, scope before scheduling
 
+### Parity Test Engine — proposed 2026-11-06
+*Gap: mltk compares one model against references, not two models or runtimes against each other on the same inputs. Pieces exist: `assert_onnx_valid` (one input against an expected tensor), `assert_matches_golden` (saved snapshot), `assert_no_regression` (metric level), `assert_no_output_drift` (distribution level).*
+- [ ] **Research first:** prior art for runtime and model parity, the metrics and tolerances, mltk's integration points, and the output types to cover
+- [ ] Engine: run a reference and a candidate (e.g. PyTorch vs ONNX or a quantized build, the old vs the new version, a training pipeline vs the serving endpoint) on the same inputs and check per-sample agreement: numeric tolerance, label and top-k agreement rate, and a report of the mismatching samples
+- [ ] **DECIDE at design:** output types in the first cut (tensors, labels, probabilities, text), runtime adapters, and the pytest, scan, report and MCP surfaces
+
 ### Monitoring Visualization Portal
 - [ ] **ACTION**: Research build vs. buy — compare custom portal effort against free solutions (Grafana OSS, Apache Superset, Metabase, Redash) before committing to implementation
 - [ ] Live visualization portal connected to mltk server for monitoring state and data
