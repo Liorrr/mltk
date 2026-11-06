@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **The package's Documentation link** pointed at a docs site that is not published. It now points at the `docs/` folder on GitHub; PyPI shows the new link from the next release.
-- **Docs fixes** — the CHANGELOG link on the docs home page pointed at a `main` branch (the branch is `master`); the LLM-judge pages now say that a JSON reply's `"score"` key is read before the first number; the dataset importer page gives the release it shipped in (v0.13.0) instead of "Unreleased"; the MCP server page links the MCP specification instead of files that are not in the repo, so `mkdocs build --strict` passes.
+- **Docs fixes** — the CHANGELOG link on the docs home page pointed at a `main` branch (the branch is `master`); the LLM-judge page now says that `assert_llm_judge_score` reads a JSON reply's `"score"` key before the first number, and the judge-defaults page says that `assert_with_judge` reads the default judge's reply by its first number; the dataset importer page gives the release it shipped in (v0.13.0) instead of "Unreleased"; the MCP server page links the MCP specification instead of files that are not in the repo, so `mkdocs build --strict` passes.
 
 ## [0.15.0] — 2026-11-06
 ### Added
