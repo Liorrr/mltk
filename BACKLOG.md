@@ -10,10 +10,13 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S106: 244 assertions, 5437+ tests, 38 Rust tests) — v0.15.0
+## DONE (S0-S106: 244 assertions, 5448+ tests, 38 Rust tests) — v0.15.0
 
 ### v0.15.0 release — PRs merged since v0.14.0
-- [x] Cut **v0.15.0**: rolled CHANGELOG (`[Unreleased]` → `[0.15.0]`), bundling S106 (#37), `mltk server-backup` (#35) and the `mlspec` install-command sweep (#36). Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`, container-doc image tags). Eval metrics change when a scorer or judge errors (see the CHANGELOG "Changed" section).
+- [x] Cut **v0.15.0**: rolled CHANGELOG (`[Unreleased]` → `[0.15.0]`), bundling S106 (#37), `mltk server-backup` (#35) and the `mlspec` install-command sweep (#36). Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`, container-doc image tags). Eval metrics change when a scorer or judge errors (see the CHANGELOG "Changed" section). Rehearsed before tagging: wheel and sdist built from a clean export of the release commit, `twine check`, the `test-wheels` steps in a fresh Python 3.12 venv, and an sdist install on Python 3.10 (Rust built from source). Published 2026-11-06: PyPI and TestPyPI `mlspec 0.15.0` (4 wheels + sdist), GHCR `ghcr.io/liorrr/mltk` and Docker Hub `liorcohenil/mltk` `v0.15.0` = `latest`, `v0.15.0-full` = `full` (amd64 + arm64).
+- [x] **Homebrew formula fixed and bumped to 0.15.0** (`Liorrr/homebrew-mltk` PR #1). It had never run: `venv.pip_install` runs pip with `--no-deps` and the formula declared no resources, so `mltk` failed with `No module named 'pandas'`, and its test called a `mltk --version` option that does not exist. It now installs `mlspec[cli]` with pip resolving the dependencies, declares `zlib-ng-compat` on Linux, and tests `mltk version`; `brew test` passes on macOS and Linux.
+- [x] **GitHub Releases from the CHANGELOG.** No tag had a GitHub Release. `release.yml` now fails before publishing when the tag's CHANGELOG section is missing or empty, and creates the Release from it after PyPI (`python scripts/bump.py notes <version>`, which adds the PyPI and Docker install lines). The v0.15.0 Release was created with the same command.
+- [x] **Docs checked against the v0.15.0 changes.** Every change has its docs. Fixed on the way: the docs home page's CHANGELOG link (`blob/main` → `blob/master`, 404 before) and its v0.13-era "Recent additions"; the LLM-judge page, which did not say `assert_llm_judge_score` reads a JSON reply's `"score"` key first (the judge-defaults page now says `assert_with_judge` reads the default judge's reply by its first number); the dataset importer's "Since: Unreleased"; a link from the MCP server page to research files that are not in the repo, which made `mkdocs build --strict` fail. The package's `Documentation` URL pointed at an unpublished site and now points at `docs/` on GitHub.
 
 ### S106 — Eval judge errors, assertion export, HTML report fixes (#37)
 - [x] Errored eval samples (scorer or judge exception, unparseable or non-finite judge reply) are flagged `Score.errored`, keep value 0.0 and leave `/mean` and `/accuracy`; per-scorer counts in `EvalResult.errors` and the MCP `mltk_eval` response; `EvalResult.passed` fails an all-errored scorer. `EvalTask.to_test_result(on_error="fail_if_all"|"strict"|"zero", min_valid_fraction=None)`, validated before any model call.
@@ -83,7 +86,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 244 assertions, 5437+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 244 assertions, 5448+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -194,6 +197,14 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## BACKLOG (not yet scheduled)
 
+### Follow-ups from the v0.15.0 release — found 2026-11-06
+- [ ] **PyPI wheels are CPython 3.12 only.** `release.yml` builds one wheel per platform with Python 3.12 and the extension is not built for the stable ABI, so Python 3.10, 3.11, 3.13 and 3.14 install from the sdist and need a Rust toolchain. Build abi3 wheels (PyO3 `abi3-py310`, if the extension compiles under the limited API) or add a Python-version matrix to the wheel job.
+- [ ] **No CI rehearsal of the release path.** `release.yml` runs only on a `v*` tag push and always publishes, so its wheel and `test-wheels` jobs cannot run before a release. A `workflow_dispatch` or pull-request path that builds every wheel and runs `test-wheels` with the publish jobs skipped would cover the platforms a local dry run cannot.
+- [ ] **`bump.py release` leaves two manual edits:** the `mltk-rust` package version in `rust/Cargo.lock` (it keeps the old version until edited or rewritten by the next `cargo` build) and the sprint heading in `BACKLOG.md` that still says "(unreleased)".
+- [ ] **The Homebrew tap's CI tests nothing on a push to `main`.** `brew test-bot` reports `testing_formulae (none)` there; only a pull request builds and tests the formula. A skipped or failed `brew test` step still leaves the check green ("1 failed step ignored"), so the formula bump needs a PR and a read of the `brew test` step.
+- [ ] **No CI job builds the docs.** `mkdocs build --strict` failed on master because of a broken link that had been in the MCP server page since it was written; nothing ran the build. A CI step running `mkdocs build --strict` would catch broken links and missing pages.
+- [ ] **The docs site is not published.** `mkdocs.yml` sets `site_url` to `https://liorrr.github.io/mltk`, but GitHub Pages is off and no workflow deploys the site (`docs/deploy.sh` runs it locally), so the package's `Documentation` link now points at `docs/` on GitHub. Publishing the site would need a deploy workflow and Pages enabled.
+
 ### Follow-ups from the v0.14.0 PR train — found 2026-11-02
 - [ ] **CI skips the language-ID and chrF tests.** The CI test matrix (`ci.yml`) installs neither the `langdetect` nor the `nlp` extra, so `assert_language` and the chrF tests skip in CI and run only locally.
 - [ ] **`scripts/tests/` is not collected by CI** (`testpaths = ["tests"]`), so the `bump.py` unit tests never run there. A `bump.py` regression in #31 was caught only by review.
@@ -205,13 +216,17 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Helm: `helm uninstall` deletes the chart-created PVC** (no `helm.sh/resource-policy: keep`, no `persistence.existingClaim`). Decided 2026-11-02: keep the delete-on-uninstall behaviour and add a backup step instead. `mltk server-backup` (online, WAL-safe) plus documented backup-before-uninstall and restore-via-`server.dbPath` steps in the chart README.
 - [ ] **Bias severity depends on the entry point.** `mltk.scan.scan()` without `sensitive_columns` treats engine-detected columns as user-specified (CRITICAL), while `mltk scan-model` reports auto-detected columns as INFO.
 - [ ] **`bump.py refresh` rewrites historical DONE headers' test counts** (the v0.12.4 bucket shows today's count). Exclude frozen headers from the count regex.
-- [ ] **`mltk.__version__` prefers the `mltk` distribution's metadata over `mlspec`** (`src/mltk/__init__.py`). An environment with a stale dev `mltk` dist, or the unrelated PyPI `mltk` package, reports that version instead of the installed `mlspec` one. Look up `mlspec` first.
+- [ ] **`mltk.__version__` prefers the `mltk` distribution's metadata over `mlspec`** (`src/mltk/__init__.py`). An environment with a stale dev `mltk` dist, or the unrelated PyPI `mltk` package, reports that version instead of the installed `mlspec` one. Look up `mlspec` first. Seen again in the v0.15.0 dry run: a dev environment with an old editable install reported 0.6.0.
 - [ ] **Four `tests/test_cli` tests fail locally on Windows** with a cp1252 decode of subprocess output (`test_import_help_does_not_require_importer_extra`, `TestScanModelHelp` ×2, `test_missing_data_file`). They are green in CI.
 
 ### Follow-ups from the eval judge-error fixes — found 2026-11-04
-- [ ] **Server push drops `assertions`.** `ResultItem` (`src/mltk/server/routes.py`) uses pydantic's default config, so the new per-test `assertions` list is silently ignored and not stored.
+- [ ] **The server does not store per-test `assertions`.** The plugin leaves them out of the `--mltk-server` push (they nearly double the payload against the server's 10 MB limit), and `ResultItem` (`src/mltk/server/routes.py`) uses pydantic's default config, so it would ignore them anyway. Storing them needs a schema and a size budget.
+- [ ] **A nested in-process pytest session can drop the outer test's recorded assertions.** `pytester.parseconfigure("--mltk-export-json", path)` inside a recording test runs `pytest_configure` again, which arms a fresh recorder list, so the outer test loses the assertions it recorded before the call. Arming in a `pytest_runtestloop` hookwrapper instead of `pytest_configure` would scope the list to the session that runs tests.
+- [ ] **Hypothesis shrink examples are exported as caught failures.** Every failing example `@given` tries while shrinking records a critical failure that Hypothesis catches, so each appears in `assertions` with `caught: true`. Expected behaviour, but `docs/api/pytest-plugin.md` should say so.
 - [ ] **Other judge paths still turn errors into scores.** `assert_llm_judge_score` averages failed calls, a pairwise judge error counts as a tie, and `domains/llm/synthetic/_quality.py` scores errors as 0.0. Route them through `mltk.core.error_policy`.
 - [ ] **Judge replies with fenced or prefixed JSON fall back to the first number.** `parse_judge_score` only honours the `score` key when the whole reply parses as JSON, so ```` ```json {...} ``` ```` or "Here is my rating: {...}" scores the first number (e.g. a `reasoning_steps` count). Extracting the outermost `{...}` span first would change `assert_llm_judge_score` and the multimodal judges too, so it needs its own decision.
+- [ ] **`assert_with_judge` reads the default judge's reply with its own first-number regex.** It does not call `parse_judge_score`, so `{"reasoning_steps": 3, "score": 0.2}` scores 3.0 and `{"score": null, "confidence": 0.95}` scores 0.95, and both pass `min_score=0.5`. Switching it to the shared parser changes scores for users of the default judge, so it needs a CHANGELOG "Changed" entry.
+- [ ] **`docs/api/judge-defaults.md` describes behaviour the code does not have.** It says every subjective assertion falls back to the default judge set with `configure_default_judge`, but only `assert_with_judge` reads it: nothing outside `judge_defaults.py` calls `get_default_judge` or `resolve_judge`. Its error-handling table also says a judge exception gives the item a 0.0 score with an error flag in `per_item_scores`, but `assert_with_judge` fails critically. The page needs rewriting against the code, or the default judge needs wiring into the assertions it names.
 - [ ] **Hand-rolled `on_error` validation** remains in `src/mltk/cli/security_scan.py` and `src/mltk/testdefs/schema.py`; use `mltk.core.error_policy.RED_TEAM_ON_ERROR`.
 - [ ] **The plugin collects nothing under pytest-xdist (`-n`)** — exports, the HTML report and the new `assertions` list are empty on workers.
 - [ ] **`docs/api/mcp-server.md` `mltk_eval` example is stale** — it shows `status`/`summary`/`passed_samples` fields the tool does not return.
@@ -298,7 +313,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 5437+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 5448+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).
@@ -357,6 +372,12 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **CIDEr / METEOR** (`pycocoevalcap`) — caption/generation quality for `mltk.domains.multimodal` + nlp; **SPICE from the same package needs a Java runtime** — gate it behind an explicit availability check or defer
 - [ ] **COMET** (`unbabel-comet`) — neural MT quality; heavy (torch + model download), must be strictly optional and offline-testable; own scoping pass
 - [ ] **TEDS / GriTS** — table structure recognition. **No canonical PyPI package**: TEDS reference impl is in IBM's PubTabNet repo, GriTS in Microsoft's table-transformer repo; `zss`/`easyted` are generic tree-edit-distance libs, not the table metric. Needs a vendored implementation over `zss` — highest effort, scope before scheduling
+
+### Parity Test Engine — proposed 2026-11-06
+*Gap: mltk compares one model against references, not two models or runtimes against each other on the same inputs. Pieces exist: `assert_no_training_serving_skew` (two output arrays, largest element-wise difference within a tolerance; no agreement rate, label mode or mismatch report), `assert_onnx_valid` (one input against an expected tensor), `assert_matches_golden` (saved snapshot), `assert_no_regression` (metric level), `assert_no_output_drift` (distribution level).*
+- [ ] **Research first:** prior art for runtime and model parity, the metrics and tolerances, mltk's integration points, and the output types to cover
+- [ ] Engine: run a reference and a candidate (e.g. PyTorch vs ONNX or a quantized build, the old vs the new version, a training pipeline vs the serving endpoint) on the same inputs and check per-sample agreement: numeric tolerance, label and top-k agreement rate, and a report of the mismatching samples
+- [ ] **DECIDE at design:** output types in the first cut (tensors, labels, probabilities, text), runtime adapters, and the pytest, scan, report and MCP surfaces
 
 ### Monitoring Visualization Portal
 - [ ] **ACTION**: Research build vs. buy — compare custom portal effort against free solutions (Grafana OSS, Apache Superset, Metabase, Redash) before committing to implementation

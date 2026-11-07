@@ -36,7 +36,7 @@ make ML quality gating fully automated.
 !!! note "MCP Protocol"
     The server uses stdio transport over JSON-RPC 2.0, managed by FastMCP.
     No network ports or authentication are required for local use.
-    See the [MCP protocol spec research](../research/mcp-protocol-spec.md)
+    See the [MCP specification](https://modelcontextprotocol.io/specification/2025-11-25)
     for wire-format details.
 
 ---
@@ -934,9 +934,6 @@ production deployment patterns:
 | [MCP Spec 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25) | `isError: true` for tool failures; JSON-RPC errors for protocol only. |
 | [Claude Code MCP Docs](https://code.claude.com/docs/en/mcp) | `.mcp.json` scope, `--scope user` CLI, Tool Search lazy-loading behavior. |
 | [Cursor MCP Docs](https://docs.cursor.com/context/model-context-protocol) | 40-tool hard limit; `"mcpServers"` root key required. |
-| `docs/research/mcp-protocol-spec.md` | Wire format, lifecycle, FastMCP SDK, security model. |
-| `docs/research/mcp-server-implementations.md` | FastMCP patterns, `uvx` packaging, stdio logging rules. |
-| `docs/research/agent-mcp-usage-patterns.md` | `suggested_next_step` pattern, chaining, Cursor tool budget. |
 
 ---
 

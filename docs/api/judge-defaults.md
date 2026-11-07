@@ -427,5 +427,5 @@ MLTK_JUDGE_BACKEND=openai MLTK_JUDGE_MODEL=gpt-4o pytest tests/llm/
 | `judge_fn` omitted, no default configured, fallback available | Fallback method (embedding / lexical) is used |
 | `judge_fn` omitted, no default, no fallback (`require_judge=True`) | `ValueError` with message explaining how to configure |
 | `judge_fn` raises exception during scoring | Item scores `0.0`; error flag in `per_item_scores`; assertion does not crash |
-| `judge_fn` returns non-numeric text | Score `0.0` extracted from first number found; if none, `0.0` |
+| Default judge (set with `configure_default_judge`) returns text | `assert_with_judge` scores the first number in the reply. Unlike `assert_llm_judge_score`, it does not read a JSON `"score"` key first. No number gives `0.0` |
 | `configure_default_judge` called with `None` | Clears the default; assertions fall back to `fallback_method` |

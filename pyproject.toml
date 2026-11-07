@@ -87,7 +87,7 @@ mltk = "mltk.pytest_plugin.plugin"
 
 [project.urls]
 Homepage = "https://github.com/Liorrr/mltk"
-Documentation = "https://liorrr.github.io/mltk"
+Documentation = "https://github.com/Liorrr/mltk/tree/master/docs"
 Repository = "https://github.com/Liorrr/mltk"
 Issues = "https://github.com/Liorrr/mltk/issues"
 

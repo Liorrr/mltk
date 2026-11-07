@@ -5,6 +5,8 @@ Subcommands:
   verify               Check for drift, exit non-zero if found (no writes). Used by CI.
   release <version>    Bump version + roll CHANGELOG + run refresh.
   release --dry-run <version>   Preview diff without writing.
+  notes <version> [--out FILE]  Print the version's CHANGELOG section as
+                       GitHub Release notes; exit 1 if it is missing or empty.
 """
 from __future__ import annotations
 
@@ -91,6 +93,18 @@ _CHANGELOG_STUB = """\
 
 ### Fixed
 
+"""
+
+_CHANGELOG_SECTION_HEAD = re.compile(r"^## \[(?P<ver>[^\]]+)\]", re.MULTILINE)
+
+_RELEASE_NOTES_FOOTER = """
+
+---
+
+- **PyPI:** `pip install mlspec=={ver}`
+- **Docker:** `ghcr.io/liorrr/mltk:v{ver}` and `ghcr.io/liorrr/mltk:v{ver}-full`, \
+mirrored to Docker Hub as `liorcohenil/mltk`
+- **All releases:** [CHANGELOG.md](https://github.com/Liorrr/mltk/blob/master/CHANGELOG.md)
 """
 
 
@@ -312,6 +326,40 @@ def _roll_changelog(text: str, new_ver: str) -> str:
     return result
 
 
+def _changelog_section(text: str, version: str) -> str:
+    """Return the body of the ``## [version]`` CHANGELOG section.
+
+    The body runs from the line after the heading to the next ``## [``
+    heading (or the end of the file). Raises ValueError when the section is
+    missing or holds only sub-headings, so a tag without release notes stops
+    the Release workflow before anything is published.
+    """
+    heads = list(_CHANGELOG_SECTION_HEAD.finditer(text))
+    for i, head in enumerate(heads):
+        if head.group("ver") != version:
+            continue
+        line_end = text.find("\n", head.end())
+        start = len(text) if line_end == -1 else line_end + 1
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        body = text[start:end].strip()
+        entries = [
+            line for line in body.splitlines() if line.strip() and not line.startswith("#")
+        ]
+        if not entries:
+            raise ValueError(f"The '## [{version}]' section in CHANGELOG.md has no entries")
+        return body
+    raise ValueError(f"No '## [{version}]' section in CHANGELOG.md")
+
+
+def _release_notes(text: str, version: str) -> str:
+    """GitHub Release notes: the CHANGELOG section plus install pointers.
+
+    *version* may be a tag name (``v1.2.3``) or a bare version.
+    """
+    ver = version.removeprefix("v")
+    return _changelog_section(text, ver) + _RELEASE_NOTES_FOOTER.format(ver=ver)
+
+
 def _replace_prose_version_in_text(text: str, old_ver: str, new_ver: str) -> str:
     """Replace prose 'v0.9.0' references, skipping Since: context."""
     pattern = re.compile(r"v" + re.escape(old_ver))
@@ -507,6 +555,20 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
     return 0
 
 
+def cmd_notes(version: str, out: Path | None = None) -> int:
+    """Print or write the GitHub Release notes for *version*."""
+    try:
+        notes = _release_notes(CHANGELOG.read_text(encoding="utf-8"), version)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if out is None:
+        _print_utf8(notes)
+    else:
+        out.write_text(notes, encoding="utf-8")
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -527,6 +589,10 @@ def main() -> None:
     rel_p.add_argument("version", help="New version e.g. 1.0.0")
     rel_p.add_argument("--dry-run", action="store_true", help="Preview diff without writing.")
 
+    notes_p = sub.add_parser("notes", help="Print a version's CHANGELOG section as release notes.")
+    notes_p.add_argument("version", help="Version or tag, e.g. 1.0.0 or v1.0.0")
+    notes_p.add_argument("--out", type=Path, help="Write the notes to this file.")
+
     args = parser.parse_args()
 
     if args.cmd == "refresh":
@@ -544,6 +610,9 @@ def main() -> None:
 
     elif args.cmd == "release":
         sys.exit(cmd_release(args.version, args.dry_run))
+
+    elif args.cmd == "notes":
+        sys.exit(cmd_notes(args.version, args.out))
 
 
 if __name__ == "__main__":

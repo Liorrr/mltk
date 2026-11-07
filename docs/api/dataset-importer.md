@@ -4,7 +4,7 @@ Point mltk at a dataset — a local CSV/JSON/Parquet file or a HuggingFace
 Hub id — and get back a normalized, column-role-mapped result ready to
 become a versioned [`EvalDataset`](eval-datasets.md).
 
-**Since:** Unreleased (S97–S99, a completed 3-sprint epic — see
+**Since:** v0.13.0 (see
 [Roadmap](../roadmap.md#smart-dataset-importer-test-suite-mapper))
 
 **Modules:**
