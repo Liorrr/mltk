@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from mltk import __version__
+from mltk.mcp._paths import PathOutsideRootError, confine_path
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -32,6 +33,28 @@ _SCANNER_NAMES = (
     "data, drift, bias, overfit, calibration, "
     "robustness, leakage, slice"
 )
+_IMPORT_LOCAL_EXTENSIONS = {".csv", ".json", ".parquet", ".pq"}
+
+
+def _is_local_import_source(source: str) -> bool:
+    """Return True when an import source names something on the local disk.
+
+    Anything that exists on disk counts as local, files and directories
+    alike, because a directory handed to the hub loader is read from disk.
+    So do absolute paths, home-relative paths (``~/...``) and names with a
+    local data-file extension. Only URLs and hub dataset ids (``squad``,
+    ``org/name``) that do not exist locally are left unconfined.
+    """
+    if source.startswith("http://") or source.startswith("https://"):
+        return False
+    if source.startswith("~"):
+        return True
+    path = Path(source)
+    return (
+        path.exists()
+        or path.is_absolute()
+        or path.suffix.lower() in _IMPORT_LOCAL_EXTENSIONS
+    )
 
 
 def _log(msg: str) -> None:
@@ -384,7 +407,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             scanners: Comma-separated names or 'all'.
         """
         try:
-            target = Path(path).resolve()
+            target = confine_path(path)
             if not target.exists():
                 return _error(
                     f"Path not found: {path}",
@@ -437,6 +460,11 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                     "data for full scan: mltk scan -h"
                 ),
             }))
+        except PathOutsideRootError as exc:
+            return _error(
+                str(exc),
+                suggested_action="Set MLTK_MCP_ROOTS to include the requested path.",
+            )
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
@@ -457,7 +485,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             verbose: Include detailed per-test output / full pytest log.
         """
         try:
-            target = Path(suite_path).resolve()
+            target = confine_path(suite_path)
             if not target.exists():
                 return _error(
                     f"Suite not found: {suite_path}",
@@ -534,6 +562,11 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             return _error(
                 f"Unsupported type: {suffix}",
                 suggested_action="Use .yaml or .py.",
+            )
+        except PathOutsideRootError as exc:
+            return _error(
+                str(exc),
+                suggested_action="Set MLTK_MCP_ROOTS to include the requested path.",
             )
         except Exception as exc:
             _log(traceback.format_exc())
@@ -624,7 +657,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 EvalTask,
                 load_dataset,
             )
-            target = Path(dataset_path).resolve()
+            target = confine_path(dataset_path)
             if not target.exists():
                 return _error(
                     f"Not found: {dataset_path}",
@@ -698,6 +731,11 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 ),
                 "suggested_next_step": next_step,
             }))
+        except PathOutsideRootError as exc:
+            return _error(
+                str(exc),
+                suggested_action="Set MLTK_MCP_ROOTS to include the requested path.",
+            )
         except Exception as exc:
             _log(traceback.format_exc())
             return _error(str(exc))
@@ -928,9 +966,8 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
         and code snippet availability. Use after mltk_suggest to prioritize
         which fix to try first.
 
-        When ``sandbox=True``, runs each fix hypothesis in an isolated
-        git worktree via :class:`SandboxedExperimentRunner` instead of
-        pure heuristic scoring.  Requires ``git`` CLI and a git repo.
+        When ``sandbox=True``, returns an unsupported-mode error because
+        findings passed as JSON do not carry replayable assertion identity.
 
         Args:
             finding_json: JSON string of a single scan finding
@@ -938,8 +975,8 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             rank_by: Strategy: "passed" (confidence-first),
                 "delta" (actionability-first), "composite" (balanced).
             max_results: Maximum results to return (1-50).
-            sandbox: If True, run fixes in isolated git worktrees
-                instead of heuristic ranking.
+            sandbox: If True, return an unsupported-mode error. Use False
+                for heuristic ranking.
         """
         try:
             if not finding_json.strip():
@@ -966,8 +1003,12 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 )
 
             if sandbox:
-                return _experiment_sandbox(
-                    parsed, rank_by, max_results,
+                return _error(
+                    "sandbox=True is not supported for findings passed as JSON: "
+                    "they carry no replayable assertion, so a fix cannot be confirmed.",
+                    suggested_action=(
+                        "Call mltk_experiment with sandbox=False for heuristic ranking."
+                    ),
                 )
 
             fixes = parsed.get("suggested_fixes", [])
@@ -1320,6 +1361,17 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             )
 
         try:
+            confined_source = (
+                str(confine_path(source))
+                if _is_local_import_source(source)
+                else source
+            )
+            confined_golden = (
+                str(confine_path(golden_path)) if golden_path else ""
+            )
+            confined_output = (
+                str(confine_path(output_path)) if output_path else ""
+            )
             load_kwargs = {
                 k: v
                 for k, v in {
@@ -1329,7 +1381,11 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 }.items()
                 if v is not None
             }
-            result = DatasetImporter.load(source, **load_kwargs)
+            result = DatasetImporter.load(confined_source, **load_kwargs)
+            # The generated file reloads ``result.source``: keep the path as
+            # the caller gave it (relative stays relative), not this machine's
+            # absolute path. ``~`` is expanded, since the loaders do not.
+            result.source = os.path.expanduser(source)
             if not result.mapping.columns_with_role(ColumnRole.INPUT):
                 return _error(
                     "No column could be mapped to the eval INPUT role.",
@@ -1345,12 +1401,12 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
 
             golden_spec = None
             golden_summary = None
-            if golden_path:
+            if confined_golden:
                 if not golden_target_column:
                     return _error(
                         "golden_path requires golden_target_column.",
                     )
-                golden_rows = load_golden(golden_path)
+                golden_rows = load_golden(confined_golden)
                 eval_dataset, golden_report = bind_golden(
                     eval_dataset,
                     golden_rows,
@@ -1360,7 +1416,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 )
                 golden_summary = golden_report.summary()
                 golden_spec = GoldenSpec(
-                    path=golden_path,
+                    path=os.path.expanduser(golden_path),
                     target_column=golden_target_column,
                     key=golden_key or None,
                     golden_key=golden_key_column or None,
@@ -1372,7 +1428,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 result,
                 task_type,
                 dataset_name=dataset_name,
-                output_path=output_path or None,
+                output_path=confined_output or None,
                 load_kwargs=load_kwargs or None,
                 golden_spec=golden_spec,
             )
@@ -1384,7 +1440,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 "sample_count": eval_dataset.sample_count,
                 "assertion_count": len(suite),
                 "generated_code": code,
-                "file_written": output_path or None,
+                "file_written": confined_output or None,
                 "suggested_next_step": (
                     "Review the generated pytest. Set MLTK_PREDICT_FN to "
                     "un-skip Tier 2 tests, or set register=true to save."
@@ -1402,6 +1458,11 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 }
 
             return _ok(_with_hint("mltk_import", payload))
+        except PathOutsideRootError as exc:
+            return _error(
+                str(exc),
+                suggested_action="Set MLTK_MCP_ROOTS to include the requested path.",
+            )
         except FileNotFoundError as exc:
             return _error(
                 str(exc),
@@ -1413,166 +1474,6 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             _log(traceback.format_exc())
             return _error(str(exc))
 
-
-def _experiment_sandbox(
-    parsed: dict[str, Any],
-    rank_by: str,
-    max_results: int,
-) -> str:
-    """Run sandbox experiment using git worktrees.
-
-    Lazily imports sandbox dependencies, validates git
-    availability, constructs domain objects from the parsed
-    JSON, and delegates to
-    :class:`SandboxedExperimentRunner`.
-
-    Args:
-        parsed: Parsed finding JSON dict.
-        rank_by: Ranking strategy name.
-        max_results: Maximum results to return.
-
-    Returns:
-        JSON response string via ``_ok()`` or ``_error()``.
-    """
-    try:
-        from mltk.experiment.worktree import (
-            find_git_root,
-            git_available,
-        )
-
-        if not git_available():
-            return _error(
-                "Git CLI not found; sandbox mode requires git.",
-                suggested_action=(
-                    "Install git or use sandbox=False."
-                ),
-            )
-
-        try:
-            repo_root = find_git_root()
-        except FileNotFoundError:
-            return _error(
-                "Not in a git repository; sandbox mode "
-                "requires a git repo.",
-                suggested_action=(
-                    "Run from inside a git repository "
-                    "or use sandbox=False."
-                ),
-            )
-
-        from mltk.experiment.hypothesis import Hypothesis
-        from mltk.experiment.sandbox import (
-            SandboxedExperimentRunner,
-        )
-        from mltk.scan.finding import (
-            FixSuggestion,
-            ScanFinding,
-        )
-
-        fixes_raw = parsed.get("suggested_fixes", [])
-        if not fixes_raw:
-            return _ok(_with_hint("mltk_experiment", {
-                "ranked_fixes": [],
-                "total": 0,
-                "strategy": rank_by,
-                "sandbox": True,
-                "suggested_next_step": (
-                    "No fixes available for this finding. "
-                    "Run mltk_suggest first to generate "
-                    "fix suggestions."
-                ),
-            }))
-
-        fix_objs: list[FixSuggestion] = []
-        for f in fixes_raw:
-            fix_objs.append(FixSuggestion(
-                category=f.get("category", "code"),
-                title=f.get("title", ""),
-                description=f.get("description", ""),
-                confidence=f.get("confidence", "low"),
-                code_snippet=f.get("code_snippet", ""),
-            ))
-
-        from mltk.core.result import Severity, TestResult
-
-        _baseline = TestResult(
-            name="sandbox.baseline",
-            passed=False,
-            severity=Severity.WARNING,
-            message="Baseline from MCP sandbox request",
-        )
-        finding_obj = ScanFinding(
-            result=_baseline,
-            assertion_fn=lambda: _baseline,
-            assertion_args=(),
-            assertion_kwargs={},
-            scanner_name=parsed.get("scanner_name", ""),
-            suggested_fixes=fix_objs,
-        )
-
-        hypotheses = [
-            Hypothesis(
-                fix=fix,
-                apply_fn=lambda _f=fix: _baseline,  # noqa: ARG005
-                description=fix.title,
-            )
-            for fix in fix_objs
-        ]
-
-        strategy = rank_by.strip().lower() or "passed"
-        runner = SandboxedExperimentRunner(
-            repo_root=repo_root,
-            strategy=strategy,
-        )
-        result = runner.run(
-            finding_obj, hypotheses=hypotheses,
-        )
-
-        limit = max(1, min(max_results, 50))
-        ranked: list[dict[str, Any]] = []
-        for hr in result.hypothesis_results[:limit]:
-            ranked.append({
-                "category": hr.hypothesis.fix.category,
-                "title": hr.hypothesis.fix.title,
-                "description": (
-                    hr.hypothesis.fix.description
-                ),
-                "confidence": (
-                    hr.hypothesis.fix.confidence
-                ),
-                "code_snippet": (
-                    hr.hypothesis.fix.code_snippet
-                ),
-                "rank": hr.rank,
-                "improvement": hr.improvement,
-                "passed": hr.fixed_result.passed,
-            })
-
-        payload: dict[str, Any] = {
-            "ranked_fixes": ranked,
-            "total": len(ranked),
-            "strategy": strategy or "passed",
-            "sandbox": True,
-            "duration_ms": result.duration_ms,
-        }
-
-        if result.selected_fix is not None:
-            payload["selected_fix"] = (
-                result.selected_fix.title
-            )
-
-        payload["suggested_next_step"] = (
-            "Apply the selected fix from the sandbox "
-            "experiment and re-scan to verify."
-            if result.any_fix_works
-            else "No fix resolved the finding in sandbox. "
-            "Try different fixes or manual investigation."
-        )
-
-        return _ok(_with_hint("mltk_experiment", payload))
-    except Exception as exc:
-        _log(traceback.format_exc())
-        return _error(str(exc))
 
 
 def _finding_from_json(

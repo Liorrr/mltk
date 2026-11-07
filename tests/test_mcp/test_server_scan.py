@@ -69,13 +69,13 @@ class TestMltkScan:
         assert result["scan_performed"] is False
         mock_engine.assert_not_called()
 
-    def test_scan_nonexistent_path(self):
+    def test_scan_nonexistent_path(self, tmp_path):
         # SCENARIO: Scan a path that does not exist
         # WHY: Should fail before lazy import with a clear error
         # EXPECTED: status=error, no mock needed
         result = call_tool(
             "mltk_scan",
-            path="/does/not/exist/model.py",
+            path=str(tmp_path / "missing" / "model.py"),
         )
         assert_error(result)
         assert "not found" in result["error"].lower()

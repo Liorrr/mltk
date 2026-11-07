@@ -62,13 +62,13 @@ class TestMltkTest:
         assert "passed" in result
         assert "failed" in result
 
-    def test_nonexistent_file_error(self):
+    def test_nonexistent_file_error(self, tmp_path):
         # SCENARIO: Test file does not exist
         # WHY: Should fail before any import with a clear error
         # EXPECTED: status=error, no mock needed
         result = call_tool(
             "mltk_test",
-            suite_path="/does/not/exist/test.py",
+            suite_path=str(tmp_path / "missing" / "test.py"),
         )
         assert_error(result)
         assert "not found" in result["error"].lower()

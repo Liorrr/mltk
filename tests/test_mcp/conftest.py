@@ -5,7 +5,9 @@ before every test. No real ``mcp`` package needed.
 """
 from __future__ import annotations
 
+import os
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -17,7 +19,7 @@ from ._helpers import (
 
 
 @pytest.fixture(autouse=True)
-def mcp_server():
+def mcp_server(monkeypatch, tmp_path_factory):
     """Inject mock mcp package, import server, create it.
 
     Populates ``registered_tools`` with all 11 tool functions
@@ -32,6 +34,11 @@ def mcp_server():
     tests would patch a stale evicted module while the code under test
     imports a fresh one — making patches silently no-op.
     """
+    temp_root = tmp_path_factory.getbasetemp().resolve()
+    monkeypatch.setenv(
+        "MLTK_MCP_ROOTS",
+        f"{Path.cwd()}{os.pathsep}{temp_root}",
+    )
     modules = make_mcp_modules()
     saved = {name: sys.modules.get(name) for name in modules}
     sys.modules.update(modules)
