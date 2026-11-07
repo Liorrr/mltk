@@ -551,13 +551,17 @@ quality:
         from mltk.registry import save_collection
 
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
-        col_dir = save_collection(
-            name,
-            source_dir=source,
-            description=description,
-            version=version,
-            tags=tag_list,
-        )
+        try:
+            col_dir = save_collection(
+                name,
+                source_dir=source,
+                description=description,
+                version=version,
+                tags=tag_list,
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}")  # noqa: T201
+            raise typer.Exit(1) from exc
         print(f"Saved collection '{name}' to {col_dir}")  # noqa: T201
 
     @registry_app.command("pull")
@@ -1079,6 +1083,11 @@ quality:
                 " to file path"
             ),
         ),
+        allow_pickle: bool = typer.Option(
+            False,
+            "--allow-pickle",
+            help="Allow model formats that can run code when loaded",
+        ),
     ) -> None:
         """Scan a model for issues and generate tests.
 
@@ -1104,7 +1113,7 @@ quality:
         Example::
 
             mltk scan-model \\
-                --model model.pkl \\
+                --model model.pkl --allow-pickle \\
                 --data test.csv \\
                 --target label \\
                 --sensitive age,gender \\
@@ -1114,7 +1123,12 @@ quality:
 
         import pandas as pd
 
-        from mltk.scan.loader import load_model as _load
+        from mltk.scan.loader import (
+            PickleNotAllowedError as _PickleNotAllowedError,
+        )
+        from mltk.scan.loader import (
+            load_model as _load,
+        )
 
         # -- Load model -----------------------------------
         model_path = Path(model)
@@ -1125,7 +1139,10 @@ quality:
             raise typer.Exit(2)
 
         try:
-            loaded = _load(model_path)
+            loaded = _load(model_path, allow_pickle=allow_pickle)
+        except _PickleNotAllowedError as exc:
+            print(str(exc))  # noqa: T201
+            raise typer.Exit(2) from exc
         except (ValueError, ImportError, TypeError) as exc:
             print(f"Cannot load model: {exc}")  # noqa: T201
             raise typer.Exit(2) from exc
@@ -1200,6 +1217,7 @@ quality:
                     model_path=str(model_path),
                     data_path=str(data_path),
                     target_col=target,
+                    allow_pickle=allow_pickle,
                 )
                 print(  # noqa: T201
                     f"Test file written: {output}"
