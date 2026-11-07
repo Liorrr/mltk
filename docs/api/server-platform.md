@@ -662,10 +662,12 @@ deletion require `admin`. Missing or invalid credentials return 401, while a val
 an insufficient role returns 403. `/api/health`, `/api/health/live`, `/api/health/ready`,
 and `/metrics` remain open.
 
-Keys scoped to a project can only read or manage that project. An omitted project on run
-listing selects the key's project; a different project, an out-of-scope run or webhook,
-or an out-of-scope trend/summary returns 404 `Project not found` (or the resource's
-not-found detail). Global webhooks are excluded for scoped keys. Webhook URLs in list
+A key bound to the `default` project (or to no project) is unscoped. Keys scoped to any other
+project can only read or manage that project. An omitted project on run
+listing selects the key's project. Reading another project's runs, trends, summaries or
+webhook list, or deleting one of its webhooks, returns 404 `Project not found` (or the
+resource's not-found detail). Submitting a run or creating a
+webhook for another project returns 403. Global webhooks are excluded for scoped keys. Webhook URLs in list
 responses are masked as `scheme://host[:port]/...`.
 
 Set `MLTK_SERVER_PUBLIC_READ=1` (also `true`, `yes`, or `on`) to allow unauthenticated

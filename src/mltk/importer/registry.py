@@ -83,6 +83,13 @@ def register_dataset(
         A :class:`RegistrationResult`. ``saved`` is ``False`` when the
         gate fails or when the version already exists and ``overwrite``
         is ``False``.
+
+    Raises:
+        ValueError: If the dataset passes the quality gate but its name or
+            version is not a valid single path component, or its directory
+            resolves outside the registry root (see :class:`DatasetRegistry`).
+            A dataset that fails the gate is returned with ``saved=False``
+            before the name is checked.
     """
     from mltk.core.assertion import MltkAssertionError
     from mltk.eval.dataset import DatasetRegistry, assert_dataset_quality

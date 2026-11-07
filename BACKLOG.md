@@ -10,7 +10,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S106: 244 assertions, 5656+ tests, 38 Rust tests) — v0.15.0
+## DONE (S0-S106: 244 assertions, 5656+ tests, 38 Rust tests) — v0.16.0
+
+### v0.16.0 release — PRs merged since v0.15.0
+- [x] Cut **v0.16.0**: rolled CHANGELOG (`[Unreleased]` → `[0.16.0]`), bundling the GitHub Releases job and docs fixes (#39), server access control (#40: reader keys for reads, key roles and project scope, masked webhook URLs, webhook target checks at connect time, request-size fixes, Helm `extraEnv`), local file and code-run safety (#41: pickle opt-in, collection/dataset name checks, minimal code-run environment, compliance report autoescape) and MCP path confinement (#42: `MLTK_MCP_ROOTS`, sandbox mode error, push remote matched to `repo`). The CHANGELOG has a Security section describing what these fix. Each PR went through fresh-agent review cycles to 5/5. Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`, container-doc image tags).
 
 ### v0.15.0 release — PRs merged since v0.14.0
 - [x] Cut **v0.15.0**: rolled CHANGELOG (`[Unreleased]` → `[0.15.0]`), bundling S106 (#37), `mltk server-backup` (#35) and the `mlspec` install-command sweep (#36). Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`, container-doc image tags). Eval metrics change when a scorer or judge errors (see the CHANGELOG "Changed" section). Rehearsed before tagging: wheel and sdist built from a clean export of the release commit, `twine check`, the `test-wheels` steps in a fresh Python 3.12 venv, and an sdist install on Python 3.10 (Rust built from source). Published 2026-11-06: PyPI and TestPyPI `mlspec 0.15.0` (4 wheels + sdist), GHCR `ghcr.io/liorrr/mltk` and Docker Hub `liorcohenil/mltk` `v0.15.0` = `latest`, `v0.15.0-full` = `full` (amd64 + arm64).
@@ -196,6 +199,17 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ---
 
 ## BACKLOG (not yet scheduled)
+
+### Follow-ups from the v0.16.0 review cycles — found 2026-11-07
+- [ ] **Server edge cases.** Two concurrent `DELETE /api/webhooks/{id}` calls both return 200 (get-then-delete ignores the delete result). The `MLTK_SERVER_PUBLIC_READ` warning is logged only at startup, but the flag is read on every request. The request-size middleware drops the rest of a response that started before a chunked body passed the limit (no route does this today). `::ffff:10.0.0.5` is refused even with `MLTK_SERVER_WEBHOOK_ALLOW_PRIVATE` (fails closed). `server/storage.py` imports `webhooks`, which needs `ssl`, so a Python built without `ssl` cannot import storage.
+- [ ] **Dashboard key storage.** `readApiKey` falls back to the input field only when `sessionStorage.getItem` throws; if only `setItem` throws, the typed key is never sent.
+- [ ] **Registry names.** Entries created before v0.16.0 whose names now fail the check (`:`, trailing `.` or space; possible on Linux) are skipped by `DatasetRegistry.list()` without a message and cannot be loaded or deleted through the API. Deleting through a symlinked version directory raises `OSError` rather than `ValueError`, so `mltk import --register` with `overwrite=True` on such an entry prints a traceback.
+- [ ] **Code-run environment.** Only `PYTHONPATH` entries are made absolute against the caller's directory; relative values in the other allowlisted path variables (`SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `VIRTUAL_ENV`, `LD_LIBRARY_PATH`, `PATH` entries) still resolve against the temporary directory.
+- [ ] **Remote matching.** `git_remote._parse` lets a `ValueError` from `urlsplit` escape (git's bracketed-host form `ssh://[git@github.com]:22/o/r.git`, malformed IPv6), which fails the whole lookup. `https://www.github.com/...` remotes do not match `github.com`.
+- [ ] **`mltk_import` output.** `output_path` overwrites an existing file without a force option (the CLI has `--force`), and with `register=True` and an invalid name the scaffold is written before the name error is returned.
+- [ ] **Chart test.** `test_extra_env_rendered` searches the template text; it does not render the chart.
+- [ ] **`TestScheduler` webhooks fail quietly.** `add_schedule` accepts any webhook URL, and a refused or failed delivery only sets `webhook_sent: False`; the `_send_webhook` docstring says the failure is logged, but `scheduler.py` logs nothing.
+- [ ] **CLI tests need the `cli` extra.** The `registry push` and `scan-model` CLI tests in `tests/test_registry/test_collection_names.py` and `tests/test_scan/test_scan_model_pickle_cli.py` fail, rather than skip, when `typer` is not installed.
 
 ### Follow-ups from the MCP path and sandbox changes — found 2026-11-07
 - [ ] **MCP sandbox replay.** `mltk_experiment(sandbox=True)` now returns an error, because a finding passed as JSON names no assertion and its arguments (model, arrays) cannot be serialised, so `SandboxedExperimentRunner` has nothing to replay. To support it, `mltk_scan` JSON would need to carry the assertion's import path and path-based arguments (model and data files) that the sandbox can load.
