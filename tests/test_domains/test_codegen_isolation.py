@@ -137,3 +137,33 @@ def test_extra_keeps_differently_cased_key_when_names_are_case_sensitive(
     child = _build_child_env(env={"Path": "extra"}, inherit_env=False, case_insensitive=False)
     assert child["Path"] == "extra"
     assert child["PATH"] == "inherited"
+
+
+@pytest.mark.parametrize("inherit_env", [False, True])
+def test_relative_pythonpath_still_points_at_the_callers_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, inherit_env: bool,
+) -> None:
+    package = tmp_path / "proj" / "src" / "mltk_tmp_pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("VALUE = 42\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path / "proj")
+    monkeypatch.setenv("PYTHONPATH", "src")
+
+    result = assert_code_executes(
+        "import mltk_tmp_pkg\nprint(mltk_tmp_pkg.VALUE)", inherit_env=inherit_env,
+    )
+
+    assert result.passed, result.details
+    assert result.details["stdout"].strip() == "42"
+
+
+def test_absolute_pythonpath_entries_are_unchanged(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    from mltk.domains.codegen import _build_child_env
+
+    absolute = str(tmp_path / "lib")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join([absolute, "rel"]))
+    child = _build_child_env(env=None, inherit_env=False)
+    assert child["PYTHONPATH"].split(os.pathsep) == [absolute, str(tmp_path / "rel")]

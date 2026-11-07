@@ -93,6 +93,13 @@ _CODEGEN_ENV_ALLOWLIST: frozenset[str] = frozenset({
     # Output encoding, so non-ASCII output behaves as in the caller.
     "PYTHONIOENCODING",
     "PYTHONUTF8",
+    # Interpreter start-up (relocated or shared-library Python builds).
+    "PYTHONHOME",
+    "LD_LIBRARY_PATH",
+    # TLS trust stores. Proxy variables are left out: they can hold credentials.
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
 })
 
 
@@ -133,6 +140,9 @@ def _build_child_env(
 ) -> dict[str, str]:
     """Return the child environment: the allowlist (or everything) plus *env*.
 
+    Relative ``PYTHONPATH`` entries are made absolute against the caller's
+    working directory, because the child runs in a temporary directory.
+
     Windows variable names are case-insensitive, so there an extra such as
     ``Path`` replaces the inherited ``PATH`` instead of sitting beside it.
     """
@@ -150,6 +160,15 @@ def _build_child_env(
             for existing in [k for k in child_env if k.upper() == key.upper()]:
                 del child_env[existing]
         child_env[key] = value
+    # The child starts in a temporary directory, and Python resolves relative
+    # PYTHONPATH entries against its start-up directory. Anchor them to the
+    # caller's directory so ``PYTHONPATH=src`` keeps meaning the caller's src.
+    for key in [k for k in child_env if k == "PYTHONPATH" or (
+        case_insensitive and k.upper() == "PYTHONPATH"
+    )]:
+        child_env[key] = os.pathsep.join(
+            os.path.abspath(entry) for entry in child_env[key].split(os.pathsep)
+        )
     return child_env
 
 

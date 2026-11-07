@@ -1113,7 +1113,7 @@ quality:
         Example::
 
             mltk scan-model \\
-                --model model.pkl \\
+                --model model.pkl --allow-pickle \\
                 --data test.csv \\
                 --target label \\
                 --sensitive age,gender \\

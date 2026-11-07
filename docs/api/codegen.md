@@ -23,8 +23,14 @@ default, the child receives only these environment variables when present:
 `PATH`, `PATHEXT`, `SYSTEMROOT`, `SYSTEMDRIVE`, `WINDIR`, `COMSPEC`, `TEMP`,
 `TMP`, `TMPDIR`, `HOME`, `USERPROFILE`, `LANG`, `LANGUAGE`, every `LC_*`
 variable, `PYTHONPATH`, `VIRTUAL_ENV`, `APPDATA` and `PYTHONUSERBASE` (user site-packages),
-and `PYTHONIOENCODING` and `PYTHONUTF8`. The generated file is placed in a
-fresh temporary working directory, which is removed after execution.
+`PYTHONIOENCODING` and `PYTHONUTF8`, `PYTHONHOME` and `LD_LIBRARY_PATH`, and the
+TLS trust variables `SSL_CERT_FILE`, `SSL_CERT_DIR` and `REQUESTS_CA_BUNDLE`.
+Proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) are not passed,
+because they can contain credentials; add them with `env=` when the code needs
+them. The generated file is placed in a fresh temporary working directory,
+which is removed after execution. Relative `PYTHONPATH` entries are made
+absolute against the caller's working directory first, so they keep pointing
+at the same place.
 
 Use `env={...}` to add or override child variables. Use `inherit_env=True` to
 pass the full caller environment, with `env` still applied on top. The code
