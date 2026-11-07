@@ -39,7 +39,8 @@ def test_scan_model_refuses_joblib_without_flag(tmp_path) -> None:
         "scan-model", "--model", str(model_path),
         "--data", str(tmp_path / "missing.csv"), "--target", "label",
     )
-    assert result.returncode == 1
+    # 2 = the model could not be loaded (1 is reserved for scan findings)
+    assert result.returncode == 2
     assert "--allow-pickle" in result.stdout + result.stderr
 
 

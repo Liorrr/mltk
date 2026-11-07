@@ -86,6 +86,13 @@ _CODEGEN_ENV_ALLOWLIST: frozenset[str] = frozenset({
     "LANGUAGE",
     "PYTHONPATH",
     "VIRTUAL_ENV",
+    # User site-packages (pip install --user): site.py reads APPDATA on
+    # Windows and PYTHONUSERBASE everywhere.
+    "APPDATA",
+    "PYTHONUSERBASE",
+    # Output encoding, so non-ASCII output behaves as in the caller.
+    "PYTHONIOENCODING",
+    "PYTHONUTF8",
 })
 
 
@@ -118,6 +125,34 @@ def _python_executable() -> str:
     """Return the path to the current Python interpreter."""
     return sys.executable or "python"
 
+def _build_child_env(
+    *,
+    env: dict[str, str] | None,
+    inherit_env: bool,
+    case_insensitive: bool = os.name == "nt",
+) -> dict[str, str]:
+    """Return the child environment: the allowlist (or everything) plus *env*.
+
+    Windows variable names are case-insensitive, so there an extra such as
+    ``Path`` replaces the inherited ``PATH`` instead of sitting beside it.
+    """
+    child_env = (
+        dict(os.environ)
+        if inherit_env
+        else {
+            key: value
+            for key, value in os.environ.items()
+            if key in _CODEGEN_ENV_ALLOWLIST or key.startswith("LC_")
+        }
+    )
+    for key, value in (env or {}).items():
+        if case_insensitive:
+            for existing in [k for k in child_env if k.upper() == key.upper()]:
+                del child_env[existing]
+        child_env[key] = value
+    return child_env
+
+
 def _run_code_in_subprocess(
     code: str,
     timeout_seconds: float,
@@ -145,17 +180,7 @@ def _run_code_in_subprocess(
     if extra_code is not None:
         full_code = code + "\n\n" + extra_code
 
-    child_env = (
-        dict(os.environ)
-        if inherit_env
-        else {
-            key: value
-            for key, value in os.environ.items()
-            if key in _CODEGEN_ENV_ALLOWLIST or key.startswith("LC_")
-        }
-    )
-    if env is not None:
-        child_env.update(env)
+    child_env = _build_child_env(env=env, inherit_env=inherit_env)
 
     with tempfile.TemporaryDirectory(
         prefix="mltk_codegen_", ignore_cleanup_errors=True,

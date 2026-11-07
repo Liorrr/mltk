@@ -146,7 +146,7 @@ report.to_junit("scan-results.xml")
 
 ```bash
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label \
     --sensitive age,gender \
@@ -444,7 +444,7 @@ Summary: 2 critical, 2 warnings, 1 info
 |------|---------|------|
 | `0` | Clean | No findings at any severity |
 | `1` | Findings | One or more issues detected |
-| `2` | Error | Model/data could not be loaded, or scan crashed |
+| `2` | Error | Model/data could not be loaded (including a pickle-format model without `--allow-pickle`), or scan crashed |
 
 In CI/CD pipelines, use exit code 1 to fail the build
 when the scan finds issues:
@@ -453,7 +453,7 @@ when the scan finds issues:
 - name: Scan model
   run: |
     mltk scan-model \
-        --model model.pkl \
+        --model model.pkl --allow-pickle \
         --data test.csv \
         --target label
 ```
@@ -538,6 +538,7 @@ mltk scan-model [OPTIONS]
 | `--output` | PATH | No | Write generated pytest file |
 | `--junit-xml` | PATH | No | Write JUnit XML report |
 | `--export-json` | PATH | No | Export scan results as JSON |
+| `--allow-pickle` | flag | No | Load pickle, joblib and PyTorch files (they can run code while loading); also written into the generated test file |
 
 ### Supported model formats
 
@@ -556,13 +557,13 @@ Pickle, joblib, and PyTorch formats can run code while loading and are refused b
 ```bash
 # Basic scan
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label
 
 # With sensitive columns and test generation
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label \
     --sensitive age,gender,race \
@@ -570,7 +571,7 @@ mltk scan-model \
 
 # Full pipeline: scan + JUnit for CI
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label \
     --output tests/test_scan_results.py \
@@ -624,7 +625,7 @@ Use it as a build gate:
 ```yaml
 - run: |
     mltk scan-model \
-        --model model.pkl \
+        --model model.pkl --allow-pickle \
         --data test.csv \
         --target label \
         --junit-xml scan-results.xml

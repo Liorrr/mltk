@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -28,7 +31,7 @@ def test_valid_names_round_trip(tmp_path, name):
 
 
 @pytest.mark.parametrize(
-    "name", ["..", "../x", "a/b", r"a\b", "/absolute", "C:x", "", "."]
+    "name", ["..", "../x", "a/b", r"a\b", "/absolute", "C:x", "", ".", "qa.", "qa "]
 )
 def test_invalid_names_rejected(tmp_path, name):
     source = _source(tmp_path)
@@ -54,3 +57,33 @@ def test_load_rejects_name_escaping_target_and_keeps_files(tmp_path):
         load_collection("../sentinel", target, registry_dir=registry)
 
     assert (sentinel / "keep.txt").read_text(encoding="utf-8") == "keep"
+
+
+def _run_cli(*args: str, registry: Path) -> subprocess.CompletedProcess[str]:
+    """Run the mltk CLI in a child interpreter (same pattern as test_cli)."""
+    code = (
+        "import sys; "
+        f"sys.argv = ['mltk'] + {list(args)!r}; "
+        "from mltk.cli.app import main; main()"
+    )
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={**os.environ, "MLTK_REGISTRY_DIR": str(registry)},
+    )
+
+
+def test_cli_push_reports_invalid_name_without_traceback(tmp_path):
+    source = _source(tmp_path)
+    registry = tmp_path / "registry"
+
+    bad = _run_cli("registry", "push", "../x", "--source", str(source), registry=registry)
+    assert bad.returncode == 1
+    assert "Error: Collection name" in bad.stdout
+    assert "Traceback" not in bad.stderr
+
+    good = _run_cli("registry", "push", "qa", "--source", str(source), registry=registry)
+    assert good.returncode == 0, good.stderr
+    assert "Saved collection 'qa'" in good.stdout

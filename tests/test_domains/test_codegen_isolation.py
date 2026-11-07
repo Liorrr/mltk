@@ -99,3 +99,41 @@ def test_assert_code_passes_tests_uses_same_isolation(
     result = assert_code_passes_tests(code, tests)
 
     assert result.passed
+
+
+def test_user_site_variables_reach_the_child(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("PYTHONUSERBASE", str(tmp_path / "userbase"))
+    monkeypatch.setenv("MLTK_TEST_SECRET_TOKEN", "hidden")
+
+    result = assert_code_executes(
+        "import os\n"
+        "print(os.environ.get('PYTHONUSERBASE'))\n"
+        "print(os.environ.get('MLTK_TEST_SECRET_TOKEN'))"
+    )
+
+    assert result.passed
+    assert result.details["stdout"].splitlines() == [str(tmp_path / "userbase"), "None"]
+
+
+def test_extra_replaces_differently_cased_key_when_names_are_case_insensitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mltk.domains.codegen import _build_child_env
+
+    monkeypatch.setenv("PATH", "inherited")
+    child = _build_child_env(env={"Path": "extra"}, inherit_env=False, case_insensitive=True)
+    assert [k for k in child if k.upper() == "PATH"] == ["Path"]
+    assert child["Path"] == "extra"
+
+
+def test_extra_keeps_differently_cased_key_when_names_are_case_sensitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mltk.domains.codegen import _build_child_env
+
+    monkeypatch.setenv("PATH", "inherited")
+    child = _build_child_env(env={"Path": "extra"}, inherit_env=False, case_insensitive=False)
+    assert child["Path"] == "extra"
+    assert child["PATH"] == "inherited"

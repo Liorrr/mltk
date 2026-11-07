@@ -80,19 +80,24 @@ def _validate_component(value: str, kind: str) -> str:
         raise ValueError(f"{kind} must be a single relative path component")
     if Path(value).is_absolute():
         raise ValueError(f"{kind} must be a relative path component")
+    if value != value.rstrip(". "):
+        # Windows drops a trailing dot or space, so "qa." would be "qa".
+        raise ValueError(f"{kind} cannot end with '.' or a space")
     return value
 
 
 def _path_inside(root: Path, *components: tuple[str, str]) -> Path:
     """Return a validated path that remains inside the resolved registry root."""
     root_resolved = root.resolve()
-    candidate = root_resolved
+    lexical = root_resolved
     for value, kind in components:
-        candidate /= _validate_component(value, kind)
-    candidate = candidate.resolve()
-    if candidate != root_resolved and not candidate.is_relative_to(root_resolved):
+        lexical /= _validate_component(value, kind)
+    resolved = lexical.resolve()
+    if resolved != root_resolved and not resolved.is_relative_to(root_resolved):
         raise ValueError("Dataset path resolves outside the registry root")
-    return candidate
+    # Return the unresolved path: rmtree on it refuses a symlink instead of
+    # deleting the directory the link points to.
+    return lexical
 
 
 def _resolve_dataset_dir(

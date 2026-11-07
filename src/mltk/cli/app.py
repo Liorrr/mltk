@@ -551,13 +551,17 @@ quality:
         from mltk.registry import save_collection
 
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
-        col_dir = save_collection(
-            name,
-            source_dir=source,
-            description=description,
-            version=version,
-            tags=tag_list,
-        )
+        try:
+            col_dir = save_collection(
+                name,
+                source_dir=source,
+                description=description,
+                version=version,
+                tags=tag_list,
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}")  # noqa: T201
+            raise typer.Exit(1) from exc
         print(f"Saved collection '{name}' to {col_dir}")  # noqa: T201
 
     @registry_app.command("pull")
@@ -1138,7 +1142,7 @@ quality:
             loaded = _load(model_path, allow_pickle=allow_pickle)
         except _PickleNotAllowedError as exc:
             print(str(exc))  # noqa: T201
-            raise typer.Exit(1) from exc
+            raise typer.Exit(2) from exc
         except (ValueError, ImportError, TypeError) as exc:
             print(f"Cannot load model: {exc}")  # noqa: T201
             raise typer.Exit(2) from exc

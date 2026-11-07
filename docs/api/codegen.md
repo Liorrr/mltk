@@ -22,7 +22,8 @@ process, with `shell=False`, captured output, and a configurable timeout. By
 default, the child receives only these environment variables when present:
 `PATH`, `PATHEXT`, `SYSTEMROOT`, `SYSTEMDRIVE`, `WINDIR`, `COMSPEC`, `TEMP`,
 `TMP`, `TMPDIR`, `HOME`, `USERPROFILE`, `LANG`, `LANGUAGE`, every `LC_*`
-variable, `PYTHONPATH`, and `VIRTUAL_ENV`. The generated file is placed in a
+variable, `PYTHONPATH`, `VIRTUAL_ENV`, `APPDATA` and `PYTHONUSERBASE` (user site-packages),
+and `PYTHONIOENCODING` and `PYTHONUTF8`. The generated file is placed in a
 fresh temporary working directory, which is removed after execution.
 
 Use `env={...}` to add or override child variables. Use `inherit_env=True` to
