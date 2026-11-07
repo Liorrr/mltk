@@ -208,6 +208,8 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **Remote matching.** `git_remote._parse` lets a `ValueError` from `urlsplit` escape (git's bracketed-host form `ssh://[git@github.com]:22/o/r.git`, malformed IPv6), which fails the whole lookup. `https://www.github.com/...` remotes do not match `github.com`.
 - [ ] **`mltk_import` output.** `output_path` overwrites an existing file without a force option (the CLI has `--force`), and with `register=True` and an invalid name the scaffold is written before the name error is returned.
 - [ ] **Chart test.** `test_extra_env_rendered` searches the template text; it does not render the chart.
+- [ ] **`TestScheduler` webhooks fail quietly.** `add_schedule` accepts any webhook URL, and a refused or failed delivery only sets `webhook_sent: False`; the `_send_webhook` docstring says the failure is logged, but `scheduler.py` logs nothing.
+- [ ] **CLI tests need the `cli` extra.** The `registry push` and `scan-model` CLI tests in `tests/test_registry/test_collection_names.py` and `tests/test_scan/test_scan_model_pickle_cli.py` fail, rather than skip, when `typer` is not installed.
 
 ### Follow-ups from the MCP path and sandbox changes — found 2026-11-07
 - [ ] **MCP sandbox replay.** `mltk_experiment(sandbox=True)` now returns an error, because a finding passed as JSON names no assertion and its arguments (model, arrays) cannot be serialised, so `SandboxedExperimentRunner` has nothing to replay. To support it, `mltk_scan` JSON would need to carry the assertion's import path and path-based arguments (model and data files) that the sandbox can load.
