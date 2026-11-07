@@ -662,7 +662,8 @@ deletion require `admin`. Missing or invalid credentials return 401, while a val
 an insufficient role returns 403. `/api/health`, `/api/health/live`, `/api/health/ready`,
 and `/metrics` remain open.
 
-Keys scoped to a project can only read or manage that project. An omitted project on run
+A key bound to the `default` project (or to no project) is unscoped. Keys scoped to any other
+project can only read or manage that project. An omitted project on run
 listing selects the key's project. Reading another project's runs, trends, summaries or
 webhook list, or deleting one of its webhooks, returns 404 `Project not found` (or the
 resource's not-found detail). Submitting a run or creating a
