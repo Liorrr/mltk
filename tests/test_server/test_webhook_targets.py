@@ -26,6 +26,7 @@ def test_allows_public_hostname(monkeypatch: pytest.MonkeyPatch) -> None:
     "169.254.169.254", "0.0.0.0", "0.1.2.3", "100.64.0.1", "127.0.0.1",
     "10.0.0.5", "192.168.1.1", "fe80::1", "::1", "::ffff:127.0.0.1",
     "::ffff:169.254.169.254", "2002:7f00:1::1", "64:ff9b::7f00:1", "::127.0.0.1",
+    "fec0::1",
 ])
 def test_refuses_internal_targets(address: str) -> None:
     assert not webhooks.is_allowed_address(address, allow_private=False)
@@ -57,7 +58,7 @@ def test_private_opt_in_allows_rfc1918(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MLTK_SERVER_WEBHOOK_ALLOW_PRIVATE", "yes")
     assert webhooks.allow_private_targets()
     assert all(webhooks.is_allowed_address(ip, allow_private=True) for ip in (
-        "10.0.0.5", "192.168.1.1", "fd00::1",
+        "10.0.0.5", "192.168.1.1", "fd00::1", "fec0::1",
     ))
 
 
@@ -178,4 +179,5 @@ def test_deliver_json_ignores_proxy_env(monkeypatch: pytest.MonkeyPatch) -> None
         webhooks.urllib.request, "build_opener", lambda *args: (seen.extend(args) or opener),
     )
     assert webhooks.deliver_json("http://example.test/", {})
-    assert any(isinstance(arg, webhooks.urllib.request.ProxyHandler) for arg in seen)
+    proxies = [arg.proxies for arg in seen if isinstance(arg, webhooks.urllib.request.ProxyHandler)]
+    assert proxies == [{}]

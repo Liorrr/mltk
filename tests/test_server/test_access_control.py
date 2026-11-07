@@ -52,8 +52,10 @@ def test_reads_require_key(app_client, path: str):
 @pytest.mark.parametrize("path", READS)
 def test_reads_work_with_reader_key(app_client, path: str):
     app, client = app_client
+    app.state.storage.save_run("project-a", RESULTS)
+    app.state.storage.save_run("project-a", RESULTS)
     raw = _key(app, role="reader")
-    assert client.get(path, headers=_headers(raw)).status_code in {200, 404}
+    assert client.get(path, headers=_headers(raw)).status_code == 200
 
 
 def test_health_and_metrics_stay_open(app_client):

@@ -219,9 +219,12 @@ def require_role(required_role: str):
 
         @router.get("/api/results")
         async def list_results(
-            _role: bool = Depends(require_role("reader")),
+            principal: KeyPrincipal | None = Depends(require_role("reader")),
         ):
             ...
+
+    The dependency returns the key's :class:`KeyPrincipal`, or ``None`` for
+    a request without a key that a public-read reader route lets through.
     """
 
     async def _dependency(
