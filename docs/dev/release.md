@@ -21,7 +21,7 @@ See `CONTRIBUTING.md` in the repo root for the full workflow.
 - `charts/mltk/Chart.yaml` — `appVersion`
 - `CHANGELOG.md` — rolls `[Unreleased]` → `[X.Y.Z] — YYYY-MM-DD` and opens a new, empty `[Unreleased]`
 - `BACKLOG.md` — the version on the current DONE header
-- Assertion/test/scanner/MCP/CLI counts in the files listed in `COUNT_TARGETS` (`scripts/bump.py`): `README.md`, `CLAUDE.md`, `BACKLOG.md`, `docs/index.md`, `docs/roadmap.md` and a set of API pages
+- Assertion/test/scanner/MCP/CLI counts in the files listed in `COUNT_TARGETS` (`scripts/bump.py`): `README.md`, `CLAUDE.md`, `BACKLOG.md`, `docs/index.md`, `docs/roadmap.md`, `docs/guides/demo-script.md` and a set of API pages
 - The current-version mentions and image tags in the files listed in `PROSE_VERSION_TARGETS`: `README.md`, `CLAUDE.md`, `docs/index.md`, `docs/guides/demo-script.md`, `docs/guides/container-deployment.md` and `charts/mltk/README.md`
 
 **`Since: vX.Y.Z` markers in API docs are intentionally preserved** — they are historical feature-introduction markers, not current-version claims.
