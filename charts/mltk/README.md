@@ -23,6 +23,26 @@ The server router is mounted at `/api`:
 - liveness: `GET /api/health/live`
 - readiness: `GET /api/health/ready`
 
+## External access and API keys
+
+Enabling `ingress` makes the API reachable from outside the cluster. Read
+endpoints require a reader key unless `MLTK_SERVER_PUBLIC_READ` is set. Set
+server environment variables with the `extraEnv` value, for example:
+
+```yaml
+extraEnv:
+  - name: MLTK_SERVER_PUBLIC_READ
+    value: "true"
+```
+
+Create the first admin key from the deployed container. The deployment is
+named `<release>-mltk` (just `<release>` when the release name already contains
+`mltk`), and the default database path is `/data/mltk_server.db`:
+
+```bash
+kubectl exec deploy/<release>-mltk -- mltk server-create-key --role admin --db /data/mltk_server.db
+```
+
 ## Back up before uninstalling
 
 Uninstalling the release deletes the PVC and the database on it.

@@ -32,22 +32,20 @@ For production use, pair this with:
 **Webhook notifications:**
 
 Each schedule can optionally specify a ``webhook_url``.  When a scheduled run
-completes, the result is POSTed as JSON to that URL.  This integrates with
+completes, the result is POSTed as JSON to that URL after target checks. This integrates with
 Slack, PagerDuty, OpsGenie, or any webhook-compatible service.
 
-No external dependencies -- uses only ``json``, ``subprocess``, ``time``, and
-``urllib`` from stdlib.
+No external dependencies -- uses only stdlib modules.
 """
 
 from __future__ import annotations
 
-import json
 import shlex
 import subprocess
 import time
-import urllib.error
-import urllib.request
 from typing import Any
+
+from mltk.server.webhooks import deliver_json, validate_webhook_url
 
 
 class TestScheduler:
@@ -313,15 +311,6 @@ class TestScheduler:
         Returns:
             ``True`` if the webhook returned HTTP 2xx, ``False`` otherwise.
         """
-        try:
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(
-                url,
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                return 200 <= resp.status < 300
-        except (urllib.error.URLError, OSError, ValueError):
+        if not validate_webhook_url(url):
             return False
+        return deliver_json(url, payload, timeout=30)
