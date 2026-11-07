@@ -67,6 +67,7 @@ _MIGRATIONS: list[tuple[int, str, list[str]]] = [
             "CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)",
         ],
     ),
+    (2, "Add API key roles", ["ALTER TABLE api_keys ADD COLUMN role TEXT"]),
 ]
 
 
@@ -327,19 +328,21 @@ class Storage:
     # API key management
     # ------------------------------------------------------------------
 
-    def save_api_key(self, key_hash: str, project: str) -> None:
+    def save_api_key(self, key_hash: str, project: str, role: str = "writer") -> None:
         """Persist a hashed API key bound to a project.
 
         Args:
             key_hash: SHA-256 hex digest of the raw key.
             project: Project name associated with this key.
         """
+        if role not in {"admin", "writer", "reader"}:
+            raise ValueError("role must be one of admin, writer, reader")
         timestamp = datetime.now(tz=timezone.utc).isoformat()
         conn = self._conn
         with self._lock:
             conn.execute(
-                "INSERT INTO api_keys (key_hash, project, created_at) VALUES (?, ?, ?)",
-                (key_hash, project, timestamp),
+                "INSERT INTO api_keys (key_hash, project, created_at, role) VALUES (?, ?, ?, ?)",
+                (key_hash, project, timestamp, role),
             )
             conn.commit()
 
@@ -357,6 +360,14 @@ class Storage:
             row = conn.execute(
                 "SELECT project FROM api_keys WHERE key_hash = ?",
                 (key_hash,),
+            ).fetchone()
+        return row[0] if row else None
+
+    def get_key_role(self, key_hash: str) -> str | None:
+        """Return the stored role for a key, or ``None`` if absent or legacy."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT role FROM api_keys WHERE key_hash = ?", (key_hash,)
             ).fetchone()
         return row[0] if row else None
 
@@ -425,6 +436,21 @@ class Storage:
                 )
             )
         return configs
+
+    def get_webhook(self, webhook_id: int) -> WebhookConfig | None:
+        """Return one webhook configuration by id, if it exists."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, url, events_json, project FROM webhooks WHERE id = ?",
+                (webhook_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            events = json.loads(row["events_json"])
+        except (json.JSONDecodeError, TypeError):
+            events = []
+        return WebhookConfig(id=row["id"], url=row["url"], events=events, project=row["project"])
 
     def delete_webhook(self, webhook_id: int) -> bool:
         """Remove a webhook by id.

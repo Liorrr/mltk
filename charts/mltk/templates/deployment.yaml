@@ -43,6 +43,9 @@ spec:
           env:
             - name: MLTK_DB_PATH
               value: {{ .Values.server.dbPath | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           volumeMounts:
             - name: data
               mountPath: {{ dir .Values.server.dbPath | quote }}

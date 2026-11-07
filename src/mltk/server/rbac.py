@@ -1,6 +1,6 @@
 """Role-based access control (RBAC) for the mltk server.
 
-This module defines a simple but effective three-tier role system for
+This module defines a simple three-tier role system for
 controlling who can do what on the mltk server API.  It is designed to
 integrate with the existing API-key authentication layer in ``auth.py``
 and the FastAPI dependency-injection pattern used in ``routes.py``.
@@ -30,18 +30,34 @@ the existing ``require_api_key`` dependency::
         ...
 
 The role is looked up from the ``api_keys`` table via a ``role`` column.
-Until that migration lands, the module treats any key without an explicit
-role as ``admin`` for backward compatibility.
+Keys without an explicit role resolve to ``writer`` for compatibility.
 """
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
+
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from mltk.server.auth import hash_key
+from mltk.server.auth import hash_key, public_read_enabled
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
+_warned_legacy_keys: set[str] = set()
+
+
+@dataclass(frozen=True)
+class KeyPrincipal:
+    """Authenticated API key identity and permissions."""
+
+    project: str
+    role: str
+
+    @property
+    def scoped(self) -> bool:
+        return self.project not in {"", "default"}
 
 
 # ---------------------------------------------------------------------------
@@ -164,8 +180,13 @@ def _lookup_role_for_key(storage: object, key_hash: str) -> str:
         role = getter(key_hash)
         if role is not None:
             return role
-    # Fallback: legacy keys without an explicit role are treated as admin.
-    return Role.ADMIN
+    if key_hash not in _warned_legacy_keys:
+        _warned_legacy_keys.add(key_hash)
+        logger.warning(
+            "API key has no role; treating it as 'writer'. Re-issue it with "
+            "`mltk server-create-key --role ...`."
+        )
+    return Role.WRITER
 
 
 def require_role(required_role: str):
@@ -206,9 +227,11 @@ def require_role(required_role: str):
     async def _dependency(
         request: Request,
         credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),  # noqa: B008
-    ) -> bool:
+    ) -> KeyPrincipal | None:
         # --- Step 1: require a Bearer token ---
         if credentials is None:
+            if required_role == Role.READER and public_read_enabled():
+                return None
             raise HTTPException(status_code=401, detail="API key required")
 
         raw_key = credentials.credentials
@@ -230,6 +253,6 @@ def require_role(required_role: str):
                     f"satisfy required role '{required_role}'"
                 ),
             )
-        return True
+        return KeyPrincipal(project=project, role=user_role)
 
     return _dependency

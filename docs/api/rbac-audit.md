@@ -63,6 +63,24 @@ storage.create_api_key(
 )
 ```
 
+## Server access roles
+
+The server supports `reader`, `writer`, and `admin` keys. Reads require `reader` or
+higher; run submission requires `writer` or higher; webhook creation and deletion require
+`admin`. Missing or invalid keys return 401. Valid keys without the required role return
+403. Health and metrics endpoints remain open. With `MLTK_SERVER_PUBLIC_READ=1` (or
+`true`, `yes`, or `on`), read endpoints also accept requests without a key, while supplied
+keys continue to be checked.
+
+Project-scoped keys can only access their own project. Requests naming another project,
+or resources belonging to another project, return the documented 404 response. Global
+webhooks are not included for scoped keys, and returned webhook URLs are masked to
+`scheme://host[:port]/...`.
+
+Use `mltk server-create-key --project my-project --role reader` to select a role. Existing
+keys with no stored role resolve to `writer` and should be re-issued when a different role
+is needed.
+
 ### Recommended Key Assignment
 
 | Use Case | Recommended Role | Why |

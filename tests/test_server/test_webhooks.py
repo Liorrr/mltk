@@ -37,9 +37,33 @@ def client(tmp_path):
     db_file = str(tmp_path / "webhooks_test.db")
     application = create_app(db_path=db_file)
     raw_key = generate_api_key()
-    application.state.storage.save_api_key(hash_key(raw_key), "wh-project")
+    # Webhook management needs an admin key; an unscoped one can create
+    # global webhooks and webhooks for any project.
+    application.state.storage.save_api_key(hash_key(raw_key), "default", role="admin")
     with TestClient(application) as c:
         yield c, raw_key
+
+
+_PUBLIC_TEST_HOSTS = {"example.com", "hooks.slack.com", "a.test", "b.test", "delete.test"}
+
+
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch):
+    """Resolve the hostnames used here to a public address, without network.
+
+    URL validation resolves hostnames and checks every address. Tests that
+    need other answers patch ``socket.getaddrinfo`` themselves.
+    """
+    import socket
+
+    real_getaddrinfo = socket.getaddrinfo
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        if host in _PUBLIC_TEST_HOSTS:
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))]
+        return real_getaddrinfo(host, port, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
 
 
 # ---------------------------------------------------------------------------
@@ -80,13 +104,13 @@ def test_list_webhooks(client):
         json={"url": "http://b.test/hook", "events": ["on_success"], "project": "proj-x"},
         headers=auth,
     )
-    resp = c.get("/api/webhooks")
+    resp = c.get("/api/webhooks", headers=auth)
     assert resp.status_code == 200, resp.text
     webhooks = resp.json()["webhooks"]
     assert len(webhooks) == 2
     urls = {wh["url"] for wh in webhooks}
-    assert "http://a.test/hook" in urls
-    assert "http://b.test/hook" in urls
+    # Listed URLs are masked to scheme and host.
+    assert urls == {"http://a.test/...", "http://b.test/..."}
 
 
 def test_delete_webhook(client):
@@ -106,7 +130,7 @@ def test_delete_webhook(client):
     assert del_resp.status_code == 200, del_resp.text
     assert del_resp.json()["status"] == "deleted"
 
-    list_resp = c.get("/api/webhooks")
+    list_resp = c.get("/api/webhooks", headers=auth)
     assert list_resp.json()["webhooks"] == []
 
 
@@ -263,7 +287,7 @@ def test_create_webhook_rejects_private_ip(client):
     assert "Invalid webhook URL" in resp.json()["detail"]
 
     # Verify nothing was persisted
-    list_resp = c.get("/api/webhooks")
+    list_resp = c.get("/api/webhooks", headers=auth)
     assert list_resp.json()["webhooks"] == []
 
 
