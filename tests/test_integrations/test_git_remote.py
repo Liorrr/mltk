@@ -31,6 +31,8 @@ requires_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is no
         ("deploy@github.com:Owner/Repo", ("github.com", "owner/repo")),
         ("git@github-work:Owner/Repo.git", ("github-work", "owner/repo")),
         ("ssh://git@ssh.github.com:443/Owner/Repo.git", ("github.com", "owner/repo")),
+        ("git+ssh://git@github.com/Owner/Repo.git", ("github.com", "owner/repo")),
+        ("ssh+git://git@github.com/Owner/Repo.git", ("github.com", "owner/repo")),
     ],
 )
 def test_parse_remote_url_forms(url: str, expected: tuple[str, str]) -> None:
@@ -164,23 +166,33 @@ def test_find_push_remote_reports_git_errors_as_runtime_error(tmp_path: Path) ->
 def test_ssh_config_hostname_reads_ssh_g(monkeypatch: pytest.MonkeyPatch) -> None:
     from mltk.integrations import git_remote
 
-    git_remote._ssh_config_hostname.cache_clear()
     monkeypatch.setattr(
         git_remote.subprocess, "run",
         lambda *a, **k: subprocess.CompletedProcess(a, 0, _SSH_G_OUTPUT, ""),
     )
     assert git_remote._ssh_config_hostname("github-work") == "github.com"
-    git_remote._ssh_config_hostname.cache_clear()
 
 
 def test_ssh_config_hostname_falls_back_to_alias(monkeypatch: pytest.MonkeyPatch) -> None:
     from mltk.integrations import git_remote
 
-    git_remote._ssh_config_hostname.cache_clear()
 
     def no_ssh(*args, **kwargs):
         raise FileNotFoundError("ssh")
 
     monkeypatch.setattr(git_remote.subprocess, "run", no_ssh)
     assert git_remote._ssh_config_hostname("github-work") == "github-work"
-    git_remote._ssh_config_hostname.cache_clear()
+
+
+def test_ssh_config_hostname_ends_options_before_the_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mltk.integrations import git_remote
+
+    seen: list[list[str]] = []
+
+    def record(args, **kwargs):
+        seen.append(list(args))
+        return subprocess.CompletedProcess(args, 0, _SSH_G_OUTPUT, "")
+
+    monkeypatch.setattr(git_remote.subprocess, "run", record)
+    git_remote._ssh_config_hostname("-oProxyCommand=x")
+    assert seen == [["ssh", "-G", "--", "-oProxyCommand=x"]]

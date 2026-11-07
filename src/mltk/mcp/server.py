@@ -1381,8 +1381,9 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
             }
             result = DatasetImporter.load(confined_source, **load_kwargs)
             # The generated file reloads ``result.source``: keep the path as
-            # the caller gave it, not this machine's absolute path.
-            result.source = source
+            # the caller gave it (relative stays relative), not this machine's
+            # absolute path. ``~`` is expanded, since the loaders do not.
+            result.source = os.path.expanduser(source)
             if not result.mapping.columns_with_role(ColumnRole.INPUT):
                 return _error(
                     "No column could be mapped to the eval INPUT role.",
@@ -1413,7 +1414,7 @@ def _register_tools(mcp: FastMCP) -> None:  # noqa: C901
                 )
                 golden_summary = golden_report.summary()
                 golden_spec = GoldenSpec(
-                    path=golden_path,
+                    path=os.path.expanduser(golden_path),
                     target_column=golden_target_column,
                     key=golden_key or None,
                     golden_key=golden_key_column or None,

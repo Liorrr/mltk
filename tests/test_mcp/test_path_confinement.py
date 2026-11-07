@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -280,3 +281,34 @@ def test_mltk_import_register_refuses_name_with_path_parts(tmp_path, monkeypatch
     assert_ok(good)
     assert good["registration"]["saved"] is True
     assert (registry / "qa").is_dir()
+
+
+def test_mltk_import_scaffold_expands_home_paths(tmp_path, monkeypatch):
+    pytest.importorskip("pandas")
+    home = tmp_path / "home"
+    (home / "data").mkdir(parents=True)
+    (home / "data" / "qa.csv").write_text(
+        "question,answer\nWhat is 2+2?,4\nCapital of France?,Paris\n", encoding="utf-8",
+    )
+    (home / "data" / "gold.csv").write_text(
+        "question,expected\nWhat is 2+2?,4\nCapital of France?,Paris\n", encoding="utf-8",
+    )
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.chdir(home)
+    monkeypatch.setenv("MLTK_MCP_ROOTS", str(home))
+
+    result = call_tool(
+        "mltk_import", source="~/data/qa.csv", input_column="question",
+        target_column="answer", golden_path="~/data/gold.csv",
+        golden_target_column="expected", golden_key="input", golden_key_column="question",
+    )
+
+    assert_ok(result)
+    code = result["generated_code"]
+    assert "~/data" not in code
+    for name in ("qa.csv", "gold.csv"):
+        expanded = os.path.expanduser(f"~/data/{name}")
+        assert expanded.startswith(str(home))
+        # Written as a Python literal, so backslashes may appear escaped.
+        assert expanded in code or repr(expanded)[1:-1] in code

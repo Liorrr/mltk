@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 import re
 import subprocess
 from collections.abc import Callable
@@ -12,6 +11,9 @@ from urllib.parse import urlsplit
 __all__ = ["find_push_remote", "parse_remote_url", "redact_remote_url"]
 
 _SCHEME_RE = re.compile(r"^[a-z][a-z0-9+.-]*://", re.IGNORECASE)
+# git still accepts the "git+ssh" and "ssh+git" spellings of ssh://.
+_SSH_SCHEMES = frozenset({"ssh", "git+ssh", "ssh+git"})
+_SCHEMES = frozenset({"http", "https", "git"}) | _SSH_SCHEMES
 # git's scp-like syntax: ``[user@]host:path``, with no slash before the colon.
 _SCP_RE = re.compile(r"^(?:[^@/]+@)?([^@:/]+):(.+)$")
 
@@ -40,9 +42,9 @@ def _parse(url: str) -> tuple[str, str, bool] | None:
     if _SCHEME_RE.match(value):
         parsed = urlsplit(value)
         scheme = parsed.scheme.lower()
-        if not parsed.hostname or scheme not in {"http", "https", "ssh", "git"}:
+        if not parsed.hostname or scheme not in _SCHEMES:
             return None
-        host, path, uses_ssh = parsed.hostname, parsed.path, scheme == "ssh"
+        host, path, uses_ssh = parsed.hostname, parsed.path, scheme in _SSH_SCHEMES
     else:
         match = _SCP_RE.fullmatch(value)
         if not match:
@@ -75,12 +77,11 @@ def parse_remote_url(url: str) -> tuple[str, str] | None:
     return None if parsed is None else parsed[:2]
 
 
-@functools.lru_cache(maxsize=64)
 def _ssh_config_hostname(alias: str) -> str:
     """Return the host an SSH alias connects to (``ssh -G``), or the alias itself."""
     try:
         result = subprocess.run(
-            ["ssh", "-G", alias],
+            ["ssh", "-G", "--", alias],
             capture_output=True,
             text=True,
             timeout=5,
