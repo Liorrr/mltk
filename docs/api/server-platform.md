@@ -663,9 +663,10 @@ an insufficient role returns 403. `/api/health`, `/api/health/live`, `/api/healt
 and `/metrics` remain open.
 
 Keys scoped to a project can only read or manage that project. An omitted project on run
-listing selects the key's project; a different project, an out-of-scope run or webhook,
-or an out-of-scope trend/summary returns 404 `Project not found` (or the resource's
-not-found detail). Global webhooks are excluded for scoped keys. Webhook URLs in list
+listing selects the key's project. Reading a different project, an out-of-scope run or
+webhook, or an out-of-scope trend/summary, or deleting an out-of-scope webhook, returns 404
+`Project not found` (or the resource's not-found detail). Submitting a run or creating a
+webhook for another project returns 403. Global webhooks are excluded for scoped keys. Webhook URLs in list
 responses are masked as `scheme://host[:port]/...`.
 
 Set `MLTK_SERVER_PUBLIC_READ=1` (also `true`, `yes`, or `on`) to allow unauthenticated

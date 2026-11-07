@@ -19,15 +19,17 @@ any data.
 
 Integration
 -----------
-``require_role`` returns a FastAPI dependency that can be composed with
-the existing ``require_api_key`` dependency::
+``require_role`` returns a FastAPI dependency that checks the key and its
+role and returns the caller's :class:`KeyPrincipal` (project and role)::
 
     @router.post("/api/runs")
     async def submit_run(
-        project: str = Depends(require_api_key),
-        _role_ok: bool = Depends(require_role("writer")),
+        principal: KeyPrincipal = Depends(require_role("writer")),
     ):
         ...
+
+A ``reader`` route returns ``None`` instead for a request without a key
+while ``MLTK_SERVER_PUBLIC_READ`` is set.
 
 The role is looked up from the ``api_keys`` table via a ``role`` column.
 Keys without an explicit role resolve to ``writer`` for compatibility.
