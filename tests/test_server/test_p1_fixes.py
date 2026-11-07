@@ -77,6 +77,66 @@ class TestRequestBodyLimit:
         )
         assert resp.status_code == 200
 
+    @pytest.mark.parametrize("bad_length", ["abc", "-1"])
+    def test_malformed_content_length_returns_400(self, client, bad_length):
+        # SCENARIO: Content-Length is not a non-negative integer
+        # EXPECTED: HTTP 400 instead of a server error
+        c, raw_key = client
+        resp = c.post(
+            "/api/runs",
+            content=b"{}",
+            headers={
+                "Authorization": f"Bearer {raw_key}",
+                "Content-Type": "application/json",
+                "Content-Length": bad_length,
+            },
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid Content-Length header"
+
+    def test_chunked_body_over_limit_returns_413(self, client):
+        # SCENARIO: a body with no Content-Length (chunked) grows past 10 MB
+        # EXPECTED: HTTP 413 once the counted bytes pass the limit
+        c, raw_key = client
+        chunk = b"x" * (1024 * 1024)
+
+        def body():
+            for _ in range(11):
+                yield chunk
+
+        resp = c.post(
+            "/api/runs",
+            content=body(),
+            headers={
+                "Authorization": f"Bearer {raw_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 413
+        assert "too large" in resp.json()["detail"].lower()
+
+    def test_chunked_body_under_limit_passes(self, client):
+        # SCENARIO: a small chunked body (no Content-Length) with a writer key
+        # EXPECTED: the run is saved as usual (mirror of the 413 case)
+        c, raw_key = client
+        payload = b'{"project": "default", "results": [{"name": "t", "passed": true}]}'
+
+        def body():
+            yield payload[:20]
+            yield payload[20:]
+
+        resp = c.post(
+            "/api/runs",
+            content=body(),
+            headers={
+                "Authorization": f"Bearer {raw_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "saved"
+
+
 
 # ---------------------------------------------------------------------------
 # P1-24: Typed result models for API input
@@ -164,7 +224,9 @@ class TestTypedResultModels:
         assert resp.status_code == 200
         run_id = resp.json()["run_id"]
 
-        detail = c.get(f"/api/runs/{run_id}")
+        detail = c.get(
+            f"/api/runs/{run_id}", headers={"Authorization": f"Bearer {raw_key}"},
+        )
         assert detail.status_code == 200
         result = detail.json()["results"][0]
         assert result["severity"] == "info"

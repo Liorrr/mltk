@@ -710,6 +710,11 @@ quality:
     @app.command("server-create-key")
     def server_create_key(
         project: str = typer.Option("default", help="Project name to associate with this key"),
+        role: str = typer.Option(
+            "writer",
+            "--role",
+            help="Access role: admin, writer or reader",
+        ),
         db: str = typer.Option(
             "mltk_server.db", envvar="MLTK_DB_PATH", help="SQLite database path"
         ),
@@ -721,18 +726,22 @@ quality:
 
         Example::
 
-            mltk server-create-key --project my-project
+            mltk server-create-key --project my-project --role writer
         """
         from mltk.server.auth import generate_api_key, hash_key
         from mltk.server.storage import Storage
 
+        if role not in ("admin", "writer", "reader"):
+            raise typer.BadParameter(
+                "must be one of: admin, writer, reader", param_hint="--role",
+            )
         raw_key = generate_api_key()
         key_hash = hash_key(raw_key)
 
         storage = Storage(db)
-        storage.save_api_key(key_hash, project)
+        storage.save_api_key(key_hash, project, role=role)
 
-        print(f"API key created for project '{project}':")  # noqa: T201
+        print(f"API key created for project '{project}' with role '{role}':")  # noqa: T201
         print(f"  {raw_key}")  # noqa: T201
         print("Store this key securely — it will not be shown again.")  # noqa: T201
 

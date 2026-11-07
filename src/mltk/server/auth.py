@@ -2,12 +2,23 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import secrets
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def public_read_enabled() -> bool:
+    """Return whether read endpoints allow requests without a key."""
+    return os.environ.get("MLTK_SERVER_PUBLIC_READ", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def generate_api_key() -> str:

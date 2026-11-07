@@ -288,6 +288,10 @@ removed = scheduler.remove_schedule("nightly-drift-check")
 
 ## Webhook Notifications
 
+Scheduler webhook delivery checks the URL scheme, hostname resolution, and all
+resolved target addresses. It repeats the target check at connection time,
+ignores proxy environment variables, and does not follow redirects.
+
 Each schedule can optionally specify a `webhook_url`. When a scheduled run completes, the full result dict is POSTed as JSON to that URL.
 
 ### Webhook Payload

@@ -28,6 +28,10 @@ server:
   port: 8080
   dbPath: /data/mltk_server.db
 
+# Additional environment variables. Examples: MLTK_SERVER_PUBLIC_READ and
+# MLTK_SERVER_WEBHOOK_ALLOW_PRIVATE.
+extraEnv: []
+
 service:
   type: ClusterIP
   port: 8080

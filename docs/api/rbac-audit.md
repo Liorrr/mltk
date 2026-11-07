@@ -49,19 +49,37 @@ mltk uses a strict three-tier hierarchy. A higher role automatically inherits al
 Roles are stored alongside API keys in the server's `api_keys` table. When creating a key, specify the role:
 
 ```python
+from mltk.server.auth import generate_api_key, hash_key
 from mltk.server.rbac import Role
 
 # In your server setup or admin script:
-storage.create_api_key(
-    project="fraud-model",
-    role=Role.WRITER,  # CI/CD pipeline key
-)
+ci_key = generate_api_key()  # CI/CD pipeline key; give the raw key to the pipeline
+storage.save_api_key(hash_key(ci_key), "fraud-model", role=Role.WRITER)
 
-storage.create_api_key(
-    project="fraud-model",
-    role=Role.READER,  # Dashboard viewer key
-)
+viewer_key = generate_api_key()  # Dashboard viewer key
+storage.save_api_key(hash_key(viewer_key), "fraud-model", role=Role.READER)
 ```
+
+The CLI does the same: `mltk server-create-key --project fraud-model --role reader`.
+
+## Server access roles
+
+The server supports `reader`, `writer`, and `admin` keys. Reads require `reader` or
+higher; run submission requires `writer` or higher; webhook creation and deletion require
+`admin`. Missing or invalid keys return 401. Valid keys without the required role return
+403. Health and metrics endpoints remain open. With `MLTK_SERVER_PUBLIC_READ=1` (or
+`true`, `yes`, or `on`), read endpoints also accept requests without a key, while supplied
+keys continue to be checked.
+
+Project-scoped keys can only access their own project. Reading another project's runs,
+trends, summaries or webhooks, or deleting its webhooks, returns 404; submitting a run or
+creating a webhook for another project returns 403. Global
+webhooks are not included for scoped keys, and returned webhook URLs are masked to
+`scheme://host[:port]/...`.
+
+Use `mltk server-create-key --project my-project --role reader` to select a role. Existing
+keys with no stored role resolve to `writer` and should be re-issued when a different role
+is needed.
 
 ### Recommended Key Assignment
 
@@ -81,30 +99,21 @@ Use `require_role` as a FastAPI dependency to enforce permissions on any endpoin
 
 ```python
 from fastapi import Depends
-from mltk.server.rbac import require_role
-from mltk.server.auth import require_api_key
+from mltk.server.rbac import KeyPrincipal, require_role
 
 @router.post("/api/runs")
-async def submit_run(
-    project: str = Depends(require_api_key),
-    _role_ok: bool = Depends(require_role("writer")),
-):
-    # Only writer and admin keys reach this code
+async def submit_run(principal: KeyPrincipal = Depends(require_role("writer"))):
+    # Only writer and admin keys reach this code; principal.project is the key's project
     ...
 
 @router.get("/api/results")
-async def list_results(
-    project: str = Depends(require_api_key),
-    _role_ok: bool = Depends(require_role("reader")),
-):
-    # Any valid key can read results
+async def list_results(principal: KeyPrincipal | None = Depends(require_role("reader"))):
+    # Any valid key can read results. principal is None only for a request
+    # without a key while MLTK_SERVER_PUBLIC_READ is set.
     ...
 
 @router.delete("/api/keys/{key_id}")
-async def delete_key(
-    project: str = Depends(require_api_key),
-    _role_ok: bool = Depends(require_role("admin")),
-):
+async def delete_key(principal: KeyPrincipal = Depends(require_role("admin"))):
     # Only admin keys can manage other keys
     ...
 ```

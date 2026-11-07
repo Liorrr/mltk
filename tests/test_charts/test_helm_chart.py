@@ -72,6 +72,13 @@ def test_deployment_uses_real_health_paths() -> None:
     assert "mltk-server:latest" not in deploy
 
 
+def test_extra_env_rendered() -> None:
+    values = (CHART / "values.yaml").read_text(encoding="utf-8")
+    deploy = (CHART / "templates" / "deployment.yaml").read_text(encoding="utf-8")
+    assert "extraEnv: []" in values
+    assert "toYaml . | nindent 12" in deploy
+
+
 def test_ingress_disabled_by_default() -> None:
     values = (CHART / "values.yaml").read_text(encoding="utf-8")
     assert "enabled: false" in values
