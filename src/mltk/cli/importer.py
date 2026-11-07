@@ -232,7 +232,11 @@ def import_dataset(
         )
 
     if register:
-        reg = register_dataset(eval_dataset)
+        try:
+            reg = register_dataset(eval_dataset)
+        except ValueError as exc:
+            print(f"registration failed: {exc}")  # noqa: T201
+            raise typer.Exit(1) from exc
         if reg.saved:
             print(  # noqa: T201
                 f"registered: {reg.name} v{reg.version} -> {reg.path}"

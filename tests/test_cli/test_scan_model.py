@@ -79,6 +79,7 @@ class TestScanModelHelp:
             "--sensitive",
             "--output",
             "--junit-xml",
+            "--allow-pickle",
         ):
             assert option in out, f"{option} missing from help: {out!r}"
 
@@ -101,6 +102,7 @@ class TestScanModelInvalidModel:
             "--model", "/nonexistent/model.pkl",
             "--data", "/nonexistent/data.csv",
             "--target", "label",
+            "--allow-pickle",
         )
         # Typer may exit with 2 (our code) or non-zero
         assert result.returncode != 0
@@ -160,6 +162,7 @@ class TestScanModelInvalidData:
             "--model", model_path,
             "--data", "/nonexistent/data.csv",
             "--target", "label",
+            "--allow-pickle",
         )
         assert result.returncode != 0
         combined = result.stdout + result.stderr

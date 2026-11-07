@@ -30,11 +30,11 @@ complementary angles:
    nested code.  High cyclomatic complexity correlates with more bugs and
    harder maintenance.
 
-Security model:
+Execution model:
     All code execution uses ``subprocess.run()`` with ``shell=False`` and
     a timeout.  Code is written to a temporary file and executed as a
-    separate process.  **No** ``eval()`` or ``exec()`` is ever used on
-    the generated code.  This provides process-level isolation.
+    separate process with a restricted environment and temporary working
+    directory.  This is not a sandbox.
 """
 
 from __future__ import annotations
@@ -66,6 +66,42 @@ __all__ = [
     "assert_code_complexity",
 ]
 
+# These variables are copied from the caller by default so the child has the
+# interpreter and platform settings needed for ordinary Python execution
+# without receiving unrelated caller state.  ``LC_*`` variables are included
+# separately below because their names are locale-specific.
+_CODEGEN_ENV_ALLOWLIST: frozenset[str] = frozenset({
+    "PATH",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "WINDIR",
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "HOME",
+    "USERPROFILE",
+    "LANG",
+    "LANGUAGE",
+    "PYTHONPATH",
+    "VIRTUAL_ENV",
+    # User site-packages (pip install --user): site.py reads APPDATA on
+    # Windows and PYTHONUSERBASE everywhere.
+    "APPDATA",
+    "PYTHONUSERBASE",
+    # Output encoding, so non-ASCII output behaves as in the caller.
+    "PYTHONIOENCODING",
+    "PYTHONUTF8",
+    # Interpreter start-up (relocated or shared-library Python builds).
+    "PYTHONHOME",
+    "LD_LIBRARY_PATH",
+    # TLS trust stores. Proxy variables are left out: they can hold credentials.
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+})
+
 
 # ------------------------------------------------------------------
 # Default vulnerability rules
@@ -96,10 +132,55 @@ def _python_executable() -> str:
     """Return the path to the current Python interpreter."""
     return sys.executable or "python"
 
+def _build_child_env(
+    *,
+    env: dict[str, str] | None,
+    inherit_env: bool,
+    case_insensitive: bool = os.name == "nt",
+) -> dict[str, str]:
+    """Return the child environment: the allowlist (or everything) plus *env*.
+
+    Relative ``PYTHONPATH`` entries are made absolute against the caller's
+    working directory, because the child runs in a temporary directory.
+
+    Windows variable names are case-insensitive, so there an extra such as
+    ``Path`` replaces the inherited ``PATH`` instead of sitting beside it.
+    """
+    child_env = (
+        dict(os.environ)
+        if inherit_env
+        else {
+            key: value
+            for key, value in os.environ.items()
+            if key in _CODEGEN_ENV_ALLOWLIST or key.startswith("LC_")
+        }
+    )
+    for key, value in (env or {}).items():
+        if case_insensitive:
+            for existing in [k for k in child_env if k.upper() == key.upper()]:
+                del child_env[existing]
+        child_env[key] = value
+    # The child starts in a temporary directory, and Python resolves relative
+    # PYTHONPATH entries against its start-up directory. Anchor them to the
+    # caller's directory so ``PYTHONPATH=src`` keeps meaning the caller's src.
+    for key in [k for k in child_env if k == "PYTHONPATH" or (
+        case_insensitive and k.upper() == "PYTHONPATH"
+    )]:
+        if not child_env[key]:
+            continue  # Python ignores an empty PYTHONPATH; keep it empty.
+        child_env[key] = os.pathsep.join(
+            os.path.abspath(entry) for entry in child_env[key].split(os.pathsep)
+        )
+    return child_env
+
+
 def _run_code_in_subprocess(
     code: str,
     timeout_seconds: float,
     extra_code: str | None = None,
+    *,
+    env: dict[str, str] | None = None,
+    inherit_env: bool = False,
 ) -> tuple[int, str, str]:
     """Write code to a temp file and execute in a subprocess.
 
@@ -107,6 +188,10 @@ def _run_code_in_subprocess(
         code: Python source code to execute.
         timeout_seconds: Maximum wall-clock seconds before killing.
         extra_code: Optional additional code appended after ``code``.
+        env: Extra child environment variables to apply on top of the
+            default environment.
+        inherit_env: If true, copy the full caller environment instead of
+            the documented allowlist.
 
     Returns:
         Tuple of (returncode, stdout, stderr).  On timeout the
@@ -116,27 +201,28 @@ def _run_code_in_subprocess(
     if extra_code is not None:
         full_code = code + "\n\n" + extra_code
 
-    # Write to a temp file -- suffix .py for clarity
-    fd, tmp_path = tempfile.mkstemp(suffix=".py", prefix="mltk_codegen_")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+    child_env = _build_child_env(env=env, inherit_env=inherit_env)
+
+    with tempfile.TemporaryDirectory(
+        prefix="mltk_codegen_", ignore_cleanup_errors=True,
+    ) as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, "generated_code.py")
+        with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(full_code)
 
-        result = subprocess.run(
-            [_python_executable(), tmp_path],
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            shell=False,
-        )
-        return result.returncode, result.stdout, result.stderr
-    except subprocess.TimeoutExpired:
-        return -1, "", f"Timed out after {timeout_seconds}s"
-    finally:
         try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+            result = subprocess.run(
+                [_python_executable(), tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                shell=False,
+                env=child_env,
+                cwd=tmp_dir,
+            )
+            return result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired:
+            return -1, "", f"Timed out after {timeout_seconds}s"
 
 def _scan_vulnerabilities(
     code: str,
@@ -216,6 +302,9 @@ def assert_code_executes(
     timeout_seconds: float = 10.0,
     language: str = "python",
     on_empty: str = "fail",
+    *,
+    env: dict[str, str] | None = None,
+    inherit_env: bool = False,
 ) -> TestResult:
     """Assert that generated code executes without errors.
 
@@ -228,6 +317,10 @@ def assert_code_executes(
     The code is written to a temporary file and executed via
     ``subprocess.run()`` with ``shell=False`` and a timeout.
     No ``eval()`` or ``exec()`` is used.
+    The code runs with the caller's interpreter and has normal file system
+    and network access.  Only the environment and working directory are
+    restricted.  This is not a sandbox, so run it inside a container or VM
+    for untrusted input.
 
     Args:
         code: Source code string to execute.
@@ -237,6 +330,9 @@ def assert_code_executes(
             is supported).
         on_empty: Policy for empty code: ``"fail"`` (default),
             ``"skip"``, or ``"pass"`` for legacy behavior.
+        env: Extra environment variables for the child process.
+        inherit_env: If true, pass the full caller environment to the child
+            instead of the default allowlist.
 
     Returns:
         TestResult with details: ``returncode``, ``stdout``,
@@ -285,7 +381,10 @@ def assert_code_executes(
         )
 
     returncode, stdout, stderr = _run_code_in_subprocess(
-        code, timeout_seconds
+        code,
+        timeout_seconds,
+        env=env,
+        inherit_env=inherit_env,
     )
     passed = returncode == 0
 
@@ -324,6 +423,9 @@ def assert_code_passes_tests(
     test_code: str,
     timeout_seconds: float = 30.0,
     on_empty: str = "fail",
+    *,
+    env: dict[str, str] | None = None,
+    inherit_env: bool = False,
 ) -> TestResult:
     """Assert that generated code passes a test suite.
 
@@ -336,6 +438,10 @@ def assert_code_passes_tests(
     The combined code is written to a temporary file and executed
     via ``subprocess.run()`` with ``shell=False`` and a timeout.
     No ``eval()`` or ``exec()`` is used.
+    The code runs with the caller's interpreter and has normal file system
+    and network access.  Only the environment and working directory are
+    restricted.  This is not a sandbox, so run it inside a container or VM
+    for untrusted input.
 
     Args:
         code: Generated source code (functions, classes, etc.).
@@ -346,6 +452,9 @@ def assert_code_passes_tests(
             (default 30.0).
         on_empty: Policy for empty code and tests: ``"fail"`` (default),
             ``"skip"``, or ``"pass"`` for legacy behavior.
+        env: Extra environment variables for the child process.
+        inherit_env: If true, pass the full caller environment to the child
+            instead of the default allowlist.
 
     Returns:
         TestResult with details: ``returncode``, ``stdout``,
@@ -377,7 +486,11 @@ def assert_code_passes_tests(
         )
 
     returncode, stdout, stderr = _run_code_in_subprocess(
-        code, timeout_seconds, extra_code=test_code
+        code,
+        timeout_seconds,
+        extra_code=test_code,
+        env=env,
+        inherit_env=inherit_env,
     )
     passed = returncode == 0
 

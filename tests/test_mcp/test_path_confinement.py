@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ._helpers import assert_error, assert_ok, call_tool
+from ._helpers import assert_error, assert_ok, call_tool, registered_tools
 
 
 @pytest.fixture(autouse=True)
@@ -251,3 +252,31 @@ def test_mltk_import_scaffold_keeps_relative_paths(tmp_path, monkeypatch):
     assert "data/gold.csv" in code
     assert str(root) not in code
     assert str(root.resolve()) not in code
+
+
+def test_mltk_import_register_refuses_name_with_path_parts(tmp_path, monkeypatch):
+    pytest.importorskip("pandas")
+    root = tmp_path / "proj"
+    (root / "data").mkdir(parents=True)
+    (root / "data" / "qa.csv").write_text(
+        "question,answer\nWhat is 2+2?,4\nCapital of France?,Paris\n", encoding="utf-8",
+    )
+    registry = tmp_path / "store" / "registry"
+    monkeypatch.chdir(root)
+    monkeypatch.setenv("MLTK_MCP_ROOTS", str(root))
+    monkeypatch.setenv("MLTK_DATASET_DIR", str(registry))
+    common = {
+        "source": "data/qa.csv", "input_column": "question",
+        "target_column": "answer", "register": True,
+    }
+
+    # call_tool takes the tool name as ``name``; call the tool function directly.
+    import_tool = registered_tools["mltk_import"]
+    bad = json.loads(import_tool(name="../../escaped", **common))
+    assert_error(bad)
+    assert not (tmp_path / "escaped").exists()
+
+    good = json.loads(import_tool(name="qa", **common))
+    assert_ok(good)
+    assert good["registration"]["saved"] is True
+    assert (registry / "qa").is_dir()

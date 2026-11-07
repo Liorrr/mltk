@@ -146,7 +146,7 @@ report.to_junit("scan-results.xml")
 
 ```bash
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label \
     --sensitive age,gender \
@@ -197,7 +197,7 @@ ways to consume the findings.
 |--------|---------|-------------|
 | `to_json(path?)` | `str` | Machine-readable JSON (optionally written to file) |
 | `summary()` | `str` | Console-formatted text with severity markers |
-| `to_test_file(path, *, model_path=None, data_path=None, target_col=None, train_data_path=None)` | `str` | Generate a runnable pytest file that reproduces the findings |
+| `to_test_file(path, *, model_path=None, data_path=None, target_col=None, train_data_path=None, allow_pickle=False)` | `str` | Generate a runnable pytest file that reproduces the findings |
 | `to_suite()` | `MltkSuite` | Runnable suite from findings |
 | `to_html(path)` | `str` | Visual HTML report |
 | `to_junit(path)` | `str` | JUnit XML for CI/CD |
@@ -350,7 +350,7 @@ def model():
         pytest.skip(
             "Set MLTK_MODEL_PATH or pass --model"
         )
-    loaded = load_model(path)
+    loaded = load_model(path, allow_pickle=False)
     return SimpleNamespace(
         predict=loaded.predict_fn,
         predict_proba=loaded.predict_proba_fn,
@@ -400,7 +400,7 @@ class TestScanFindings:
         )
 ```
 
-The model fixture loads through the same loader `mltk scan-model` uses (pickle, joblib, ONNX, PyTorch, Keras), and `data` reads CSV or parquet. Environment variable fallbacks (`MLTK_MODEL_PATH`,
+The model fixture loads through the same loader `mltk scan-model` uses (pickle, joblib, ONNX, PyTorch, Keras), and `data` reads CSV or parquet. Pickle, joblib, and PyTorch models require `allow_pickle=True`, the `--allow-pickle` CLI flag, or `MLTK_ALLOW_PICKLE=1` (also `true`, `yes`, or `on`). Without opt-in, the loader raises `PickleNotAllowedError`. ONNX and Keras models do not require this opt-in. Environment variable fallbacks (`MLTK_MODEL_PATH`,
 `MLTK_DATA_PATH`) let you run the same test file in CI/CD without hardcoded
 paths. If a finding needs training data, the file also includes a
 `train_data` fixture using `MLTK_TRAIN_DATA_PATH` (or `train_data_path`);
@@ -444,7 +444,7 @@ Summary: 2 critical, 2 warnings, 1 info
 |------|---------|------|
 | `0` | Clean | No findings at any severity |
 | `1` | Findings | One or more issues detected |
-| `2` | Error | Model/data could not be loaded, or scan crashed |
+| `2` | Error | Model/data could not be loaded (including a pickle-format model without `--allow-pickle`), or scan crashed |
 
 In CI/CD pipelines, use exit code 1 to fail the build
 when the scan finds issues:
@@ -453,7 +453,7 @@ when the scan finds issues:
 - name: Scan model
   run: |
     mltk scan-model \
-        --model model.pkl \
+        --model model.pkl --allow-pickle \
         --data test.csv \
         --target label
 ```
@@ -538,6 +538,7 @@ mltk scan-model [OPTIONS]
 | `--output` | PATH | No | Write generated pytest file |
 | `--junit-xml` | PATH | No | Write JUnit XML report |
 | `--export-json` | PATH | No | Export scan results as JSON |
+| `--allow-pickle` | flag | No | Load pickle, joblib and PyTorch files (they can run code while loading); also written into the generated test file |
 
 ### Supported model formats
 
@@ -549,18 +550,20 @@ mltk scan-model [OPTIONS]
 | `.pt`, `.pth` | PyTorch | `torch` |
 | `.h5`, `.hdf5`, `.keras` | Keras | `tensorflow` or `keras` |
 
+Pickle, joblib, and PyTorch formats can run code while loading and are refused by default. Pass `--allow-pickle` to `scan-model`, pass `allow_pickle=True` to `load_model()` or `ScanReport.to_test_file()`, or set `MLTK_ALLOW_PICKLE=1` (case-insensitive values `true`, `yes`, and `on` are also accepted). The refusal is reported as `PickleNotAllowedError`. ONNX and Keras formats load without this flag.
+
 ### Examples
 
 ```bash
 # Basic scan
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label
 
 # With sensitive columns and test generation
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label \
     --sensitive age,gender,race \
@@ -568,7 +571,7 @@ mltk scan-model \
 
 # Full pipeline: scan + JUnit for CI
 mltk scan-model \
-    --model model.pkl \
+    --model model.pkl --allow-pickle \
     --data test.csv \
     --target label \
     --output tests/test_scan_results.py \
@@ -622,7 +625,7 @@ Use it as a build gate:
 ```yaml
 - run: |
     mltk scan-model \
-        --model model.pkl \
+        --model model.pkl --allow-pickle \
         --data test.csv \
         --target label \
         --junit-xml scan-results.xml

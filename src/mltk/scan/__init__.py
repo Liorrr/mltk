@@ -64,6 +64,7 @@ import pandas as pd
 from mltk.scan.config import ScanConfig, ScanContext
 from mltk.scan.engine import ScanEngine, ScanReport
 from mltk.scan.finding import ScanFinding
+from mltk.scan.loader import PickleNotAllowedError
 from mltk.scan.scanners.base import Scanner
 
 __all__ = [
@@ -75,6 +76,7 @@ __all__ = [
     "ScanConfig",
     "ScanContext",
     "Scanner",
+    "PickleNotAllowedError",
 ]
 
 # Module-level registry for custom scanners.
