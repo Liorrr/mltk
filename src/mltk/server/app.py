@@ -1,14 +1,15 @@
 """FastAPI application for the mltk server platform."""
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from starlette.requests import Request
 from starlette.responses import Response
 
 # Single-source version — mltk.__version__ resolves the installed
 # distribution (mlspec, legacy mltk) with a source-tree fallback.
 from mltk import __version__ as _VERSION
+from mltk.server.limits import RequestSizeLimitMiddleware
 from mltk.server.logging_config import setup_logging
 from mltk.server.routes import router
 from mltk.server.static import static_router
@@ -16,6 +17,7 @@ from mltk.server.storage import Storage
 
 # Maximum allowed request body size: 10 MB
 MAX_REQUEST_BODY_BYTES = 10_485_760
+_LOGGER = logging.getLogger(__name__)
 
 
 def create_app(db_path: str = "mltk_server.db") -> FastAPI:
@@ -35,16 +37,14 @@ def create_app(db_path: str = "mltk_server.db") -> FastAPI:
         description="Self-hosted ML test results platform — SonarQube for ML testing.",
     )
 
-    # --- Middleware: reject oversized request bodies (P1-23) ---------------
-    @app.middleware("http")
-    async def limit_request_size(request: Request, call_next) -> Response:  # type: ignore[type-arg]
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
-            return JSONResponse(
-                {"detail": "Request body too large (max 10MB)"},
-                status_code=413,
-            )
-        return await call_next(request)
+    app.add_middleware(RequestSizeLimitMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
+
+    from mltk.server.auth import public_read_enabled  # noqa: PLC0415
+
+    if public_read_enabled():
+        _LOGGER.warning(
+            "MLTK_SERVER_PUBLIC_READ is set: read endpoints are served without an API key."
+        )
 
     app.state.storage = Storage(db_path)
     app.include_router(static_router)  # dashboard at /

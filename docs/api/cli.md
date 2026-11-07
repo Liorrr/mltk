@@ -470,8 +470,8 @@ Requires `pip install mlspec[server]`. See [Server Platform](server-platform.md)
 Generate an API key for authenticating against the mltk server. Prints the raw key once — store it securely.
 
 ```bash
-mltk server-create-key --project my-project
-# API key created for project 'my-project':
+mltk server-create-key --project my-project --role writer
+# API key created for project 'my-project' with role 'writer':
 #   mltk_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890abcd
 # Store this key securely — it will not be shown again.
 ```
@@ -481,6 +481,7 @@ mltk server-create-key --project my-project
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--project` | `default` | Project name to associate with the key |
+| `--role` | `writer` | Access role: `admin`, `writer`, or `reader` |
 | `--db` | `mltk_server.db` | SQLite database path |
 
 ### mltk server-backup

@@ -649,10 +649,29 @@ trends = storage.get_trends("my-project", limit=20)
 ```python
 from mltk.server.auth import generate_api_key, hash_key
 
-raw_key = generate_api_key("my-project")
+raw_key = generate_api_key()
 key_hash = hash_key(raw_key)
-storage.save_api_key(key_hash, "my-project")
+storage.save_api_key(key_hash, "my-project", role="writer")
 ```
+
+### Access control
+
+`GET /api/runs`, individual runs, trends, summaries, comparisons, and webhooks require a
+`reader` key or a higher role. `POST /api/runs` requires `writer`; webhook creation and
+deletion require `admin`. Missing or invalid credentials return 401, while a valid key with
+an insufficient role returns 403. `/api/health`, `/api/health/live`, `/api/health/ready`,
+and `/metrics` remain open.
+
+Keys scoped to a project can only read or manage that project. An omitted project on run
+listing selects the key's project; a different project, an out-of-scope run or webhook,
+or an out-of-scope trend/summary returns 404 `Project not found` (or the resource's
+not-found detail). Global webhooks are excluded for scoped keys. Webhook URLs in list
+responses are masked as `scheme://host[:port]/...`.
+
+Set `MLTK_SERVER_PUBLIC_READ=1` (also `true`, `yes`, or `on`) to allow unauthenticated
+reads; a supplied key is still validated. Create keys with
+`mltk server-create-key --project my-project --role writer`. Keys created before roles
+were added resolve to `writer` until re-issued.
 
 ---
 

@@ -203,3 +203,44 @@ class TestExecute:
     def test_raises_on_missing_schedule(self, scheduler):
         with pytest.raises(ValueError, match="not found"):
             scheduler.execute("nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# Webhook target checks on scheduled delivery
+# ---------------------------------------------------------------------------
+
+
+def test_scheduler_webhook_refuses_internal_target():
+    # SCENARIO: a schedule's webhook URL points at a loopback/metadata address.
+    # EXPECTED: delivery is refused before any connection is attempted.
+    from unittest import mock
+
+    from mltk.server.scheduler import TestScheduler
+
+    for url in ("http://127.0.0.1/hook", "http://169.254.169.254/latest"):
+        with mock.patch("mltk.server.scheduler.deliver_json") as deliver, mock.patch(
+            "socket.create_connection",
+        ) as connect:
+            assert TestScheduler._send_webhook(url, {"name": "nightly"}) is False
+        deliver.assert_not_called()
+        connect.assert_not_called()
+
+
+def test_scheduler_webhook_posts_to_public_target():
+    # SCENARIO: a schedule's webhook URL resolves only to a public address.
+    # EXPECTED: the payload is handed to the shared sender with a 30 s timeout.
+    import socket
+    from unittest import mock
+
+    from mltk.server.scheduler import TestScheduler
+
+    public = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
+    with mock.patch("socket.getaddrinfo", return_value=public), mock.patch(
+        "mltk.server.scheduler.deliver_json", return_value=True,
+    ) as deliver:
+        assert TestScheduler._send_webhook(
+            "https://hooks.example.com/x", {"name": "nightly"},
+        ) is True
+    deliver.assert_called_once_with(
+        "https://hooks.example.com/x", {"name": "nightly"}, timeout=30,
+    )

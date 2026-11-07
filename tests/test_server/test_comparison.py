@@ -137,7 +137,7 @@ def client_with_key(tmp_path):
     db_file = str(tmp_path / "compare_test.db")
     application = create_app(db_path=db_file)
     raw_key = generate_api_key()
-    application.state.storage.save_api_key(hash_key(raw_key), "cmp-project")
+    application.state.storage.save_api_key(hash_key(raw_key), "cmp-project", role="admin")
     with TestClient(application) as c:
         yield c, raw_key
 
@@ -168,7 +168,10 @@ def test_compare_endpoint_returns_diff(client_with_key):
         _result("test_drift", False, "critical", "drift!"),
     ])
 
-    resp = client.get(f"/api/compare?run_a={run_a_id}&run_b={run_b_id}")
+    resp = client.get(
+        f"/api/compare?run_a={run_a_id}&run_b={run_b_id}",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    )
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["run_a"] == run_a_id
@@ -186,7 +189,10 @@ def test_compare_endpoint_404_on_missing_run(client_with_key):
         _result("test_x", True),
     ])
 
-    resp = client.get(f"/api/compare?run_a={run_a_id}&run_b=99999")
+    resp = client.get(
+        f"/api/compare?run_a={run_a_id}&run_b=99999",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    )
     assert resp.status_code == 404, resp.text
 
 
@@ -198,7 +204,10 @@ def test_compare_endpoint_404_on_missing_run_a(client_with_key):
 
     run_b_id = _submit(client, raw_key, [_result("test_x", True)])
 
-    resp = client.get(f"/api/compare?run_a=99999&run_b={run_b_id}")
+    resp = client.get(
+        f"/api/compare?run_a=99999&run_b={run_b_id}",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    )
     assert resp.status_code == 404, resp.text
 
 
@@ -213,7 +222,10 @@ def test_compare_same_run_id(client_with_key):
         _result("test_b", True),
     ])
 
-    resp = client.get(f"/api/compare?run_a={run_id}&run_b={run_id}")
+    resp = client.get(
+        f"/api/compare?run_a={run_id}&run_b={run_id}",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    )
     assert resp.status_code == 200, resp.text
     diff = resp.json()["diff"]
     assert diff["new_failures"] == []

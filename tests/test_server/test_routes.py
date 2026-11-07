@@ -1,6 +1,7 @@
 """Tests for mltk server API routes via FastAPI TestClient."""
 from __future__ import annotations
 
+import socket
 from unittest import mock
 
 import pytest
@@ -33,7 +34,7 @@ def client(tmp_path):
     app = create_app(db_path=db_file)
     raw_key = generate_api_key()
     # Use "default" scope so the key works for any project name in tests
-    app.state.storage.save_api_key(hash_key(raw_key), "default")
+    app.state.storage.save_api_key(hash_key(raw_key), "default", role="admin")
     with TestClient(app) as c:
         yield c, raw_key
 
@@ -83,11 +84,14 @@ def test_submit_run_schedules_webhook_delivery(client):
     # EXPECTED: webhook send is scheduled as a BackgroundTasks job.
     c, raw_key = client
     auth = {"Authorization": f"Bearer {raw_key}"}
-    create_resp = c.post(
-        "/api/webhooks",
-        json={"url": "http://example.com/hook", "events": ["on_failure"]},
-        headers=auth,
-    )
+    # Registration resolves the host; answer with a public address, no network.
+    public = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))]
+    with mock.patch("socket.getaddrinfo", return_value=public):
+        create_resp = c.post(
+            "/api/webhooks",
+            json={"url": "http://example.com/hook", "events": ["on_failure"]},
+            headers=auth,
+        )
     assert create_resp.status_code == 200, create_resp.text
 
     with mock.patch(
@@ -119,7 +123,7 @@ def test_list_runs(client):
     c.post("/api/runs", json={"project": "proj", "results": SAMPLE_RESULTS[:1]}, headers=auth)
     c.post("/api/runs", json={"project": "proj", "results": SAMPLE_RESULTS}, headers=auth)
 
-    resp = c.get("/api/runs")
+    resp = c.get("/api/runs", headers=auth)
     assert resp.status_code == 200
     body = resp.json()
     assert "runs" in body
@@ -139,7 +143,7 @@ def test_get_run(client):
     )
     run_id = post_resp.json()["run_id"]
 
-    resp = c.get(f"/api/runs/{run_id}")
+    resp = c.get(f"/api/runs/{run_id}", headers=auth)
     assert resp.status_code == 200
     body = resp.json()
     assert body["project"] == "detail_proj"
@@ -154,7 +158,7 @@ def test_get_run_not_found(client):
     # WHY: API must return 404 rather than 500 for unknown ids
     # EXPECTED: HTTP 404 response
     c, _ = client
-    resp = c.get("/api/runs/99999")
+    resp = c.get("/api/runs/99999", headers={"Authorization": f"Bearer {_}"})
     assert resp.status_code == 404
 
 
@@ -167,7 +171,7 @@ def test_trends(client):
     for _ in range(3):
         c.post("/api/runs", json={"project": "trend_proj", "results": SAMPLE_RESULTS}, headers=auth)
 
-    resp = c.get("/api/trends/trend_proj")
+    resp = c.get("/api/trends/trend_proj", headers=auth)
     assert resp.status_code == 200
     body = resp.json()
     assert body["project"] == "trend_proj"
@@ -187,7 +191,7 @@ def test_list_runs_project_filter(client):
     c.post("/api/runs", json={"project": "alpha", "results": SAMPLE_RESULTS[:1]}, headers=auth)
     c.post("/api/runs", json={"project": "beta", "results": SAMPLE_RESULTS}, headers=auth)
 
-    resp = c.get("/api/runs?project=alpha")
+    resp = c.get("/api/runs?project=alpha", headers=auth)
     assert resp.status_code == 200
     body = resp.json()
     for run in body["runs"]:
