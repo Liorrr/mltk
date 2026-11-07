@@ -213,15 +213,22 @@
   };
 
   const apiKeyInput = document.getElementById('api-key');
-  apiKeyInput.value = sessionStorage.getItem('mltk_api_key') || '';
+  // Session storage can be unavailable (blocked site data); fall back to the field.
+  function readApiKey() {
+    try { return sessionStorage.getItem('mltk_api_key') || ''; } catch { return apiKeyInput.value; }
+  }
+  function writeApiKey(value) {
+    try { sessionStorage.setItem('mltk_api_key', value); } catch { /* keep it in the field only */ }
+  }
+  apiKeyInput.value = readApiKey();
   apiKeyInput.addEventListener('change', () => {
-    sessionStorage.setItem('mltk_api_key', apiKeyInput.value);
+    writeApiKey(apiKeyInput.value);
     refresh();
   });
 
   async function apiFetch(url, options = {}) {
     const headers = new Headers(options.headers || {});
-    const key = sessionStorage.getItem('mltk_api_key');
+    const key = readApiKey();
     if (key) headers.set('Authorization', 'Bearer ' + key);
     const response = await fetch(url, {...options, headers});
     if (response.status === 401 || response.status === 403) {
@@ -259,7 +266,9 @@
     return String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // ─── Health check ────────────────────────────────────────────────────────────

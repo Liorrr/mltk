@@ -11,6 +11,12 @@ class RequestSizeLimitMiddleware:
         self.app = app
         self.max_bytes = max_bytes
 
+    def _too_large_detail(self) -> str:
+        mib = 1024 * 1024
+        if self.max_bytes % mib == 0:
+            return f"Request body too large (max {self.max_bytes // mib}MB)"
+        return f"Request body too large (max {self.max_bytes} bytes)"
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -27,7 +33,7 @@ class RequestSizeLimitMiddleware:
                 await self._respond(send, 400, "Invalid Content-Length header")
                 return
             if length > self.max_bytes:
-                await self._respond(send, 413, "Request body too large (max 10MB)")
+                await self._respond(send, 413, self._too_large_detail())
                 return
             await self.app(scope, receive, send)
             return
@@ -46,7 +52,7 @@ class RequestSizeLimitMiddleware:
                 if total > self.max_bytes:
                     rejected = True
                     if not response_started:
-                        await self._respond(send, 413, "Request body too large (max 10MB)")
+                        await self._respond(send, 413, self._too_large_detail())
                     return {"type": "http.disconnect"}
             return message
 

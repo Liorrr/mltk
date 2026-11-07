@@ -66,14 +66,42 @@ def test_private_opt_in_still_refuses_special_targets(address: str) -> None:
     assert not webhooks.is_allowed_address(address, allow_private=True)
 
 
-def test_deliver_json_checks_address_at_connect_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(webhooks, "validate_webhook_url", lambda url: True)
-    calls = iter([[_info("8.8.8.8")], [_info("127.0.0.1")]])
-    monkeypatch.setattr(webhooks.socket, "getaddrinfo", lambda *a, **k: next(calls))
+def test_checked_connection_refuses_internal_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(webhooks.socket, "getaddrinfo", lambda *a, **k: [_info("127.0.0.1")])
     connect = MagicMock()
     monkeypatch.setattr(webhooks.socket, "create_connection", connect)
-    assert not webhooks.deliver_json("http://example.test/", {})
-    assert all("127.0.0.1" not in str(call) for call in connect.call_args_list)
+    with pytest.raises(OSError, match="not allowed"):
+        webhooks._checked_create_connection(("example.test", 80))
+    connect.assert_not_called()
+
+
+def test_checked_connection_connects_to_public_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(webhooks.socket, "getaddrinfo", lambda *a, **k: [_info("8.8.8.8")])
+    connect = MagicMock(return_value="sock")
+    monkeypatch.setattr(webhooks.socket, "create_connection", connect)
+    assert webhooks._checked_create_connection(("example.test", 80)) == "sock"
+    assert connect.call_args.args[0] == ("8.8.8.8", 80)
+
+
+def test_send_webhook_rechecks_the_answer_at_connect_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Registration-time lookup is public; the lookup made when connecting is not.
+    answers = iter([[_info("8.8.8.8")], [_info("127.0.0.1")]])
+    monkeypatch.setattr(webhooks.socket, "getaddrinfo", lambda *a, **k: next(answers))
+    connect = MagicMock()
+    monkeypatch.setattr(webhooks.socket, "create_connection", connect)
+    assert not webhooks.send_webhook("http://example.test/hook", {})
+    connect.assert_not_called()
+
+
+def test_send_webhook_connects_when_both_answers_are_public(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    answers = iter([[_info("8.8.8.8")], [_info("8.8.4.4")]])
+    monkeypatch.setattr(webhooks.socket, "getaddrinfo", lambda *a, **k: next(answers))
+    connect = MagicMock(side_effect=OSError("stop after connect"))
+    monkeypatch.setattr(webhooks.socket, "create_connection", connect)
+    assert not webhooks.send_webhook("http://example.test/hook", {})
+    assert connect.call_args.args[0] == ("8.8.4.4", 80)
 
 
 def test_deliver_json_success_statuses(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -88,11 +116,54 @@ def test_deliver_json_success_statuses(monkeypatch: pytest.MonkeyPatch) -> None:
         assert webhooks.deliver_json("http://example.test/", {}) is expected
 
 
-def test_deliver_json_does_not_follow_redirects(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(webhooks.urllib.request, "build_opener", lambda *a: (_ for _ in ()).throw(
-        webhooks.urllib.error.HTTPError("u", 302, "redirect", {}, None),
-    ))
-    assert not webhooks.deliver_json("http://example.test/", {})
+@pytest.fixture
+def redirect_server(monkeypatch: pytest.MonkeyPatch):
+    """Local server: ``/hook`` answers 302 to ``/landed``; ``/landed`` answers 200."""
+    import http.server
+    import threading
+
+    landed: list[str] = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def _answer(self) -> None:
+            length = int(self.headers.get("Content-Length") or 0)
+            self.rfile.read(length)
+            if self.path == "/hook":
+                self.send_response(302)
+                self.send_header("Location", "/landed")
+            else:
+                landed.append(self.command)
+                self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        do_GET = do_POST = _answer
+
+        def log_message(self, *args) -> None:  # noqa: ARG002
+            return
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    # The real target policy refuses loopback; allow it for this local server only.
+    monkeypatch.setattr(webhooks, "is_allowed_address", lambda ip, *, allow_private: True)
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}", landed
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_deliver_json_does_not_follow_redirects(redirect_server) -> None:
+    base, landed = redirect_server
+    assert not webhooks.deliver_json(f"{base}/hook", {"x": 1})
+    assert landed == []
+
+
+def test_deliver_json_reaches_a_non_redirecting_target(redirect_server) -> None:
+    base, landed = redirect_server
+    assert webhooks.deliver_json(f"{base}/landed", {"x": 1})
+    assert landed == ["POST"]
 
 
 def test_deliver_json_ignores_proxy_env(monkeypatch: pytest.MonkeyPatch) -> None:

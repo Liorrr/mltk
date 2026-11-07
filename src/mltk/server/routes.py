@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
+from starlette.concurrency import run_in_threadpool
 
 from mltk.report.summarizer import summarize_test_history
 from mltk.server.comparison import compare_runs
@@ -231,7 +232,8 @@ async def create_webhook(
             detail=f"API key is scoped to project '{principal.project}', "
             f"cannot manage project '{req.project or 'default'}'",
         )
-    if not validate_webhook_url(req.url):
+    # The check resolves the hostname, so it runs in a worker thread.
+    if not await run_in_threadpool(validate_webhook_url, req.url):
         raise HTTPException(
             status_code=422,
             detail="Invalid webhook URL: must be a public http(s) endpoint",

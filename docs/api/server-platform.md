@@ -649,7 +649,7 @@ trends = storage.get_trends("my-project", limit=20)
 ```python
 from mltk.server.auth import generate_api_key, hash_key
 
-raw_key = generate_api_key("my-project")
+raw_key = generate_api_key()
 key_hash = hash_key(raw_key)
 storage.save_api_key(key_hash, "my-project", role="writer")
 ```

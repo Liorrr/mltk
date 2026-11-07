@@ -263,3 +263,68 @@ def test_save_api_key_rejects_unknown_role(tmp_path):
     storage = Storage(str(tmp_path / "roles.db"))
     with pytest.raises(ValueError, match="role"):
         storage.save_api_key("a" * 64, "project", role="operator")
+
+
+def test_create_webhook_validates_off_the_event_loop(app_client, monkeypatch):
+    import asyncio
+
+    app, client = app_client
+    seen: list[bool] = []
+
+    def validator(url: str) -> bool:
+        try:
+            asyncio.get_running_loop()
+            seen.append(True)
+        except RuntimeError:
+            seen.append(False)
+        return url.endswith("/ok")
+
+    monkeypatch.setattr("mltk.server.routes.validate_webhook_url", validator)
+    raw = _key(app, role="admin")
+    ok = client.post(
+        "/api/webhooks", json={"url": "https://example.com/ok", "events": []},
+        headers=_headers(raw),
+    )
+    bad = client.post(
+        "/api/webhooks", json={"url": "https://example.com/no", "events": []},
+        headers=_headers(raw),
+    )
+    assert ok.status_code == 200
+    assert bad.status_code == 422
+    assert seen == [False, False]
+
+
+def test_migration_resumes_when_role_column_exists_without_its_version(tmp_path):
+    db_path = tmp_path / "half.db"
+    Storage(str(db_path)).close()
+    conn = sqlite3.connect(db_path)
+    conn.execute("DELETE FROM schema_versions WHERE version = 2")
+    conn.commit()
+    conn.close()
+    storage = Storage(str(db_path))
+    versions = [
+        row[0] for row in storage._conn.execute(
+            "SELECT version FROM schema_versions ORDER BY version"
+        )
+    ]
+    assert versions == [1, 2]
+    storage.save_api_key("b" * 64, "project", role="reader")
+    assert storage.get_key_role("b" * 64) == "reader"
+
+
+def test_migration_still_raises_other_operational_errors(tmp_path, monkeypatch):
+    import mltk.server.storage as storage_mod
+
+    broken = [*storage_mod._MIGRATIONS, (99, "broken", ["ALTER TABLE missing ADD COLUMN x TEXT"])]
+    monkeypatch.setattr(storage_mod, "_MIGRATIONS", broken)
+    with pytest.raises(sqlite3.OperationalError, match="no such table"):
+        Storage(str(tmp_path / "broken.db"))
+
+
+@pytest.mark.parametrize(("max_bytes", "text"), [
+    (10_485_760, "max 10MB"), (2 * 1024 * 1024, "max 2MB"), (1000, "max 1000 bytes"),
+])
+def test_too_large_message_names_the_configured_limit(max_bytes, text):
+    from mltk.server.limits import RequestSizeLimitMiddleware
+
+    assert text in RequestSizeLimitMiddleware(app=None, max_bytes=max_bytes)._too_large_detail()

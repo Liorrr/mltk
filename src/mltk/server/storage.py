@@ -131,9 +131,17 @@ class Storage:
                 continue
             logger.info("Applying migration v%d: %s", version, description)
             for sql in statements:
-                conn.execute(sql)
+                try:
+                    conn.execute(sql)
+                except sqlite3.OperationalError as exc:
+                    # ALTER TABLE runs outside the transaction that records the
+                    # version, so the column can exist without its version row
+                    # (interrupted start, or two processes migrating at once).
+                    if "duplicate column name" not in str(exc).lower():
+                        raise
+                    logger.info("Migration v%d: column already present", version)
             conn.execute(
-                "INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)",
+                "INSERT OR IGNORE INTO schema_versions (version, applied_at) VALUES (?, ?)",
                 (version, datetime.now(tz=timezone.utc).isoformat()),
             )
             logger.info("Migration v%d applied successfully", version)

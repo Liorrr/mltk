@@ -159,9 +159,9 @@ def check_permission(user_role: str, required_role: str) -> bool:
 def _lookup_role_for_key(storage: object, key_hash: str) -> str:
     """Resolve the role for an API key hash from storage.
 
-    This is intentionally lenient: if the storage layer does not yet have
-    a ``get_key_role`` method (i.e. the role-column migration has not
-    landed), the key is treated as ``admin`` for backward compatibility.
+    A key with no stored role (created before roles existed), or a storage
+    object without ``get_key_role``, resolves to ``writer``. A warning is
+    logged the first time each such key is seen in this process.
 
     Parameters
     ----------
