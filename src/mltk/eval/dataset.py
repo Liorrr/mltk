@@ -70,6 +70,31 @@ from mltk.eval._types import EvalSample
 _DEFAULT_DATASET_DIR = Path.home() / ".mltk" / "datasets"
 
 
+def _validate_component(value: str, kind: str) -> str:
+    """Validate a caller-supplied single filesystem name component."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{kind} must be a non-empty string")
+    if value in {".", ".."}:
+        raise ValueError(f"{kind} cannot be '.' or '..'")
+    if any(char in value for char in ("/", "\\", "\x00", ":")):
+        raise ValueError(f"{kind} must be a single relative path component")
+    if Path(value).is_absolute():
+        raise ValueError(f"{kind} must be a relative path component")
+    return value
+
+
+def _path_inside(root: Path, *components: tuple[str, str]) -> Path:
+    """Return a validated path that remains inside the resolved registry root."""
+    root_resolved = root.resolve()
+    candidate = root_resolved
+    for value, kind in components:
+        candidate /= _validate_component(value, kind)
+    candidate = candidate.resolve()
+    if candidate != root_resolved and not candidate.is_relative_to(root_resolved):
+        raise ValueError("Dataset path resolves outside the registry root")
+    return candidate
+
+
 def _resolve_dataset_dir(
     registry_dir: str | Path | None,
 ) -> Path:
@@ -711,7 +736,7 @@ class DatasetRegistry:
         self,
         registry_dir: str | Path | None = None,
     ) -> None:
-        self._root = _resolve_dataset_dir(registry_dir)
+        self._root = _resolve_dataset_dir(registry_dir).resolve()
 
     @property
     def root(self) -> Path:
@@ -738,15 +763,18 @@ class DatasetRegistry:
             Path to the ``dataset.json`` file.
 
         Raises:
-            ValueError: If name + version already exists.
+            ValueError: If the dataset name or version is not a single
+                relative path component, or name + version already exists.
 
         Example:
             >>> path = registry.save(ds)
             >>> path.exists()
             True
         """
-        version_dir = (
-            self._root / dataset.name / dataset.version
+        version_dir = _path_inside(
+            self._root,
+            (dataset.name, "Dataset name"),
+            (dataset.version, "Dataset version"),
         )
         if version_dir.exists():
             raise ValueError(
@@ -802,7 +830,9 @@ class DatasetRegistry:
             The deserialized ``EvalDataset``.
 
         Raises:
-            ValueError: If dataset or version not found.
+            ValueError: If the dataset name or version is not a single
+                relative path component, or the dataset or version is not
+                found.
 
         Example:
             >>> ds = registry.load("qa")
@@ -817,7 +847,11 @@ class DatasetRegistry:
                 )
             version = versions[-1]  # latest by semver
 
-        version_dir = self._root / name / version
+        version_dir = _path_inside(
+            self._root,
+            (name, "Dataset name"),
+            (version, "Dataset version"),
+        )
         dataset_path = version_dir / "dataset.json"
         if not dataset_path.exists():
             raise ValueError(
@@ -892,7 +926,10 @@ class DatasetRegistry:
             if not entry.is_dir():
                 continue
             name = entry.name
-            versions = self.versions(name)
+            try:
+                versions = self.versions(name)
+            except ValueError:
+                continue
             if not versions:
                 continue
 
@@ -900,7 +937,12 @@ class DatasetRegistry:
             card = DatasetCard()
             sample_count = 0
 
-            card_path = entry / latest / "card.json"
+            version_dir = _path_inside(
+                self._root,
+                (name, "Dataset name"),
+                (latest, "Dataset version"),
+            )
+            card_path = version_dir / "card.json"
             if card_path.exists():
                 try:
                     card_data = json.loads(
@@ -917,9 +959,7 @@ class DatasetRegistry:
                 ):
                     pass
 
-            ds_path = (
-                entry / latest / "dataset.json"
-            )
+            ds_path = version_dir / "dataset.json"
             if ds_path.exists():
                 try:
                     ds_data = json.loads(
@@ -951,6 +991,9 @@ class DatasetRegistry:
     def versions(self, name: str) -> list[str]:
         """List all versions of a dataset, sorted by semver.
 
+        *name* must be a non-empty single relative path component. Invalid
+        names raise ``ValueError``.
+
         Args:
             name: Dataset identifier.
 
@@ -962,7 +1005,7 @@ class DatasetRegistry:
             >>> registry.versions("qa")
             ['1.0.0', '1.1.0', '2.0.0']
         """
-        dataset_dir = self._root / name
+        dataset_dir = _path_inside(self._root, (name, "Dataset name"))
         if not dataset_dir.exists():
             return []
 
@@ -970,7 +1013,15 @@ class DatasetRegistry:
         for entry in dataset_dir.iterdir():
             if not entry.is_dir():
                 continue
-            if (entry / "dataset.json").exists():
+            try:
+                version_dir = _path_inside(
+                    self._root,
+                    (name, "Dataset name"),
+                    (entry.name, "Dataset version"),
+                )
+            except ValueError:
+                continue
+            if (version_dir / "dataset.json").exists():
                 found.append(entry.name)
 
         return sorted(found, key=_parse_semver)
@@ -981,6 +1032,9 @@ class DatasetRegistry:
         version: str | None = None,
     ) -> bool:
         """Check if a dataset (and optionally version) exists.
+
+        *name* and *version*, when provided, must be non-empty single
+        relative path components. Invalid values raise ``ValueError``.
 
         Args:
             name: Dataset identifier.
@@ -1000,7 +1054,11 @@ class DatasetRegistry:
         if version is None:
             return len(self.versions(name)) > 0
 
-        version_dir = self._root / name / version
+        version_dir = _path_inside(
+            self._root,
+            (name, "Dataset name"),
+            (version, "Dataset version"),
+        )
         return (version_dir / "dataset.json").exists()
 
     def diff(
@@ -1010,6 +1068,9 @@ class DatasetRegistry:
         new_version: str,
     ) -> DatasetDiff:
         """Compare two versions of a dataset.
+
+        The dataset name and both versions must be non-empty single relative
+        path components. Invalid values raise ``ValueError``.
 
         Loads both versions and compares samples by their
         ``input`` text. Also detects metadata key
@@ -1105,6 +1166,9 @@ class DatasetRegistry:
     ) -> bool:
         """Delete a specific version of a dataset.
 
+        The dataset name and version must be non-empty single relative path
+        components. Invalid values raise ``ValueError``.
+
         Removes the version directory and its contents. If
         the dataset has no remaining versions, the dataset
         directory is also removed.
@@ -1123,14 +1187,18 @@ class DatasetRegistry:
         """
         import shutil
 
-        version_dir = self._root / name / version
+        version_dir = _path_inside(
+            self._root,
+            (name, "Dataset name"),
+            (version, "Dataset version"),
+        )
         if not version_dir.exists():
             return False
 
         shutil.rmtree(version_dir)
 
         # Clean up empty parent directory
-        dataset_dir = self._root / name
+        dataset_dir = _path_inside(self._root, (name, "Dataset name"))
         if dataset_dir.exists() and not any(
             dataset_dir.iterdir()
         ):

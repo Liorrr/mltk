@@ -1070,6 +1070,11 @@ quality:
                 " to file path"
             ),
         ),
+        allow_pickle: bool = typer.Option(
+            False,
+            "--allow-pickle",
+            help="Allow model formats that can run code when loaded",
+        ),
     ) -> None:
         """Scan a model for issues and generate tests.
 
@@ -1105,7 +1110,12 @@ quality:
 
         import pandas as pd
 
-        from mltk.scan.loader import load_model as _load
+        from mltk.scan.loader import (
+            PickleNotAllowedError as _PickleNotAllowedError,
+        )
+        from mltk.scan.loader import (
+            load_model as _load,
+        )
 
         # -- Load model -----------------------------------
         model_path = Path(model)
@@ -1116,7 +1126,10 @@ quality:
             raise typer.Exit(2)
 
         try:
-            loaded = _load(model_path)
+            loaded = _load(model_path, allow_pickle=allow_pickle)
+        except _PickleNotAllowedError as exc:
+            print(str(exc))  # noqa: T201
+            raise typer.Exit(1) from exc
         except (ValueError, ImportError, TypeError) as exc:
             print(f"Cannot load model: {exc}")  # noqa: T201
             raise typer.Exit(2) from exc
@@ -1191,6 +1204,7 @@ quality:
                     model_path=str(model_path),
                     data_path=str(data_path),
                     target_col=target,
+                    allow_pickle=allow_pickle,
                 )
                 print(  # noqa: T201
                     f"Test file written: {output}"

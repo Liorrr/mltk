@@ -2,11 +2,9 @@
 
 Loads serialized models from disk and normalizes them into a
 uniform ``predict_fn(X) -> np.ndarray`` callable.  Supports
-pickle/joblib, ONNX, PyTorch, and Keras/HDF5 formats.
-
-**Security warning**: pickle and joblib files can execute
-arbitrary code during deserialization.  Only load models that
-you trust.
+pickle/joblib, ONNX, PyTorch, and Keras/HDF5 formats. Pickle,
+joblib, and PyTorch loading requires explicit opt-in because
+deserialization can run arbitrary code.
 
 All format-specific dependencies are optional.  When a required
 library is missing, a clear ``ImportError`` is raised with
@@ -16,6 +14,7 @@ install instructions.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import warnings
 from collections.abc import Callable
@@ -26,9 +25,15 @@ import numpy as np
 __all__ = [
     "load_model",
     "LoadedModel",
+    "PickleNotAllowedError",
 ]
 
 logger = logging.getLogger(__name__)
+
+
+class PickleNotAllowedError(ValueError):
+    """Raised when a code-executing model format lacks explicit opt-in."""
+
 
 # -------------------------------------------------------------------
 # Extension → format mapping
@@ -120,11 +125,15 @@ def load_model(
     path: str | Path,
     fmt: str | None = None,
     output_type: str | None = None,
+    *,
+    allow_pickle: bool = False,
 ) -> LoadedModel:
     """Load a serialized model and return normalized callables.
 
     Auto-detects the format from the file extension when *fmt*
-    is ``None``.  Supported formats:
+    is ``None``. Pickle, joblib, and PyTorch formats require
+    *allow_pickle=True* or ``MLTK_ALLOW_PICKLE`` set to ``1``,
+    ``true``, ``yes``, or ``on``. Supported formats:
 
     - **pickle** (``.pkl``, ``.pickle``): via ``joblib.load``
     - **joblib** (``.joblib``): via ``joblib.load``
@@ -140,6 +149,9 @@ def load_model(
         output_type: Hint for raw model output.  Set to
             ``"logits"`` to apply softmax wrapping on the
             ``predict_proba_fn`` output.
+        allow_pickle: Permit formats that can run arbitrary code
+            while loading. The ``MLTK_ALLOW_PICKLE`` environment
+            variable provides an equivalent opt-in.
 
     Returns:
         A :class:`LoadedModel` with normalized predict
@@ -148,6 +160,8 @@ def load_model(
     Raises:
         FileNotFoundError: If *path* does not exist.
         ValueError: If the format cannot be determined.
+        PickleNotAllowedError: If a pickle, joblib, or PyTorch
+            format is loaded without explicit opt-in.
         ImportError: If the required library is not installed.
     """
     path = Path(path).resolve()
@@ -165,6 +179,17 @@ def load_model(
         raise ValueError(
             f"Unsupported model format {fmt!r}.  "
             f"Supported: {supported}"
+        )
+
+    env_opt_in = os.environ.get("MLTK_ALLOW_PICKLE", "").strip().lower()
+    if fmt in {"pickle", "joblib", "torch"} and not (
+        allow_pickle or env_opt_in in {"1", "true", "yes", "on"}
+    ):
+        raise PickleNotAllowedError(
+            f"Refusing to load '{path}' (format '{fmt}'): this format can run "
+            "arbitrary code when loaded. Load only files you trust: pass "
+            "allow_pickle=True (CLI: --allow-pickle) or set "
+            "MLTK_ALLOW_PICKLE=1. ONNX models load without this flag."
         )
 
     logger.info("Loading model from %s (format=%s)", path, fmt)

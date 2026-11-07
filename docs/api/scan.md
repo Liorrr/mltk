@@ -197,7 +197,7 @@ ways to consume the findings.
 |--------|---------|-------------|
 | `to_json(path?)` | `str` | Machine-readable JSON (optionally written to file) |
 | `summary()` | `str` | Console-formatted text with severity markers |
-| `to_test_file(path, *, model_path=None, data_path=None, target_col=None, train_data_path=None)` | `str` | Generate a runnable pytest file that reproduces the findings |
+| `to_test_file(path, *, model_path=None, data_path=None, target_col=None, train_data_path=None, allow_pickle=False)` | `str` | Generate a runnable pytest file that reproduces the findings |
 | `to_suite()` | `MltkSuite` | Runnable suite from findings |
 | `to_html(path)` | `str` | Visual HTML report |
 | `to_junit(path)` | `str` | JUnit XML for CI/CD |
@@ -350,7 +350,7 @@ def model():
         pytest.skip(
             "Set MLTK_MODEL_PATH or pass --model"
         )
-    loaded = load_model(path)
+    loaded = load_model(path, allow_pickle=False)
     return SimpleNamespace(
         predict=loaded.predict_fn,
         predict_proba=loaded.predict_proba_fn,
@@ -400,7 +400,7 @@ class TestScanFindings:
         )
 ```
 
-The model fixture loads through the same loader `mltk scan-model` uses (pickle, joblib, ONNX, PyTorch, Keras), and `data` reads CSV or parquet. Environment variable fallbacks (`MLTK_MODEL_PATH`,
+The model fixture loads through the same loader `mltk scan-model` uses (pickle, joblib, ONNX, PyTorch, Keras), and `data` reads CSV or parquet. Pickle, joblib, and PyTorch models require `allow_pickle=True`, the `--allow-pickle` CLI flag, or `MLTK_ALLOW_PICKLE=1` (also `true`, `yes`, or `on`). Without opt-in, the loader raises `PickleNotAllowedError`. ONNX and Keras models do not require this opt-in. Environment variable fallbacks (`MLTK_MODEL_PATH`,
 `MLTK_DATA_PATH`) let you run the same test file in CI/CD without hardcoded
 paths. If a finding needs training data, the file also includes a
 `train_data` fixture using `MLTK_TRAIN_DATA_PATH` (or `train_data_path`);
@@ -548,6 +548,8 @@ mltk scan-model [OPTIONS]
 | `.onnx` | ONNX | `onnxruntime` |
 | `.pt`, `.pth` | PyTorch | `torch` |
 | `.h5`, `.hdf5`, `.keras` | Keras | `tensorflow` or `keras` |
+
+Pickle, joblib, and PyTorch formats can run code while loading and are refused by default. Pass `--allow-pickle` to `scan-model`, pass `allow_pickle=True` to `load_model()` or `ScanReport.to_test_file()`, or set `MLTK_ALLOW_PICKLE=1` (case-insensitive values `true`, `yes`, and `on` are also accepted). The refusal is reported as `PickleNotAllowedError`. ONNX and Keras formats load without this flag.
 
 ### Examples
 

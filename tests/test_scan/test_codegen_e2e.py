@@ -55,6 +55,7 @@ def test_generated_scan_file_runs_as_collected_tests(tmp_path) -> None:
         model_path=str(model_path),
         data_path=str(data_path),
         target_col="label",
+        allow_pickle=True,
     )
 
     junit = tmp_path / "junit.xml"

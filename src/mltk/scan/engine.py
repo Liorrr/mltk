@@ -143,6 +143,7 @@ class ScanReport:
         data_path: str | None = None,
         target_col: str | None = None,
         train_data_path: str | None = None,
+        allow_pickle: bool = False,
     ) -> str:
         """Generate a runnable pytest file reproducing these findings.
 
@@ -160,6 +161,7 @@ class ScanReport:
             target_col=target_col,
             output_path=str(out),
             train_data_path=train_data_path,
+            allow_pickle=allow_pickle,
         )
         return str(out)
 

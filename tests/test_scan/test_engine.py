@@ -164,6 +164,7 @@ class TestScanReportProperties:
             target_col="label",
             output_path=str(output.resolve()),
             train_data_path="train.csv",
+            allow_pickle=False,
         )
         assert result == str(output.resolve())
 
