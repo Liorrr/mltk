@@ -67,12 +67,12 @@ class TestMltkEval:
         assert_ok(result)
         assert "metrics" in result
 
-    def test_eval_nonexistent_dataset(self) -> None:
+    def test_eval_nonexistent_dataset(self, tmp_path) -> None:
         # SCENARIO: Pass a path that does not exist.
         # WHY: Tool must guard against missing files.
         # EXPECTED: status=error mentioning "Not found".
         result = call_tool(
-            "mltk_eval", dataset_path="/no/such/file.csv",
+            "mltk_eval", dataset_path=str(tmp_path / "no_such_file.csv"),
         )
         assert_error(result)
         assert "Not found" in result["error"]

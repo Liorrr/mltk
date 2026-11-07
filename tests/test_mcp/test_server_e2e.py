@@ -764,14 +764,14 @@ class TestErrorRecoveryChains:
         assert_error(issue)
         assert issue["recoverable"] is True
 
-    def test_scan_nonexistent_path_error_shape(self):
+    def test_scan_nonexistent_path_error_shape(self, tmp_path):
         # SCENARIO: scan with a nonexistent path.
         # WHY: Must return a well-formed error, not crash.
         # EXPECTED: status=error, error string, recoverable,
         #   suggested_action all present.
         result = call_tool(
             "mltk_scan",
-            path="/nonexistent/path/model.py",
+            path=str(tmp_path / "nonexistent" / "model.py"),
         )
         assert_error(result)
         assert "not found" in result["error"].lower()

@@ -213,6 +213,26 @@ action exists.
 
 ---
 
+## Path access
+
+The server confines local filesystem paths supplied to `mltk_scan`,
+`mltk_test`, and `mltk_eval`, plus local `source`, `golden_path`, and
+`output_path` values for `mltk_import`. Paths are resolved before they are
+compared with the allowed roots; hub dataset identifiers such as `squad` and
+`org/name` are passed to the importer unchanged.
+
+By default, the current working directory is the only allowed root. Set
+`MLTK_MCP_ROOTS` to an `os.pathsep`-separated list of roots. For example,
+the separator is `:` on Unix-like systems and `;` on Windows. Set
+`MLTK_MCP_UNRESTRICTED=1` (also `true`, `yes`, or `on`) to turn path checks
+off for the server process.
+
+`mltk_experiment` accepts JSON findings. Because those findings do not carry
+replayable assertion identity, `sandbox=True` returns an unsupported-mode
+error. Use `sandbox=False` for heuristic ranking.
+
+---
+
 ### `mltk_scan`
 
 Scan an ML project directory or specific paths for data quality issues,

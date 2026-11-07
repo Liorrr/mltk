@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+from mltk.integrations.git_remote import find_push_remote
+
 if TYPE_CHECKING:
     from mltk.integrations.github_adapter import GitHubIssuesAdapter
     from mltk.scan.finding import FixSuggestion, ScanFinding
@@ -43,7 +45,8 @@ class PullRequestGenerator:
     Workflow:
     1. Generate an isolated branch name from the scanner name + random suffix.
     2. Create a :class:`~mltk.experiment.worktree.GitWorktree` for that branch.
-    3. Write the fix code snippet into the worktree, commit, and push.
+    3. Write the fix code snippet into the worktree, commit, and push to the
+       configured remote for the target GitHub repository.
     4. Open a PR via the GitHub REST API.
 
     Args:
@@ -102,7 +105,8 @@ class PullRequestGenerator:
             and draft status.
 
         Raises:
-            RuntimeError: If pushing the branch to remote fails.
+            RuntimeError: If no remote targets the GitHub repository or pushing
+                the branch to that remote fails.
         """
         if not fix.code_snippet:
             raise ValueError(
@@ -114,6 +118,7 @@ class PullRequestGenerator:
 
         # Resolve repo root lazily
         repo_root: Path = self._repo_root if self._repo_root is not None else find_git_root()
+        push_remote = find_push_remote(repo_root, self._github.repo, host="github.com")
 
         # Build a sanitised, unique branch name
         safe_scanner = re.sub(r"[^a-zA-Z0-9-]", "-", finding.scanner_name)
@@ -132,7 +137,7 @@ class PullRequestGenerator:
 
             # Push — must happen inside the context while the branch still exists
             try:
-                wt.run_in_worktree("git", "push", "-u", "origin", branch)
+                wt.run_in_worktree("git", "push", "-u", push_remote, branch)
             except subprocess.CalledProcessError as exc:
                 raise RuntimeError(
                     f"Failed to push branch '{branch}' to remote: {exc.stderr.strip()}"

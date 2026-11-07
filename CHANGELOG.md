@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GitHub Releases** — each `v*` tag gets a GitHub Release whose notes are the tag's CHANGELOG section, plus the PyPI and Docker install lines. The Release workflow checks for a non-empty section before it publishes anything. `python scripts/bump.py notes <version>` prints the same notes.
 
 ### Changed
+- **MCP tools only use paths inside the allowed roots (behaviour change).** `mltk_scan`, `mltk_test`, `mltk_eval` and `mltk_import` (local sources, `golden_path` and `output_path`) refuse paths outside `MLTK_MCP_ROOTS`, an `os.pathsep`-separated list that defaults to the server's working directory. Set `MLTK_MCP_UNRESTRICTED=1` to turn the check off. Hugging Face dataset ids are not affected.
+- **`mltk_experiment(sandbox=True)` returns an error.** A finding passed as JSON carries no assertion that can be replayed, so sandbox mode could never confirm a fix. It now returns an error that points to `sandbox=False` and runs no fix code.
+- **`mltk_create_pr` pushes to the remote that matches `repo`.** It used to push to `origin` whatever `origin` pointed at. It now pushes to the git remote whose URL is the `repo` repository (`origin` first when several match) and fails before creating a branch when none matches. Credentials are removed from remote URLs in its error messages.
 
 ### Fixed
 - **The package's Documentation link** pointed at a docs site that is not published. It now points at the `docs/` folder on GitHub; PyPI shows the new link from the next release.

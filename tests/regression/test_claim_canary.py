@@ -71,10 +71,14 @@ class TestMcpScanHonesty:
         self,
         tmp_path: Path,
         mcp_scan_registered: None,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # SCENARIO: mltk_scan on a lone Python source file.
         # WHY: Honesty claim — path-only MCP scan is a static listing.
         # EXPECTED: status=ok, scan_performed=False, file listed.
+        # MCP paths must sit inside the allowed roots (default: the cwd).
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("MLTK_MCP_ROOTS", raising=False)
         py_file = tmp_path / "model.py"
         py_file.write_text("x = 1\n", encoding="utf-8")
 
