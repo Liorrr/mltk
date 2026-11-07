@@ -454,8 +454,8 @@ def test_migration_v1_recorded(storage):
     rows = storage._conn.execute(
         "SELECT version, applied_at FROM schema_versions ORDER BY version"
     ).fetchall()
-    assert len(rows) == 1
-    assert rows[0][0] == 1
+    # v1 = initial schema, v2 = api_keys.role column
+    assert [row[0] for row in rows] == [1, 2]
     assert rows[0][1]  # applied_at is non-empty
 
 
@@ -471,8 +471,8 @@ def test_migration_is_idempotent(tmp_path):
     rows = s2._conn.execute(
         "SELECT version FROM schema_versions ORDER BY version"
     ).fetchall()
-    assert len(rows) == 1
-    assert rows[0][0] == 1
+    # v1 = initial schema, v2 = api_keys.role column
+    assert [row[0] for row in rows] == [1, 2]
     s2.close()
 
 
@@ -543,8 +543,8 @@ def test_migrate_old_schema_adds_tracking(tmp_path):
     rows = storage._conn.execute(
         "SELECT version FROM schema_versions"
     ).fetchall()
-    assert len(rows) == 1
-    assert rows[0][0] == 1
+    # v1 = initial schema, v2 = api_keys.role column
+    assert [row[0] for row in rows] == [1, 2]
 
     # Indexes should have been created by the migration
     idx_rows = storage._conn.execute(

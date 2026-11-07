@@ -37,6 +37,7 @@
   .status-label { font-size: 12px; color: var(--text2); }
   .header-right { display: flex; align-items: center; gap: 12px; }
   .refresh-info { font-size: 11px; color: var(--text3); }
+  .api-key { background: var(--bg3); color: var(--text); border: 1px solid var(--card-border); border-radius: 6px; padding: 6px 8px; font-family: inherit; font-size: 12px; width: 190px; }
 
   /* Controls */
   .controls { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -150,6 +151,7 @@
       </div>
     </div>
     <div class="header-right">
+      <input class="api-key" id="api-key" type="password" placeholder="Reader API key">
       <span class="refresh-info" id="refresh-info">Auto-refresh in 30s</span>
     </div>
   </header>
@@ -210,6 +212,28 @@
     countdownTimer: null,
   };
 
+  const apiKeyInput = document.getElementById('api-key');
+  apiKeyInput.value = sessionStorage.getItem('mltk_api_key') || '';
+  apiKeyInput.addEventListener('change', () => {
+    sessionStorage.setItem('mltk_api_key', apiKeyInput.value);
+    refresh();
+  });
+
+  async function apiFetch(url, options = {}) {
+    const headers = new Headers(options.headers || {});
+    const key = sessionStorage.getItem('mltk_api_key');
+    if (key) headers.set('Authorization', 'Bearer ' + key);
+    const response = await fetch(url, {...options, headers});
+    if (response.status === 401 || response.status === 403) {
+      const message = 'A reader-access API key is required. Enter one above.';
+      document.getElementById('runs-error').textContent = message;
+      document.getElementById('runs-error').style.display = '';
+      throw new Error(message);
+    }
+    if (!response.ok) throw new Error('Request failed (' + response.status + ')');
+    return response;
+  }
+
   // ─── Utilities ───────────────────────────────────────────────────────────────
   function scoreColor(score) {
     if (score >= 80) return '#22c55e';
@@ -241,7 +265,7 @@
   // ─── Health check ────────────────────────────────────────────────────────────
   async function checkHealth() {
     try {
-      const data = await fetch('/api/health').then(r => r.json());
+      const data = await apiFetch('/api/health').then(r => r.json());
       const dot = document.getElementById('status-dot');
       const lbl = document.getElementById('status-label');
       const ok = data.status === 'ok' || data.status === 'healthy';
@@ -263,7 +287,7 @@
     document.getElementById('runs-error').style.display = 'none';
 
     try {
-      const data = await fetch(url).then(r => r.json());
+      const data = await apiFetch(url).then(r => r.json());
       const runs = Array.isArray(data) ? data : (data.runs || data.results || []);
       state.runs = runs;
       updateSummaryCards(runs);
@@ -420,7 +444,7 @@
     }
 
     try {
-      const data = await fetch('/api/runs/' + encodeURIComponent(runId)).then(r => r.json());
+      const data = await apiFetch('/api/runs/' + encodeURIComponent(runId)).then(r => r.json());
       const tests = data.tests || data.results || [];
       renderDetailTable('detail-inner-' + runId, tests);
     } catch (err) {
@@ -470,7 +494,7 @@
     }
 
     try {
-      const data = await fetch('/api/trends/' + encodeURIComponent(project)).then(r => r.json());
+      const data = await apiFetch('/api/trends/' + encodeURIComponent(project)).then(r => r.json());
       const points = Array.isArray(data) ? data : (data.trends || data.points || []);
       if (!points.length) {
         emptyEl.textContent = 'No trend data for this project yet.';

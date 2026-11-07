@@ -1520,6 +1520,11 @@ curl http://mltk-server:8080/api/health
 
 ### Helm Chart Notes
 
+For the server, `MLTK_SERVER_PUBLIC_READ` allows read endpoints without an API
+key. `MLTK_SERVER_WEBHOOK_ALLOW_PRIVATE` allows configured private webhook
+targets; otherwise webhook targets must resolve to allowed public addresses.
+Enabling the chart ingress makes the API reachable from outside the cluster.
+
 An official chart ships at `charts/mltk`. See [Container Deployment](container-deployment.md#7-helm-chart).
 
 The sample manifests above are still useful as a starting point if you are not using Helm. To turn them into a chart:
