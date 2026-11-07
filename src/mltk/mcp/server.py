@@ -41,12 +41,14 @@ def _is_local_import_source(source: str) -> bool:
 
     Anything that exists on disk counts as local, files and directories
     alike, because a directory handed to the hub loader is read from disk.
-    So do absolute paths and names with a local data-file extension. Only
-    URLs and hub dataset ids (``squad``, ``org/name``) that do not exist
-    locally are left unconfined.
+    So do absolute paths, home-relative paths (``~/...``) and names with a
+    local data-file extension. Only URLs and hub dataset ids (``squad``,
+    ``org/name``) that do not exist locally are left unconfined.
     """
     if source.startswith("http://") or source.startswith("https://"):
         return False
+    if source.startswith("~"):
+        return True
     path = Path(source)
     return (
         path.exists()

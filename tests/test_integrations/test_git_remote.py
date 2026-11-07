@@ -196,3 +196,22 @@ def test_ssh_config_hostname_ends_options_before_the_alias(monkeypatch: pytest.M
     monkeypatch.setattr(git_remote.subprocess, "run", record)
     git_remote._ssh_config_hostname("-oProxyCommand=x")
     assert seen == [["ssh", "-G", "--", "-oProxyCommand=x"]]
+
+
+@requires_git
+def test_find_push_remote_skips_remote_known_only_to_global_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    global_config = tmp_path / "global.gitconfig"
+    global_config.write_text(
+        '[remote "shared"]\n\turl = https://github.com/someone/shared.git\n', encoding="utf-8",
+    )
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git("init", cwd=repo)
+    _git("remote", "add", "origin", _TARGET, cwd=repo)
+
+    assert find_push_remote(repo, "owner/repo") == "origin"
+    with pytest.raises(RuntimeError, match=r"No git remote"):
+        find_push_remote(repo, "someone/else")

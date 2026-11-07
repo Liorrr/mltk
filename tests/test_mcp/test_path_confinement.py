@@ -312,3 +312,28 @@ def test_mltk_import_scaffold_expands_home_paths(tmp_path, monkeypatch):
         assert expanded.startswith(str(home))
         # Written as a Python literal, so backslashes may appear escaped.
         assert expanded in code or repr(expanded)[1:-1] in code
+
+
+def test_mltk_import_home_relative_directory_is_confined(tmp_path, monkeypatch):
+    root = tmp_path / "proj"
+    home = tmp_path / "home"
+    root.mkdir()
+    (home / "elsewhere").mkdir(parents=True)
+    (root / "inside").mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.chdir(root)
+    monkeypatch.setenv("MLTK_MCP_ROOTS", str(root))
+    p_load, p_cls, p_suite, p_code = _import_patches(_imported_stub())
+    with p_load as load, p_cls, p_suite, p_code:
+        result = call_tool("mltk_import", source="~/elsewhere")
+    assert_error(result)
+    load.assert_not_called()
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    p_load, p_cls, p_suite, p_code = _import_patches(_imported_stub())
+    with p_load as load, p_cls, p_suite, p_code:
+        result = call_tool("mltk_import", source="~/proj/inside")
+    assert_ok(result)
+    load.assert_called_once_with(str((root / "inside").resolve()))

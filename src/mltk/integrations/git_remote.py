@@ -176,7 +176,13 @@ def find_push_remote(
     target = (_normalise_host(host), repo.lower().strip("/"))
     found: list[tuple[str, list[str]]] = []
     for remote in _git_lines(repo_root, "remote"):
-        urls = _git_lines(repo_root, "remote", "get-url", "--push", "--all", remote)
+        try:
+            urls = _git_lines(repo_root, "remote", "get-url", "--push", "--all", remote)
+        except RuntimeError:
+            # `git remote` also lists remotes defined only in the global or
+            # system config, which `get-url` refuses. Their URLs cannot be
+            # checked, so they never match; the other remotes still can.
+            urls = []
         found.append((remote, urls))
 
     matching = [

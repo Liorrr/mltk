@@ -233,7 +233,9 @@ the confined file, and pytest looks for its configuration file and
 `conftest.py` files in that file's parent directories, which can lie above
 the root.
 Generated `mltk_import` scaffolds keep `source` and `golden_path` as you
-passed them, so a relative path stays relative.
+passed them, so a relative path stays relative; a leading `~` is expanded.
+A `~/...` source always counts as a local path and is checked against the
+roots.
 
 `mltk_experiment` accepts JSON findings. Because those findings do not carry
 replayable assertion identity, `sandbox=True` returns an unsupported-mode
