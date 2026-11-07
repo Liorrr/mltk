@@ -213,3 +213,41 @@ def test_mltk_import_accepts_local_directory_inside_root(tmp_path, monkeypatch):
         result = call_tool("mltk_import", source=str(data_dir))
     assert_ok(result)
     load.assert_called_once_with(str(data_dir.resolve()))
+
+
+def test_roots_and_paths_expand_user_home(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / "proj").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("MLTK_MCP_ROOTS", "~/proj")
+    assert confine_path("~/proj/data.csv") == (home / "proj" / "data.csv").resolve()
+    with pytest.raises(_outside_error()):
+        confine_path("~/other/data.csv")
+
+
+def test_mltk_import_scaffold_keeps_relative_paths(tmp_path, monkeypatch):
+    pytest.importorskip("pandas")
+    root = tmp_path / "proj"
+    (root / "data").mkdir(parents=True)
+    (root / "data" / "qa.csv").write_text(
+        "question,answer\nWhat is 2+2?,4\nCapital of France?,Paris\n", encoding="utf-8",
+    )
+    (root / "data" / "gold.csv").write_text(
+        "question,expected\nWhat is 2+2?,4\nCapital of France?,Paris\n", encoding="utf-8",
+    )
+    monkeypatch.chdir(root)
+    monkeypatch.setenv("MLTK_MCP_ROOTS", str(root))
+
+    result = call_tool(
+        "mltk_import", source="data/qa.csv", input_column="question",
+        target_column="answer", golden_path="data/gold.csv",
+        golden_target_column="expected", golden_key="input", golden_key_column="question",
+    )
+
+    assert_ok(result)
+    code = result["generated_code"]
+    assert "data/qa.csv" in code
+    assert "data/gold.csv" in code
+    assert str(root) not in code
+    assert str(root.resolve()) not in code

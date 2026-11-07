@@ -225,7 +225,15 @@ By default, the current working directory is the only allowed root. Set
 `MLTK_MCP_ROOTS` to an `os.pathsep`-separated list of roots. For example,
 the separator is `:` on Unix-like systems and `;` on Windows. Set
 `MLTK_MCP_UNRESTRICTED=1` (also `true`, `yes`, or `on`) to turn path checks
-off for the server process.
+off for the server process. A leading `~` is expanded in both the roots and
+the requested paths.
+
+The check applies to the paths a tool is given. `mltk_test` runs pytest on
+the confined file, and pytest looks for its configuration file and
+`conftest.py` files in that file's parent directories, which can lie above
+the root.
+Generated `mltk_import` scaffolds keep `source` and `golden_path` as you
+passed them, so a relative path stays relative.
 
 `mltk_experiment` accepts JSON findings. Because those findings do not carry
 replayable assertion identity, `sandbox=True` returns an unsupported-mode

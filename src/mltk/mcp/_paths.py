@@ -19,14 +19,16 @@ def allowed_roots() -> list[Path]:
     """Return resolved roots configured for MCP path access."""
     configured = os.environ.get("MLTK_MCP_ROOTS", "")
     entries = [entry.strip() for entry in configured.split(os.pathsep) if entry.strip()]
-    return [Path(entry).resolve() for entry in entries] or [Path.cwd().resolve()]
+    return [
+        Path(entry).expanduser().resolve() for entry in entries
+    ] or [Path.cwd().resolve()]
 
 
 def confine_path(raw: str) -> Path:
     """Resolve ``raw`` and require it to be within an allowed root."""
     global _UNRESTRICTED_LOGGED
 
-    resolved = Path(raw).resolve(strict=False)
+    resolved = Path(raw).expanduser().resolve(strict=False)
     unrestricted = os.environ.get("MLTK_MCP_UNRESTRICTED", "").strip().lower() in {
         "1", "true", "yes", "on",
     }
