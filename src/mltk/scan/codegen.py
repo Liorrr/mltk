@@ -161,6 +161,7 @@ def check_snippet(body: str) -> None:
 
 def _build_model_fixture(
     model_path: str | None,
+    allow_pickle: bool,
 ) -> str:
     """Return a pytest fixture that loads the model.
 
@@ -192,7 +193,7 @@ def _build_model_fixture(
                 pytest.skip(
                     "Set MLTK_MODEL_PATH or pass --model"
                 )
-            loaded = load_model(path)
+            loaded = load_model(path, allow_pickle={allow_pickle!r})
             return SimpleNamespace(
                 predict=loaded.predict_fn,
                 predict_proba=loaded.predict_proba_fn,
@@ -413,6 +414,8 @@ def generate_test_file(
     target_col: str | None = None,
     output_path: str | None = None,
     train_data_path: str | None = None,
+    *,
+    allow_pickle: bool = False,
 ) -> str:
     """Generate a self-contained pytest file from scan findings.
 
@@ -451,6 +454,8 @@ def generate_test_file(
         output_path: If provided, the generated code is also
             written to this file.  Parent directories are
             created automatically.
+        allow_pickle: Include explicit opt-in for pickle, joblib,
+            and PyTorch model loading in the generated fixture.
 
     Returns:
         The generated Python source code as a string.
@@ -483,7 +488,7 @@ def generate_test_file(
             if mltk_names else ""
         ),
         _build_read_table_helper(),
-        _build_model_fixture(model_path),
+        _build_model_fixture(model_path, allow_pickle),
         _build_data_fixture(data_path, target_col),
     ]
     if needs_train:

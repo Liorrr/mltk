@@ -42,6 +42,21 @@ mltk scan data/training.csv
 
 ---
 
+### mltk scan-model
+Scan a serialized model against a CSV or Parquet dataset and generate tests.
+
+```bash
+mltk scan-model --model model.joblib --data test.csv --target label --allow-pickle
+```
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--allow-pickle` | disabled | Allow model formats that can run code when loaded |
+
+---
+
 ### mltk drift
 Compare two CSV datasets for distribution drift across all shared numeric columns.
 ```bash

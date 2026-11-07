@@ -12,6 +12,28 @@ from mltk.registry.manifest import CollectionManifest
 _DEFAULT_REGISTRY = Path.home() / ".mltk" / "registry"
 
 
+def _validate_component(value: str, kind: str) -> str:
+    """Validate a caller-supplied single filesystem name component."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{kind} must be a non-empty string")
+    if value in {".", ".."}:
+        raise ValueError(f"{kind} cannot be '.' or '..'")
+    if any(char in value for char in ("/", "\\", "\x00", ":")):
+        raise ValueError(f"{kind} must be a single relative path component")
+    if Path(value).is_absolute():
+        raise ValueError(f"{kind} must be a relative path component")
+    return value
+
+
+def _path_inside(root: Path, component: str, kind: str) -> Path:
+    """Return a validated component path that remains inside *root*."""
+    root_resolved = root.resolve()
+    candidate = (root_resolved / _validate_component(component, kind)).resolve()
+    if candidate != root_resolved and not candidate.is_relative_to(root_resolved):
+        raise ValueError(f"{kind} resolves outside its root")
+    return candidate
+
+
 def _resolve_registry(registry_dir: str | Path | None) -> Path:
     """Return the effective registry directory.
 
@@ -52,13 +74,14 @@ def save_collection(
 
     Raises:
         FileNotFoundError: If *source_dir* does not exist.
+        ValueError: If *name* is not a single relative path component.
     """
     source_path = Path(source_dir)
     if not source_path.exists():
         raise FileNotFoundError(f"Source directory not found: {source_path}")
 
-    registry_path = _resolve_registry(registry_dir)
-    collection_dir = registry_path / name
+    registry_path = _resolve_registry(registry_dir).resolve()
+    collection_dir = _path_inside(registry_path, name, "Collection name")
     collection_dir.mkdir(parents=True, exist_ok=True)
 
     # Copy all files from source_dir (non-recursive, flat copy of root files
@@ -112,17 +135,20 @@ def load_collection(
         Path to the loaded collection directory (``{target_dir}/{name}/``).
 
     Raises:
-        ValueError: If no collection with *name* exists in the registry.
+        ValueError: If *name* is not a single relative path component, the
+            target path escapes *target_dir*, or no collection with *name*
+            exists in the registry.
     """
-    registry_path = _resolve_registry(registry_dir)
-    collection_dir = registry_path / name
+    registry_path = _resolve_registry(registry_dir).resolve()
+    collection_dir = _path_inside(registry_path, name, "Collection name")
 
     if not collection_dir.exists() or not (collection_dir / "manifest.json").exists():
         raise ValueError(
             f"Collection '{name}' not found in registry at {registry_path}"
         )
 
-    dest = Path(target_dir) / name
+    target_path = Path(target_dir).resolve()
+    dest = _path_inside(target_path, name, "Collection name")
     if dest.exists():
         shutil.rmtree(dest)
     shutil.copytree(collection_dir, dest)

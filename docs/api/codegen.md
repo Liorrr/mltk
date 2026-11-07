@@ -15,17 +15,21 @@ Every major AI coding tool (Copilot, Cursor, Claude, ChatGPT) generates code tha
 
 A generated function can have 95% CodeBLEU similarity to the reference while producing completely wrong output.  These assertions catch what similarity metrics cannot.
 
-## Security Model
+## Execution environment
 
-All code execution uses **subprocess isolation**:
+Each assertion runs code with the caller's Python interpreter, in a separate
+process, with `shell=False`, captured output, and a configurable timeout. By
+default, the child receives only these environment variables when present:
+`PATH`, `PATHEXT`, `SYSTEMROOT`, `SYSTEMDRIVE`, `WINDIR`, `COMSPEC`, `TEMP`,
+`TMP`, `TMPDIR`, `HOME`, `USERPROFILE`, `LANG`, `LANGUAGE`, every `LC_*`
+variable, `PYTHONPATH`, and `VIRTUAL_ENV`. The generated file is placed in a
+fresh temporary working directory, which is removed after execution.
 
-- Code is written to a temporary file and executed as a **separate process**
-- `subprocess.run()` with `shell=False` -- no shell injection possible
-- Configurable **timeout** kills runaway processes (infinite loops, recursion)
-- **No `eval()` or `exec()`** is ever used on the generated code
-- stdout and stderr are captured and truncated to prevent memory issues
-
-This means generated code cannot access the parent process memory, modify test state, or escape the execution sandbox.
+Use `env={...}` to add or override child variables. Use `inherit_env=True` to
+pass the full caller environment, with `env` still applied on top. The code
+has normal file system and network access. Only the environment and working
+directory are restricted. This is not a sandbox; run untrusted input inside a
+container or VM.
 
 ---
 
@@ -40,6 +44,8 @@ The most basic check -- does the generated code run without errors?
 | `code` | `str` | required | Source code to execute |
 | `timeout_seconds` | `float` | `10.0` | Max seconds before killing the process |
 | `language` | `str` | `"python"` | Programming language (currently Python only) |
+| `env` | `dict[str, str] \| None` | `None` | Extra child environment variables |
+| `inherit_env` | `bool` | `False` | Pass the full caller environment instead of the allowlist |
 
 **Returns:** TestResult with `returncode`, `stdout`, `stderr`, `timeout_seconds`, `language`
 
@@ -68,6 +74,10 @@ bad_code = "print(undefined_variable)"
 
 **When to use:** As the first gate in any code generation pipeline.  If the code does not run, nothing else matters.
 
+The code runs with the caller's interpreter and normal file system and network
+access. Its environment uses the documented allowlist by default, and its
+working directory is a fresh temporary directory. This is not a sandbox.
+
 ---
 
 ## assert_code_passes_tests
@@ -81,6 +91,8 @@ Code that runs is not necessarily correct.  This assertion combines generated co
 | `code` | `str` | required | Generated source code (functions, classes) |
 | `test_code` | `str` | required | Test code with assert statements |
 | `timeout_seconds` | `float` | `30.0` | Max seconds before killing the process |
+| `env` | `dict[str, str] \| None` | `None` | Extra child environment variables |
+| `inherit_env` | `bool` | `False` | Pass the full caller environment instead of the allowlist |
 
 **Returns:** TestResult with `returncode`, `stdout`, `stderr`, `timeout_seconds`
 
@@ -120,6 +132,12 @@ assert result.passed
 ```
 
 **When to use:** After `assert_code_executes` passes.  Execution without correctness is meaningless -- this is where you verify the LLM actually solved the problem.
+
+The combined code runs with the caller's interpreter and normal file system
+and network access. Its environment uses the documented allowlist by default,
+or the full caller environment when `inherit_env=True`; `env` is applied on top
+in either case. The working directory is a fresh temporary directory removed
+after execution. This is not a sandbox.
 
 ---
 

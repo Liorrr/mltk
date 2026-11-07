@@ -64,7 +64,10 @@ def generate_compliance_report(
 
     # Load template
     template_path = Path(__file__).parent / "templates" / "eu_ai_act.html.j2"
-    template = Template(template_path.read_text(encoding="utf-8"))
+    template = Template(
+        template_path.read_text(encoding="utf-8"),
+        autoescape=True,
+    )
 
     # Load + classify results
     results = _load_results(results_path)
