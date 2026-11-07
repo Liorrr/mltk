@@ -166,6 +166,8 @@ def _build_child_env(
     for key in [k for k in child_env if k == "PYTHONPATH" or (
         case_insensitive and k.upper() == "PYTHONPATH"
     )]:
+        if not child_env[key]:
+            continue  # Python ignores an empty PYTHONPATH; keep it empty.
         child_env[key] = os.pathsep.join(
             os.path.abspath(entry) for entry in child_env[key].split(os.pathsep)
         )

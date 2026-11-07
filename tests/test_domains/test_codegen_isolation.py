@@ -167,3 +167,26 @@ def test_absolute_pythonpath_entries_are_unchanged(
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join([absolute, "rel"]))
     child = _build_child_env(env=None, inherit_env=False)
     assert child["PYTHONPATH"].split(os.pathsep) == [absolute, str(tmp_path / "rel")]
+
+
+@pytest.mark.parametrize("inherit_env", [False, True])
+def test_empty_pythonpath_stays_empty(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, inherit_env: bool,
+) -> None:
+    from mltk.domains.codegen import _build_child_env
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PYTHONPATH", "/inherited")
+    child = _build_child_env(env={"PYTHONPATH": ""}, inherit_env=inherit_env)
+    assert child["PYTHONPATH"] == ""
+
+
+def test_empty_entry_inside_pythonpath_still_means_the_callers_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    from mltk.domains.codegen import _build_child_env
+
+    absolute = str(tmp_path / "lib")
+    monkeypatch.chdir(tmp_path)
+    child = _build_child_env(env={"PYTHONPATH": os.pathsep + absolute}, inherit_env=False)
+    assert child["PYTHONPATH"].split(os.pathsep) == [str(tmp_path), absolute]
