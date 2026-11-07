@@ -75,7 +75,8 @@ def test_delete_does_not_follow_a_version_symlink(tmp_path):
         pytest.skip("symlinks are not available here")
     files_before = sorted(p.name for p in target.iterdir())
 
-    with pytest.raises(OSError, match="symbolic link"):
+    # 3.10/3.11 say "symbolic link"; 3.12+ raise a bare OSError naming the path.
+    with pytest.raises(OSError, match=r"symbolic link|latest"):
         registry.delete("qa", "latest")
 
     assert sorted(p.name for p in target.iterdir()) == files_before
