@@ -82,6 +82,7 @@ def _make_github_mock(pr_response: dict | None = None) -> MagicMock:
         "draft": True,
     }
     gh = MagicMock()
+    gh.repo = "owner/repo"
     gh.create_pull_request.return_value = response
     return gh
 
@@ -115,6 +116,7 @@ class TestPullRequestResult:
 
 _WT_PATCH = "mltk.experiment.worktree.GitWorktree"
 _FGR_PATCH = "mltk.experiment.worktree.find_git_root"
+_REMOTE_PATCH = "mltk.integrations.pr_generator.find_push_remote"
 
 
 def _wt_ctx(mock_wt: MagicMock, fgr_root: Path = Path("/repo")):
@@ -126,6 +128,7 @@ def _wt_ctx(mock_wt: MagicMock, fgr_root: Path = Path("/repo")):
     return (
         patch(_WT_PATCH, return_value=mock_wt),
         patch(_FGR_PATCH, return_value=fgr_root),
+        patch(_REMOTE_PATCH, return_value="origin"),
     )
 
 
@@ -139,8 +142,8 @@ class TestPullRequestGenerator:
         fix = _make_fix()
         mock_wt = _make_mock_worktree()
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             result = gen.create_pr(finding, fix)
 
@@ -162,8 +165,8 @@ class TestPullRequestGenerator:
             captured.append(branch_name or "")
             return _make_mock_worktree(branch=branch_name or "")
 
-        _, fgr_patch = _wt_ctx(_make_mock_worktree())
-        with patch(_WT_PATCH, side_effect=capture_branch), fgr_patch:
+        _, fgr_patch, remote_patch = _wt_ctx(_make_mock_worktree())
+        with patch(_WT_PATCH, side_effect=capture_branch), fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             gen.create_pr(finding, fix)
 
@@ -185,8 +188,8 @@ class TestPullRequestGenerator:
             captured.append(branch_name or "")
             return _make_mock_worktree(branch=branch_name or "")
 
-        _, fgr_patch = _wt_ctx(_make_mock_worktree())
-        with patch(_WT_PATCH, side_effect=capture_branch), fgr_patch:
+        _, fgr_patch, remote_patch = _wt_ctx(_make_mock_worktree())
+        with patch(_WT_PATCH, side_effect=capture_branch), fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             gen.create_pr(finding, fix)
 
@@ -235,8 +238,8 @@ class TestPullRequestGenerator:
         mock_wt.branch = "mltk/fix-drift-abc12345"
         mock_wt.run_in_worktree = MagicMock(side_effect=push_fn)
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             gen.create_pr(finding, fix)
 
@@ -257,8 +260,8 @@ class TestPullRequestGenerator:
         fix = _make_fix()
         mock_wt = _make_mock_worktree()
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             gen.create_pr(finding, fix, draft=False)
 
@@ -274,8 +277,8 @@ class TestPullRequestGenerator:
         fix = _make_fix()
         mock_wt = _make_mock_worktree()
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             gen.create_pr(finding, fix, labels=["autofix", "drift"])
 
@@ -300,8 +303,8 @@ class TestPullRequestGenerator:
 
         mock_wt.run_in_worktree = MagicMock(side_effect=run_side_effect)
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             with pytest.raises(RuntimeError, match="push"):
                 gen.create_pr(finding, fix)
@@ -316,8 +319,8 @@ class TestPullRequestGenerator:
         fix = _make_fix()
         mock_wt = _make_mock_worktree()
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             with pytest.raises(RuntimeError, match="422"):
                 gen.create_pr(finding, fix)
@@ -331,8 +334,8 @@ class TestPullRequestGenerator:
         fix = _make_fix(code_snippet="x = 1")
         mock_wt = _make_mock_worktree()
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             gen.create_pr(finding, fix, target_file="fixes/my_fix.py")
 
@@ -347,8 +350,8 @@ class TestPullRequestGenerator:
         fix = _make_fix(title="Fix drift threshold")
         mock_wt = _make_mock_worktree()
 
-        wt_patch, fgr_patch = _wt_ctx(mock_wt)
-        with wt_patch, fgr_patch:
+        wt_patch, fgr_patch, remote_patch = _wt_ctx(mock_wt)
+        with wt_patch, fgr_patch, remote_patch:
             gen = PullRequestGenerator(gh)
             gen.create_pr(finding, fix)
 
@@ -367,6 +370,7 @@ class TestPullRequestGenerator:
         with (
             patch(_WT_PATCH, return_value=mock_wt) as mock_cls,
             patch(_FGR_PATCH) as mock_fgr,
+            patch(_REMOTE_PATCH, return_value="origin"),
         ):
             gen = PullRequestGenerator(gh, repo_root=Path("/my/repo"))
             gen.create_pr(finding, fix)
@@ -375,6 +379,37 @@ class TestPullRequestGenerator:
         # GitWorktree was constructed with the provided repo_root
         args, _ = mock_cls.call_args
         assert args[0] == Path("/my/repo")
+
+    def test_create_pr_pushes_to_matching_remote(self):
+        gh = _make_github_mock()
+        mock_wt = _make_mock_worktree()
+        with (
+            patch(_WT_PATCH, return_value=mock_wt),
+            patch(_FGR_PATCH, return_value=Path("/repo")),
+            patch(_REMOTE_PATCH, return_value="upstream"),
+        ):
+            PullRequestGenerator(gh).create_pr(_make_finding(), _make_fix())
+
+        push_calls = [
+            call
+            for call in mock_wt.run_in_worktree.call_args_list
+            if call.args[0] == "git" and call.args[1] == "push"
+        ]
+        assert len(push_calls) == 1
+        assert push_calls[0].args[3] == "upstream"
+
+    def test_create_pr_mismatch_fails_before_worktree(self):
+        gh = _make_github_mock()
+        with (
+            patch(_WT_PATCH) as worktree,
+            patch(_FGR_PATCH, return_value=Path("/repo")),
+            patch(_REMOTE_PATCH, side_effect=RuntimeError("No matching remote")),
+        ):
+            with pytest.raises(RuntimeError, match="No matching remote"):
+                PullRequestGenerator(gh).create_pr(_make_finding(), _make_fix())
+
+        worktree.assert_not_called()
+        gh.create_pull_request.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
