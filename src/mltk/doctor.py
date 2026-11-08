@@ -78,6 +78,7 @@ def _check_optional_deps() -> list[DiagnosticResult]:
         ("nltk", "mlspec[nlp]"),
         ("jiwer", "mlspec[speech]"),
         ("cv2", "mlspec[cv]"),
+        ("onnxruntime", "mlspec[onnx]"),
     ]
     results = []
     for module, extra in optional:

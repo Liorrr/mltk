@@ -33,6 +33,7 @@ import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.core.validation import require_same_length
 from mltk.domains.multimodal._image import (
     ImageInput,
     _build_image_prompt,
@@ -166,6 +167,7 @@ def assert_cross_modal_consistency(
 
     Raises:
         MltkAssertionError: If agreement_rate < min_agreement (CRITICAL severity).
+        ValueError: If predictions_a and predictions_b have different lengths.
 
     Example:
         >>> preds_text = ["cat", "dog", "cat", "bird"]
@@ -184,6 +186,10 @@ def assert_cross_modal_consistency(
         b = predictions_b.ravel()
     else:
         b = list(predictions_b)
+
+    require_same_length(
+        "assert_cross_modal_consistency", predictions_a=a, predictions_b=b
+    )
 
     n_total = len(a)
 

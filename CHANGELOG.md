@@ -8,10 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`onnx` extra** — `pip install "mlspec[onnx]"` installs ONNX Runtime for `assert_onnx_valid` and for loading `.onnx` files with `load_model` and `mltk scan-model`. The install hints and `mltk doctor` now name it, and `mlspec[all]` includes it. On Python 3.10 it resolves to onnxruntime 1.23, the last release with Python 3.10 wheels.
 
 ### Changed
+- **`assert_no_training_serving_skew` fails on empty input and checks shapes before flattening (behaviour change).** Empty `train_output` and `serve_output` used to pass with `max_diff=0.0`; the check now fails by default. Pass `on_empty="pass"` for the old result or `on_empty="skip"` to skip. The shape check ran after both outputs were flattened, so outputs with the same number of elements but different shapes passed, for example (2, 3) and (3, 2), or a flat (N,) array and an (N, 1) column. The shapes are now compared as given; reshape one side to compare such outputs.
+- **`load_model` returns labels for ONNX models whose first output is a score matrix (behaviour change).** For an ONNX file, `LoadedModel.predict_fn` returned the first output as is, so a model exported from PyTorch returned logits where the same model loaded from a `.pt` file returned class labels. ONNX now follows the PyTorch and Keras rule: a 2-D first output with more than one column is reduced with argmax, and a single-column output is flattened to one dimension. A single-output ONNX model whose declared output has a fixed number of columns greater than one also gets a `predict_proba_fn` (softmax with `output_type="logits"`). Models whose first output is already a label vector, such as scikit-learn models converted with skl2onnx, are unchanged. `mltk scan-model` results change for ONNX models that output scores.
+- **`assert_cross_modal_consistency` raises `ValueError` when the two prediction lists differ in length (behaviour change).** A shorter `predictions_b` raised `IndexError`, and a longer one was silently cut to the length of `predictions_a`. This matches the paired-input rule the other assertions follow.
 
 ### Fixed
+- **Docs:** the cross-modal consistency page gave the result name as `domains.multimodal.cross_modal_consistency`; the assertion reports `multimodal.cross_modal_consistency`.
 
 ## [0.16.0] — 2026-11-07
 ### Added

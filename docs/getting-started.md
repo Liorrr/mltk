@@ -38,6 +38,7 @@ pip install "mlspec[scipy]"
 pip install "mlspec[cv]"      # Computer vision (OpenCV)
 pip install "mlspec[nlp]"     # NLP (NLTK, rouge-score)
 pip install "mlspec[speech]"  # Speech (jiwer)
+pip install "mlspec[onnx]"    # ONNX Runtime (assert_onnx_valid, ONNX model loading)
 
 # Embedding-based evaluation (sentence-transformers)
 pip install "mlspec[embedding]"

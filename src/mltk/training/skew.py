@@ -12,6 +12,11 @@ from __future__ import annotations
 import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.empty import (
+    ON_EMPTY_OPTIONS,
+    empty_input_result,
+    unknown_on_empty_result,
+)
 from mltk.core.result import Severity, TestResult
 
 
@@ -20,6 +25,7 @@ def assert_no_training_serving_skew(
     train_output: np.ndarray | list,
     serve_output: np.ndarray | list,
     tolerance: float = 0.01,
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert training and serving pipelines produce the same output for the same input.
 
@@ -31,10 +37,16 @@ def assert_no_training_serving_skew(
     - Different one-hot encoding ordering
     - Floating-point accumulation differences
 
+    The two outputs must have the same shape as given: the shape check runs
+    before either output is flattened, so (2, 3) vs (3, 2) or (N,) vs (N, 1)
+    fail with a shape mismatch.
+
     Args:
         train_output: Output array from the training pipeline.
         serve_output: Output array from the serving/inference pipeline.
         tolerance: Maximum allowed absolute difference per element. Default 0.01.
+        on_empty: Policy when both outputs are empty: ``"fail"`` (default),
+            ``"skip"``, or ``"pass"`` (the behaviour before this option existed).
 
     Returns:
         TestResult with max_diff and element count details.
@@ -44,8 +56,11 @@ def assert_no_training_serving_skew(
         >>> serve_out = preprocess_serve(sample)
         >>> assert_no_training_serving_skew(train_out, serve_out, tolerance=0.01)
     """
-    train_arr = np.asarray(train_output, dtype=float).ravel()
-    serve_arr = np.asarray(serve_output, dtype=float).ravel()
+    if on_empty not in ON_EMPTY_OPTIONS:
+        return unknown_on_empty_result("training.serving_skew", on_empty)
+
+    train_arr = np.asarray(train_output, dtype=float)
+    serve_arr = np.asarray(serve_output, dtype=float)
 
     if train_arr.shape != serve_arr.shape:
         return assert_true(
@@ -56,6 +71,25 @@ def assert_no_training_serving_skew(
             severity=Severity.CRITICAL,
             train_shape=list(train_arr.shape),
             serve_shape=list(serve_arr.shape),
+        )
+
+    train_arr = train_arr.ravel()
+    serve_arr = serve_arr.ravel()
+
+    if train_arr.size == 0:
+        return empty_input_result(
+            name="training.serving_skew",
+            reason="both outputs are empty",
+            on_empty=on_empty,
+            legacy_message=(
+                f"No skew detected: max_diff={0.0:.6f} <= tolerance={tolerance} "
+                "(0 elements)"
+            ),
+            max_diff=0.0,
+            mean_diff=0.0,
+            tolerance=tolerance,
+            num_skewed=0,
+            num_elements=0,
         )
 
     abs_diff = np.abs(train_arr - serve_arr)
