@@ -9,9 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Offline stored-run parity** — `mltk.parity` adds typed run/item/trial/layer records, independent manifests, strict JSON/JSONL loading, `compare_runs`, `compare_product`, and `compare_harness`. Product comparison calibrates candidate changes against repeated baseline runs, keeps strata separate, and requires coverage, quietness, passing preconditions, and demonstrated planted-change controls. Seeded control helpers operate on copies and verify detection through the comparison engine; parity itself never calls a model or judge. Runtime/tensor acquisition adapters are outside this stage.
+- **Parity evidence and release assertions** — `assert_parity` integrates with the mltk recorder and CLI discovery. Deterministic `rates.json`, `items.csv`, and `gaps.json` artifacts retain configuration, provenance, exclusions, and Unconcluded item/layer/stratum reasons. Known changed evidence sources are excluded from comparison statistics; unknown provenance is compared and flagged. Execution regressions remain separate from answer flips, and a failed candidate trial on a previously oracle-passing item blocks even when its majority state passes. Harness comparison checks every trial and rejects unlisted or stale expected differences.
+- **Standard-library parity statistics** — Wilson intervals, exact McNemar, paired TOST, seeded item bootstrap, Benjamini–Hochberg adjustment, and Clopper–Pearson intervals. Repeated scores reduce to equally weighted item means, with explicit equivalence margins and separate strata. McNemar supports up to 1,000,000 discordant pairs; interior Clopper–Pearson supports counts up to 1,000,000. Larger beta-based calculations reject rather than return unvalidated probabilities; zero/all-success endpoints use stable analytic formulas.
+- **Stored-output evaluation** — optional `EvalSample.sample_id`, dataset serialization and ID-aware fingerprints, `EvalTask.score(outputs)`, and `task.to_test_result(outputs=...)`. Stored scoring requires unique nonblank IDs, rejects unknown output keys, and retains per-sample errors for missing/non-string outputs. Solvers and generation are bypassed; scorers still execute. Existing live evaluation and ID-less dataset serialization remain compatible.
+- **Public migration and parity documentation** — [migration guidance](docs/guides/adopter-migration.md) covers compatibility options and executable examples; the [parity guide](docs/api/parity.md) documents APIs, gates, artifacts, and numerical limits. Assertion/API indexes, navigation, and calculated documentation counts are refreshed.
+
 ### Changed
 
+- **Numeric judge parsing fails closed by default (behaviour change).** LLM/evaluation/multimodal numeric adapters share strict parsing: balanced reasoning blocks are removed, malformed or ambiguous score replies are rejected, and explicit fraction denominators must match the configured scale. For example, `4/10` with `max_score=5` produces a scoring error rather than silent rescaling. Public adapters accept `legacy_parse=True` (the shared parser uses `legacy=True`) for permissive compatibility. Parsing and aggregation policies remain separate: `on_error="fail_if_all"`, `"strict"`, and `"zero"` retain their explicit meanings.
+- **Empty refusal datasets fail by default (behaviour change).** `assert_refusal_consistency` now uses `on_empty="fail"`. Explicit `"pass"` preserves the legacy empty-input result; `"skip"` returns an informational skipped result without a measured refusal rate. Empty input never invokes the model, and invalid policies reject before model calls.
+- **Unchecked contradiction is nullable (behaviour change).** `assert_semantic_equivalence` with `method="token_f1"` or `"embedding"` reports `details["contradiction"]=None` (JSON `null`), not a checked negative. Consumers must distinguish `is None` from `is False`; use NLI when contradiction evidence is required.
+
 ### Fixed
+
+- **Judge scores no longer come from incidental reasoning numbers or conflicting scales.** Strict parsing does not fall back to an earlier score when the authoritative final score is invalid. Missing scores stay explicit in error accounting rather than silently appearing as successful zero-valued measurements.
 
 ## [0.16.0] — 2026-11-07
 ### Added
