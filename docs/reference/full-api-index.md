@@ -1121,7 +1121,7 @@ def assert_clip_score(image: ImageInput | None=None, text: str | None=None, imag
 ```
 > Assert that image-text CLIPScore meets a minimum threshold.
 
-**`assert_cross_modal_consistency`** (domains/multimodal/alignment.py:141)
+**`assert_cross_modal_consistency`** (domains/multimodal/alignment.py:142)
 ```python
 def assert_cross_modal_consistency(predictions_a: np.ndarray | list, predictions_b: np.ndarray | list, min_agreement: float=0.8)
 ```
@@ -1133,7 +1133,7 @@ def assert_edit_preservation(original: ImageInput, edited: ImageInput, method: s
 ```
 > Assert that an edited image preserves enough of the original.
 
-**`assert_image_coherence`** (domains/multimodal/alignment.py:363)
+**`assert_image_coherence`** (domains/multimodal/alignment.py:369)
 ```python
 def assert_image_coherence(text: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
@@ -1145,7 +1145,7 @@ def assert_image_helpfulness(question: str, image: ImageInput | None, answer: st
 ```
 > Assert that an image helps understand or answer a question.
 
-**`assert_image_text_alignment`** (domains/multimodal/alignment.py:55)
+**`assert_image_text_alignment`** (domains/multimodal/alignment.py:56)
 ```python
 def assert_image_text_alignment(image_embeddings: np.ndarray, text_embeddings: np.ndarray, min_cosine: float=0.5)
 ```
@@ -1163,7 +1163,7 @@ def assert_ocr_accuracy(expected_text: str, actual_text: str, method: str='cer',
 ```
 > Assert that OCR output is accurate enough vs ground truth.
 
-**`assert_prompt_faithfulness`** (domains/multimodal/alignment.py:241)
+**`assert_prompt_faithfulness`** (domains/multimodal/alignment.py:247)
 ```python
 def assert_prompt_faithfulness(prompt: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
@@ -1251,11 +1251,11 @@ def assert_no_secrets_in_image(image: str, *, adapter: TrivyAdapter | None=None)
 ```
 > Assert a container image contains no exposed secrets.
 
-**`assert_parity`** (parity/assertions.py:12)
+**`assert_parity`** (parity/assertions.py:15)
 ```python
-def assert_parity(report: ParityReport, *, fail_on_negative_flip: bool=False, artifacts: ArtifactPaths | None=None)
+def assert_parity(report: ParityReport, *, fail_on_negative_flip: bool | None=None, artifacts: ArtifactPaths | None=None)
 ```
-> Require a demonstrated passing gate; optionally reject every negative flip.
+> Assert the engine's report status without recomputing its gate.
 
 **`assert_token_usage`** (cost/tracking.py:159)
 ```python
@@ -1485,9 +1485,9 @@ def assert_no_train_test_overlap(train_df: pd.DataFrame, test_df: pd.DataFrame, 
 ```
 > Assert zero row overlap between train and test sets on key columns.
 
-**`assert_no_training_serving_skew`** (training/skew.py:19)
+**`assert_no_training_serving_skew`** (training/skew.py:24)
 ```python
-def assert_no_training_serving_skew(train_output: np.ndarray | list, serve_output: np.ndarray | list, tolerance: float=0.01)
+def assert_no_training_serving_skew(train_output: np.ndarray | list, serve_output: np.ndarray | list, tolerance: float=0.01, on_empty: str='fail')
 ```
 > Assert training and serving pipelines produce the same output for the same input.
 

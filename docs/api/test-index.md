@@ -1,6 +1,6 @@
 # Test Coverage Index
 
-The suite includes **6137+ tests**. There are **304** source files matching `test_*.py`.
+The suite includes **6200+ tests**. There are **309** source files matching `test_*.py`.
 Collection varies with installed optional dependencies. The topic tables below are a
 coverage overview; see the [generated test layout](../reference/full-api-index.md#test-layout)
 for current package locations.
@@ -310,5 +310,5 @@ pytest tests/test_domains/test_llm_rag.py -q    # RAG evaluation only
 pytest tests/test_training/test_gradient.py -q  # Gradient health only
 
 # Full suite
-pytest tests/ -q                      # All 6137+ tests
+pytest tests/ -q                      # All 6200+ tests
 ```

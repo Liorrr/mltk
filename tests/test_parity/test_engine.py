@@ -28,7 +28,17 @@ def synthetic(n=20, strata=("en",), layers=None):
     a2, candidate = deepcopy(base), deepcopy(base)
     a2.run_id, candidate.run_id = "synthetic-a2", "synthetic-b"
     manifest = Manifest({i.item_id: i.stratum for i in items})
-    controls = {(layer.name, s): True for layer in layers for s in strata}
+    controls = {
+        (layer.name, s): {
+            "passed": True,
+            "a2_run_id": a2.run_id,
+            "seed": 7,
+            "n_items": 1,
+            "changed_item_ids": [f"{s}-00"],
+        }
+        for layer in layers
+        for s in strata
+    }
     return base, a2, candidate, layers, manifest, controls
 
 
@@ -175,7 +185,6 @@ def test_missing_controls_empty_eligibility_and_preconditions():
     data[5].clear()
     assert product(data).status == "NOT_VERIFIED"
     assert product(data).rates[0]["reason"] == "CONTROL_MISSING"
-    data[5]["v", "en"] = True
     data[4].eligible_ids["v"] = ()
     rate = product(data).rates[0]
     assert not rate["established"]
@@ -199,7 +208,7 @@ def test_diagnostics_never_gate_and_alone_never_pass():
     assert product(data).status == "PASS"
     data = synthetic(layers=[LayerSpec("d", role="diagnostic")])
     assert product(data).status == "NOT_VERIFIED"
-    assert compare_runs(data[0], data[2], layers=data[3], manifest=data[4]).status == "FAIL"
+    assert compare_runs(data[0], data[2], layers=data[3], manifest=data[4]).status == "NOT_VERIFIED"
 
 
 def test_pair_and_product_different_denominators_and_reconciliation():

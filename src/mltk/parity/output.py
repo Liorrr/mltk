@@ -11,6 +11,13 @@ from pathlib import Path
 from typing import Any
 
 from mltk.parity.models import ParityReport, Run
+from mltk.parity.presentation import (
+    finalize_report,
+    is_failing,
+    offending_rows,
+    ordered_rates,
+    row_key,
+)
 
 
 def normalize(value: Any) -> Any:
@@ -33,12 +40,9 @@ def normalize(value: Any) -> Any:
 
 
 def _json(value: Any) -> str:
-    return json.dumps(normalize(value), ensure_ascii=False, sort_keys=True,
-                      allow_nan=False, separators=(",", ":"))
-
-
-def _sorted_rows(rows: list[dict]) -> list[dict]:
-    return sorted((normalize(row) for row in rows), key=_json)
+    return json.dumps(
+        normalize(value), ensure_ascii=False, sort_keys=True, allow_nan=False, separators=(",", ":")
+    )
 
 
 def run_to_dict(run: Run) -> dict:
@@ -53,8 +57,8 @@ def run_to_dict(run: Run) -> dict:
 
 def report_to_dict(report: ParityReport) -> dict:
     obj = normalize(report)
-    obj["items"] = _sorted_rows(report.items)
-    obj["rates"] = _sorted_rows(report.rates)
+    obj["items"] = normalize(sorted(report.items, key=lambda row: row_key(report, row)))
+    obj["rates"] = normalize(ordered_rates(report))
     obj["reasons"] = sorted(report.reasons)
     return obj
 
@@ -65,29 +69,51 @@ class ArtifactPaths:
     items: Path
     gaps: Path
     hashes: dict[str, str]
+    items_jsonl: Path | None = None
+
+
+def artifact_names(artifacts: ArtifactPaths) -> dict[str, str]:
+    """Expose paths relative to the common output directory, never host paths."""
+    directory = artifacts.rates.parent
+    paths = {"rates": artifacts.rates, "items": artifacts.items, "gaps": artifacts.gaps}
+    if artifacts.items_jsonl is not None:
+        paths["items_jsonl"] = artifacts.items_jsonl
+    return {key: path.relative_to(directory).as_posix() for key, path in paths.items()}
 
 
 def write_report(report: ParityReport, output_dir: str | Path) -> ArtifactPaths:
-    """Write rates.json, items.csv and gaps.json deterministically.
+    """Write the report envelope/rates and canonical typed rows separately.
 
-    CSV rows repeat schema/engine versions and refs. JSON stores the complete
-    report, including all item evidence. Gaps preserve Unconcluded evidence for
-    later review. Output paths and wall-clock timing never enter these payloads.
+    ``items.jsonl`` begins with a header containing the report envelope, followed
+    by ``type=item`` records. CSV is a row-only view; gaps retain Unconcluded rows.
+    Stable identity ordering and relative artifact names make bytes independent
+    of the output directory. All payloads are validated before writing any file.
     """
+    names = {
+        "rates": "rates.json",
+        "items": "items.csv",
+        "gaps": "gaps.json",
+        "items_jsonl": "items.jsonl",
+    }
+    report.artifacts = names
+    finalize_report(report)
     obj = report_to_dict(report)
-    metadata = {k: obj[k] for k in ("schema_version", "engine_version", "mode", "refs")}
-    rows = [{**row, **metadata} for row in obj["items"]]
+    rows = obj.pop("items")
+    envelope = {key: value for key, value in obj.items() if key != "rates"}
     primary = ["item_id", "stratum", "layer", "classification", "group", "reason"]
-    columns = primary + sorted(set(metadata) | {k for row in rows for k in row} - set(primary))
+    columns = primary + sorted({k for row in rows for k in row} - set(primary))
     stream = io.StringIO(newline="")
     writer = csv.DictWriter(stream, fieldnames=columns, lineterminator="\n")
     writer.writeheader()
     for row in rows:
         writer.writerow({k: _json(v) if not isinstance(v, str) else v for k, v in row.items()})
-    gaps = [row for row in obj["items"] if str(row.get("group", "")).lower() == "unconcluded"]
-    gap_payload = {**metadata, "group": "Unconcluded", "items": gaps}
+    gaps = [row for row in rows if str(row.get("group", "")).lower() == "unconcluded"]
+    gap_payload = {**envelope, "group": "Unconcluded", "items": gaps}
+    jsonl = [_json({"type": "header", **envelope})]
+    jsonl.extend(_json({"type": "item", "item": row}) for row in rows)
     payloads = {
         "rates.json": (_json(obj) + "\n").encode("utf-8"),
+        "items.jsonl": ("\n".join(jsonl) + "\n").encode("utf-8"),
         "items.csv": stream.getvalue().encode("utf-8"),
         "gaps.json": (_json(gap_payload) + "\n").encode("utf-8"),
     }
@@ -95,22 +121,52 @@ def write_report(report: ParityReport, output_dir: str | Path) -> ArtifactPaths:
     directory.mkdir(parents=True, exist_ok=True)
     for name, content in payloads.items():
         (directory / name).write_bytes(content)
-    return ArtifactPaths(directory / "rates.json", directory / "items.csv", directory / "gaps.json",
-                         {name: hashlib.sha256(content).hexdigest()
-                          for name, content in payloads.items()})
+    return ArtifactPaths(
+        directory / "rates.json",
+        directory / "items.csv",
+        directory / "gaps.json",
+        {name: hashlib.sha256(content).hexdigest() for name, content in payloads.items()},
+        directory / "items.jsonl",
+    )
 
 
 def report_summary(report: ParityReport, artifacts: ArtifactPaths | None = None) -> dict:
-    """Bounded summary for TestResult/pytest; full evidence stays in artifacts."""
-    offenders = [r for r in _sorted_rows(report.items)
-                 if r.get("classification") not in {"UNCHANGED", "EXPECTED_DIFF"}
-                 or r.get("execution_regression") or r.get("exclusion_reason")
-                 or r.get("group") == "Unconcluded"]
-    result = {"mode": report.mode, "status": report.status, "item_count": len(report.items),
-              "offender_count": len(offenders), "preview": offenders[:10],
-              "reason_count": len(report.reasons), "reasons": sorted(report.reasons)[:10],
-              "rate_count": len(report.rates), "rates": _sorted_rows(report.rates)[:10]}
+    """Bounded, failing-first evidence for TestResult; full rows stay in artifacts."""
+    offenders = offending_rows(report)
+    rates = ordered_rates(report, failing_first=True)
+    fields = (
+        "layer",
+        "stratum",
+        "verdict",
+        "reason",
+        "changed_rate",
+        "floor",
+        "mdc",
+        "b",
+        "c",
+        "n_compared",
+    )
+    compact_rates = [
+        {key: rate.get(key, rate.get("status") if key == "verdict" else None) for key in fields}
+        for rate in rates[:10]
+    ]
+    result = {
+        "mode": report.mode,
+        "status": report.status,
+        "item_count": len(report.items),
+        "offender_count": len(offenders),
+        "preview": [
+            {key: row.get(key) for key in ("item_id", "stratum", "layer", "classification")}
+            for row in offenders[:10]
+        ],
+        "failing": [f"{r.get('layer', '')}@{r.get('stratum', '')}" for r in rates if is_failing(r)],
+        "reason_count": len(report.reasons),
+        "reasons": sorted(report.reasons)[:10],
+        "rate_count": len(report.rates),
+        "rates": compact_rates,
+    }
     if artifacts is not None:
-        result["artifacts"] = {"rates": str(artifacts.rates), "items": str(artifacts.items),
-                               "gaps": str(artifacts.gaps), "sha256": artifacts.hashes}
+        result["artifacts"] = {**artifact_names(artifacts), "sha256": artifacts.hashes}
+    elif report.artifacts:
+        result["artifacts"] = dict(report.artifacts)
     return result

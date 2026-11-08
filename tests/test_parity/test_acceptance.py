@@ -20,9 +20,14 @@ def test_t7_independent_strata_and_real_control_evidence():
     a2, candidate = deepcopy(a1), deepcopy(a1)
     a2.run_id, candidate.run_id = "a2", "candidate"
     manifest = Manifest({i.item_id: i.stratum for i in items})
-    fixture = make_positive_control(a1, layer=layer, n_items=20, mutation=lambda v: not v, seed=9)
+    fixture = make_positive_control(
+        a1, a2=a2, manifest=manifest, layer=layer, n_items=20, mutation=lambda v: not v, seed=9
+    )
     control = check_positive_control(a1, fixture, layers=[layer], manifest=manifest, a2=a2)
-    assert control == {("v", "en"): True, ("v", "he"): True}
+    assert {key: record["passed"] for key, record in control.items()} == {
+        ("v", "en"): True,
+        ("v", "he"): True,
+    }
     config = ParityConfig(bh_q=0.05)
     before = compare_product(
         a1, a2, candidate, layers=[layer], manifest=manifest, config=config, control=control
@@ -56,10 +61,12 @@ def test_passing_preconditions_need_no_planted_precondition_control():
         ],
     )
     manifest = Manifest({i.item_id: "en" for i in base.items})
-    fixture = make_positive_control(base, layer="v", n_items=6, mutation=lambda v: not v, seed=1)
-    control = check_positive_control(base, fixture, layers=layers, manifest=manifest)
-    assert control == {("v", "en"): True}
     a2, candidate = deepcopy(base), deepcopy(base)
     a2.run_id, candidate.run_id = "synthetic-a2", "synthetic-candidate"
+    fixture = make_positive_control(
+        base, a2=a2, manifest=manifest, layer=layers[0], n_items=6, mutation=lambda v: not v, seed=1
+    )
+    control = check_positive_control(base, fixture, a2=a2, layers=layers, manifest=manifest)
+    assert control["v", "en"]["passed"]
     report = compare_product(base, a2, candidate, layers=layers, manifest=manifest, control=control)
     assert report.status == "PASS"

@@ -5,10 +5,23 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 ENGINE_VERSION = "1.0"
-SCHEMA_VERSION = "1"
+RUN_SCHEMA_ID = "mltk.parity.run"
+REPORT_SCHEMA_ID = "mltk.parity.report"
+RUN_SCHEMA_VERSION = "1.0"
+REPORT_SCHEMA_VERSION = "1.0"
+# Compatibility name for callers that previously imported the run version.
+SCHEMA_VERSION = RUN_SCHEMA_VERSION
+
+
+def _mlspec_version() -> str:
+    try:
+        return version("mlspec")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 @dataclass
@@ -34,7 +47,8 @@ class Run:
     label: str
     items: list[Item]
     refs: dict[str, Any] = field(default_factory=dict)
-    schema_version: str = SCHEMA_VERSION
+    schema_version: str = RUN_SCHEMA_VERSION
+    schema_id: str = RUN_SCHEMA_ID
 
 
 @dataclass
@@ -83,7 +97,17 @@ class ParityReport:
     config: dict[str, Any] = field(default_factory=dict)
     reasons: list[str] = field(default_factory=list)
     engine_version: str = ENGINE_VERSION
-    schema_version: str = SCHEMA_VERSION
+    schema_version: str = REPORT_SCHEMA_VERSION
+    schema_id: str = REPORT_SCHEMA_ID
+    mlspec_version: str = field(default_factory=_mlspec_version)
+    message: str = ""
+    artifacts: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.message:
+            from mltk.parity.presentation import finalize_report
+
+            finalize_report(self)
 
     @property
     def passed(self) -> bool:
@@ -109,7 +133,9 @@ def value_key(value: Any) -> tuple:
 
 def validate_run(run: Run, manifest: Manifest, layers: list[LayerSpec]) -> None:
     """Validate observed records; missing expected records remain visible to reducers."""
-    if run.schema_version != SCHEMA_VERSION:
+    if run.schema_id != RUN_SCHEMA_ID:
+        raise ValueError("Unsupported run schema_id")
+    if run.schema_version != RUN_SCHEMA_VERSION:
         raise ValueError("Unsupported run schema_version")
     if not isinstance(run.run_id, str) or not run.run_id:
         raise ValueError("run_id must be a nonempty string")
@@ -121,15 +147,20 @@ def validate_run(run: Run, manifest: Manifest, layers: list[LayerSpec]) -> None:
         raise ValueError("Manifest trial IDs must be nonempty and unique")
     if any(not isinstance(t, str) or not t for t in manifest.trial_ids):
         raise ValueError("Trial IDs must be nonempty strings")
-    if any(not isinstance(k, str) or not k or not isinstance(v, str) or not v
-           for k, v in manifest.items.items()):
+    if any(
+        not isinstance(k, str) or not k or not isinstance(v, str) or not v
+        for k, v in manifest.items.items()
+    ):
         raise ValueError("Manifest item IDs and strata must be nonempty strings")
     by_name = {layer.name: layer for layer in layers}
     if len(by_name) != len(layers):
         raise ValueError("Duplicate layer names")
     for layer in layers:
-        if (not isinstance(layer.name, str) or not layer.name
-                or layer.kind not in {"bool", "class", "id_set", "number"}):
+        if (
+            not isinstance(layer.name, str)
+            or not layer.name
+            or layer.kind not in {"bool", "class", "id_set", "number"}
+        ):
             raise ValueError("Invalid layer name or kind")
         if layer.role not in {"verdict", "diagnostic", "precondition"}:
             raise ValueError("Invalid layer role")
@@ -139,14 +170,17 @@ def validate_run(run: Run, manifest: Manifest, layers: list[LayerSpec]) -> None:
             raise ValueError("Mean reduction requires a number layer")
         if layer.kind == "class" and not layer.vocabulary:
             raise ValueError("Class layers require a declared vocabulary")
-        if (any(not isinstance(v, str) for v in layer.vocabulary)
-                or len(set(layer.vocabulary)) != len(layer.vocabulary)):
+        if any(not isinstance(v, str) for v in layer.vocabulary) or len(
+            set(layer.vocabulary)
+        ) != len(layer.vocabulary):
             raise ValueError("Vocabulary must contain unique strings")
         if type(layer.order) is not int:
             raise ValueError("Layer order must be an integer")
-        if layer.oracle is not None and (not callable(layer.oracle)
-                                         or not isinstance(layer.oracle_id, str)
-                                         or not layer.oracle_id):
+        if layer.oracle is not None and (
+            not callable(layer.oracle)
+            or not isinstance(layer.oracle_id, str)
+            or not layer.oracle_id
+        ):
             raise ValueError("An oracle requires a versioned oracle_id")
     for name, eligible in manifest.eligible_ids.items():
         if name not in by_name or len(set(eligible)) != len(eligible):
@@ -161,7 +195,8 @@ def validate_run(run: Run, manifest: Manifest, layers: list[LayerSpec]) -> None:
         if item.stratum != manifest.items[item.item_id]:
             raise ValueError("Item stratum disagrees with manifest")
         if item.source_id is not None and (
-                not isinstance(item.source_id, str) or not item.source_id):
+            not isinstance(item.source_id, str) or not item.source_id
+        ):
             raise ValueError("source_id must be a nonempty string or None")
         if not isinstance(item.metadata, dict):
             raise ValueError("metadata must be an object")

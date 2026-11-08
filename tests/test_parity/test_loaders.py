@@ -1,4 +1,5 @@
 """Artifact integrity checks using explicitly synthetic recordings."""
+
 from __future__ import annotations
 
 import json
@@ -11,8 +12,11 @@ from mltk.parity.output import run_to_dict
 
 
 def fixture_run():
-    return Run("r", "synthetic", [Item("i", "en", [Trial(str(t), values={"ids": {"b", "a"}})
-                                                     for t in range(1, 4)])])
+    return Run(
+        "r",
+        "synthetic",
+        [Item("i", "en", [Trial(str(t), values={"ids": {"b", "a"}}) for t in range(1, 4)])],
+    )
 
 
 def test_roundtrip_set_and_missing_population(tmp_path):
@@ -29,14 +33,24 @@ def test_roundtrip_set_and_missing_population(tmp_path):
 def test_reject_duplicate_keys_and_nonfinite_json(tmp_path, text):
     path = tmp_path / "run.json"
     path.write_text(text)
-    with pytest.raises(ValueError,
-                       match="Duplicate|Nonfinite|Unsupported|wrong type|Failed|disagrees"):
+    with pytest.raises(
+        ValueError, match="Duplicate|Nonfinite|Unsupported|wrong type|Failed|disagrees"
+    ):
         load_run(path)
 
 
-@pytest.mark.parametrize("change", [
-    "duplicate", "trial_duplicate", "schema", "type", "failed", "unknown", "stratum",
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        "duplicate",
+        "trial_duplicate",
+        "schema",
+        "type",
+        "failed",
+        "unknown",
+        "stratum",
+    ],
+)
 def test_reject_corrupt_record(change):
     raw = run_to_dict(fixture_run())
     item = raw["items"][0]
@@ -54,8 +68,9 @@ def test_reject_corrupt_record(change):
         item["trials"][0]["trial_id"] = "4"
     else:
         item["stratum"] = "he"
-    with pytest.raises(ValueError,
-                       match="Duplicate|Nonfinite|Unsupported|wrong type|Failed|disagrees"):
+    with pytest.raises(
+        ValueError, match="Duplicate|Nonfinite|Unsupported|wrong type|Failed|disagrees"
+    ):
         load_run(raw, manifest=Manifest({"i": "en"}), layers=[LayerSpec("ids", kind="id_set")])
 
 
@@ -89,4 +104,30 @@ def test_invalid_provenance_without_layer_config(field, value):
     raw = run_to_dict(fixture_run())
     raw["items"][0][field] = value
     with pytest.raises(ValueError, match="nonempty|Out of range"):
+        load_run(raw)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_id", "mltk.parity.report"),
+        ("schema_id", ""),
+        ("schema_version", "1"),
+        ("schema_version", "2.0"),
+    ],
+)
+def test_run_schema_is_separate_and_strict(field, value):
+    raw = run_to_dict(fixture_run())
+    assert raw["schema_id"] == "mltk.parity.run"
+    assert raw["schema_version"] == "1.0"
+    raw[field] = value
+    with pytest.raises(ValueError, match="Unsupported run schema"):
+        load_run(raw)
+
+
+@pytest.mark.parametrize("field", ["schema_id", "schema_version"])
+def test_run_schema_fields_are_required(field):
+    raw = run_to_dict(fixture_run())
+    del raw[field]
+    with pytest.raises(ValueError, match="required fields"):
         load_run(raw)

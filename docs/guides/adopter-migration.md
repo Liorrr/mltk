@@ -78,6 +78,13 @@ path and rejects nonfinite scores even with `legacy_parse=True`.
 Parsing compatibility and error handling are independent. The error-policy
 keyword on assertions is **`on_error`**, not `error_policy`:
 
+The assertion default changes aggregation relative to v0.16.0: an errored judge
+reply no longer contributes a zero to `assert_llm_judge_score`'s mean. For
+example, scores `4` and an error now average `4`, rather than `2`. All errors
+still fail by default. Use `on_error="zero"` to restore zero filling and the
+corresponding threshold result. The policy names already existed on evaluation
+tasks; they are now also exposed on the judge assertions.
+
 | `on_error` | Treatment |
 | --- | --- |
 | `"fail_if_all"` (default) | Exclude errored items from aggregation; fail when all attempted items errored. Valid scores must still meet the threshold. |

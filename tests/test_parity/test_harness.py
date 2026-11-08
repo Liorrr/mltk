@@ -358,22 +358,25 @@ def test_statistics_backend_failures_cannot_pass(monkeypatch, failure):
 
     monkeypatch.setattr(statistics, "paired_tost", broken)
     fixture = synthetic_runs(kind="number", reducer="mean", values=[0.0] * 3)
+    if failure == "exception":
+        with pytest.raises(RuntimeError, match="Synthetic backend failure"):
+            compare(fixture, margins={"result": 0.1})
+        return
     report = compare(fixture, margins={"result": 0.1})
     assert report.status == "NOT_VERIFIED"
     assert report.rates[0]["reason"] == (
         "statistics_unavailable" if failure == "unavailable" else "statistics_error")
 
 
-def test_oracle_errors_are_not_run():
+def test_oracle_programming_errors_propagate():
     def broken_oracle(value):
         raise RuntimeError("Synthetic oracle failure")
 
     fixture = synthetic_runs()
     fixture[3][0].oracle = broken_oracle
     fixture[3][0].oracle_id = "synthetic-pure-oracle-v1"
-    report = compare(fixture)
-    assert report.status == "NOT_RUN"
-    assert "Synthetic oracle failure" in report.reasons[0]
+    with pytest.raises(RuntimeError, match="Synthetic oracle failure"):
+        compare(fixture)
 
 
 def test_ledger_and_manifest_reordering_is_deterministic():

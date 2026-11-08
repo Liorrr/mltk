@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .models import LayerSpec, Manifest, ParityReport, Run, validate_run, value_key
+from .presentation import finalize_report
 
 _PRIORITY = {"PASS": 0, "NOT_VERIFIED": 1, "FAIL": 2, "NOT_RUN": 3}
 
@@ -121,7 +122,11 @@ def _integrity(base, candidate, recordings, layers):
             for trial in item.trials:
                 if trial.status != "ok" or trial.error is not None:
                     raise ValueError(f"Failed/error record: {item.item_id}/{trial.trial_id}")
-                if any(trial.values.get(layer.name) is None for layer in layers):
+                if any(
+                    trial.values.get(layer.name) is None
+                    for layer in layers
+                    if item.item_id in recordings.eligible_ids.get(layer.name, recordings.items)
+                ):
                     raise ValueError(f"Missing/null value: {item.item_id}/{trial.trial_id}")
 
 
@@ -193,8 +198,8 @@ def _tost(differences, margin, alpha):
         return result
     except ImportError:
         return {**missing, "reason": "statistics_unavailable"}
-    except Exception:
-        # A failed statistics backend cannot certify equivalence.
+    except (ValueError, TypeError):
+        # Invalid statistical evidence cannot certify equivalence.
         return {**missing, "reason": "statistics_error"}
 
 
@@ -216,6 +221,9 @@ def compare_harness(
     matching entry. Item entries with unchanged reduced values are stale.
     Scored-layer ledger entries are audited but never remove TOST observations.
     Diagnostic rows are descriptive; verdict/precondition layers are required.
+    Cells with no eligible items are NOT_APPLICABLE and are not required.
+    Stale or mismatched ledger entries fail their cell regardless of layer role.
+    Validation errors produce NOT_RUN; unexpected programming errors propagate.
     Preconditions additionally require every scheduled trial on both sides to
     oracle-pass, independently of equality, expected differences, and TOST.
     """
@@ -267,13 +275,14 @@ def compare_harness(
             "ledger_coverage": "exact_item_transition_or_explicit_trials",
             "statistical_unit": "item", "difference": "candidate_minus_base",
         }
-        return _compare(report, base_scores, candidate_scores, recordings, layers, ledger,
-                        margins, alpha)
-    except Exception as exc:
-        # Public comparison is non-raising, including invalid caller oracle output.
+        result = _compare(report, base_scores, candidate_scores, recordings, layers, ledger,
+                          margins, alpha)
+    except (ValueError, TypeError) as exc:
+        # Expected input/integrity errors fail closed; programming bugs propagate.
         report.status = "NOT_RUN"
         report.reasons.append(f"invalid_input: {type(exc).__name__}: {exc}")
-        return report
+        return finalize_report(report)
+    return finalize_report(result)
 
 
 def _compare(report, base, candidate, recordings, layers, ledger, margins, alpha):
@@ -383,7 +392,9 @@ def _compare(report, base, candidate, recordings, layers, ledger, margins, alpha
                                 row["classification"] = "PRECONDITION_NOT_VERIFIED"
                                 row["reason"] = precondition["reason"]
                 rows.append(row)
-            if layer.reducer == "mean":
+            if not ids:
+                gate = {"status": "NOT_APPLICABLE", "reason": "NO_ELIGIBLE_ITEMS", "n": 0}
+            elif layer.reducer == "mean":
                 margin = margins.get((layer.name, stratum), margins.get(layer.name))
                 gate = _tost(differences, margin, alpha)
                 if len(differences) != len(ids) and gate["status"] == "PASS":
@@ -406,8 +417,46 @@ def _compare(report, base, candidate, recordings, layers, ledger, margins, alpha
                 if (precondition["status"] != "PASS"
                         and _PRIORITY[precondition["status"]] >= _PRIORITY[gate["status"]]):
                     gate.update(status=precondition["status"], reason=precondition["reason"])
-            gate.update(layer=layer.name, stratum=stratum, required=layer.role != "diagnostic",
-                        eligible=len(ids))
+            cell_audit = [entry for entry in audit.values()
+                          if entry["layer"] == layer.name and entry["stratum"] == stratum]
+            stale_count = sum(entry["status"] == "stale" for entry in cell_audit)
+            mismatch_count = sum(entry["status"] == "mismatch" for entry in cell_audit)
+            ledger_failed = bool(stale_count or mismatch_count)
+            if ledger_failed:
+                # Preserve the comparison result while making its ledger failure
+                # visible in the same cell, including audited diagnostic layers.
+                gate.update(ledger_comparison_status=gate["status"],
+                            ledger_comparison_reason=gate["reason"], status="FAIL")
+                if gate["ledger_comparison_status"] != "FAIL":
+                    gate["reason"] = ("expected_diff_mismatch" if mismatch_count
+                                      else "expected_diff_stale")
+                for row in rows:
+                    failures = [entry for entry in cell_audit
+                                if entry["item_id"] == row["item_id"]
+                                and entry["status"] != "matched"]
+                    if failures:
+                        if row["status"] != "FAIL":
+                            row["classification"] = (
+                                "MISMATCHED_EXPECTED_DIFF" if any(
+                                    entry["status"] == "mismatch" for entry in failures)
+                                else "STALE_EXPECTED_DIFF")
+                            row["reason"] = (
+                                "expected_diff_mismatch"
+                                if row["classification"] == "MISMATCHED_EXPECTED_DIFF"
+                                else "expected_diff_stale")
+                        row["status"] = "FAIL"
+                        row["reasons"].extend(sorted({
+                            f"expected_diff_{entry['status']}" for entry in failures}))
+            gate.update(
+                layer=layer.name, stratum=stratum, role=layer.role, order=layer.order,
+                required=bool(ids) and (layer.role != "diagnostic" or ledger_failed),
+                eligible=len(ids), verdict=gate["status"],
+                n_compared=sum(row["base"]["status"] == row["candidate"]["status"] == "VALID"
+                               for row in rows),
+                unlisted_count=sum(any(reason in {"unlisted_item_change", "unlisted_trial_change"}
+                                       for reason in row["reasons"]) for row in rows),
+                stale_count=stale_count, mismatch_count=mismatch_count,
+            )
             report.rates.append(gate)
             report.items.extend(rows)
             if gate["required"]:
@@ -417,13 +466,12 @@ def _compare(report, base, candidate, recordings, layers, ledger, margins, alpha
     report.config["expected_diff_audit"] = list(audit.values())
     for entry in audit.values():
         if entry["status"] != "matched":
-            required_statuses.append("FAIL")
             report.reasons.append(
                 f"expected_diff_{entry['status']}: {entry['item_id']}/{entry['stratum']}/"
                 f"{entry['layer']}/{entry.get('trial_id', 'item')}"
             )
     if not any(rate["required"] and rate["eligible"] for rate in report.rates):
         required_statuses.append("NOT_VERIFIED")
-        report.reasons.append("no_comparable_required_layers")
+        report.reasons.append("NO_COMPARABLE_ITEMS")
     report.status = max(required_statuses, key=_PRIORITY.get)
     return report

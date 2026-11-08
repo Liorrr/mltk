@@ -6,7 +6,17 @@ import json
 from pathlib import Path
 from typing import Any
 
-from mltk.parity.models import Item, LayerSpec, Manifest, Run, Trial, validate_run, value_key
+from mltk.parity.models import (
+    RUN_SCHEMA_ID,
+    RUN_SCHEMA_VERSION,
+    Item,
+    LayerSpec,
+    Manifest,
+    Run,
+    Trial,
+    validate_run,
+    value_key,
+)
 
 
 def _object(pairs: list[tuple[str, Any]]) -> dict:
@@ -21,6 +31,7 @@ def _object(pairs: list[tuple[str, Any]]) -> dict:
 def _parse(text: str) -> Any:
     def invalid(value: str) -> None:
         raise ValueError(f"Nonfinite JSON value: {value}")
+
     return json.loads(text, object_pairs_hook=_object, parse_constant=invalid)
 
 
@@ -40,17 +51,24 @@ def _value(value: Any) -> Any:
     if isinstance(value, dict):
         _fields(value, {"type", "values"}, set())
         values = value["values"]
-        if (value["type"] != "id_set" or not isinstance(values, list)
-                or any(not isinstance(v, str) for v in values)
-                or len(set(values)) != len(values)):
+        if (
+            value["type"] != "id_set"
+            or not isinstance(values, list)
+            or any(not isinstance(v, str) for v in values)
+            or len(set(values)) != len(values)
+        ):
             raise ValueError("Malformed tagged ID set")
         return frozenset(values)
     value_key(value)
     return value
 
 
-def load_run(source: Run | dict | str | Path, *, manifest: Manifest | None = None,
-             layers: list[LayerSpec] | None = None) -> Run:
+def load_run(
+    source: Run | dict | str | Path,
+    *,
+    manifest: Manifest | None = None,
+    layers: list[LayerSpec] | None = None,
+) -> Run:
     """Load a run; paths select UTF-8 JSON or JSONL by extension.
 
     JSONL starts with a run header containing ``expected_item_ids``,
@@ -75,15 +93,22 @@ def load_run(source: Run | dict | str | Path, *, manifest: Manifest | None = Non
                 ids = header.pop("expected_item_ids", None)
                 count = header.pop("expected_count", None)
                 trials = header.pop("expected_trial_ids", None)
-                if (not isinstance(ids, list) or any(not isinstance(i, str) or not i for i in ids)
-                        or len(set(ids)) != len(ids) or type(count) is not int or count != len(ids)
-                        or not isinstance(trials, list) or not trials
-                        or any(not isinstance(t, str) or not t for t in trials)
-                        or len(set(trials)) != len(trials)):
+                if (
+                    not isinstance(ids, list)
+                    or any(not isinstance(i, str) or not i for i in ids)
+                    or len(set(ids)) != len(ids)
+                    or type(count) is not int
+                    or count != len(ids)
+                    or not isinstance(trials, list)
+                    or not trials
+                    or any(not isinstance(t, str) or not t for t in trials)
+                    or len(set(trials)) != len(trials)
+                ):
                     raise ValueError("JSONL requires valid expected IDs/count/trials")
                 declared_trials = set(trials)
-                if manifest is not None and (set(ids) != set(manifest.items)
-                                             or set(trials) != set(manifest.trial_ids)):
+                if manifest is not None and (
+                    set(ids) != set(manifest.items) or set(trials) != set(manifest.trial_ids)
+                ):
                     raise ValueError("JSONL header disagrees with manifest")
                 # Without an external population, reject incomplete files outright.
                 observed = [r.get("item_id") for r in records[1:] if isinstance(r, dict)]
@@ -93,29 +118,51 @@ def load_run(source: Run | dict | str | Path, *, manifest: Manifest | None = Non
                 source = header
             else:
                 source = _parse(content)
-        obj = _fields(source, {"schema_version", "run_id", "label", "refs", "items"}, set())
+        obj = _fields(
+            source, {"schema_id", "schema_version", "run_id", "label", "refs", "items"}, set()
+        )
         if not isinstance(obj["items"], list) or not isinstance(obj["refs"], dict):
             raise ValueError("items must be a list and refs an object")
         items = []
         for raw_item in obj["items"]:
             item = _fields(raw_item, {"item_id", "stratum", "trials"}, {"source_id", "metadata"})
-            if (not isinstance(item["trials"], list)
-                    or not isinstance(item.get("metadata", {}), dict)):
+            if not isinstance(item["trials"], list) or not isinstance(
+                item.get("metadata", {}), dict
+            ):
                 raise ValueError("Malformed trials or metadata")
             trials = []
             for raw_trial in item["trials"]:
                 trial = _fields(raw_trial, {"trial_id", "status", "values"}, {"error"})
                 if not isinstance(trial["values"], dict):
                     raise ValueError("Trial values must be an object")
-                trials.append(Trial(_string(trial["trial_id"], "trial_id"), trial["status"],
-                                    {k: _value(v) for k, v in trial["values"].items()},
-                                    trial.get("error")))
-            items.append(Item(_string(item["item_id"], "item_id"),
-                              _string(item["stratum"], "stratum"), trials,
-                              item.get("source_id"), item.get("metadata", {})))
-        run = Run(_string(obj["run_id"], "run_id"), _string(obj["label"], "label"),
-                  items, obj["refs"], obj["schema_version"])
-    if run.schema_version != "1":
+                trials.append(
+                    Trial(
+                        _string(trial["trial_id"], "trial_id"),
+                        trial["status"],
+                        {k: _value(v) for k, v in trial["values"].items()},
+                        trial.get("error"),
+                    )
+                )
+            items.append(
+                Item(
+                    _string(item["item_id"], "item_id"),
+                    _string(item["stratum"], "stratum"),
+                    trials,
+                    item.get("source_id"),
+                    item.get("metadata", {}),
+                )
+            )
+        run = Run(
+            _string(obj["run_id"], "run_id"),
+            _string(obj["label"], "label"),
+            items,
+            obj["refs"],
+            obj["schema_version"],
+            obj["schema_id"],
+        )
+    if run.schema_id != RUN_SCHEMA_ID:
+        raise ValueError("Unsupported run schema_id")
+    if run.schema_version != RUN_SCHEMA_VERSION:
         raise ValueError("Unsupported run schema_version")
     _string(run.run_id, "run_id")
     _string(run.label, "label")
@@ -149,12 +196,13 @@ def load_run(source: Run | dict | str | Path, *, manifest: Manifest | None = Non
             for value in trial.values.values():
                 value_key(value)
         if declared_trials is not None and (
-                seen_trials - declared_trials
-                or (manifest is None and seen_trials != declared_trials)):
+            seen_trials - declared_trials or (manifest is None and seen_trials != declared_trials)
+        ):
             raise ValueError("JSONL trials disagree with declared trial IDs")
         if manifest is not None:
-            if (manifest.items.get(item.item_id) != item.stratum
-                    or seen_trials - set(manifest.trial_ids)):
+            if manifest.items.get(item.item_id) != item.stratum or seen_trials - set(
+                manifest.trial_ids
+            ):
                 raise ValueError("Run disagrees with manifest")
     if layers is not None:
         if manifest is None:

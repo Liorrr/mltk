@@ -19,18 +19,28 @@ def synthetic():
             for i in range(20)
         ],
     )
+    a2 = deepcopy(run)
+    a2.run_id = "synthetic-a2"
     return (
         run,
+        a2,
         LayerSpec("v", oracle=lambda v: v, oracle_id="synthetic-v1"),
         Manifest({i.item_id: i.stratum for i in run.items}),
     )
 
 
 def test_deep_copy_exact_seeded_selection_and_failure_counts():
-    run, layer, _ = synthetic()
+    run, a2, layer, manifest = synthetic()
     original = deepcopy(run)
     fixture = make_positive_control(
-        run, layer=layer, n_items=6, mutation=lambda v: not v, seed=7, failed_trials=2
+        run,
+        a2=a2,
+        manifest=manifest,
+        layer=layer,
+        n_items=6,
+        mutation=lambda v: not v,
+        seed=7,
+        failed_trials=2,
     )
     assert run == original
     assert len(fixture.changed_item_ids) == 6
@@ -42,7 +52,14 @@ def test_deep_copy_exact_seeded_selection_and_failure_counts():
     for item in run.items:
         item.trials.reverse()
     repeated = make_positive_control(
-        run, layer="v", n_items=6, mutation=lambda v: not v, seed=7, failed_trials=2
+        run,
+        a2=a2,
+        manifest=manifest,
+        layer=layer,
+        n_items=6,
+        mutation=lambda v: not v,
+        seed=7,
+        failed_trials=2,
     )
     assert repeated.changed_item_ids == fixture.changed_item_ids
     assert repeated.failed_trial_ids == fixture.failed_trial_ids
@@ -61,36 +78,49 @@ def test_deep_copy_exact_seeded_selection_and_failure_counts():
     ],
 )
 def test_impossible_counts_noop_and_bad_mutation_rejected(n, failed, mutation):
-    run, layer, _ = synthetic()
+    run, a2, layer, manifest = synthetic()
     original = deepcopy(run)
     with pytest.raises(ValueError, match="counts|Requested|Mutation"):
         make_positive_control(
-            run, layer=layer, n_items=n, failed_trials=failed, mutation=mutation, seed=7
+            run,
+            a2=a2,
+            manifest=manifest,
+            layer=layer,
+            n_items=n,
+            failed_trials=failed,
+            mutation=mutation,
+            seed=7,
         )
     assert run == original
 
 
 def test_control_must_really_detect_and_identity_must_match():
-    run, layer, manifest = synthetic()
-    fixture = make_positive_control(run, layer=layer, n_items=6, mutation=lambda v: not v, seed=7)
-    assert check_positive_control(run, fixture, layers=[layer], manifest=manifest) == {
-        ("v", "en"): True
-    }
-    weak = make_positive_control(run, layer=layer, n_items=1, mutation=lambda v: not v, seed=7)
-    assert check_positive_control(run, weak, layers=[layer], manifest=manifest) == {
-        ("v", "en"): False
-    }
+    run, a2, layer, manifest = synthetic()
+    fixture = make_positive_control(
+        run, a2=a2, manifest=manifest, layer=layer, n_items=6, mutation=lambda v: not v, seed=7
+    )
+    assert check_positive_control(run, fixture, a2=a2, layers=[layer], manifest=manifest)[
+        "v", "en"
+    ]["passed"]
+    weak = make_positive_control(
+        run, a2=a2, manifest=manifest, layer=layer, n_items=1, mutation=lambda v: not v, seed=7
+    )
+    assert not check_positive_control(run, weak, a2=a2, layers=[layer], manifest=manifest)[
+        "v", "en"
+    ]["passed"]
     identity = deepcopy(run)
     identity.items[0].trials[0].values["v"] = False
     assert not check_positive_control(
-        run, fixture, layers=[layer], manifest=manifest, identity=identity
-    )["v", "en"]
+        run, fixture, a2=a2, layers=[layer], manifest=manifest, identity=identity
+    )["v", "en"]["passed"]
 
 
 @pytest.mark.parametrize("mismatch", ["item", "stratum", "trial", "layer", "selected"])
 def test_identity_or_fixture_target_mismatch_rejected(mismatch):
-    run, layer, manifest = synthetic()
-    fixture = make_positive_control(run, layer=layer, n_items=6, mutation=lambda v: not v, seed=7)
+    run, a2, layer, manifest = synthetic()
+    fixture = make_positive_control(
+        run, a2=a2, manifest=manifest, layer=layer, n_items=6, mutation=lambda v: not v, seed=7
+    )
     identity = deepcopy(run)
     if mismatch == "item":
         identity.items[0].item_id = "other"
@@ -103,30 +133,42 @@ def test_identity_or_fixture_target_mismatch_rejected(mismatch):
     else:
         fixture.changed_item_ids = ("other",)
     evidence = check_positive_control(
-        run, fixture, layers=[layer], manifest=manifest, identity=identity
+        run, fixture, a2=a2, layers=[layer], manifest=manifest, identity=identity
     )
     assert evidence
-    assert not any(evidence.values())
+    assert not any(record["passed"] for record in evidence.values())
 
 
 def test_failed_planted_items_cannot_fake_detection():
-    run, layer, manifest = synthetic()
+    run, a2, layer, manifest = synthetic()
     fixture = make_positive_control(
-        run, layer=layer, n_items=6, mutation=lambda v: not v, seed=7, failed_trials=18
+        run,
+        a2=a2,
+        manifest=manifest,
+        layer=layer,
+        n_items=6,
+        mutation=lambda v: not v,
+        seed=7,
+        failed_trials=18,
     )
-    assert not check_positive_control(run, fixture, layers=[layer], manifest=manifest)["v", "en"]
+    assert not check_positive_control(run, fixture, a2=a2, layers=[layer], manifest=manifest)[
+        "v", "en"
+    ]["passed"]
 
 
 def test_controls_do_not_claim_unplanted_stratum():
-    run, layer, manifest = synthetic()
+    run, a2, layer, manifest = synthetic()
     extra = deepcopy(run.items)
     for item in extra:
         item.item_id = "he-" + item.item_id
         item.stratum = "he"
     run.items.extend(extra)
+    a2.items.extend(deepcopy(extra))
     manifest.items.update({i.item_id: "he" for i in extra})
-    fixture = make_positive_control(run, layer=layer, n_items=12, mutation=lambda v: not v, seed=7)
-    evidence = check_positive_control(run, fixture, layers=[layer], manifest=manifest)
+    fixture = make_positive_control(
+        run, a2=a2, manifest=manifest, layer=layer, n_items=12, mutation=lambda v: not v, seed=7
+    )
+    evidence = check_positive_control(run, fixture, a2=a2, layers=[layer], manifest=manifest)
     for stratum in ("en", "he"):
         planted = sum(manifest.items[i] == stratum for i in fixture.changed_item_ids)
-        assert evidence["v", stratum] == (planted >= 4)
+        assert evidence["v", stratum]["passed"] == (planted >= 4)

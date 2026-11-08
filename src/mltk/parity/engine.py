@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections import Counter, defaultdict
 from dataclasses import asdict
+from fractions import Fraction
 
 from mltk.core.statistics import (
     benjamini_hochberg,
@@ -14,6 +15,7 @@ from mltk.core.statistics import (
 )
 from mltk.parity.comparison import CHANGED_CLASSES, UNRESOLVED_CLASSES, classify_pair
 from mltk.parity.models import LayerSpec, Manifest, ParityConfig, ParityReport, Run, validate_run
+from mltk.parity.presentation import finalize_report
 from mltk.parity.states import _policy, reduce_item
 
 
@@ -144,6 +146,7 @@ def _base_rate(
     return dict(
         layer=layer.name,
         role=layer.role,
+        required=layer.role != "diagnostic" and bool(rows),
         stratum=stratum,
         n_eligible=len(rows),
         n_excluded=sum(exclusions.values()),
@@ -186,9 +189,16 @@ def _upstream(rows: list[dict], layers: list[LayerSpec]) -> None:
 
 
 def compare_runs(
-    base: Run, candidate: Run, *, layers: list[LayerSpec], manifest: Manifest
+    base: Run,
+    candidate: Run,
+    *,
+    layers: list[LayerSpec],
+    manifest: Manifest,
+    config: ParityConfig | None = None,
 ) -> ParityReport:
     """Describe two stored runs without claiming A/A-calibrated sensitivity."""
+    config = config or ParityConfig()
+    _config(config)
     _validate((base, candidate), layers, manifest)
     maps = [{i.item_id: i for i in run.items} for run in (base, candidate)]
     rows, rates = [], []
@@ -205,7 +215,7 @@ def compare_runs(
                     excluded[row["exclusion_reason"]] += 1
                 else:
                     compared.append(row)
-            rate = _base_rate(layer, stratum, group, compared, excluded, 0.95)
+            rate = _base_rate(layer, stratum, group, compared, excluded, config.confidence)
             passed = bool(group) and all(
                 r["classification"] == "UNCHANGED"
                 and not r["exclusion_reason"]
@@ -223,19 +233,36 @@ def compare_runs(
                 reason=None if passed else "PAIR_NOT_IDENTICAL",
                 gate_passed=passed,
             )
+            if not group:
+                rate.update(verdict="NOT_APPLICABLE", reason="NO_ELIGIBLE_ITEMS", gate_passed=True)
+            elif not compared:
+                rate.update(verdict="DETECTION_NOT_DEMONSTRATED", reason="NO_COMPARABLE_ITEMS")
+            rate["reasons"] = [rate["reason"]] if rate["reason"] else []
             rates.append(rate)
             rows.extend(group)
     _upstream(rows, layers)
-    required = [r for r in rates if r["role"] != "diagnostic"]
+    required = [r for r in rates if r["required"]]
     passed = bool(required) and all(r["gate_passed"] for r in required)
-    return ParityReport(
-        mode="pair",
-        status="PASS" if passed else "FAIL",
-        items=rows,
-        rates=rates,
-        refs={"base": _refs(base), "candidate": _refs(candidate)},
-        config=_effective_config(manifest, layers),
-        reasons=[] if passed else ["PAIR_NOT_IDENTICAL" if required else "NO_REQUIRED_LAYERS"],
+    failed = any(
+        (r["n_state_compared"] and not r["gate_passed"])
+        or r["from_failure_count"]
+        or r["execution_regression_count"]
+        for r in required
+    )
+    return finalize_report(
+        ParityReport(
+            mode="pair",
+            status="PASS" if passed else "FAIL" if failed else "NOT_VERIFIED",
+            items=rows,
+            rates=rates,
+            refs={"base": _refs(base), "candidate": _refs(candidate)},
+            config=_effective_config(manifest, layers, config),
+            reasons=[]
+            if passed
+            else sorted({r["reason"] for r in required if r["reason"]})
+            if required
+            else ["NO_COMPARABLE_ITEMS"],
+        )
     )
 
 
@@ -247,7 +274,7 @@ def compare_product(
     layers: list[LayerSpec],
     manifest: Manifest,
     config: ParityConfig | None = None,
-    control: dict[tuple[str, str], bool] | None = None,
+    control: dict[tuple[str, str], dict] | None = None,
 ) -> ParityReport:
     """Require coverage, quietness, preconditions and explicit control evidence."""
     if len({a1.run_id, a2.run_id, candidate.run_id}) != 3:
@@ -263,11 +290,34 @@ def _compare_product(
     config = config or ParityConfig()
     _validate((a1, a2, candidate), layers, manifest)
     _config(config)
-    if control is not None and any(
-        not isinstance(key, tuple) or len(key) != 2 or type(value) is not bool
-        for key, value in control.items()
-    ):
-        raise ValueError("Control evidence must map (layer, stratum) to bool")
+    if control is not None:
+        if not isinstance(control, dict):
+            raise ValueError("Control evidence must map (layer, stratum) to evidence records")
+        cells = {(layer.name, stratum) for layer in layers for stratum in manifest.items.values()}
+        for key, evidence in control.items():
+            if (
+                not isinstance(key, tuple)
+                or len(key) != 2
+                or key not in cells
+                or not isinstance(evidence, dict)
+                or type(evidence.get("passed")) is not bool
+                or type(evidence.get("seed")) is not int
+                or type(evidence.get("n_items")) is not int
+                or evidence["n_items"] < 0
+                or not isinstance(evidence.get("changed_item_ids"), (list, tuple))
+                or any(not isinstance(i, str) for i in evidence["changed_item_ids"])
+                or len(set(evidence["changed_item_ids"])) != evidence["n_items"]
+                or len(evidence["changed_item_ids"]) != evidence["n_items"]
+                or not set(evidence["changed_item_ids"])
+                <= set(manifest.eligible_ids.get(key[0], manifest.items))
+            ):
+                raise ValueError("Invalid control evidence record")
+            if evidence.get("a2_run_id") != a2.run_id:
+                raise ValueError("Control evidence A2 run_id differs from comparison A2")
+            if evidence["passed"] and not any(
+                manifest.items[i] == key[1] for i in evidence["changed_item_ids"]
+            ):
+                raise ValueError("Passed control evidence requires planted items in its stratum")
     maps = [{i.item_id: i for i in run.items} for run in (a1, a2, candidate)]
     rows, rates = [], []
     reduced = {}
@@ -280,10 +330,9 @@ def _compare_product(
     preconditions = {}
     for stratum in strata:
         preconditions[stratum] = all(
-            bool(ids := _population(manifest, layer, stratum))
-            and all(
+            all(
                 state["status"] == "VALID" and state["pass_all_trials"] is True
-                for item_id in ids
+                for item_id in _population(manifest, layer, stratum)
                 for state in reduced[layer.name, item_id]
             )
             for layer in layers
@@ -334,16 +383,17 @@ def _compare_product(
             eligible, d = len(group), len(compared)
             conservative = noisy + unresolved
             floor = wilson_interval(conservative, eligible, config.confidence)["ci_high"]
-            quiet = bool(eligible) and conservative <= math.floor(config.quiet_fraction * eligible)
-            established = bool(eligible) and valid_aa >= math.ceil(
-                config.established_fraction * eligible
-            )
+            allowed_noise = math.floor(Fraction(str(config.quiet_fraction)) * eligible)
+            required_established = math.ceil(Fraction(str(config.established_fraction)) * eligible)
+            quiet = bool(eligible) and conservative <= allowed_noise
+            established = bool(eligible) and valid_aa >= required_established
+            candidate_established = bool(eligible) and d >= required_established
             mdc = math.floor(floor * stable) + 1 if floor is not None else None
             effective_mdc = math.floor(floor * d) + 1 if floor is not None else None
             control_ok = (
                 layer.role != "verdict"
                 or _control_evaluation
-                or (control or {}).get((layer.name, stratum)) is True
+                or (control or {}).get((layer.name, stratum), {}).get("passed") is True
             )
             prereq = preconditions[stratum]
             reasons = []
@@ -357,6 +407,8 @@ def _compare_product(
                 )
             if not established:
                 reasons.append("NOT_ESTABLISHED")
+            if not candidate_established:
+                reasons.insert(0, "CANDIDATE_NOT_ESTABLISHED")
             if not d:
                 reasons.append("NO_COMPARABLE_CANDIDATE_ITEMS")
             if reasons:
@@ -368,7 +420,7 @@ def _compare_product(
                 verdict = "NO_CHANGE_ABOVE_MDC"
             if not quiet:
                 reasons.append("NOT_QUIET")
-            if rate["execution_regression_count"]:
+            if rate["from_failure_count"] or rate["execution_regression_count"]:
                 reasons.append("CANDIDATE_FAILURE_ON_PASSING_ITEM")
             if getattr(config, "fail_on_negative_flip", False) and rate["negative_flip_count"]:
                 reasons.append("STRICT_NEGATIVE_FLIP")
@@ -386,6 +438,9 @@ def _compare_product(
                 floor=floor,
                 quiet=quiet,
                 established=established,
+                candidate_established=candidate_established,
+                required_established=required_established,
+                allowed_noise=allowed_noise,
                 n_valid_aa=valid_aa,
                 n_stable=stable,
                 mdc=mdc,
@@ -393,12 +448,20 @@ def _compare_product(
                 mdc_attainable=mdc is not None and mdc <= stable,
                 effective_mdc_attainable=effective_mdc is not None and effective_mdc <= d,
                 control_passed=control_ok,
+                control_evidence=(control or {}).get((layer.name, stratum)),
                 preconditions_passed=prereq,
                 verdict=verdict,
                 reason=reasons[0] if reasons else None,
                 reasons=reasons,
                 gate_passed=gate_passed,
             )
+            if not eligible:
+                rate.update(
+                    verdict="NOT_APPLICABLE",
+                    reason="NO_ELIGIBLE_ITEMS",
+                    reasons=[],
+                    gate_passed=True,
+                )
             if config.bootstrap_seed is not None and layer.reducer == "mean":
                 differences = [r["candidate"]["value"] - r["base"]["value"] for r in compared]
                 if any(not math.isfinite(difference) for difference in differences):
@@ -426,7 +489,11 @@ def _compare_product(
             rows.extend(group)
     if config.bh_q is not None:
         for stratum in strata:
-            family = [r for r in rates if r["stratum"] == stratum and r["role"] == "verdict"]
+            family = [
+                r
+                for r in rates
+                if r["stratum"] == stratum and r["role"] == "verdict" and r["n_eligible"]
+            ]
             adjusted = benjamini_hochberg([r["mcnemar_p"] for r in family])
             for rate, pvalue in zip(family, adjusted, strict=True):
                 rate.update(
@@ -436,9 +503,10 @@ def _compare_product(
                     bh_family=[r["layer"] for r in family],
                 )
     _upstream(rows, layers)
-    required = [r for r in rates if r["role"] != "diagnostic"]
+    required = [r for r in rates if r["required"]]
     failed = any(
         r["verdict"] == "DETECTED"
+        or r["from_failure_count"]
         or r["execution_regression_count"]
         or "STRICT_NEGATIVE_FLIP" in r["reasons"]
         for r in required
@@ -450,14 +518,16 @@ def _compare_product(
         if required and all(r["gate_passed"] for r in required)
         else "NOT_VERIFIED"
     )
-    return ParityReport(
-        mode="product",
-        status=status,
-        items=rows,
-        rates=rates,
-        refs={"a1": _refs(a1), "a2": _refs(a2), "candidate": _refs(candidate)},
-        config=_effective_config(manifest, layers, config),
-        reasons=sorted({reason for r in required for reason in r["reasons"]})
-        if required
-        else ["NO_REQUIRED_LAYERS"],
+    return finalize_report(
+        ParityReport(
+            mode="product",
+            status=status,
+            items=rows,
+            rates=rates,
+            refs={"a1": _refs(a1), "a2": _refs(a2), "candidate": _refs(candidate)},
+            config=_effective_config(manifest, layers, config),
+            reasons=sorted({reason for r in required for reason in r["reasons"]})
+            if required
+            else ["NO_COMPARABLE_ITEMS"],
+        )
     )

@@ -42,9 +42,13 @@ def test_full_product_controls_serialization_and_gate(tmp_path, monkeypatch):
 
     monkeypatch.setattr(socket, "socket", forbidden)
     manifest, layer, base = population()
-    fixture = make_positive_control(base, layer=layer, n_items=6, mutation=lambda v: not v, seed=42)
-    evidence = check_positive_control(base, fixture, layers=[layer], manifest=manifest)
-    assert evidence == {("correct", "en"): True}
+    a2 = copy.deepcopy(base)
+    a2.run_id = "a2"
+    fixture = make_positive_control(base, a2=a2, manifest=manifest, layer=layer,
+                                    n_items=6, mutation=lambda v: not v, seed=42)
+    evidence = check_positive_control(base, fixture, a2=a2, layers=[layer], manifest=manifest)
+    assert evidence["correct", "en"]["passed"] is True
+    assert evidence["correct", "en"]["a2_run_id"] == "a2"
     path = tmp_path / "recording.json"
     path.write_text(json.dumps(run_to_dict(base)), encoding="utf-8")
     reloaded = load_run(path, manifest=manifest, layers=[layer])
@@ -79,8 +83,7 @@ def test_incomplete_aa_evidence_is_exported_as_gap(tmp_path):
     a2.items[0].trials.clear()
     candidate = copy.deepcopy(base)
     candidate.run_id = "b"
-    report = compare_product(base, a2, candidate, layers=[layer], manifest=manifest,
-                             control={("correct", "en"): True})
+    report = compare_product(base, a2, candidate, layers=[layer], manifest=manifest)
     artifacts = write_report(report, tmp_path)
     gaps = json.loads(artifacts.gaps.read_text())["items"]
     assert [row["item_id"] for row in gaps] == ["item-00"]
