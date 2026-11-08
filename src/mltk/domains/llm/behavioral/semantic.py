@@ -62,7 +62,8 @@ def assert_semantic_equivalence(
 
     Returns:
         TestResult with equivalence score, per-direction
-        details, and contradiction flag (NLI only).
+        details, and a contradiction flag: a boolean for NLI, or None
+        for token F1 and embedding because contradiction was not checked.
 
     Example:
         >>> assert_semantic_equivalence(
@@ -176,7 +177,7 @@ def assert_semantic_equivalence(
             method=method,
             score=round(score, 4),
             min_score=min_score,
-            contradiction=False,
+            contradiction=None,
         )
 
     # -- Token F1 (zero-dep fallback) --------------------------
@@ -201,7 +202,7 @@ def assert_semantic_equivalence(
         method=method,
         score=round(score, 4),
         min_score=min_score,
-        contradiction=False,
+        contradiction=None,
     )
 
 

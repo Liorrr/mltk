@@ -26,6 +26,7 @@ nav:
   - Home: index.md
   - Guides:
       - Getting Started: getting-started.md
+      - Evaluation Migration: guides/adopter-migration.md
       - Configuration: configuration.md
       - QA Engineer Guide: guides/qa-engineer-guide.md
       - DevOps Guide: guides/devops-guide.md
@@ -47,6 +48,7 @@ nav:
       - Testing Patterns: api/testing-patterns.md
       - Composable TestSuite: api/suite-api.md
       - Evaluation Pipeline: api/eval-pipeline.md
+      - Stored-Run Parity: api/parity.md
       - Versioned Eval Datasets: api/eval-datasets.md
       - Smart Dataset Importer: api/dataset-importer.md
       - Trace-Level Evaluation: api/trace-evaluation.md
@@ -64,6 +66,7 @@ nav:
       - Test Registry: api/registry.md
   - API Reference:
       - Assertion Index: api/assertion-index.md
+      - Full API Signatures: reference/full-api-index.md
       - Test Coverage Index: api/test-index.md
       - Core: api/core.md
       - Data Schema: api/data-schema.md

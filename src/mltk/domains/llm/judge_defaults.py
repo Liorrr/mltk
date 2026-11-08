@@ -23,12 +23,18 @@ Usage:
 
 from __future__ import annotations
 
-import re
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.error_policy import (
+    EVAL_ON_ERROR,
+    EvalOnError,
+    error_policy_verdict,
+    unknown_on_error_result,
+)
+from mltk.core.judge_parse import parse_judge_score
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
 
@@ -160,6 +166,10 @@ def assert_with_judge(
     judge_fn: Callable[[str, str], float] | None = None,
     fallback_method: str = "lexical",
     min_score: float = 0.5,
+    *,
+    reasoning_delimiters: Sequence[tuple[str, str]] = (),
+    legacy_parse: bool = False,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Generic judge-or-fallback assertion wrapper.
 
@@ -188,15 +198,20 @@ def assert_with_judge(
     Returns:
         TestResult with score, method, and min_score in details.
     """
+    if on_error not in EVAL_ON_ERROR:
+        return unknown_on_error_result(
+            f"llm.judge_defaults.{assertion_name}", on_error, EVAL_ON_ERROR,
+        )
+    error = None
     # Resolve which scoring approach to use
-    resolved_fn: Callable[..., float] | None = judge_fn
+    resolved_fn: Callable[..., float | str] | None = judge_fn
     method = "llm" if resolved_fn is not None else "auto"
 
     if resolved_fn is None:
         default = get_default_judge()
         if default is not None:
             # Wrap the default (str->str) judge into a 2-arg scorer
-            def _default_wrapper(a: str, b: str) -> float:
+            def _default_wrapper(a: str, b: str) -> str:
                 prompt = (
                     f"Rate how well the following text is "
                     f"supported by the reference.\n\n"
@@ -204,29 +219,36 @@ def assert_with_judge(
                     f"Reference: {b}\n\n"
                     f"Return ONLY a score between 0.0 and 1.0."
                 )
-                raw = default(prompt)  # type: ignore[misc]
-                match = re.search(
-                    r"(\d+(?:\.\d+)?)", str(raw),
-                )
-                return float(match.group(1)) if match else 0.0
+                return default(prompt)  # type: ignore[misc]
 
             resolved_fn = _default_wrapper
             method = "llm"
 
     if resolved_fn is not None:
         try:
-            score = float(resolved_fn(text_a, text_b))
+            score = parse_judge_score(
+                resolved_fn(text_a, text_b),
+                reasoning_delimiters=reasoning_delimiters,
+                legacy=legacy_parse, expected_max_score=1.0,
+            )
+            if score is None:
+                error = "Could not parse numeric score from judge"
         except Exception as exc:
+            score = None
+            error = f"{type(exc).__name__}: {exc}"
+        if error_policy_verdict(on_error, int(error is not None), 1):
             return assert_true(
                 False,
                 name=f"llm.judge_defaults.{assertion_name}",
                 message=(
-                    f"Judge error: {type(exc).__name__}: {exc}"
+                    f"Judge error: {error}"
                 ),
                 severity=Severity.CRITICAL,
                 method="llm",
-                error=str(exc),
+                error=error, score=None, errored=True, on_error=on_error,
             )
+        if score is None:
+            score = 0.0
         method = "llm"
     else:
         # Fallback to lexical
@@ -257,6 +279,7 @@ def assert_with_judge(
         message=message,
         severity=Severity.CRITICAL,
         score=round(score, 4),
+        error=error, errored=error is not None, on_error=on_error,
         min_score=min_score,
         method=method,
     )

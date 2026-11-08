@@ -29,6 +29,18 @@ from mltk.eval.task import EvalTask, load_dataset
 # ---------------------------------------------------------------
 
 
+@pytest.mark.parametrize("extension", ["json", "csv"])
+def test_load_dataset_preserves_sample_id(tmp_path, extension):
+    path = tmp_path / f"samples.{extension}"
+    if extension == "json":
+        path.write_text(json.dumps([{"input": "q", "target": "a", "sample_id": "one"}]))
+    else:
+        path.write_text("input,target,sample_id\nq,a,one\n")
+    sample = load_dataset(path)[0]
+    assert sample.sample_id == "one"
+    assert "sample_id" not in sample.metadata
+
+
 def fixed_model(prompt: str) -> str:
     """Always returns '4'."""
     return "4"

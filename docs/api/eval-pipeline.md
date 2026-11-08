@@ -1,5 +1,7 @@
 # Solver/Scorer Evaluation Pipeline
 
+See the [evaluation migration guide](../guides/adopter-migration.md) for stored-output scoring and compatibility changes.
+
 Compose evaluation pipelines that cleanly separate *how to prompt* from
 *how to grade* — then run them natively inside pytest with zero extra
 dependencies.
@@ -393,7 +395,7 @@ appends the user/assistant exchange to `state.messages`.
     When using `ChainOfThoughtSolver`, the model's output contains both
     reasoning and the final answer. Use `PatternScorer` to extract the
     final answer before comparing to the target. See the
-    [Math Reasoning example](#math-reasoning-cot--patternscorer) below.
+    [Math Reasoning example](#math-reasoning-cot-patternscorer) below.
 
 **When to use:** Multi-step problems — arithmetic, algebra, logic puzzles,
 multi-hop QA. CoT reliably improves accuracy by 10–30% on reasoning tasks.

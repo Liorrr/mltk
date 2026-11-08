@@ -36,6 +36,8 @@ class EvalSample:
             don't need a target, e.g., quality judges).
         metadata: Arbitrary metadata (e.g., category,
             difficulty, source dataset).
+        sample_id: Optional stable string ID. Stored-output scoring requires
+            a non-empty, unique ID for every sample; live runs do not.
 
     Example:
         >>> sample = EvalSample(
@@ -48,6 +50,7 @@ class EvalSample:
     input: str
     target: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    sample_id: str | None = None
 
 
 @dataclass

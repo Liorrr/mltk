@@ -1,5 +1,7 @@
 # Behavioral Consistency
 
+See the [evaluation migration guide](../guides/adopter-migration.md) for stored-output scoring and compatibility changes.
+
 An LLM that answers "What caused WW2?" correctly but fails
 on "Summarize the causes of WW2" is fragile. It memorized
 surface patterns, not the underlying knowledge. A 10%

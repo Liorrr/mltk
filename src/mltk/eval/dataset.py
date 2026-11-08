@@ -302,12 +302,22 @@ class EvalDataset:
         Samples are sorted by ``input`` text to ensure the
         fingerprint is stable regardless of list order. Both
         ``input`` and ``target`` (when present) contribute
-        to the hash.
+        to the hash. Datasets with explicit sample IDs use a framed JSON
+        representation including those IDs. ID-less datasets retain their
+        legacy fingerprint unchanged.
 
         Returns:
             Full 64-character hex SHA-256 digest.
         """
         h = hashlib.sha256()
+        if any(s.sample_id is not None for s in self.samples):
+            records = sorted(
+                json.dumps([s.input, s.target, s.sample_id], ensure_ascii=False)
+                for s in self.samples
+            )
+            h.update(b"mltk-eval-sample-ids-v1\0")
+            h.update(json.dumps(records, ensure_ascii=False).encode("utf-8"))
+            return h.hexdigest()
         for s in sorted(
             self.samples, key=lambda x: x.input
         ):
@@ -406,6 +416,7 @@ class EvalDataset:
                     "input": s.input,
                     "target": s.target,
                     "metadata": dict(s.metadata),
+                    **({"sample_id": s.sample_id} if s.sample_id is not None else {}),
                 }
                 for s in self.samples
             ],
@@ -438,6 +449,7 @@ class EvalDataset:
                 input=s["input"],
                 target=s.get("target"),
                 metadata=dict(s.get("metadata", {})),
+                sample_id=s.get("sample_id"),
             )
             for s in data.get("samples", [])
         ]
@@ -535,6 +547,7 @@ class EvalDataset:
                     not in (
                         input_column,
                         target_column,
+                        "sample_id",
                     )
                 }
                 samples.append(
@@ -542,6 +555,7 @@ class EvalDataset:
                         input=inp,
                         target=tgt,
                         metadata=meta,
+                        sample_id=row.get("sample_id") or None,
                     )
                 )
 
@@ -615,13 +629,14 @@ class EvalDataset:
             meta = {
                 k: v
                 for k, v in rec.items()
-                if k not in (input_key, target_key)
+                if k not in (input_key, target_key, "sample_id")
             }
             samples.append(
                 EvalSample(
                     input=inp,
                     target=tgt,
                     metadata=meta,
+                    sample_id=rec.get("sample_id"),
                 )
             )
 

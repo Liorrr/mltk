@@ -32,6 +32,43 @@ from mltk.eval.dataset import (
 SEED = 42
 
 
+def test_sample_id_round_trip_and_positional_compatibility(tmp_path):
+    sample = EvalSample("prompt", "answer", {"language": "he"}, "item-1")
+    ds = EvalDataset("with-ids", "1.0.0", [sample])
+    assert EvalDataset.from_dict(ds.to_dict()).samples == [sample]
+    registry = DatasetRegistry(registry_dir=tmp_path)
+    registry.save(ds)
+    assert registry.load("with-ids", "1.0.0").samples == [sample]
+    assert EvalSample("prompt", "answer", {"old": True}).sample_id is None
+
+
+def test_ids_affect_fingerprint_without_changing_legacy_hash():
+    import hashlib
+
+    legacy = EvalDataset("legacy", "1.0.0", [EvalSample("q", "a")])
+    assert legacy.fingerprint == hashlib.sha256(b"qa").hexdigest()
+    assert "sample_id" not in legacy.to_dict()["samples"][0]
+    samples = [EvalSample("q", "a", sample_id="one"), EvalSample("q", "b", sample_id="two")]
+    first = EvalDataset("ids", "1.0.0", samples)
+    reordered = EvalDataset("ids", "1.0.0", list(reversed(samples)))
+    changed = EvalDataset("ids", "1.0.0", [EvalSample("q", "a", sample_id="other"), samples[1]])
+    assert first.fingerprint == reordered.fingerprint
+    assert first.fingerprint != changed.fingerprint
+
+
+@pytest.mark.parametrize("extension", ["json", "csv"])
+def test_dataset_file_loaders_preserve_sample_ids(tmp_path, extension):
+    path = tmp_path / f"samples.{extension}"
+    if extension == "json":
+        path.write_text(json.dumps([{"input": "q", "target": "a", "sample_id": "id-1"}]))
+        ds = EvalDataset.from_json(path, "ids", "1.0.0")
+    else:
+        path.write_text("input,target,sample_id\nq,a,id-1\n")
+        ds = EvalDataset.from_csv(path, "ids", "1.0.0")
+    assert ds.samples[0].sample_id == "id-1"
+    assert "sample_id" not in ds.samples[0].metadata
+
+
 def _make_samples(
     n: int = 10,
     with_targets: bool = True,

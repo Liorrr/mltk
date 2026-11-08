@@ -1,6 +1,8 @@
 # Assertion Reference
 
-Complete index of all 244 assertion functions in mltk, organized by category. Every assertion is sequentially numbered with no duplicates.
+mltk provides 245 assertion functions. Browse this topic-based reference for usage,
+or see the [generated full API index](../reference/full-api-index.md) for complete
+current signatures and source locations.
 
 ---
 
@@ -650,6 +652,16 @@ Assertions for verifying LLM output stability across paraphrased inputs, formatt
 
 ---
 
+## Stored-run Parity
+
+| Assertion | Module | Description | Availability |
+|-----------|--------|-------------|--------------|
+| `assert_parity` | `mltk.parity` | Gate offline product or harness comparisons; preserve failures and Unconcluded evidence | Unreleased |
+
+See [Stored-run parity](parity.md) for manifests, controls, statistics and artifacts.
+
+---
+
 ## Core
 
 | # | Assertion | Module | Description | Since |
@@ -824,6 +836,9 @@ from mltk.integrations.trace_quality import assert_trace_quality
 # Testing utilities
 from mltk.testing.golden import assert_matches_golden
 from mltk.testing.impact import assert_impact_coverage
+
+# Stored-run parity
+from mltk.parity import assert_parity
 
 # Core
 from mltk.core.assertion import assert_true

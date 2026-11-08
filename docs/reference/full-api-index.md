@@ -1,11 +1,11 @@
 # mltk Full API Index
-> Generated 2026-11-04 by scripts/generate_skill_index.py
+> Generated 2026-11-08 by scripts/generate_skill_index.py
 
-**244** assertions | **13** MCP tools | **20 top-level + 5 groups** CLI | **8** scanners
+**245** assertions | **13** MCP tools | **20 top-level + 5 groups** CLI | **8** scanners
 
 ---
 
-## Assertion Signatures (244)
+## Assertion Signatures (245)
 
 ### compliance
 
@@ -293,21 +293,21 @@ def assert_clinical_agreement(y_true: np.ndarray, y_pred: np.ndarray, min_kappa:
 ```
 > Assert that clinical agreement (Cohen's Kappa) meets a threshold.
 
-**`assert_code_complexity`** (domains/codegen.py:497)
+**`assert_code_complexity`** (domains/codegen.py:610)
 ```python
 def assert_code_complexity(code: str, max_cyclomatic: int=10, max_lines: int=200)
 ```
 > Assert that generated code complexity stays within bounds.
 
-**`assert_code_executes`** (domains/codegen.py:214)
+**`assert_code_executes`** (domains/codegen.py:300)
 ```python
-def assert_code_executes(code: str, timeout_seconds: float=10.0, language: str='python', on_empty: str='fail')
+def assert_code_executes(code: str, timeout_seconds: float=10.0, language: str='python', on_empty: str='fail', *, env: dict[str, str] | None=None, inherit_env: bool=False)
 ```
 > Assert that generated code executes without errors.
 
-**`assert_code_passes_tests`** (domains/codegen.py:322)
+**`assert_code_passes_tests`** (domains/codegen.py:421)
 ```python
-def assert_code_passes_tests(code: str, test_code: str, timeout_seconds: float=30.0, on_empty: str='fail')
+def assert_code_passes_tests(code: str, test_code: str, timeout_seconds: float=30.0, on_empty: str='fail', *, env: dict[str, str] | None=None, inherit_env: bool=False)
 ```
 > Assert that generated code passes a test suite.
 
@@ -335,7 +335,7 @@ def assert_hit_rate(recommended: list[list], relevant: list[set], min_rate: floa
 ```
 > Assert that hit rate meets a minimum threshold.
 
-**`assert_no_code_vulnerabilities`** (domains/codegen.py:413)
+**`assert_no_code_vulnerabilities`** (domains/codegen.py:526)
 ```python
 def assert_no_code_vulnerabilities(code: str, rules: list[str] | None=None)
 ```
@@ -385,7 +385,7 @@ def assert_specificity(y_true: np.ndarray, y_pred: np.ndarray, min_specificity: 
 
 ### eval
 
-**`assert_dataset_quality`** (eval/dataset.py:1148)
+**`assert_dataset_quality`** (eval/dataset.py:1236)
 ```python
 def assert_dataset_quality(dataset: EvalDataset, *, min_samples: int=50, min_target_coverage: float=0.9, max_duplicate_rate: float=0.01, min_categories: int | None=None)
 ```
@@ -553,15 +553,15 @@ def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:337)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:365)
 ```python
 def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None)
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:203)
+**`assert_llm_judge_score`** (domains/llm/judge.py:209)
 ```python
-def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None)
+def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
 > Assert that LLM responses meet a minimum quality score via judge evaluation.
 
@@ -637,7 +637,7 @@ def assert_no_hallucinated_tools(trace: AgentTrace, known_tools: list[str])
 ```
 > Assert every tool call in the trace targets an actually-available tool.
 
-**`assert_no_hallucination`** (domains/llm/safety.py:277)
+**`assert_no_hallucination`** (domains/llm/safety.py:278)
 ```python
 def assert_no_hallucination(claims: list[str], sources: list[str], method: str='lexical', min_coverage: float=0.3, embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
 ```
@@ -655,13 +655,13 @@ def assert_no_redundant_calls(trace: AgentTrace, max_repeat: int=2, ignore_tools
 ```
 > Assert no tool is called more than *max_repeat* times consecutively.
 
-**`assert_no_system_prompt_leakage`** (domains/llm/safety.py:491)
+**`assert_no_system_prompt_leakage`** (domains/llm/safety.py:492)
 ```python
 def assert_no_system_prompt_leakage(model_fn: Callable[[str], str], system_prompt: str, extraction_payloads: list[str] | None=None, min_overlap_threshold: float=0.3, method: str='lexical', embedding_model: str='all-mpnet-base-v2')
 ```
 > Assert that the model does not leak its system prompt.
 
-**`assert_no_toxicity`** (domains/llm/safety.py:55)
+**`assert_no_toxicity`** (domains/llm/safety.py:56)
 ```python
 def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str='regex', patterns: list[str] | None=None, classifier_threshold: float=0.5, classifier_model: str='unitary/toxic-bert', classifier_revision: str='4d6c22e74ba2fdd26bc4f7238f50766b045a0d94')
 ```
@@ -703,13 +703,13 @@ def assert_recall_at_k(relevant: list[set], retrieved: list[list], k: int=10, mi
 ```
 > Assert that mean Recall@K meets a minimum threshold.
 
-**`assert_refusal_consistency`** (domains/llm/safety.py:707)
+**`assert_refusal_consistency`** (domains/llm/safety.py:708)
 ```python
-def assert_refusal_consistency(model_fn: Callable[[str], str], unsafe_prompts: list[str], min_refusal_rate: float=0.9, refusal_patterns: list[str] | None=None)
+def assert_refusal_consistency(model_fn: Callable[[str], str], unsafe_prompts: list[str], min_refusal_rate: float=0.9, refusal_patterns: list[str] | None=None, on_empty: str='fail')
 ```
 > Assert that a model consistently refuses known-unsafe prompts.
 
-**`assert_safety_taxonomy`** (domains/llm/safety.py:802)
+**`assert_safety_taxonomy`** (domains/llm/safety.py:823)
 ```python
 def assert_safety_taxonomy(model_fn: Callable[[str], str], prompts_by_category: dict[str, list[str]], min_refusal_per_category: float=0.8, refusal_patterns: list[str] | None=None)
 ```
@@ -817,15 +817,15 @@ def assert_valid_json(text: str, *, severity: Severity=Severity.CRITICAL)
 ```
 > Assert that a string is valid JSON.
 
-**`assert_with_judge`** (domains/llm/judge_defaults.py:156)
+**`assert_with_judge`** (domains/llm/judge_defaults.py:162)
 ```python
-def assert_with_judge(assertion_name: str, text_a: str, text_b: str, judge_fn: Callable[[str, str], float] | None=None, fallback_method: str='lexical', min_score: float=0.5)
+def assert_with_judge(assertion_name: str, text_a: str, text_b: str, judge_fn: Callable[[str, str], float] | None=None, fallback_method: str='lexical', min_score: float=0.5, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
 > Generic judge-or-fallback assertion wrapper.
 
 ### llm.behavioral
 
-**`assert_directional_expectation`** (domains/llm/behavioral/semantic.py:209)
+**`assert_directional_expectation`** (domains/llm/behavioral/semantic.py:210)
 ```python
 def assert_directional_expectation(model_fn: Callable[[str], str], input_text: str, perturbation: Callable[[str], str], direction_fn: Callable[[str, str], bool], perturbation_name: str | None=None)
 ```
@@ -1121,7 +1121,7 @@ def assert_clip_score(image: ImageInput | None=None, text: str | None=None, imag
 ```
 > Assert that image-text CLIPScore meets a minimum threshold.
 
-**`assert_cross_modal_consistency`** (domains/multimodal/alignment.py:139)
+**`assert_cross_modal_consistency`** (domains/multimodal/alignment.py:141)
 ```python
 def assert_cross_modal_consistency(predictions_a: np.ndarray | list, predictions_b: np.ndarray | list, min_agreement: float=0.8)
 ```
@@ -1133,19 +1133,19 @@ def assert_edit_preservation(original: ImageInput, edited: ImageInput, method: s
 ```
 > Assert that an edited image preserves enough of the original.
 
-**`assert_image_coherence`** (domains/multimodal/alignment.py:349)
+**`assert_image_coherence`** (domains/multimodal/alignment.py:363)
 ```python
-def assert_image_coherence(text: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None)
+def assert_image_coherence(text: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
 > Assert that an image is coherent with surrounding text context.
 
-**`assert_image_helpfulness`** (domains/multimodal/vlm.py:44)
+**`assert_image_helpfulness`** (domains/multimodal/vlm.py:45)
 ```python
-def assert_image_helpfulness(question: str, image: ImageInput | None, answer: str, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None)
+def assert_image_helpfulness(question: str, image: ImageInput | None, answer: str, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
 > Assert that an image helps understand or answer a question.
 
-**`assert_image_text_alignment`** (domains/multimodal/alignment.py:53)
+**`assert_image_text_alignment`** (domains/multimodal/alignment.py:55)
 ```python
 def assert_image_text_alignment(image_embeddings: np.ndarray, text_embeddings: np.ndarray, min_cosine: float=0.5)
 ```
@@ -1157,21 +1157,21 @@ def assert_object_hallucination(vqa_fn: Callable[[str, ImageInput | None, str | 
 ```
 > Assert that a VLM does not hallucinate objects in an image.
 
-**`assert_ocr_accuracy`** (domains/multimodal/vlm.py:331)
+**`assert_ocr_accuracy`** (domains/multimodal/vlm.py:357)
 ```python
 def assert_ocr_accuracy(expected_text: str, actual_text: str, method: str='cer', threshold: float=0.1)
 ```
 > Assert that OCR output is accurate enough vs ground truth.
 
-**`assert_prompt_faithfulness`** (domains/multimodal/alignment.py:239)
+**`assert_prompt_faithfulness`** (domains/multimodal/alignment.py:241)
 ```python
-def assert_prompt_faithfulness(prompt: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None)
+def assert_prompt_faithfulness(prompt: str, image: ImageInput | None, judge_fn: Callable[[str], str], min_score: float=0.7, image_description: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
 > Assert that an image faithfully represents a text prompt.
 
-**`assert_vqa_accuracy`** (domains/multimodal/vlm.py:155)
+**`assert_vqa_accuracy`** (domains/multimodal/vlm.py:168)
 ```python
-def assert_vqa_accuracy(question: str, image: ImageInput | None, expected_answer: str, actual_answer: str, judge_fn: Callable[[str], str] | None=None, min_score: float=0.7, image_description: str | None=None)
+def assert_vqa_accuracy(question: str, image: ImageInput | None, expected_answer: str, actual_answer: str, judge_fn: Callable[[str], str] | None=None, min_score: float=0.7, image_description: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
 > Assert that a VQA answer is correct.
 
@@ -1250,6 +1250,12 @@ def assert_cost_within(usage: CostTracker | float, max_usd: float, *, severity: 
 def assert_no_secrets_in_image(image: str, *, adapter: TrivyAdapter | None=None)
 ```
 > Assert a container image contains no exposed secrets.
+
+**`assert_parity`** (parity/assertions.py:12)
+```python
+def assert_parity(report: ParityReport, *, fail_on_negative_flip: bool=False, artifacts: ArtifactPaths | None=None)
+```
+> Require a demonstrated passing gate; optionally reject every negative flip.
 
 **`assert_token_usage`** (cost/tracking.py:159)
 ```python
@@ -1520,7 +1526,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 
 ## MCP Tools (13)
 
-### `mltk_scan` (server.py:374)
+### `mltk_scan` (server.py:397)
 
 > Return findings from a JSON scan report or a static Python file listing.
 
@@ -1529,7 +1535,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | path | `str` | *required* |
 | scanners | `str` | `'all'` |
 
-### `mltk_test` (server.py:445)
+### `mltk_test` (server.py:473)
 
 > Run .py tests via pytest, or parse a YAML suite (no execution).
 
@@ -1538,7 +1544,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | suite_path | `str` | *required* |
 | verbose | `bool` | `False` |
 
-### `mltk_list` (server.py:543)
+### `mltk_list` (server.py:576)
 
 > List available mltk assertions for ML testing.
 
@@ -1547,7 +1553,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | filter_text | `str` | `''` |
 | domain | `str` | `''` |
 
-### `mltk_eval` (server.py:588)
+### `mltk_eval` (server.py:621)
 
 > Run a scorer-pipeline eval with an explicit model mode.
 
@@ -1559,7 +1565,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | model_mode | `str` | `'passthrough'` |
 | model_ref | `str` | `''` |
 
-### `mltk_dataset` (server.py:706)
+### `mltk_dataset` (server.py:744)
 
 > Get info about a registered evaluation dataset with quality metrics.
 
@@ -1568,7 +1574,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | name | `str` | *required* |
 | version | `str` | `''` |
 
-### `mltk_report` (server.py:759)
+### `mltk_report` (server.py:797)
 
 > Generate a formatted ML test report from scan or test results.
 
@@ -1578,7 +1584,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | description | `str` | `''` |
 | results_json | `str` | `''` |
 
-### `mltk_suggest` (server.py:832)
+### `mltk_suggest` (server.py:870)
 
 > Get fix suggestions already attached to a finding JSON.
 
@@ -1588,7 +1594,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | category | `str` | `''` |
 | max_results | `int` | `5` |
 
-### `mltk_experiment` (server.py:919)
+### `mltk_experiment` (server.py:957)
 
 > Rank fix suggestions for a finding using heuristic scoring.
 
@@ -1599,13 +1605,13 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_results | `int` | `5` |
 | sandbox | `bool` | `False` |
 
-### `mltk_workflow` (server.py:1068)
+### `mltk_workflow` (server.py:1109)
 
 > Return the canonical mltk agent workflow.
 
 *No parameters.*
 
-### `mltk_create_pr` (server.py:1118)
+### `mltk_create_pr` (server.py:1159)
 
 > Create a GitHub PR with a fix for a scan finding.
 
@@ -1617,7 +1623,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | base_branch | `str` | `'main'` |
 | draft | `bool` | `True` |
 
-### `mltk_create_issue` (server.py:1161)
+### `mltk_create_issue` (server.py:1202)
 
 > Create an issue ticket from a scan finding.
 
@@ -1629,7 +1635,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | config_json | `str` | `'{}'` |
 | pr_url | `str` | `''` |
 
-### `mltk_container_scan` (server.py:1200)
+### `mltk_container_scan` (server.py:1241)
 
 > Scan a container image for vulnerabilities and secrets using Trivy.
 
@@ -1639,7 +1645,7 @@ def assert_weight_divergence(weights_a: list[np.ndarray], weights_b: list[np.nda
 | max_critical | `int` | `0` |
 | max_high | `int` | `0` |
 
-### `mltk_import` (server.py:1260)
+### `mltk_import` (server.py:1301)
 
 > Import a dataset into an mltk pytest suite and eval dataset.
 
@@ -1669,10 +1675,10 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 | # | Command | Line | Description |
 |---|---------|------|-------------|
-| 1 | `mltk chat` | 676 | Interactive Q&A about test results. |
+| 1 | `mltk chat` | 680 | Interactive Q&A about test results. |
 | 2 | `mltk compliance` | 321 | Generate EU AI Act compliance report. |
-| 3 | `mltk compliance-gap` | 810 | Run compliance gap analysis across frameworks. |
-| 4 | `mltk compliance-pdf` | 794 | Convert HTML compliance report to print-ready PDF. |
+| 3 | `mltk compliance-gap` | 823 | Run compliance gap analysis across frameworks. |
+| 4 | `mltk compliance-pdf` | 807 | Convert HTML compliance report to print-ready PDF. |
 | 5 | `mltk container scan` | 33 | Scan a container image for vulnerabilities and secrets. |
 | 6 | `mltk contract generate-tests` | 405 | Generate pytest test file from a data contract. |
 | 7 | `mltk contract init` | 356 | Scaffold an example data contract YAML file. |
@@ -1682,22 +1688,22 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | 11 | `mltk docs serve` | 426 | Serve documentation locally with hot reload. |
 | 12 | `mltk doctor` | 208 | Diagnose ML testing environment. |
 | 13 | `mltk drift` | 123 | Compare two datasets for distribution drift. |
-| 14 | `mltk fda-audit` | 771 | Generate FDA 21 CFR Part 11 audit trail. |
-| 15 | `mltk grafana-export` | 1019 | Export a Grafana dashboard JSON for mltk metrics. |
-| 16 | `mltk import` | 673 | Import a dataset, preview mapping, build a suite, and emit pytest. |
+| 14 | `mltk fda-audit` | 784 | Generate FDA 21 CFR Part 11 audit trail. |
+| 15 | `mltk grafana-export` | 1032 | Export a Grafana dashboard JSON for mltk metrics. |
+| 16 | `mltk import` | 677 | Import a dataset, preview mapping, build a suite, and emit pytest. |
 | 17 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
-| 18 | `mltk list` | 1231 | List all available mltk assertions. |
+| 18 | `mltk list` | 1258 | List all available mltk assertions. |
 | 19 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
-| 20 | `mltk notify slack` | 601 | Send test results (or a custom message) to Slack. |
-| 21 | `mltk registry list` | 579 | List all collections in the registry. |
-| 22 | `mltk registry pull` | 564 | Pull a named collection from the registry into a local directory. |
+| 20 | `mltk notify slack` | 605 | Send test results (or a custom message) to Slack. |
+| 21 | `mltk registry list` | 583 | List all collections in the registry. |
+| 22 | `mltk registry pull` | 568 | Pull a named collection from the registry into a local directory. |
 | 23 | `mltk registry push` | 543 | Push a directory of test files to the registry as a named collection. |
 | 24 | `mltk scan` | 80 | Quick data quality scan on a CSV/Parquet file. |
-| 25 | `mltk scan-model` | 1044 | Scan a model for issues and generate tests. |
+| 25 | `mltk scan-model` | 1057 | Scan a model for issues and generate tests. |
 | 26 | `mltk score` | 191 | Show the ML Test Score rubric and how to generate scores. |
-| 27 | `mltk server` | 688 | Start the mltk server platform. |
-| 28 | `mltk server-backup` | 740 | Back up the server database (safe while the server is running). |
-| 29 | `mltk server-create-key` | 711 | Generate an API key for the mltk server. |
+| 27 | `mltk server` | 692 | Start the mltk server platform. |
+| 28 | `mltk server-backup` | 753 | Back up the server database (safe while the server is running). |
+| 29 | `mltk server-create-key` | 715 | Generate an API key for the mltk server. |
 | 30 | `mltk test` | 249 | Run YAML-defined test suite. |
 | 31 | `mltk version` | 35 | Show mltk version. |
 
@@ -1845,7 +1851,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | total_duration_ms | `float` | `0.0` |
 | metadata | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### `DatasetCard` (eval/dataset.py:125)
+### `DatasetCard` (eval/dataset.py:155)
 > Metadata card for an evaluation dataset.
 
 | Field | Type | Default |
@@ -1858,7 +1864,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | created | `str` | `''` |
 | author | `str` | `''` |
 
-### `EvalDataset` (eval/dataset.py:219)
+### `EvalDataset` (eval/dataset.py:249)
 > Versioned evaluation dataset with metadata card.
 
 | Field | Type | Default |
@@ -1869,7 +1875,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | card | `DatasetCard` | `field(default_factory=DatasetCard)` |
 | fingerprint | `str` | `''` |
 
-### `DatasetDiff` (eval/dataset.py:613)
+### `DatasetDiff` (eval/dataset.py:658)
 > Comparison between two dataset versions.
 
 | Field | Type | Default |
@@ -1882,7 +1888,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | schema_changes | `list[str]` |  |
 | suggested_bump | `str` |  |
 
-### `DatasetInfo` (eval/dataset.py:653)
+### `DatasetInfo` (eval/dataset.py:698)
 > Summary info for a registered dataset (for listing).
 
 | Field | Type | Default |
@@ -1986,7 +1992,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | n_features | `int` | `0` |
 | config | `ScanConfig` | `field(default_factory=ScanConfig)` |
 
-### `ScanEngine` (scan/engine.py:427)
+### `ScanEngine` (scan/engine.py:429)
 > Orchestrates scanners and produces a ScanReport.
 
 *(no dataclass fields)*
@@ -2039,6 +2045,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | test_mcp/ | src/mltk/mcp/ |
 | test_model/ | src/mltk/model/ |
 | test_monitor/ | src/mltk/monitor/ |
+| test_parity/ | src/mltk/parity/ |
 | test_pipeline/ | src/mltk/pipeline/ |
 | test_property/ | src/mltk/property/ |
 | test_pytest_plugin/ | src/mltk/pytest_plugin/ |

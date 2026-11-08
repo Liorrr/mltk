@@ -1,5 +1,7 @@
 # Versioned Evaluation Datasets
 
+See the [evaluation migration guide](../guides/adopter-migration.md) for stored-output scoring and compatibility changes.
+
 Attach metadata, version numbers, and integrity fingerprints to evaluation
 datasets — then store and retrieve them from a local registry that tracks
 the full version history and produces semantic diffs across releases.

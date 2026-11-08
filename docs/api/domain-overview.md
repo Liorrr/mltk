@@ -12,7 +12,7 @@ For the complete assertion-by-assertion index (every parameter, every module pat
 |-----------|-----------|--------|---------------|
 | [Data Quality](#data-quality) | 23 | `mltk.data.*` | Schema, nulls, range, drift, PII, lineage, synthetic data |
 | [Model Quality](#model-quality) | 15 | `mltk.model.*` | Metrics, regression, slicing, bias, adversarial, conformal, overfitting |
-| [LLM / GenAI](#llm--genai) | 30+ | `mltk.domains.llm.*` | Safety, RAG, agentic, judge, summarization, retrieval, long-context |
+| [LLM / GenAI](#llm-genai) | 30+ | `mltk.domains.llm.*` | Safety, RAG, agentic, judge, summarization, retrieval, long-context |
 | [NLP](#nlp) | 8 | `mltk.domains.nlp.*` | BLEU, ROUGE, chrF, NER, prompt injection, sentiment, robustness |
 | [Computer Vision](#computer-vision) | 9 | `mltk.domains.cv.*` | IoU, mAP, video, tracking, face recognition, top-K |
 | [Speech](#speech) | 4 | `mltk.domains.speech.*` | WER, CER, real-time factor, accent coverage |
@@ -26,7 +26,7 @@ For the complete assertion-by-assertion index (every parameter, every module pat
 | [MCP Evaluation](#mcp-evaluation) | 5 | `mltk.domains.llm.mcp` | Tool schema, tool selection, resource access, context window, error recovery |
 | [Observability](#observability) | 1 | `mltk.integrations.trace_quality` | Trace quality CI gate (Phoenix/Langfuse) |
 
-**Total: 244 assertions** across 15 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
+**Total: 245 assertions** across 15 domain kits, plus training, inference, monitoring, pipeline, and compliance modules.
 
 ---
 

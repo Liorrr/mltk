@@ -21,9 +21,15 @@ The user controls cost, latency, and model selection.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.error_policy import (
+    EVAL_ON_ERROR,
+    EvalOnError,
+    error_policy_verdict,
+    unknown_on_error_result,
+)
 from mltk.core.judge_parse import parse_judge_score
 from mltk.core.result import Severity, TestResult
 from mltk.core.validation import require_same_length
@@ -208,6 +214,10 @@ def assert_llm_judge_score(
     min_score: float = 3.0,
     max_score: float = 5.0,
     rubric: str | None = None,
+    *,
+    reasoning_delimiters: Sequence[tuple[str, str]] = (),
+    legacy_parse: bool = False,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert that LLM responses meet a minimum quality score via judge evaluation.
 
@@ -222,9 +232,11 @@ def assert_llm_judge_score(
     with any LLM backend (OpenAI, Anthropic, Ollama, vLLM, etc.).
 
     If ``judge_fn`` returns a string instead of a float, mltk will
-    attempt to parse the first numeric value from the string.  If
-    ``judge_fn`` raises an exception for a particular item, that item
-    is recorded with a score of 0.0 and an error flag.
+    parse an explicit score after removing reasoning. Errors are excluded
+    from the mean; all errors fail. ``on_error="strict"`` fails on any error;
+    ``on_error="zero"`` restores zero filling. ``legacy_parse=True`` restores
+    first-number parsing. ``reasoning_delimiters`` adds (start, end) pairs.
+    Fraction denominators must match ``max_score`` in strict parsing mode.
 
     Args:
         judge_fn: Callable that takes a formatted evaluation prompt and
@@ -254,6 +266,8 @@ def assert_llm_judge_score(
         ...     min_score=3.0,
         ... )
     """
+    if on_error not in EVAL_ON_ERROR:
+        return unknown_on_error_result("llm.judge.score", on_error, EVAL_ON_ERROR)
     require_same_length(
         "assert_llm_judge_score",
         prompts=prompts,
@@ -273,6 +287,7 @@ def assert_llm_judge_score(
     per_item_scores: list[dict[str, object]] = []
     total_score = 0.0
     scores_below_min = 0
+    errored_count = 0
 
     for prompt, response in zip(prompts, responses, strict=True):
         eval_prompt = format_judge_prompt(
@@ -288,44 +303,57 @@ def assert_llm_judge_score(
 
         try:
             raw = judge_fn(eval_prompt)
-            if isinstance(raw, (int, float)):
-                score = float(raw)
-            else:
-                score = _parse_score(str(raw))
+            score = _parse_score(
+                raw, reasoning_delimiters=reasoning_delimiters,
+                legacy=legacy_parse, expected_max_score=max_score,
+            )
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
 
         if score is None:
-            score = 0.0
+            errored_count += 1
+            if on_error == "zero":
+                score = 0.0
             if error is None:
                 error = "Could not parse numeric score from judge"
 
-        total_score += score
-        if score < min_score:
+        if score is not None:
+            total_score += score
+        if score is not None and score < min_score:
             scores_below_min += 1
 
-        item: dict[str, object] = {"score": round(score, 4)}
+        item: dict[str, object] = {
+            "score": round(score, 4) if score is not None else None,
+            "errored": error is not None,
+        }
         if error is not None:
             item["error"] = error
         per_item_scores.append(item)
 
     n_items = len(prompts)
-    avg_score = total_score / n_items
+    n_valid = n_items - errored_count
+    denominator = n_items if on_error == "zero" else n_valid
+    avg_score = total_score / denominator if denominator else None
 
-    passed = avg_score >= min_score
+    passed = avg_score is not None and avg_score >= min_score
+    display_score = f"{avg_score:.4f}" if avg_score is not None else "No score"
 
     message = (
-        f"Judge score ({criterion}): {avg_score:.4f} >= "
+        f"Judge score ({criterion}): {display_score} >= "
         f"{min_score} ({n_items} items)"
         if passed
-        else f"Judge score too low ({criterion}): {avg_score:.4f} < "
+        else f"Judge score too low ({criterion}): {display_score} < "
         f"{min_score} ({scores_below_min}/{n_items} below threshold)"
     )
 
+    if error_policy_verdict(on_error, errored_count, n_items):
+        passed = False
+        message = f"Judge errors: {errored_count}/{n_items}; {message}"
     return assert_true(
         passed, name="llm.judge.score", message=message,
         severity=Severity.CRITICAL,
-        avg_score=round(avg_score, 4),
+        avg_score=round(avg_score, 4) if avg_score is not None else None,
+        errored_count=errored_count, n_valid=n_valid, on_error=on_error,
         min_score=min_score,
         per_item_scores=per_item_scores,
         criterion=criterion,

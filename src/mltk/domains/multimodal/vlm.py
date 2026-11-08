@@ -19,15 +19,16 @@ mltk builds the evaluation prompt; the user owns the LLM call.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.error_policy import EvalOnError
 from mltk.core.result import Severity, TestResult
 from mltk.domains.multimodal._image import (
     ImageInput,
     _build_image_prompt,
 )
-from mltk.domains.multimodal._scoring import _parse_score
+from mltk.domains.multimodal._scoring import _judge_error_result, _parse_score
 
 __all__ = [
     "assert_image_helpfulness",
@@ -48,6 +49,10 @@ def assert_image_helpfulness(
     judge_fn: Callable[[str], str],
     min_score: float = 0.7,
     image_description: str | None = None,
+    *,
+    reasoning_delimiters: Sequence[tuple[str, str]] = (),
+    legacy_parse: bool = False,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert that an image helps understand or answer a question.
 
@@ -119,10 +124,18 @@ def assert_image_helpfulness(
 
     try:
         raw = judge_fn(prompt)
-        score = _parse_score(str(raw))
+        score = _parse_score(
+            raw, reasoning_delimiters=reasoning_delimiters,
+            legacy=legacy_parse, expected_max_score=1.0,
+        )
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
+    failure = _judge_error_result(
+        "multimodal.vlm.image_helpfulness", score, error, on_error,
+    )
+    if failure is not None:
+        return failure
     if score is None:
         score = 0.0
         if error is None:
@@ -160,6 +173,10 @@ def assert_vqa_accuracy(
     judge_fn: Callable[[str], str] | None = None,
     min_score: float = 0.7,
     image_description: str | None = None,
+    *,
+    reasoning_delimiters: Sequence[tuple[str, str]] = (),
+    legacy_parse: bool = False,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert that a VQA answer is correct.
 
@@ -242,7 +259,10 @@ def assert_vqa_accuracy(
 
         try:
             raw = judge_fn(prompt)
-            score = _parse_score(str(raw))
+            score = _parse_score(
+                raw, reasoning_delimiters=reasoning_delimiters,
+                legacy=legacy_parse, expected_max_score=1.0,
+            )
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
     else:
@@ -258,6 +278,12 @@ def assert_vqa_accuracy(
 
     passed = score >= min_score
 
+    failure = _judge_error_result(
+        "multimodal.vlm.vqa_accuracy",
+        score if error is None else None, error, on_error,
+    )
+    if failure is not None:
+        return failure
     message = (
         f"VQA accuracy ({method}): {score:.4f} >= "
         f"{min_score}"

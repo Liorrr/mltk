@@ -70,7 +70,7 @@ import csv
 import json
 import numbers
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -213,6 +213,57 @@ class EvalTask:
             EvalResult with per-sample scores and aggregated
             metrics (accuracy and mean per scorer).
         """
+        def prepare(sample: EvalSample) -> tuple[EvalState, str | None]:
+            state = EvalState(sample=sample)
+            for solver in self._solvers:
+                if state.completed:
+                    break
+                state = solver.solve(state, model_fn)
+            return state, None
+
+        return self._evaluate(prepare)
+
+    def score(self, outputs: Mapping[str, str]) -> EvalResult:
+        """Score stored outputs keyed by explicit, unique sample IDs.
+
+        Never invokes solvers or generation. Every sample must have a
+        non-empty string ``sample_id``; missing/duplicate IDs and unknown
+        output keys raise ValueError before scoring. Missing outputs or
+        non-string output values produce an errored score for each scorer
+        on that sample. An empty string is a valid output. Dataset order
+        is preserved. Scorers receive the sample and output, with no
+        generated messages or solver metadata.
+        """
+        if not isinstance(outputs, Mapping):
+            raise TypeError("outputs must be a mapping of sample IDs to strings")
+        ids: set[str] = set()
+        for sample in self._dataset:
+            sample_id = sample.sample_id
+            if not isinstance(sample_id, str) or not sample_id.strip():
+                raise ValueError("score() requires a non-empty string sample_id")
+            if sample_id in ids:
+                raise ValueError(f"Duplicate sample_id: {sample_id!r}")
+            ids.add(sample_id)
+        if any(key not in ids for key in outputs):
+            raise ValueError("outputs contains unknown sample IDs")
+
+        def prepare(sample: EvalSample) -> tuple[EvalState, str | None]:
+            state = EvalState(sample=sample)
+            if sample.sample_id not in outputs:
+                return state, f"Missing stored output for sample_id {sample.sample_id!r}"
+            output = outputs[sample.sample_id]
+            if not isinstance(output, str):
+                return state, f"Stored output for sample_id {sample.sample_id!r} must be a string"
+            state.output = output
+            return state, None
+
+        return self._evaluate(prepare)
+
+    def _evaluate(
+        self,
+        prepare: Callable[[EvalSample], tuple[EvalState, str | None]],
+    ) -> EvalResult:
+        """Share scorer invocation and error accounting for live/stored runs."""
         start = time.perf_counter()
 
         states: list[EvalState] = []
@@ -221,19 +272,19 @@ class EvalTask:
         }
 
         for sample in self._dataset:
-            # 1. Create state from sample
-            state = EvalState(sample=sample)
-
-            # 2. Run solver pipeline
-            for solver in self._solvers:
-                if state.completed:
-                    break
-                state = solver.solve(state, model_fn)
-
+            state, output_error = prepare(sample)
             states.append(state)
 
             # 3. Run all scorers on the final state
             for scorer in self._scorers:
+                if output_error is not None:
+                    all_scores[scorer.name].append(Score(
+                        value=0.0,
+                        errored=True,
+                        explanation=output_error,
+                        metadata={"error": output_error, "sample_id": sample.sample_id},
+                    ))
+                    continue
                 try:
                     score = scorer.score(state)
                 except Exception as exc:
@@ -326,11 +377,12 @@ class EvalTask:
 
     def to_test_result(
         self,
-        model_fn: Callable[[str], str],
+        model_fn: Callable[[str], str] | None = None,
         min_accuracy: float = 0.8,
         *,
         on_error: EvalOnError = "fail_if_all",
         min_valid_fraction: float | None = None,
+        outputs: Mapping[str, str] | None = None,
     ) -> TestResult:
         """Run evaluation and convert to mltk TestResult.
 
@@ -347,7 +399,11 @@ class EvalTask:
 
         Args:
             model_fn: Callable that sends a prompt to the
-                model and returns the response string.
+                model and returns the response string. Supply exactly one
+                of ``model_fn`` and ``outputs``.
+            outputs: Stored outputs by sample ID; uses :meth:`score` without
+                invoking solvers. All error and validity gates are identical
+                to live evaluation.
             min_accuracy: Minimum accuracy threshold for
                 any scorer. Default 0.8 (80%).
             on_error: ``"fail_if_all"`` fails only when every sample for a
@@ -384,7 +440,9 @@ class EvalTask:
         ):
             raise ValueError("min_valid_fraction must be a real number in (0, 1]")
 
-        eval_result = self.run(model_fn)
+        if (model_fn is None) == (outputs is None):
+            raise ValueError("Supply exactly one of model_fn and outputs")
+        eval_result = self.score(outputs) if outputs is not None else self.run(model_fn)
 
         gate_metrics = eval_result.metrics
         if on_error == "zero":
@@ -582,7 +640,7 @@ def _load_csv(
                 f"Found: {list(reader.fieldnames)}"
             )
 
-        reserved = {input_column, target_column}
+        reserved = {input_column, target_column, "sample_id"}
 
         for row in reader:
             input_val = row.get(input_column, "")
@@ -604,6 +662,7 @@ def _load_csv(
                     input=input_val,
                     target=target_val,
                     metadata=metadata,
+                    sample_id=row.get("sample_id") or None,
                 )
             )
 
@@ -641,7 +700,7 @@ def _load_json(
         )
 
     samples: list[EvalSample] = []
-    reserved = {input_column, target_column}
+    reserved = {input_column, target_column, "sample_id"}
 
     for i, obj in enumerate(data):
         if not isinstance(obj, dict):
@@ -675,6 +734,7 @@ def _load_json(
                 input=input_val,
                 target=target_val,
                 metadata=metadata,
+                sample_id=obj.get("sample_id"),
             )
         )
 
