@@ -264,7 +264,10 @@ def _load_onnx(
         results = session.run(
             output_names, {input_name: X_float}
         )
-        return _to_labels(np.asarray(results[0]))
+        raw = np.asarray(results[0])
+        # Outputs with 3+ dimensions are returned as before: flattening them
+        # would no longer line up with the input rows.
+        return _to_labels(raw) if raw.ndim <= 2 else raw
 
     proba_fn: Callable[..., np.ndarray] | None = None
     if len(output_names) >= 2:

@@ -62,21 +62,10 @@ def assert_no_training_serving_skew(
     train_arr = np.asarray(train_output, dtype=float)
     serve_arr = np.asarray(serve_output, dtype=float)
 
-    if train_arr.shape != serve_arr.shape:
-        return assert_true(
-            False, name="training.serving_skew",
-            message=(
-                f"Shape mismatch: train={train_arr.shape} vs serve={serve_arr.shape}"
-            ),
-            severity=Severity.CRITICAL,
-            train_shape=list(train_arr.shape),
-            serve_shape=list(serve_arr.shape),
-        )
-
-    train_arr = train_arr.ravel()
-    serve_arr = serve_arr.ravel()
-
-    if train_arr.size == 0:
+    # The empty-input policy runs before the shape check: two empty outputs
+    # (e.g. shapes (0, 3) and (0,)) are "empty", not a shape mismatch, which is
+    # also what the pre-``on_empty`` code returned for them.
+    if train_arr.size == 0 and serve_arr.size == 0:
         return empty_input_result(
             name="training.serving_skew",
             reason="both outputs are empty",
@@ -91,6 +80,20 @@ def assert_no_training_serving_skew(
             num_skewed=0,
             num_elements=0,
         )
+
+    if train_arr.shape != serve_arr.shape:
+        return assert_true(
+            False, name="training.serving_skew",
+            message=(
+                f"Shape mismatch: train={train_arr.shape} vs serve={serve_arr.shape}"
+            ),
+            severity=Severity.CRITICAL,
+            train_shape=list(train_arr.shape),
+            serve_shape=list(serve_arr.shape),
+        )
+
+    train_arr = train_arr.ravel()
+    serve_arr = serve_arr.ravel()
 
     abs_diff = np.abs(train_arr - serve_arr)
     max_diff = float(abs_diff.max()) if abs_diff.size > 0 else 0.0

@@ -109,6 +109,25 @@ def _make_identity_model(path) -> None:
     onnx.save(model, str(path))
 
 
+def test_three_dimensional_output_is_returned_unchanged(tmp_path) -> None:
+    """Outputs with 3+ dims keep their shape (flattening breaks row alignment)."""
+    onnx = pytest.importorskip("onnx")
+    from onnx import TensorProto, helper
+
+    X = helper.make_tensor_value_info("X", TensorProto.FLOAT, [None, 2, 2])
+    Y = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [None, 2, 2])
+    graph = helper.make_graph([helper.make_node("Identity", ["X"], ["Y"])], "cube", [X], [Y])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_opsetid("", 13)], ir_version=8
+    )
+    path = tmp_path / "cube.onnx"
+    onnx.save(model, str(path))
+    loaded = _load(path)
+    X_in = np.arange(8, dtype=np.float32).reshape(2, 2, 2)
+
+    np.testing.assert_array_equal(loaded.predict_fn(X_in), X_in)
+
+
 def test_single_output_symbolic_last_dimension_has_no_probabilities(tmp_path) -> None:
     path = tmp_path / "symbolic.onnx"
     _make_identity_model(path)

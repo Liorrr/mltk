@@ -125,6 +125,31 @@ class TestNoTrainingServingSkew:
         assert exc.value.result.details["train_shape"] == [4]
         assert exc.value.result.details["serve_shape"] == [4, 1]
 
+    def test_empty_outputs_with_different_shapes_follow_on_empty(self) -> None:
+        # SCENARIO: both outputs are empty but shaped (0, 3) and (0,)
+        # WHY: The empty-input policy must apply before the shape check, and
+        #      on_empty="pass" must still give the pre-on_empty result
+        # EXPECTED: default fails as empty (not as a shape mismatch);
+        #           "pass" returns the legacy result; "skip" skips
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_training_serving_skew(np.empty((0, 3)), [])
+        assert "empty input" in str(exc.value).lower()
+        legacy = assert_no_training_serving_skew(np.empty((0, 3)), [], on_empty="pass")
+        assert legacy.passed is True
+        assert legacy.message == (
+            "No skew detected: max_diff=0.000000 <= tolerance=0.01 (0 elements)"
+        )
+        skipped = assert_no_training_serving_skew(np.empty((0, 3)), [], on_empty="skip")
+        assert skipped.details["skipped"] is True
+
+    def test_one_empty_output_is_a_shape_mismatch(self) -> None:
+        # SCENARIO: only one side is empty
+        # WHY: Mirror of the empty policy -- it must not swallow a one-sided gap
+        # EXPECTED: shape-mismatch failure even with on_empty="pass"
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_no_training_serving_skew([], [1.0], on_empty="pass")
+        assert "shape" in str(exc.value).lower()
+
     def test_empty_inputs_fail_by_default(self) -> None:
         # SCENARIO: both outputs are empty with the same shape
         # WHY: No observations cannot establish absence of training-serving skew
