@@ -65,7 +65,7 @@ def assert_onnx_valid(
         return assert_true(
             False,
             name="pipeline.onnx_valid",
-            message="onnxruntime not installed -- pip install onnxruntime",
+            message='onnxruntime not installed -- pip install "mlspec[onnx]"',
             severity=severity,
         )
 

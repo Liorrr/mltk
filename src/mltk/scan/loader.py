@@ -252,7 +252,7 @@ def _load_onnx(
     except ImportError as exc:
         raise ImportError(
             "onnxruntime is required to load ONNX models.  "
-            "Install it with: pip install onnxruntime"
+            "Install it with: pip install \"mlspec[onnx]\""
         ) from exc
 
     session = ort.InferenceSession(str(path))
@@ -264,7 +264,10 @@ def _load_onnx(
         results = session.run(
             output_names, {input_name: X_float}
         )
-        return np.asarray(results[0])
+        raw = np.asarray(results[0])
+        # Outputs with 3+ dimensions are returned as before: flattening them
+        # would no longer line up with the input rows.
+        return _to_labels(raw) if raw.ndim <= 2 else raw
 
     proba_fn: Callable[..., np.ndarray] | None = None
     if len(output_names) >= 2:
@@ -277,6 +280,22 @@ def _load_onnx(
             return _maybe_softmax(raw, output_type)
 
         proba_fn = _proba
+    elif len(output_names) == 1:
+        output_shape = session.get_outputs()[0].shape
+        if (
+            len(output_shape) == 2
+            and isinstance(output_shape[-1], int)
+            and output_shape[-1] > 1
+        ):
+            def _proba(X: np.ndarray) -> np.ndarray:
+                X_float = np.asarray(X, dtype=np.float32)
+                results = session.run(
+                    output_names, {input_name: X_float}
+                )
+                raw = np.asarray(results[0])
+                return _maybe_softmax(raw, output_type)
+
+            proba_fn = _proba
 
     return LoadedModel(predict_fn, proba_fn, session, fmt, path)
 
@@ -315,9 +334,7 @@ def _load_torch(
         with torch.no_grad():
             output = model(X_tensor)
         raw = output.cpu().numpy()
-        if raw.ndim == 2 and raw.shape[1] > 1:
-            return np.argmax(raw, axis=1)
-        return raw.ravel()
+        return _to_labels(raw)
 
     def proba_fn(X: np.ndarray) -> np.ndarray:
         X_tensor = torch.as_tensor(
@@ -356,9 +373,7 @@ def _load_keras(
     def predict_fn(X: np.ndarray) -> np.ndarray:
         X_float = np.asarray(X, dtype=np.float32)
         raw = np.asarray(model.predict(X_float, verbose=0))
-        if raw.ndim == 2 and raw.shape[1] > 1:
-            return np.argmax(raw, axis=1)
-        return raw.ravel()
+        return _to_labels(raw)
 
     def proba_fn(X: np.ndarray) -> np.ndarray:
         X_float = np.asarray(X, dtype=np.float32)
@@ -371,6 +386,13 @@ def _load_keras(
 # -------------------------------------------------------------------
 # Shared helpers
 # -------------------------------------------------------------------
+
+def _to_labels(raw: np.ndarray) -> np.ndarray:
+    """Reduce a 2-D score matrix to labels with argmax; flatten any other output."""
+    if raw.ndim == 2 and raw.shape[1] > 1:
+        return np.argmax(raw, axis=1)
+    return raw.ravel()
+
 
 def _extract_predict(
     model: object,

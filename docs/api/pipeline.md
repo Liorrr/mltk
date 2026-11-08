@@ -155,6 +155,8 @@ def test_pipeline_output_type():
 
 Assert an ONNX model loads, accepts input, and produces expected output. Validates export integrity by loading the model into an onnxruntime session, running inference, and optionally comparing output to expected values within tolerance.
 
+Install the optional dependency with `pip install "mlspec[onnx]"`.
+
 ```python
 from mltk.pipeline import assert_onnx_valid
 import numpy as np

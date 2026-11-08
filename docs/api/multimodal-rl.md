@@ -103,6 +103,9 @@ Returns `TestResult` (name: `domains.multimodal.image_text_alignment`) with deta
 
 Assert that predictions from two modalities agree on the same content.
 
+Predictions with different lengths raise `ValueError` because each prediction
+must have a corresponding prediction from the other modality.
+
 **Module:** `mltk.domains.multimodal`
 
 ### Why This Matters
@@ -164,7 +167,7 @@ result = assert_cross_modal_consistency(
 | `predictions_b` | `np.ndarray \| list` | *(required)* | Predictions from modality B (same length) |
 | `min_agreement` | `float` | `0.8` | Minimum fraction of samples that must agree |
 
-Returns `TestResult` (name: `domains.multimodal.cross_modal_consistency`) with details:
+Returns `TestResult` (name: `multimodal.cross_modal_consistency`) with details:
 
 | Detail Key | Type | Description |
 |------------|------|-------------|

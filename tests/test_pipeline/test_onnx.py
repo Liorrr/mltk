@@ -34,7 +34,13 @@ def _create_simple_onnx_model(path, input_dim: int = 10):
 
     matmul = helper.make_node("MatMul", ["X", "W"], ["Y"])
     graph = helper.make_graph([matmul], "test_model", [X], [Y], [weight])
-    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model = helper.make_model(
+        graph,
+        opset_imports=[helper.make_opsetid("", 13)],
+        # Pin the IR version: newer onnx releases write IR versions that older
+        # onnxruntime builds refuse. IR 8 pairs with opset 13 and loads everywhere.
+        ir_version=8,
+    )
     onnx.save(model, str(path))
 
 
