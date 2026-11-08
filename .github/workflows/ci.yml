@@ -53,7 +53,9 @@ jobs:
       # tests/test_cli/test_container.py, tests/test_server/*, and others;
       # report (jinja2/plotly) and multimodal (Pillow/scikit-image) back
       # tests that hard-fail (not skip) when those deps are absent.
-      - run: pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal]"
+      # The onnx extra (onnxruntime) backs the ONNX tests; the separate `onnx`
+      # package is installed only so tests can build small models.
+      - run: pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx]" onnx
       # No coverage fail-under gate yet: the threshold has never been
       # calibrated against this (optional-deps-subset) CI environment.
       - run: pytest --cov=mltk --cov-report=xml -q

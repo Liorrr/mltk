@@ -546,11 +546,13 @@ mltk scan-model [OPTIONS]
 |-----------|--------|------------------|
 | `.pkl`, `.pickle` | pickle | `joblib` |
 | `.joblib` | joblib | `joblib` |
-| `.onnx` | ONNX | `onnxruntime` |
+| `.onnx` | ONNX | `onnxruntime` (`pip install "mlspec[onnx]"`) |
 | `.pt`, `.pth` | PyTorch | `torch` |
 | `.h5`, `.hdf5`, `.keras` | Keras | `tensorflow` or `keras` |
 
 Pickle, joblib, and PyTorch formats can run code while loading and are refused by default. Pass `--allow-pickle` to `scan-model`, pass `allow_pickle=True` to `load_model()` or `ScanReport.to_test_file()`, or set `MLTK_ALLOW_PICKLE=1` (case-insensitive values `true`, `yes`, and `on` are also accepted). The refusal is reported as `PickleNotAllowedError`. ONNX and Keras formats load without this flag.
+
+ONNX models whose first output is a score matrix return labels via argmax, like PyTorch and Keras.
 
 ### Examples
 
