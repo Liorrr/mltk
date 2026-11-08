@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from tests.test_parity.test_harness import change, compare, entry, synthetic_runs
 
 from mltk.parity import harness
 from mltk.parity.models import LayerSpec
+
+from .test_harness import change, compare, entry, synthetic_runs
 
 
 @pytest.mark.parametrize("role", ["verdict", "precondition"])

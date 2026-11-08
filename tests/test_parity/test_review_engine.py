@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import pytest
-from tests.test_parity.test_engine import flip, product, synthetic
 
 from mltk.parity.control import check_positive_control, make_positive_control
 from mltk.parity.engine import compare_product, compare_runs
 from mltk.parity.models import LayerSpec, Manifest, ParityConfig
+
+from .test_engine import flip, product, synthetic
 
 
 @pytest.mark.parametrize("missing", ["record", "failed", "indeterminate", "source"])
