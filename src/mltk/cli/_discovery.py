@@ -33,6 +33,7 @@ _CATEGORY_LABELS: dict[str, str] = {
     "pipeline": "Pipeline",
     "training": "Training",
     "testing": "Testing",
+    "parity": "Parity",
 }
 
 # Ordered list of subpackage dotted paths to scan, relative to ``mltk.``.
@@ -60,6 +61,7 @@ _SCAN_TARGETS: list[str] = [
     "mltk.pipeline",
     "mltk.training",
     "mltk.testing",
+    "mltk.parity",
     "mltk.compliance",
 ]
 

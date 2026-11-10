@@ -1,5 +1,7 @@
 # Solver/Scorer Evaluation Pipeline
 
+See the [evaluation migration guide](../guides/adopter-migration.md) for stored-output scoring and compatibility changes.
+
 Compose evaluation pipelines that cleanly separate *how to prompt* from
 *how to grade* — then run them natively inside pytest with zero extra
 dependencies.
@@ -393,7 +395,7 @@ appends the user/assistant exchange to `state.messages`.
     When using `ChainOfThoughtSolver`, the model's output contains both
     reasoning and the final answer. Use `PatternScorer` to extract the
     final answer before comparing to the target. See the
-    [Math Reasoning example](#math-reasoning-cot--patternscorer) below.
+    [Math Reasoning example](#math-reasoning-cot-patternscorer) below.
 
 **When to use:** Multi-step problems — arithmetic, algebra, logic puzzles,
 multi-hop QA. CoT reliably improves accuracy by 10–30% on reasoning tasks.
@@ -898,7 +900,14 @@ samples = load_dataset("data.json")
 
 `load_dataset` uses only Python stdlib (`csv`, `json`) — no pandas
 required. It automatically maps any columns not named `input_column` or
-`target_column` to `EvalSample.metadata`.
+`target_column` or the chosen `id_column` to `EvalSample.metadata`.
+By default `id_column="sample_id"` extracts identity into `EvalSample.sample_id`;
+use a custom column/key name as needed. This changes metadata and ID-bearing
+fingerprints for files that already contained that field. Pass `id_column=None`
+to restore the previous metadata and input/target-only fingerprint when samples
+are wrapped in `EvalDataset`. Non-string selected JSON IDs raise `ValueError`;
+missing/null/empty IDs become `None`. Disabled extraction preserves arbitrary
+metadata values.
 
 ### CSV format
 

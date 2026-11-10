@@ -1,5 +1,7 @@
 # Versioned Evaluation Datasets
 
+See the [evaluation migration guide](../guides/adopter-migration.md) for stored-output scoring and compatibility changes.
+
 Attach metadata, version numbers, and integrity fingerprints to evaluation
 datasets — then store and retrieve them from a local registry that tracks
 the full version history and produces semantic diffs across releases.
@@ -260,14 +262,14 @@ print(dataset.categories)        # {"europe", "asia", "americas", ...}
 Three class methods construct an `EvalDataset` from common data sources:
 
 ```python
-# From a CSV file — columns: input, target, and any metadata columns
+# From CSV — inputs, targets, optional identity, and metadata columns
 dataset = EvalDataset.from_csv(
     path="data/geography.csv",
     name="geography-qa",
     version="1.0.0",
-    card=card,
     input_column="question",    # default: "input"
     target_column="answer",     # default: "target"
+    id_column="sample_id",      # None restores legacy metadata/fingerprint
 )
 
 # From a JSON file — list of {"input": ..., "target": ..., ...} dicts
@@ -275,27 +277,25 @@ dataset = EvalDataset.from_json(
     path="data/geography.json",
     name="geography-qa",
     version="1.0.0",
-    card=card,
+    id_column="sample_id",      # also supports a custom JSON key
 )
 
-# From an existing list of dicts
-records = [
-    {"input": "Capital of France?", "target": "Paris",
-     "category": "europe"},
-    {"input": "Capital of Japan?",  "target": "Tokyo",
-     "category": "asia"},
-]
-dataset = EvalDataset.from_dict(
-    records=records,
-    name="geography-qa",
-    version="1.0.0",
-    card=card,
-)
+# Reconstruct the serialized dataset, including its card and identities
+restored = EvalDataset.from_dict(dataset.to_dict())
+assert restored.fingerprint == dataset.fingerprint
 ```
 
-All three factories call `EvalSample` for each record and auto-compute
-the fingerprint. Any column that is not `input_column` or `target_column`
-is mapped into `EvalSample.metadata`.
+The CSV/JSON factories construct `EvalSample` records and compute a fingerprint.
+By default they extract `sample_id` into the sample's identity field, excluding
+it from metadata and including it in the fingerprint. Remaining non-input/target
+fields become metadata. `from_dict` restores the serialized dataset structure.
+
+The keyword-only `id_column` option also accepts a custom column/key name.
+**For files with an existing `sample_id` metadata field, use `id_column=None`
+to restore the previous metadata and input/target-only fingerprint.** Missing,
+null and empty IDs become `None`; selected non-string JSON IDs raise `ValueError`
+with record/field context. When extraction is disabled, arbitrary ID values stay
+in metadata. `load_dataset` exposes the same option for plain sample lists.
 
 ---
 

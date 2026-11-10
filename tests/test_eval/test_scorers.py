@@ -18,6 +18,55 @@ from mltk.eval.scorers import (
 # ---------------------------------------------------------------
 
 
+@pytest.mark.parametrize("reply", [
+    '{"reasoning_steps": 3, "score": 4}',
+    '```json\n{"reasoning_steps": 3, "score": 4}\n```',
+    'I checked 3 claims; overall score: 4/5',
+    '<think>2 sources; 1 unsupported claim, maybe 3 of 5.</think>\n{"score": 4}',
+])
+def test_judge_requirement_replies(reply):
+    result = LLMJudgeScorer(lambda _: reply).score(_make_state("answer"))
+    assert not result.errored
+    assert result.value == 0.8
+
+
+def test_judge_ambiguous_reply_errors_with_explicit_legacy_opt_out():
+    reply = "There are 3 issues and 2 strengths."
+    strict = LLMJudgeScorer(lambda _: reply).score(_make_state())
+    assert strict.errored
+    assert "error" in strict.metadata
+    legacy = LLMJudgeScorer(lambda _: reply, legacy_parse=True).score(_make_state())
+    assert not legacy.errored
+    assert legacy.value == 0.6
+
+
+def test_judge_custom_delimiters_and_static_parser_compatibility():
+    reply = '[reason]score: 1[/reason] score: 4'
+    result = LLMJudgeScorer(
+        lambda _: reply, reasoning_delimiters=[("[reason]", "[/reason]")],
+    ).score(_make_state())
+    assert not result.errored
+    assert result.value == 0.8
+    assert LLMJudgeScorer._parse_score("4/5") == 4.0
+    assert LLMJudgeScorer._parse_score("3 issues", legacy_parse=True) == 3.0
+    assert LLMJudgeScorer._parse_score(
+        reply, reasoning_delimiters=[("[reason]", "[/reason]")],
+    ) == 4.0
+
+
+@pytest.mark.parametrize("reply", ["4/10", "score: 4/10"])
+def test_judge_fraction_scale_mismatch_errors(reply):
+    assert LLMJudgeScorer(lambda _: reply, max_score=5).score(_make_state()).errored
+    matching = LLMJudgeScorer(lambda _: reply, max_score=10).score(_make_state())
+    assert not matching.errored
+    assert matching.value == 0.4
+    legacy = LLMJudgeScorer(
+        lambda _: reply, max_score=5, legacy_parse=True,
+    ).score(_make_state())
+    assert not legacy.errored
+    assert legacy.value == 0.8
+
+
 def _make_state(
     output: str = "",
     target: str | None = "4",

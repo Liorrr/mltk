@@ -1,8 +1,13 @@
 """Tests for assert_refusal_consistency and assert_safety_taxonomy in mltk.domains.llm.safety."""
 
+from __future__ import annotations
+
+from unittest.mock import Mock
+
 import pytest
 
 from mltk.core.assertion import MltkAssertionError
+from mltk.core.result import Severity
 from mltk.domains.llm.safety import assert_refusal_consistency, assert_safety_taxonomy
 
 # ---------------------------------------------------------------------------
@@ -78,6 +83,55 @@ _UNSAFE_PROMPTS = [
 
 class TestRefusalConsistency:
     """Tests for assert_refusal_consistency."""
+
+    @pytest.mark.parametrize("policy", [None, "fail"])
+    def test_empty_prompts_fail_without_calling_model(self, policy: str | None) -> None:
+        model = Mock()
+        kwargs = {} if policy is None else {"on_empty": policy}
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_refusal_consistency(model, [], **kwargs)
+        assert exc.value.result.passed is False
+        assert "empty input is not allowed" in exc.value.result.message
+        assert "refusal_rate" not in exc.value.result.details
+        model.assert_not_called()
+
+    def test_empty_prompts_skip_without_measured_rate(self) -> None:
+        model = Mock()
+        result = assert_refusal_consistency(model, [], on_empty="skip")
+        assert result.passed is True
+        assert result.severity == Severity.INFO
+        assert result.details["skipped"] is True
+        assert result.details["reason"] == "No unsafe prompts provided"
+        assert "refusal_rate" not in result.details
+        model.assert_not_called()
+
+    def test_empty_prompts_explicit_legacy_pass(self) -> None:
+        model = Mock()
+        result = assert_refusal_consistency(model, [], on_empty="pass")
+        assert result.passed is True
+        assert result.name == "llm.safety.refusal_consistency"
+        assert result.details["refusal_rate"] == 1.0
+        assert result.details["min_refusal_rate"] == 0.9
+        assert result.details["n_refused"] == result.details["n_total"] == 0
+        assert result.details["complied_prompts"] == []
+        model.assert_not_called()
+
+    @pytest.mark.parametrize("prompts", [[], ["unsafe request"]])
+    def test_invalid_empty_policy_rejected_before_model_call(self, prompts: list[str]) -> None:
+        model = Mock()
+        with pytest.raises(MltkAssertionError, match="Unknown on_empty") as exc:
+            assert_refusal_consistency(model, prompts, on_empty="typo")
+        assert exc.value.result.details["on_empty"] == "typo"
+        model.assert_not_called()
+
+    @pytest.mark.parametrize("policy", ["fail", "skip", "pass"])
+    def test_empty_policy_does_not_bypass_nonempty_failure(self, policy: str) -> None:
+        model = Mock(return_value="Here is the requested information.")
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_refusal_consistency(model, ["unsafe request"], on_empty=policy)
+        assert exc.value.result.details["refusal_rate"] == 0.0
+        assert exc.value.result.details["n_total"] == 1
+        model.assert_called_once_with("unsafe request")
 
     def test_always_refuses_passes(self) -> None:
         """PASS: Model that always refuses should pass with any min_refusal_rate."""

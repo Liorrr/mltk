@@ -13,7 +13,7 @@ helm install mltk charts/mltk
 Override the image tag to pin a release:
 
 ```bash
-helm install mltk charts/mltk --set image.tag=v0.16.0
+helm install mltk charts/mltk --set image.tag=v0.17.0
 ```
 
 ## Probes
@@ -110,8 +110,8 @@ slower first image pull. For repeated runs, pull the image once; the script
 then copies it into each fresh KinD node instead of pulling it in-cluster:
 
 ```bash
-docker pull ghcr.io/liorrr/mltk:v0.16.0
-MLTK_KIND_SMOKE=1 MLTK_KIND_SMOKE_PRELOAD=ghcr.io/liorrr/mltk:v0.16.0 python charts/mltk/kind_smoke.py
+docker pull ghcr.io/liorrr/mltk:v0.17.0
+MLTK_KIND_SMOKE=1 MLTK_KIND_SMOKE_PRELOAD=ghcr.io/liorrr/mltk:v0.17.0 python charts/mltk/kind_smoke.py
 ```
 
 The preloaded tag must match the chart's default image (`v` + the chart's

@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from mltk.core.judge_parse import parse_judge_score
 from mltk.eval._types import EvalState, Score
@@ -335,6 +335,11 @@ class LLMJudgeScorer(Scorer):
         rubric: Optional detailed rubric text.
         max_score: Maximum score the judge can return (used for
             normalization to [0.0, 1.0]).  Default 5.0.
+        reasoning_delimiters: Additional reasoning (start, end) pairs to
+            remove before parsing, alongside the default think tags.
+        legacy_parse: Opt into the legacy first-number parser. Default False
+            rejects ambiguous replies and fractions with a denominator that
+            differs from max_score.
 
     Example::
 
@@ -362,11 +367,16 @@ class LLMJudgeScorer(Scorer):
         criterion: str = "correctness",
         rubric: str | None = None,
         max_score: float = 5.0,
+        *,
+        reasoning_delimiters: Sequence[tuple[str, str]] = (),
+        legacy_parse: bool = False,
     ) -> None:
         self.judge_fn = judge_fn
         self.criterion = criterion
         self.rubric = rubric
         self.max_score = max_score
+        self.reasoning_delimiters = tuple(reasoning_delimiters)
+        self.legacy_parse = legacy_parse
 
     def score(self, state: EvalState) -> Score:
         """Call the judge and normalize the result."""
@@ -375,7 +385,12 @@ class LLMJudgeScorer(Scorer):
         try:
             raw: float | str = self.judge_fn(prompt)
             if isinstance(raw, str):
-                raw = self._parse_score(raw)
+                raw = self._parse_score(
+                    raw,
+                    reasoning_delimiters=self.reasoning_delimiters,
+                    legacy_parse=self.legacy_parse,
+                    expected_max_score=self.max_score,
+                )
             score_val = float(raw)
         except Exception as exc:
             return Score(
@@ -431,19 +446,29 @@ class LLMJudgeScorer(Scorer):
         return "\n".join(parts)
 
     @staticmethod
-    def _parse_score(text: str) -> float:
+    def _parse_score(
+        text: str,
+        *,
+        reasoning_delimiters: Sequence[tuple[str, str]] = (),
+        legacy_parse: bool = False,
+        expected_max_score: float | None = None,
+    ) -> float:
         """Extract numeric score from judge response text.
 
-        Uses :func:`mltk.core.judge_parse.parse_judge_score`: when the
-        whole reply is a JSON object with a ``"score"`` key, that key is
-        authoritative; otherwise the first number in the text is used
-        (``"3.5/5"`` -> ``3.5``).
+        Delegates to the shared fail-closed parser. Returns the raw score;
+        normalization belongs to the caller. The one-argument static call
+        remains supported. Set legacy_parse=True for first-number behavior.
 
         Raises:
             ValueError: If no usable score is found (no number, or a JSON
                 ``score`` that is null or non-numeric).
         """
-        parsed = parse_judge_score(text)
+        parsed = parse_judge_score(
+            text,
+            reasoning_delimiters=reasoning_delimiters,
+            legacy=legacy_parse,
+            expected_max_score=expected_max_score,
+        )
         if parsed is not None:
             return parsed
         raise ValueError(

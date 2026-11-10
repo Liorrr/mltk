@@ -15,6 +15,47 @@ from mltk.domains.llm.judge import (
 # Mock judge functions
 # -------------------------------------------------------------------
 
+
+def test_judge_error_denominator_and_explicit_zero_policy():
+    def judge(prompt):
+        return 4 if "good" in prompt else "ambiguous 2 and 3"
+
+    result = assert_llm_judge_score(
+        judge, ["good", "bad"], ["response", "response"], min_score=3,
+    )
+    assert result.details["avg_score"] == 4
+    assert result.details["n_valid"] == 1
+    assert result.details["errored_count"] == 1
+    with pytest.raises(MltkAssertionError):
+        assert_llm_judge_score(
+            judge, ["good", "bad"], ["response", "response"], on_error="strict",
+        )
+    with pytest.raises(MltkAssertionError) as exc:
+        assert_llm_judge_score(
+            judge, ["good", "bad"], ["response", "response"], on_error="zero",
+        )
+    assert exc.value.result.details["avg_score"] == 2
+
+
+@pytest.mark.parametrize(
+    "raw", [True, float("nan"), float("inf"), "4/10", "2 issues 3 strengths"],
+)
+def test_judge_invalid_cannot_pass_zero_threshold(raw):
+    with pytest.raises(MltkAssertionError):
+        assert_llm_judge_score(lambda _: raw, ["p"], ["r"], min_score=0)
+
+
+def test_judge_custom_delimiters_and_signed_numeric_legacy():
+    result = assert_llm_judge_score(
+        lambda _: '[r]score: 1[/r] score: 4/5', ["p"], ["r"],
+        reasoning_delimiters=(("[r]", "[/r]"),),
+    )
+    assert result.details["avg_score"] == 4
+    result = assert_llm_judge_score(
+        lambda _: -1.0, ["p"], ["r"], min_score=-2, legacy_parse=True,
+    )
+    assert result.details["avg_score"] == -1
+
 def _high_scorer(prompt: str) -> float:
     """Judge that always returns a high score."""
     return 4.5
@@ -114,7 +155,7 @@ class TestAssertLlmJudgeScore:
         assert result.passed is True
 
     def test_judge_fn_raises_handled(self) -> None:
-        """FAIL: judge_fn that raises gets score 0.0 with error flag."""
+        """FAIL: judge_fn that raises has no score and carries an error flag."""
         with pytest.raises(MltkAssertionError) as exc:
             assert_llm_judge_score(
                 judge_fn=_error_judge,
@@ -124,7 +165,7 @@ class TestAssertLlmJudgeScore:
             )
         result = exc.value.result
         assert result.passed is False
-        assert result.details["per_item_scores"][0]["score"] == 0.0
+        assert result.details["per_item_scores"][0]["score"] is None
         assert "error" in result.details["per_item_scores"][0]
 
     def test_per_item_scores_in_details(self) -> None:
@@ -151,8 +192,8 @@ class TestAssertLlmJudgeScore:
         assert result.passed is True
         assert result.details["avg_score"] == 4.0
 
-    def test_unparseable_score_becomes_zero(self) -> None:
-        """FAIL: Judge returning garbage text gets score 0.0."""
+    def test_unparseable_score_is_missing(self) -> None:
+        """FAIL: Judge returning garbage text has no score."""
         with pytest.raises(MltkAssertionError) as exc:
             assert_llm_judge_score(
                 judge_fn=_garbage_judge,
@@ -162,8 +203,8 @@ class TestAssertLlmJudgeScore:
             )
         result = exc.value.result
         # "I think the response is quite good actually" has no number
-        # so score is 0.0
-        assert result.details["per_item_scores"][0]["score"] == 0.0
+        # so the score is missing.
+        assert result.details["per_item_scores"][0]["score"] is None
 
     def test_empty_prompts_pass(self) -> None:
         """EDGE: Empty prompts list passes with zero items."""
@@ -629,9 +670,10 @@ class TestParseScoreJson:
         """PASS: Bare numeric responses keep working."""
         assert _parse_score("4.5") == 4.5
 
-    def test_prose_with_number_still_parses(self) -> None:
-        """PASS: Prose responses fall back to first-number extraction."""
-        assert _parse_score("I rate this 3 out of 5") == 3.0
+    def test_prose_with_number_requires_legacy(self) -> None:
+        """Unmarked prose numbers require explicit legacy extraction."""
+        assert _parse_score("I rate this 3 out of 5") is None
+        assert _parse_score("I rate this 3 out of 5", legacy=True) == 3.0
 
     def test_no_number_returns_none(self) -> None:
         """PASS: Response with no number returns None."""

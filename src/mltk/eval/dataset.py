@@ -62,6 +62,7 @@ from typing import Any
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
+from mltk.eval._identity import extract_sample_id, validate_id_column
 from mltk.eval._types import EvalSample
 
 # -------------------------------------------------------------------
@@ -302,12 +303,22 @@ class EvalDataset:
         Samples are sorted by ``input`` text to ensure the
         fingerprint is stable regardless of list order. Both
         ``input`` and ``target`` (when present) contribute
-        to the hash.
+        to the hash. Datasets with explicit sample IDs use a framed JSON
+        representation including those IDs. ID-less datasets retain their
+        legacy fingerprint unchanged.
 
         Returns:
             Full 64-character hex SHA-256 digest.
         """
         h = hashlib.sha256()
+        if any(s.sample_id is not None for s in self.samples):
+            records = sorted(
+                json.dumps([s.input, s.target, s.sample_id], ensure_ascii=False)
+                for s in self.samples
+            )
+            h.update(b"mltk-eval-sample-ids-v1\0")
+            h.update(json.dumps(records, ensure_ascii=False).encode("utf-8"))
+            return h.hexdigest()
         for s in sorted(
             self.samples, key=lambda x: x.input
         ):
@@ -406,6 +417,7 @@ class EvalDataset:
                     "input": s.input,
                     "target": s.target,
                     "metadata": dict(s.metadata),
+                    **({"sample_id": s.sample_id} if s.sample_id is not None else {}),
                 }
                 for s in self.samples
             ],
@@ -438,6 +450,7 @@ class EvalDataset:
                 input=s["input"],
                 target=s.get("target"),
                 metadata=dict(s.get("metadata", {})),
+                sample_id=s.get("sample_id"),
             )
             for s in data.get("samples", [])
         ]
@@ -466,14 +479,16 @@ class EvalDataset:
         *,
         input_column: str = "input",
         target_column: str = "target",
+        id_column: str | None = "sample_id",
         delimiter: str = ",",
         encoding: str = "utf-8",
         **card_kwargs: Any,
     ) -> EvalDataset:
         """Load an evaluation dataset from a CSV file.
 
-        Reads columns for input and target, treating all
-        other columns as sample metadata.
+        Reads input, target and optional identity columns. Other columns
+        become sample metadata. Set ``id_column=None`` to retain the identity
+        column in metadata and preserve the legacy input/target fingerprint.
 
         Args:
             path: Path to the CSV file.
@@ -483,6 +498,8 @@ class EvalDataset:
                 (default ``"input"``).
             target_column: Column name for sample target
                 (default ``"target"``).
+            id_column: Identity column (default ``"sample_id"``). ``None``
+                disables extraction and restores legacy metadata/fingerprints.
             delimiter: Field delimiter (default ``","``).
             encoding: File encoding (default ``"utf-8"``).
             **card_kwargs: Passed to ``DatasetCard``.
@@ -503,6 +520,7 @@ class EvalDataset:
         """
         import csv
 
+        validate_id_column(id_column)
         file_path = Path(path)
         if not file_path.exists():
             raise FileNotFoundError(
@@ -525,23 +543,25 @@ class EvalDataset:
                     f"found. Available: "
                     f"{reader.fieldnames}"
                 )
+            reserved = {input_column, target_column}
+            if id_column is not None:
+                reserved.add(id_column)
             for row in reader:
                 inp = row.get(input_column, "")
                 tgt = row.get(target_column)
                 meta = {
                     k: v
                     for k, v in row.items()
-                    if k
-                    not in (
-                        input_column,
-                        target_column,
-                    )
+                    if k not in reserved
                 }
                 samples.append(
                     EvalSample(
                         input=inp,
                         target=tgt,
                         metadata=meta,
+                        sample_id=extract_sample_id(
+                            row, id_column, context=f"CSV row {reader.line_num}"
+                        ),
                     )
                 )
 
@@ -562,6 +582,7 @@ class EvalDataset:
         *,
         input_key: str = "input",
         target_key: str = "target",
+        id_column: str | None = "sample_id",
         encoding: str = "utf-8",
         **card_kwargs: Any,
     ) -> EvalDataset:
@@ -578,6 +599,10 @@ class EvalDataset:
                 (default ``"input"``).
             target_key: Key for sample target
                 (default ``"target"``).
+            id_column: Identity key (default ``"sample_id"``). Values must be
+                strings or null; missing/null/empty values become ``None``.
+                Set ``None`` to preserve the key in metadata and retain the
+                legacy input/target fingerprint.
             encoding: File encoding (default ``"utf-8"``).
             **card_kwargs: Passed to ``DatasetCard``.
 
@@ -593,6 +618,7 @@ class EvalDataset:
             ...     "data/qa.json", "qa", "1.0.0",
             ... )
         """
+        validate_id_column(id_column)
         file_path = Path(path)
         if not file_path.exists():
             raise FileNotFoundError(
@@ -609,19 +635,24 @@ class EvalDataset:
             records = raw
 
         samples: list[EvalSample] = []
-        for rec in records:
+        reserved = {input_key, target_key}
+        if id_column is not None:
+            reserved.add(id_column)
+        for index, rec in enumerate(records):
+            sample_id = extract_sample_id(rec, id_column, context=f"JSON item at index {index}")
             inp = rec.get(input_key, "")
             tgt = rec.get(target_key)
             meta = {
                 k: v
                 for k, v in rec.items()
-                if k not in (input_key, target_key)
+                if k not in reserved
             }
             samples.append(
                 EvalSample(
                     input=inp,
                     target=tgt,
                     metadata=meta,
+                    sample_id=sample_id,
                 )
             )
 

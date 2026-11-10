@@ -113,6 +113,7 @@ class TestSemanticEquivalence:
         assert result.passed is True
         mock_nli.assert_called_once()
         assert result.details.get("method") == "nli"
+        assert result.details["contradiction"] is False
 
     @patch(
         "mltk.domains.llm._backends"
@@ -131,6 +132,7 @@ class TestSemanticEquivalence:
         assert result.passed is True
         mock_emb.assert_called_once()
         assert result.details.get("method") == "embedding"
+        assert result.details["contradiction"] is None
 
     def test_method_token_f1(self) -> None:
         """Token F1 zero-dep fallback works."""
@@ -141,6 +143,37 @@ class TestSemanticEquivalence:
         )
         assert result.passed is True
         assert result.details.get("method") == "token_f1"
+        assert result.details["contradiction"] is None
+
+    @pytest.mark.parametrize("method", ["token_f1", "embedding"])
+    @pytest.mark.parametrize("min_score", [0.7, 1.0])
+    def test_unchecked_contradiction_on_pass_and_failure(
+        self, method: str, min_score: float,
+    ) -> None:
+        """A negated sentence can overlap strongly without a contradiction check."""
+        with (
+            patch("mltk.domains.llm._backends.embedding_cosine_single", return_value=0.9),
+            patch("mltk.domains.llm._backends.nli_bidirectional") as mock_nli,
+        ):
+            kwargs = {
+                "text_a": "The meeting is on Monday",
+                "text_b": "The meeting is not on Monday",
+                "method": method,
+                "min_score": min_score,
+            }
+            if min_score == 1.0:
+                with pytest.raises(MltkAssertionError) as exc:
+                    assert_semantic_equivalence(**kwargs)
+                result = exc.value.result
+                assert result.passed is False
+            else:
+                result = assert_semantic_equivalence(**kwargs)
+                assert result.passed is True
+            assert result.details["contradiction"] is None
+            # Five shared tokens, with one extra negation token in text_b.
+            expected_score = 0.9 if method == "embedding" else round(10 / 11, 4)
+            assert result.details["score"] == pytest.approx(expected_score)
+            mock_nli.assert_not_called()
 
     def test_unknown_method_fails(self) -> None:
         """Unknown method produces a failing TestResult."""

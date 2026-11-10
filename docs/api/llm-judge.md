@@ -1,5 +1,7 @@
 # LLM-as-Judge Evaluation
 
+See the [evaluation migration guide](../guides/adopter-migration.md) for stored-output scoring and compatibility changes.
+
 Use another LLM as an automated evaluator to assess subjective qualities that token overlap, keyword matching, and regex-based checks simply cannot measure.
 
 **Module:** `mltk.domains.llm.judge`
@@ -324,4 +326,4 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 - [LLM Judge Defaults](judge-defaults.md) -- configure a default judge once so every subjective assertion uses it automatically
 - [Multimodal Evaluation](multimodal.md) -- LLM-as-Judge assertions for image-text evaluation
 - [Behavioral Consistency](behavioral-consistency.md) -- uses `method="llm"` for LLM-as-Judge dispatch
-- [Assertion Index](assertion-index.md) -- full list of all 244 assertions
+- [Assertion Index](assertion-index.md) -- full list of all 245 assertions

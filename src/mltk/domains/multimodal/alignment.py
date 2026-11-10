@@ -27,11 +27,12 @@ assertions use the ``judge_fn`` pattern from ``mltk.domains.llm.judge``.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import numpy as np
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.error_policy import EvalOnError
 from mltk.core.result import Severity, TestResult
 from mltk.core.validation import require_same_length
 from mltk.domains.multimodal._image import (
@@ -40,6 +41,7 @@ from mltk.domains.multimodal._image import (
 )
 from mltk.domains.multimodal._scoring import (
     _cosine_similarity,
+    _judge_error_result,
     _parse_score,
 )
 
@@ -248,6 +250,10 @@ def assert_prompt_faithfulness(
     judge_fn: Callable[[str], str],
     min_score: float = 0.7,
     image_description: str | None = None,
+    *,
+    reasoning_delimiters: Sequence[tuple[str, str]] = (),
+    legacy_parse: bool = False,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert that an image faithfully represents a text prompt.
 
@@ -320,10 +326,18 @@ def assert_prompt_faithfulness(
 
     try:
         raw = judge_fn(eval_prompt)
-        score = _parse_score(str(raw))
+        score = _parse_score(
+            raw, reasoning_delimiters=reasoning_delimiters,
+            legacy=legacy_parse, expected_max_score=1.0,
+        )
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
+    failure = _judge_error_result(
+        "multimodal.alignment.prompt_faithfulness", score, error, on_error,
+    )
+    if failure is not None:
+        return failure
     if score is None:
         score = 0.0
         if error is None:
@@ -358,6 +372,10 @@ def assert_image_coherence(
     judge_fn: Callable[[str], str],
     min_score: float = 0.7,
     image_description: str | None = None,
+    *,
+    reasoning_delimiters: Sequence[tuple[str, str]] = (),
+    legacy_parse: bool = False,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert that an image is coherent with surrounding text context.
 
@@ -425,7 +443,10 @@ def assert_image_coherence(
 
     try:
         raw = judge_fn(eval_prompt)
-        score = _parse_score(str(raw))
+        score = _parse_score(
+            raw, reasoning_delimiters=reasoning_delimiters,
+            legacy=legacy_parse, expected_max_score=1.0,
+        )
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
@@ -436,6 +457,12 @@ def assert_image_coherence(
 
     passed = score >= min_score
 
+    failure = _judge_error_result(
+        "multimodal.alignment.image_coherence",
+        score if error is None else None, error, on_error,
+    )
+    if failure is not None:
+        return failure
     message = (
         f"Image coherence: {score:.4f} >= "
         f"{min_score}"
