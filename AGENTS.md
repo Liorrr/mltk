@@ -59,6 +59,20 @@ src/mltk/
 - `from __future__ import annotations` must be the first code line (after
   the module docstring) to avoid E402.
 
+## Before opening a PR (coordinator)
+
+Worker completion still uses the slim and scoped gates above. Before opening
+any PR, the coordinator runs `python scripts/preflight.py local`, commits and
+pushes the final changes within its authorization, waits for branch CI, then
+uses `python scripts/preflight.py open --title ... --body-file ...` for PR
+creation. Its `ready` gate can also be run separately for inspection. Record
+the exact SHA and CI URL. A failed, pending, stale, or absent run does not qualify.
+Use a CI Python interpreter (3.12 recommended). Within preflight jobs, do not
+substitute `python -m pytest` for the console entry point or weaken coverage.
+The separate worker slim-regression command above remains unchanged.
+See CONTRIBUTING.md for the complete process. Workers retain the Git restrictions
+below; this section does not grant commit/push permission.
+
 ## MCP Test Infrastructure
 
 - `tests/test_mcp/_helpers.py`: `registered_tools` dict,
