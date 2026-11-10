@@ -10,7 +10,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S106: 245 assertions, 6357+ tests, 38 Rust tests) — v0.16.0
+## DONE (S0-S106: 245 assertions, 6357+ tests, 38 Rust tests) — v0.17.0
 
 ### v0.16.0 release — PRs merged since v0.15.0
 - [x] Cut **v0.16.0**: rolled CHANGELOG (`[Unreleased]` → `[0.16.0]`), bundling the GitHub Releases job and docs fixes (#39), server access control (#40: reader keys for reads, key roles and project scope, masked webhook URLs, webhook target checks at connect time, request-size fixes, Helm `extraEnv`), local file and code-run safety (#41: pickle opt-in, collection/dataset name checks, minimal code-run environment, compliance report autoescape) and MCP path confinement (#42: `MLTK_MCP_ROOTS`, sandbox mode error, push remote matched to `repo`). The CHANGELOG has a Security section describing what these fix. Each PR went through fresh-agent review cycles to 5/5. Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`, container-doc image tags).

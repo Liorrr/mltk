@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.17.0] — 2026-11-10
+### Added
 - **Targeted parity controls** — `make_positive_control(..., stratum="en")` selects all requested planted items within one eligible stratum while retaining the full release manifest. Callers can combine separately verified cell evidence. Omitting `stratum` preserves pooled seeded selection; insufficient stable items in a target stratum raise rather than borrowing from another cell.
 - **`onnx` extra** — `pip install "mlspec[onnx]"` installs ONNX Runtime for `assert_onnx_valid` and for loading `.onnx` files with `load_model` and `mltk scan-model`. The install hints and `mltk doctor` now name it, and `mlspec[all]` includes it. On Python 3.10 it resolves to onnxruntime 1.23, the last release with Python 3.10 wheels.
 
