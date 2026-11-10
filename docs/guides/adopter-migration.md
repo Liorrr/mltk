@@ -11,6 +11,9 @@ Numeric judge text is parsed strictly by default. Ask the judge for a standalone
 number, a JSON object with a numeric `score`, or one explicit `score: N` or `N/M`
 expression. Prose containing an incidental number, such as `Found 3 issues`, no
 longer supplies a score.
+Sentence-ending punctuation such as `Score: 4.5.` and a balanced Markdown bold
+label such as `**Score:** 4.5` are accepted. Run-on numbers such as `4.5.6`,
+competing score expressions, and mismatched fraction scales still error.
 
 The shared parser removes balanced `<think>...</think>` blocks before parsing.
 Use `reasoning_delimiters=(("<analysis>", "</analysis>"),)` to remove additional
@@ -171,9 +174,19 @@ applies the accuracy and error gates. All scorers must meet `min_accuracy`
 `(0, 1]` and applies per scorer under every error policy, including `"zero"`.
 Boolean values are rejected. Gate failures raise `MltkAssertionError`.
 
-Persist `sample_id` as a top-level field in JSON or as a CSV column. Dataset
-serialization and registry round trips preserve explicit IDs. The field is
-reserved for identity rather than arbitrary metadata. ID-bearing dataset
+Persist `sample_id` as a top-level field in JSON or as a CSV column. By default,
+`EvalDataset.from_csv`, `EvalDataset.from_json`, and `load_dataset` extract it
+into `EvalSample.sample_id` rather than `metadata`. **This changes metadata and
+fingerprints for files that already had a `sample_id` column/key.** Pass the
+keyword-only `id_column=None` to preserve the previous metadata and input/target
+fingerprint, or `id_column="record_id"` to select another identity field.
+
+Selected identities must be strings or null. Non-string JSON IDs raise a
+`ValueError` identifying the record and field; they are not coerced to strings.
+Missing, null and empty IDs become `None`. Stored scoring still requires unique,
+nonblank IDs. With `id_column=None`, arbitrary values remain ordinary metadata.
+
+Dataset serialization and registry round trips preserve explicit IDs. ID-bearing
 fingerprints include the IDs, so changing IDs changes the fingerprint. ID-less
 scalar datasets retain their existing serialized sample shape and fingerprint.
 

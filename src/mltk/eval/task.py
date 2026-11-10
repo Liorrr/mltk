@@ -74,6 +74,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from mltk.eval._identity import extract_sample_id, validate_id_column
 from mltk.eval._types import (
     EvalResult,
     EvalSample,
@@ -539,6 +540,8 @@ def load_dataset(
     path: str | Path,
     input_column: str = "input",
     target_column: str = "target",
+    *,
+    id_column: str | None = "sample_id",
 ) -> list[EvalSample]:
     """Load evaluation dataset from CSV or JSON file.
 
@@ -546,7 +549,8 @@ def load_dataset(
 
     - **CSV**: Must have a header row. The ``input_column``
       column is required; ``target_column`` is optional.
-      All other columns become ``metadata``.
+      The selected identity column becomes ``sample_id``; remaining columns
+      become ``metadata``. Use ``id_column=None`` for legacy metadata behavior.
     - **JSON**: Must be an array of objects. Each object
       must have the ``input_column`` key. Same rules apply
       for target and metadata.
@@ -561,6 +565,10 @@ def load_dataset(
         target_column: Column/key name for targets.
             Defaults to ``"target"``. If the column is
             missing from a row, target is set to None.
+        id_column: Identity column/key (default ``"sample_id"``). Missing,
+            null and empty IDs become ``None``; other values must be strings.
+            ``None`` disables extraction, retaining the key in metadata and
+            the legacy fingerprint when samples are wrapped in EvalDataset.
 
     Returns:
         List of EvalSample objects, one per row/object.
@@ -582,6 +590,7 @@ def load_dataset(
             assert len(samples) == 2
             assert samples[0].input == "What is 2+2?"
     """
+    validate_id_column(id_column)
     filepath = Path(path)
 
     if not filepath.exists():
@@ -593,11 +602,11 @@ def load_dataset(
 
     if suffix == ".csv":
         return _load_csv(
-            filepath, input_column, target_column
+            filepath, input_column, target_column, id_column=id_column
         )
     elif suffix == ".json":
         return _load_json(
-            filepath, input_column, target_column
+            filepath, input_column, target_column, id_column=id_column
         )
     else:
         raise ValueError(
@@ -610,6 +619,8 @@ def _load_csv(
     filepath: Path,
     input_column: str,
     target_column: str,
+    *,
+    id_column: str | None = "sample_id",
 ) -> list[EvalSample]:
     """Load samples from a CSV file.
 
@@ -617,6 +628,7 @@ def _load_csv(
         filepath: Path to the CSV file.
         input_column: Column name for input text.
         target_column: Column name for target text.
+        id_column: Identity column, or ``None`` to keep all extra metadata.
 
     Returns:
         List of EvalSample objects.
@@ -625,6 +637,7 @@ def _load_csv(
         ValueError: If the input column is not found
             in the CSV header.
     """
+    validate_id_column(id_column)
     samples: list[EvalSample] = []
 
     with open(filepath, encoding="utf-8", newline="") as f:
@@ -640,7 +653,9 @@ def _load_csv(
                 f"Found: {list(reader.fieldnames)}"
             )
 
-        reserved = {input_column, target_column, "sample_id"}
+        reserved = {input_column, target_column}
+        if id_column is not None:
+            reserved.add(id_column)
 
         for row in reader:
             input_val = row.get(input_column, "")
@@ -662,7 +677,9 @@ def _load_csv(
                     input=input_val,
                     target=target_val,
                     metadata=metadata,
-                    sample_id=row.get("sample_id") or None,
+                    sample_id=extract_sample_id(
+                        row, id_column, context=f"CSV row {reader.line_num}"
+                    ),
                 )
             )
 
@@ -673,6 +690,8 @@ def _load_json(
     filepath: Path,
     input_column: str,
     target_column: str,
+    *,
+    id_column: str | None = "sample_id",
 ) -> list[EvalSample]:
     """Load samples from a JSON file.
 
@@ -682,6 +701,7 @@ def _load_json(
         filepath: Path to the JSON file.
         input_column: Key name for input text.
         target_column: Key name for target text.
+        id_column: Identity key, or ``None`` to keep all extra metadata.
 
     Returns:
         List of EvalSample objects.
@@ -690,6 +710,7 @@ def _load_json(
         ValueError: If any object is missing the input key,
             or if the top-level JSON is not an array.
     """
+    validate_id_column(id_column)
     with open(filepath, encoding="utf-8") as f:
         data = json.load(f)
 
@@ -700,7 +721,9 @@ def _load_json(
         )
 
     samples: list[EvalSample] = []
-    reserved = {input_column, target_column, "sample_id"}
+    reserved = {input_column, target_column}
+    if id_column is not None:
+        reserved.add(id_column)
 
     for i, obj in enumerate(data):
         if not isinstance(obj, dict):
@@ -715,6 +738,7 @@ def _load_json(
                 f"key '{input_column}'."
             )
 
+        sample_id = extract_sample_id(obj, id_column, context=f"JSON item at index {i}")
         input_val = str(obj[input_column])
         if not input_val:
             continue
@@ -734,7 +758,7 @@ def _load_json(
                 input=input_val,
                 target=target_val,
                 metadata=metadata,
-                sample_id=obj.get("sample_id"),
+                sample_id=sample_id,
             )
         )
 

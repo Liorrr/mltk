@@ -10,7 +10,8 @@ from collections.abc import Sequence
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
 _FLOAT_PATTERN = re.compile(r"(\d+(?:\.\d+)?)")
 _EXPLICIT = re.compile(
-    rf"\bscore\s*:\s*({_NUMBER})(?:\s*/\s*({_NUMBER}))?"
+    rf"(?:\bscore\s*:|(?<!\*)\*\*score\s*:\*\*(?!\*))"
+    rf"\s*({_NUMBER})(?:\s*/\s*({_NUMBER}))?"
     rf"|(?<![\w.+/-])({_NUMBER})\s*/\s*({_NUMBER})",
     re.IGNORECASE,
 )
@@ -70,6 +71,7 @@ def parse_judge_score(
     The last score-bearing JSON object is authoritative, including invalid
     scores (returning None). Fences and prose lead-ins are supported. Otherwise
     accept a standalone number or one explicit score: N / N/M expression.
+    Explicit scores may end a sentence; the label may be bold (**Score:**).
     Fractions return N; callers retain responsibility for their configured
     scale. When supplied, expected_max_score must match the denominator.
     Multiple expressions, malformed reasoning, booleans and nonfinite
@@ -127,6 +129,15 @@ def parse_judge_score(
         return None
     match = matches[0]
     tail = cleaned[match.end():]
+    # A decimal's sentence period is separate from the numeric token. Only
+    # accept it at end of text or before whitespace, never inside a run-on
+    # number. Integers may already have consumed their period via _NUMBER.
+    if tail.startswith("."):
+        if cleaned[match.end() - 1] == "." or (
+            len(tail) > 1 and not tail[1].isspace()
+        ):
+            return None
+        tail = tail[1:]
     if re.match(r"[\w./+-]", tail) or tail.lstrip().startswith("/"):
         return None
     numerator = match[1] if match[1] is not None else match[3]

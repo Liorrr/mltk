@@ -119,6 +119,8 @@ def test_numeric_adapters_share_strict_parser(surface):
     )
     assert result.details["score"] == 0.8
     assert invoke('0.8/1').details["score"] == 0.8
+    assert invoke('Score: 0.8. The answer is accurate.').details["score"] == 0.8
+    assert invoke('**Score:** 0.8').details["score"] == 0.8
     for invalid in (
         '0.8/5', '2 issues 3 strengths', '<think>score: 1', True, float('nan'),
     ):
@@ -138,3 +140,42 @@ def test_configured_default_judge_uses_shared_parser(monkeypatch):
         lambda _: '<think>score: 0.1</think> {"score": 0.8}',
     )
     assert judge_defaults.assert_with_judge("quality", "a", "b").details["score"] == 0.8
+
+
+@pytest.mark.parametrize(("raw", "expected"), [
+    ("Score: 4.5.", 4.5),
+    ("Final score: 4.5. The answer is accurate.", 4.5),
+    ("**Score:** 4", 4),
+    ("**Score:** 4.5. The answer is accurate.", 4.5),
+    ("Score: +4.5.", 4.5),
+    ("Score: -4.5.", -4.5),
+    ("Score: 4.5e-1.", 0.45),
+    ("**Score:** 4.5/5.0.", 4.5),
+    ("I checked 3 claims; **Score:** 4.5.", 4.5),
+])
+def test_explicit_score_sentence_punctuation_and_bold_label(raw, expected):
+    assert parse_judge_score(raw, expected_max_score=5) == expected
+
+
+@pytest.mark.parametrize("raw", [
+    "Score: 4.5.6", "**Score:** 4.5.6", "Score: 4/5/6",
+    "**Score:** 4/5/6", "Score: 4.5.foo", "Score: 4.5..", "Score: 4..",
+    "Score: 4.5.+6", "Score: 4.5.-6", "Score: 4.5./6",
+    "Score: 4.5. /6", "Score: 4.5e+.", "Score: --4.5.",
+    "Score: 4.5. Final score: 5", "**Score:** 4.5 then score: 5",
+    "Score: 4.5. Or 3/5", "**Score:** 4/10.",
+    "**Score:** 4.5e+", "**Score:** 4/5.0.6", "**Score:** 4..5",
+    "**Score:** 4.5. **Score:** 5", "***Score:** 4.5.",
+    '**Score:** 4.5. {"score": nope}',
+    '{"score": nope} **Score:** 4.5.',
+])
+def test_formatted_explicit_score_still_fails_closed(raw):
+    assert parse_judge_score(raw, expected_max_score=5) is None
+
+
+@pytest.mark.parametrize("raw", [
+    "Score: 4.5.", "**Score:** 4.5", "Score: 4.5.6",
+    "Score: 4.5 then score: 5", "**Score:** 4.5/10.",
+])
+def test_formatted_explicit_score_legacy_unchanged(raw):
+    assert parse_judge_score(raw, legacy=True, expected_max_score=5) == 4.5

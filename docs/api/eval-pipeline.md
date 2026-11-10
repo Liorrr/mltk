@@ -900,7 +900,14 @@ samples = load_dataset("data.json")
 
 `load_dataset` uses only Python stdlib (`csv`, `json`) — no pandas
 required. It automatically maps any columns not named `input_column` or
-`target_column` to `EvalSample.metadata`.
+`target_column` or the chosen `id_column` to `EvalSample.metadata`.
+By default `id_column="sample_id"` extracts identity into `EvalSample.sample_id`;
+use a custom column/key name as needed. This changes metadata and ID-bearing
+fingerprints for files that already contained that field. Pass `id_column=None`
+to restore the previous metadata and input/target-only fingerprint when samples
+are wrapped in `EvalDataset`. Non-string selected JSON IDs raise `ValueError`;
+missing/null/empty IDs become `None`. Disabled extraction preserves arbitrary
+metadata values.
 
 ### CSV format
 

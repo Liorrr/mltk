@@ -413,7 +413,7 @@ def _compare_product(
                 reasons.append("NO_COMPARABLE_CANDIDATE_ITEMS")
             if reasons:
                 verdict = "DETECTION_NOT_DEMONSTRATED"
-            elif quiet and rate["changed_rate"] > floor:
+            elif rate["changed_rate"] > floor:
                 verdict = "DETECTED"
                 reasons.append("CHANGE_ABOVE_NOISE_FLOOR")
             else:

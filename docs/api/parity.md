@@ -109,6 +109,10 @@ Insufficient candidate coverage gives `DETECTION_NOT_DEMONSTRATED` with reason
 `CANDIDATE_NOT_ESTABLISHED` and prevents PASS. Coverage and quietness thresholds
 use exact rational arithmetic so decimal boundaries do not move by one item.
 Independent observed failures can still make the overall status FAIL.
+When the other evidence prerequisites are met, a change rate above the calibrated
+noise floor is `DETECTED` even when the baseline is not quiet; the report is FAIL
+and retains `NOT_QUIET`. An unchanged non-quiet baseline remains NOT_VERIFIED.
+Quietness is still required for a passing identity check and control evidence.
 
 A layer/stratum with zero eligible items is `NOT_APPLICABLE` and is omitted from
 required gates, including preconditions. This differs from an eligible cell
@@ -124,6 +128,30 @@ and any explicitly injected failed-trial IDs. Supply a `LayerSpec`, not a layer
 name: planting requires the reducer and eligibility rules. Only A/A-stable items
 can be selected. The helper does not prove detection.
 
+For multiple strata, pass `stratum=` to plant the requested `n_items` within one
+cell. Reuse the full release manifest and combine the evidence for each target:
+
+```python
+from mltk.parity import check_positive_control, make_positive_control
+
+evidence = {}
+for stratum in sorted(set(manifest.items.values())):
+    fixture = make_positive_control(
+        a1, a2=a2, manifest=manifest, layer=layer, n_items=6,
+        mutation=lambda value: not value, seed=42, stratum=stratum,
+    )
+    checked = check_positive_control(
+        a1, fixture, a2=a2, layers=layers, manifest=manifest,
+    )
+    evidence[layer.name, stratum] = checked[layer.name, stratum]
+```
+
+Repeat for each verdict layer and its eligible strata. The example assumes
+every listed stratum has enough stable eligible items for this layer.
+Omitting `stratum` preserves pooled seeded selection; that does not guarantee
+enough planted changes in every cell. An unknown stratum or an insufficient
+stable population in the selected cell raises `ValueError`.
+
 Pass that fixture to `check_positive_control(base, fixture, layers=layers,
 manifest=manifest, a2=repeat)`. This runs identity and planted comparisons through
 the ordinary engine and returns a `(layer, stratum) -> evidence record` map for
@@ -138,6 +166,12 @@ Use the same baseline, repeat, manifest and configuration as the release
 comparison. A missing/failed control prevents passing. Stored control evidence
 is still a caller attestation; it must represent those checks, not an assumed
 success. Run IDs alone do not authenticate recordings or configuration.
+
+Missing baseline items/trials are assessed by the engine's existing reduction,
+coverage, noise and quietness rules. They do not impose an additional
+all-records-present rule in the control helper. Identity and planted copies must
+preserve the actual base recording's item/stratum/trial identities, including
+items with no trials; truncating either copy or duplicating records still fails.
 
 ## Harness parity
 

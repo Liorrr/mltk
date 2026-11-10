@@ -11,6 +11,35 @@ from mltk.parity.models import LayerSpec, Manifest, ParityConfig
 from .test_engine import flip, product, synthetic
 
 
+@pytest.mark.parametrize("changed", [False, True])
+def test_nonquiet_baseline_does_not_hide_change_above_its_noise_floor(changed):
+    data = synthetic()
+    for item in data[1].items[:3]:
+        flip(item)
+    if changed:
+        for item in data[2].items[3:]:
+            flip(item)
+    report = product(data)
+    rate = report.rates[0]
+    assert rate["quiet"] is False
+    assert "NOT_QUIET" in rate["reasons"]
+    assert rate["floor"] == pytest.approx(0.3604188647)
+    assert rate["n_state_compared"] == 17
+    assert rate["changed_count"] == (17 if changed else 0)
+    assert rate["verdict"] == ("DETECTED" if changed else "NO_CHANGE_ABOVE_MDC")
+    assert report.status == ("FAIL" if changed else "NOT_VERIFIED")
+
+
+def test_detected_control_cannot_certify_a_nonquiet_baseline():
+    a1, a2, _, layers, manifest, _ = synthetic()
+    for item in a2.items[:3]:
+        flip(item)
+    fixture = make_positive_control(a1, a2=a2, manifest=manifest, layer=layers[0], n_items=8,
+                                    mutation=lambda v: not v, seed=42)
+    evidence = check_positive_control(a1, fixture, a2=a2, layers=layers, manifest=manifest)
+    assert evidence["v", "en"]["passed"] is False
+
+
 @pytest.mark.parametrize("missing", ["record", "failed", "indeterminate", "source"])
 def test_candidate_coverage_cannot_pass_on_one_of_twenty(missing):
     data = synthetic(layers=[LayerSpec("v")])

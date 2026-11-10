@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-11-08 by scripts/generate_skill_index.py
+> Generated 2026-11-10 by scripts/generate_skill_index.py
 
 **245** assertions | **13** MCP tools | **20 top-level + 5 groups** CLI | **8** scanners
 
@@ -385,7 +385,7 @@ def assert_specificity(y_true: np.ndarray, y_pred: np.ndarray, min_specificity: 
 
 ### eval
 
-**`assert_dataset_quality`** (eval/dataset.py:1236)
+**`assert_dataset_quality`** (eval/dataset.py:1252)
 ```python
 def assert_dataset_quality(dataset: EvalDataset, *, min_samples: int=50, min_target_coverage: float=0.9, max_duplicate_rate: float=0.01, min_categories: int | None=None)
 ```
@@ -1851,7 +1851,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | total_duration_ms | `float` | `0.0` |
 | metadata | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### `DatasetCard` (eval/dataset.py:155)
+### `DatasetCard` (eval/dataset.py:156)
 > Metadata card for an evaluation dataset.
 
 | Field | Type | Default |
@@ -1864,7 +1864,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | created | `str` | `''` |
 | author | `str` | `''` |
 
-### `EvalDataset` (eval/dataset.py:249)
+### `EvalDataset` (eval/dataset.py:250)
 > Versioned evaluation dataset with metadata card.
 
 | Field | Type | Default |
@@ -1875,7 +1875,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | card | `DatasetCard` | `field(default_factory=DatasetCard)` |
 | fingerprint | `str` | `''` |
 
-### `DatasetDiff` (eval/dataset.py:658)
+### `DatasetDiff` (eval/dataset.py:674)
 > Comparison between two dataset versions.
 
 | Field | Type | Default |
@@ -1888,7 +1888,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | schema_changes | `list[str]` |  |
 | suggested_bump | `str` |  |
 
-### `DatasetInfo` (eval/dataset.py:698)
+### `DatasetInfo` (eval/dataset.py:714)
 > Summary info for a registered dataset (for listing).
 
 | Field | Type | Default |
@@ -1899,7 +1899,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | sample_count | `int` |  |
 | card | `DatasetCard` |  |
 
-### `EvalTask` (eval/task.py:94)
+### `EvalTask` (eval/task.py:95)
 > Composable evaluation task.
 
 *(no dataclass fields)*

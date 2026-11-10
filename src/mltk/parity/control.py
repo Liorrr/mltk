@@ -35,12 +35,15 @@ def make_positive_control(
     mutation: Callable[[Any], Any],
     seed: int,
     failed_trials: int = 0,
+    stratum: str | None = None,
 ) -> ControlFixture:
     """Plant changes on exactly n_items seeded A/A-stable, eligible items.
 
     failed_trials is the total number of mutated trial records to mark failed,
     sampled without replacement. Failures are execution-wide, as in real runs.
     This creates evidence to test; it does not assert that detection succeeded.
+    With stratum set, all n_items are selected within that manifest stratum.
+    None retains pooled selection across the eligible population.
     """
     if type(seed) is not int:
         raise ValueError("seed must be an integer")
@@ -50,6 +53,10 @@ def make_positive_control(
         raise ValueError("mutation must be callable")
     if not isinstance(layer, LayerSpec):
         raise ValueError("layer must be a LayerSpec for A/A stability reduction")
+    if stratum is not None and (
+        not isinstance(stratum, str) or stratum not in set(manifest.items.values())
+    ):
+        raise ValueError("stratum must name a stratum in the manifest")
     name = layer.name
     if a2.run_id == run.run_id:
         raise ValueError("Control calibration requires an independent A2 run_id")
@@ -68,6 +75,8 @@ def make_positive_control(
     repeats = {i.item_id: i for i in a2.items}
     available = []
     for item_id in sorted(manifest.eligible_ids.get(name, manifest.items)):
+        if stratum is not None and manifest.items[item_id] != stratum:
+            continue
         original, repeat = items.get(item_id), repeats.get(item_id)
         a, aa = (reduce_item(i, layer, manifest) for i in (original, repeat))
         row = _row(item_id, manifest.items[item_id], layer, a, aa, original, repeat)
@@ -163,12 +172,20 @@ def check_positive_control(
     ):
         return evidence
     identity = identity if identity is not None else base
-    # Full recording identities, not merely counts, must match the declared manifest.
+    # Baseline gaps belong to the engine's coverage/noise policy. The synthetic
+    # copies must preserve the actual base recording, including empty items.
+    recording_keys = []
     for run in (base, a2, identity, fixture.run):
-        if {i.item_id: i.stratum for i in run.items} != manifest.items:
+        if len({item.item_id for item in run.items}) != len(run.items):
             return evidence
-        if any({t.trial_id for t in i.trials} != set(manifest.trial_ids) for i in run.items):
+        if any(len({t.trial_id for t in item.trials}) != len(item.trials) for item in run.items):
             return evidence
+        recording_keys.append({
+            item.item_id: (item.stratum, frozenset(t.trial_id for t in item.trials))
+            for item in run.items
+        })
+    if any(keys != recording_keys[0] for keys in recording_keys[2:]):
+        return evidence
     base_items = {i.item_id: i for i in base.items}
     # A changed minority trial must not disappear behind an unchanged majority.
     try:

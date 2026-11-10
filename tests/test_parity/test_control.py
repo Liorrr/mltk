@@ -7,6 +7,7 @@ from copy import deepcopy
 import pytest
 
 from mltk.parity.control import check_positive_control, make_positive_control
+from mltk.parity.engine import compare_product
 from mltk.parity.models import Item, LayerSpec, Manifest, Run, Trial
 
 
@@ -172,3 +173,125 @@ def test_controls_do_not_claim_unplanted_stratum():
     for stratum in ("en", "he"):
         planted = sum(manifest.items[i] == stratum for i in fixture.changed_item_ids)
         assert evidence["v", stratum]["passed"] == (planted >= 4)
+
+
+@pytest.mark.parametrize("missing", ["a1_trial", "a1_item", "a2_trial", "a2_item"])
+def test_baseline_gaps_use_engine_policy_in_control_evidence(missing):
+    base, a2, layer, manifest = synthetic()
+    candidate = deepcopy(base)
+    candidate.run_id = "candidate"
+    recording = base if missing.startswith("a1") else a2
+    if missing.endswith("trial"):
+        recording.items[0].trials.pop()
+    else:
+        recording.items.pop(0)
+    fixture = make_positive_control(
+        base, a2=a2, manifest=manifest, layer=layer, n_items=6, mutation=lambda v: not v, seed=42
+    )
+    evidence = check_positive_control(base, fixture, a2=a2, layers=[layer], manifest=manifest)
+    assert evidence["v", "en"]["passed"] is True
+    report = compare_product(base, a2, candidate, layers=[layer], manifest=manifest,
+                             control=evidence)
+    assert report.status == "PASS"
+    assert report.rates[0]["n_eligible"] == 20
+    assert report.rates[0]["n_state_compared"] == (19 if missing.endswith("item") else 20)
+
+
+@pytest.mark.parametrize("missing_count", [3, 5])
+def test_baseline_gaps_cannot_bypass_quietness_or_coverage(missing_count):
+    base, a2, layer, manifest = synthetic()
+    a2.items = a2.items[missing_count:]
+    fixture = make_positive_control(
+        base, a2=a2, manifest=manifest, layer=layer, n_items=8, mutation=lambda v: not v, seed=42
+    )
+    evidence = check_positive_control(base, fixture, a2=a2, layers=[layer], manifest=manifest)
+    assert evidence["v", "en"]["passed"] is False
+    candidate = deepcopy(base)
+    candidate.run_id = "candidate"
+    report = compare_product(base, a2, candidate, layers=[layer], manifest=manifest,
+                             control=evidence)
+    assert report.status == "NOT_VERIFIED"
+    assert "NOT_QUIET" in report.rates[0]["reasons"]
+    if missing_count == 5:
+        assert "CANDIDATE_NOT_ESTABLISHED" in report.rates[0]["reasons"]
+
+
+@pytest.mark.parametrize("target", ["identity", "planted"])
+@pytest.mark.parametrize("change", ["item", "trial", "duplicate_item", "duplicate_trial",
+                                    "empty_item"])
+def test_control_copies_must_preserve_base_record_keys(target, change):
+    base, a2, layer, manifest = synthetic()
+    if change == "empty_item":
+        base.items[0].trials.clear()
+    fixture = make_positive_control(
+        base, a2=a2, manifest=manifest, layer=layer, n_items=6, mutation=lambda v: not v, seed=42
+    )
+    identity = deepcopy(base)
+    run = identity if target == "identity" else fixture.run
+    if change in {"item", "empty_item"}:
+        run.items.pop(0)
+    elif change == "trial":
+        run.items[0].trials.pop()
+    elif change == "duplicate_item":
+        run.items.append(deepcopy(run.items[0]))
+    else:
+        run.items[0].trials.append(deepcopy(run.items[0].trials[0]))
+    evidence = check_positive_control(base, fixture, a2=a2, layers=[layer], manifest=manifest,
+                                      identity=identity)
+    assert evidence["v", "en"]["passed"] is False
+
+
+def test_stratum_controls_cover_each_cell_with_the_release_manifest():
+    base, a2, layer, manifest = synthetic()
+    extra = deepcopy(base.items)
+    for item in extra:
+        item.item_id = "he-" + item.item_id
+        item.stratum = "he"
+    base.items.extend(extra)
+    a2.items.extend(deepcopy(extra))
+    manifest.items.update({item.item_id: item.stratum for item in extra})
+    evidence = {}
+    for stratum in ("en", "he"):
+        fixture = make_positive_control(
+            base, a2=a2, manifest=manifest, layer=layer, n_items=6,
+            mutation=lambda v: not v, seed=42, stratum=stratum,
+        )
+        assert len(fixture.changed_item_ids) == 6
+        assert {manifest.items[i] for i in fixture.changed_item_ids} == {stratum}
+        checked = check_positive_control(base, fixture, a2=a2, layers=[layer], manifest=manifest)
+        assert checked["v", stratum]["passed"] is True
+        assert checked["v", "he" if stratum == "en" else "en"]["passed"] is False
+        evidence["v", stratum] = checked["v", stratum]
+        reordered = deepcopy(base)
+        reordered.items.reverse()
+        repeated = make_positive_control(
+            reordered, a2=a2, manifest=manifest, layer=layer, n_items=6,
+            mutation=lambda v: not v, seed=42, stratum=stratum,
+        )
+        assert repeated.changed_item_ids == fixture.changed_item_ids
+    candidate = deepcopy(base)
+    candidate.run_id = "candidate"
+    report = compare_product(base, a2, candidate, layers=[layer], manifest=manifest,
+                             control=evidence)
+    assert report.status == "PASS"
+    assert len(report.rates) == 2
+
+
+@pytest.mark.parametrize("stratum", ["unknown", "", 17])
+def test_control_rejects_invalid_stratum_filter(stratum):
+    base, a2, layer, manifest = synthetic()
+    with pytest.raises(ValueError, match="stratum"):
+        make_positive_control(base, a2=a2, manifest=manifest, layer=layer, n_items=0,
+                              mutation=lambda v: not v, seed=42, stratum=stratum)
+
+
+def test_stratum_control_cannot_borrow_stable_items_from_another_cell():
+    base, a2, layer, manifest = synthetic()
+    for item in base.items[5:]:
+        item.stratum = "he"
+    for item in a2.items[5:]:
+        item.stratum = "he"
+    manifest.items = {item.item_id: item.stratum for item in base.items}
+    with pytest.raises(ValueError, match="Requested more"):
+        make_positive_control(base, a2=a2, manifest=manifest, layer=layer, n_items=6,
+                              mutation=lambda v: not v, seed=42, stratum="en")
