@@ -4,13 +4,24 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## Status Legend
 - **DONE** -- shipped and tested
+- **IN REVIEW** -- implemented in an open PR; not merged or released
 - **PLANNED** -- scheduled for a specific sprint
 - **BACKLOG** -- accepted, not yet scheduled
 - **IDEA** -- needs evaluation
 
 ---
 
+## IN REVIEW — post-v0.17.0
+
+### PR preflight hardening — [#46](https://github.com/Liorrr/mltk/pull/46)
+- [ ] Merge the preflight process: fresh local environments, shared local/CI commands, console-pytest collection, explicit tooling tests, retained coverage/Rust/security gates, branch-push CI, and exact-commit `ready`/`open` checks. Implementation and initial branch CI are verified; the PR's current commit must pass CI before merge. Contributor/agent instructions, PR template and Unreleased changelog are included. This is not part of v0.17.0.
+- [ ] Follow with behavioral false-pass hardening: leakage must distinguish model errors from observed non-leaks; stability must not turn model errors into agreeing empty outputs. Planning is prepared; default error policy, compatibility behavior and minimum valid observations remain to be decided before implementation.
+
 ## DONE (S0-S106: 245 assertions, 6357+ tests, 38 Rust tests) — v0.17.0
+
+### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
+- [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).
+- [ ] Complete the remaining release follow-ups: Homebrew update with real brew-test evidence, review-thread reconciliation, judge API documentation corrections, and a compatibility/versioning decision for the approved typed-parity work. The shipped offline stage does not complete the broader parity plan.
 
 ### v0.16.0 release — PRs merged since v0.15.0
 - [x] Cut **v0.16.0**: rolled CHANGELOG (`[Unreleased]` → `[0.16.0]`), bundling the GitHub Releases job and docs fixes (#39), server access control (#40: reader keys for reads, key roles and project scope, masked webhook URLs, webhook target checks at connect time, request-size fixes, Helm `extraEnv`), local file and code-run safety (#41: pickle opt-in, collection/dataset name checks, minimal code-run environment, compliance report autoescape) and MCP path confinement (#42: `MLTK_MCP_ROOTS`, sandbox mode error, push remote matched to `repo`). The CHANGELOG has a Security section describing what these fix. Each PR went through fresh-agent review cycles to 5/5. Bumped the version (pyproject, Cargo.toml + Cargo.lock, `__init__`, chart `appVersion`, container-doc image tags).
@@ -224,7 +235,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ### Follow-ups from the v0.14.0 PR train — found 2026-11-02
 - [ ] **CI skips the language-ID and chrF tests.** The CI test matrix (`ci.yml`) installs neither the `langdetect` nor the `nlp` extra, so `assert_language` and the chrF tests skip in CI and run only locally.
-- [ ] **`scripts/tests/` is not collected by CI** (`testpaths = ["tests"]`), so the `bump.py` unit tests never run there. A `bump.py` regression in #31 was caught only by review.
+- [ ] **Explicit CI collection of `scripts/tests/`** — implemented in PR #46 through the shared test job, including `bump.py` and preflight regression tests. Initial branch CI passed; close this follow-up when #46 merges. Default `testpaths = ["tests"]` remains unchanged.
 - [x] **`pip install mltk[...]` in user docs installs an unrelated PyPI package.** Fixed 2026-11-03 with a repo-wide sweep (plus a bare `pip install mltk` in the README and the Rich-markup bug that dropped `[container]` from the `container scan` hint). The distribution is `mlspec`; PyPI `mltk` is someone else's 0.0.5. The README install section, `docs/index.md`, `docs/api/cloud-monitoring.md`, `demo/run_demo.py`, `skills/mltk-devops.md` and the `devops-guide.md` upgrade line still say `mltk[...]`. The three server Dockerfiles were fixed with the `server-backup` change. Server quick starts that install `mlspec[server]` without `cli` (`devops-guide.md` near lines 13 and 1880, `server-platform.md` near lines 31 and 659) leave the `mltk` command unable to start; use `mlspec[server,cli]`.
 - [ ] **`mlspec[mcp]` does not install the MCP SDK.** The extra is `["jsonschema>=4.0"]`, but `src/mltk/mcp/server.py` imports `mcp.server.fastmcp`, so `pip install mlspec[mcp]` gives an MCP server that cannot start.
 - [ ] **Install hints name extras that do not exist.** `mlspec[gliner]` (`src/mltk/data/pii_ner.py:216`, pinned by `tests/test_data/test_pii_ner.py:586`) and `mlspec[rust]` (`docs/api/cli.md:96`, `docs/guides/devops-guide.md:1731`); pip installs nothing for an unknown extra.
@@ -390,11 +401,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **COMET** (`unbabel-comet`) — neural MT quality; heavy (torch + model download), must be strictly optional and offline-testable; own scoping pass
 - [ ] **TEDS / GriTS** — table structure recognition. **No canonical PyPI package**: TEDS reference impl is in IBM's PubTabNet repo, GriTS in Microsoft's table-transformer repo; `zss`/`easyted` are generic tree-edit-distance libs, not the table metric. Needs a vendored implementation over `zss` — highest effort, scope before scheduling
 
-### Parity Test Engine — proposed 2026-11-06
-*Gap: mltk compares one model against references, not two models or runtimes against each other on the same inputs. Pieces exist: `assert_no_training_serving_skew` (two output arrays, largest element-wise difference within a tolerance; no agreement rate, label mode or mismatch report), `assert_onnx_valid` (one input against an expected tensor), `assert_matches_golden` (saved snapshot), `assert_no_regression` (metric level), `assert_no_output_drift` (distribution level).*
-- [ ] **Research first:** prior art for runtime and model parity, the metrics and tolerances, mltk's integration points, and the output types to cover
-- [ ] Engine: run a reference and a candidate (e.g. PyTorch vs ONNX or a quantized build, the old vs the new version, a training pipeline vs the serving endpoint) on the same inputs and check per-sample agreement: numeric tolerance, label and top-k agreement rate, and a report of the mismatching samples
-- [ ] **DECIDE at design:** output types in the first cut (tensors, labels, probabilities, text), runtime adapters, and the pytest, scan, report and MCP surfaces
+### Parity Test Engine — offline stage released in v0.17.0; typed runtime work pending
+- [x] Research and the offline stored-run stage: `compare_runs`, `compare_product`, `compare_harness`, `assert_parity`, statistical helpers and deterministic evidence artifacts shipped in #44. This stage compares supplied recordings; it does not execute models or acquire runtime outputs.
+- [ ] Implement the approved typed tensor/label/top-k/probability comparisons, runtime adapters and recording support. Reconcile the plan with the published v0.17.0 API/schema first, retain compatibility fixtures, and decide versioning/migration for incompatible changes.
+- [ ] Later surfaces remain pending: text comparisons, parity CLI/Markdown/YAML support, MCP/scanner integration and HTML sample views. Do not treat the offline release as delivery of these capabilities.
 
 ### Monitoring Visualization Portal
 - [ ] **ACTION**: Research build vs. buy — compare custom portal effort against free solutions (Grafana OSS, Apache Superset, Metabase, Redash) before committing to implementation
