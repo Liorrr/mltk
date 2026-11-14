@@ -110,17 +110,57 @@ def test_check_fails(self) -> None:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/my-feature`)
 3. Write code + tests + docs
-4. Run `pytest -q` and `ruff check src/ tests/`
-5. Submit PR with description of changes
+4. Run `python scripts/preflight.py local` with Python 3.12 (or CI's 3.10/3.13).
+   This creates fresh lint, minimal, and full virtual environments, installs the same
+   dependencies as CI, verifies the imported checkout, then runs lint, the slim
+   regression, documentation freshness, console-pytest collection and coverage,
+   scripts tests, and Rust format/clippy/tests. Rust must be installed. Checks
+   stop on failure; nothing commits, stages, pushes, or opens a PR automatically.
+5. Commit the final changes and push the feature branch. CI runs on branch pushes
+   before a PR exists, including the complete OS/Python matrix and security jobs.
+6. Wait for branch CI, then run `python scripts/preflight.py ready`. It requires
+   a clean checkout, HEAD equal to the pushed branch, current remote master in
+   its ancestry, and the latest CI run for that exact commit to have succeeded.
+   If master has advanced, incorporate it and repeat validation. Any new commit
+   needs fresh CI evidence. Run this check immediately before opening the PR.
+7. Write a PR body file outside the checkout, then run
+   `python scripts/preflight.py open --title "Your title"
+   --body-file ../pr-body.md` (on one line). This reruns the gate and creates the
+   PR only after it passes, using the verified origin repository and branch.
+   It appends the verified commit, CI URL, and master revision automatically.
+   PR CI still checks the merge result. Local success is not proof of other OSes,
+   dependency-audit success, or future dependency resolution.
+
+Steps 6 and 7 apply to branches pushed to this repository. When `origin` is a
+fork, `ready` and `open` stop and say so, because the fork's master is not the
+PR base. From a fork, run step 4, push to your fork, and open the PR against this
+repository with `gh pr create` or the GitHub web page; PR CI checks the merge result.
+
+Before running `ready` or `open`, install the GitHub CLI (`gh`) and authenticate
+with `gh auth login` (or an appropriately scoped token). `ready` needs read
+access to the origin repository and its Actions runs, plus Git access to origin.
+`open` additionally needs permission to create pull requests in that repository.
+The local checks do not require GitHub CLI access.
+
+The `ready` command is a contributor process gate; it cannot prevent someone
+from opening a PR directly through GitHub. Keep branch protection and required
+PR checks enabled. The helper targets `origin` and stops when `origin` is a
+fork (see above); fork PRs rely on this repository's PR checks instead.
 
 ### PR Checklist
 
-- [ ] All tests pass (`pytest -q`)
-- [ ] Lint clean (`ruff check src/ tests/`)
+- [ ] Local preflight passed; `ready` verified the final pushed commit (from a
+      fork, `ready` does not apply and PR CI is the check).
 - [ ] New functions have docstrings (Args, Returns, Example)
 - [ ] New tests have scenario + WHY docstrings
 - [ ] Doc page updated or created for new assertions
 - [ ] CHANGELOG.md updated
+
+Branch and PR runs are intentionally separate: the first checks the pushed
+commit before PR creation, the second checks the merge result. This uses more CI
+capacity on open PR updates; superseded runs for the same event/ref are cancelled.
+The local `job --install` interface is intended for CI or an activated virtualenv;
+use `local` for isolated developer checks. This workflow targets master-based PRs.
 
 ## Architecture Overview
 

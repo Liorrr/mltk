@@ -12,6 +12,7 @@ build/
 .venv/
 venv/
 env/
+/.worktrees/
 
 # Rust
 rust/target/
@@ -28,6 +29,7 @@ rust/target/
 # Testing
 .pytest_cache/
 .coverage
+/coverage.xml
 htmlcov/
 .mypy_cache/
 .hypothesis/

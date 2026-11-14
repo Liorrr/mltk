@@ -1,6 +1,12 @@
 # mltk Repository Rules
 
 ## HARD RULES
+- Before opening a PR, run `python scripts/preflight.py local`, push the final
+  commit within your authorization, and wait for branch CI. Open through
+  `python scripts/preflight.py open --title ... --body-file ...`; it requires
+  clean/pushed HEAD, current master ancestry, and all CI jobs green for that SHA,
+  then attaches the verified SHA and CI URL to the PR. `ready` checks the gate
+  without opening a PR. Keep required PR checks; never weaken gates to get green.
 - **Agents may commit and open PRs directly** — use clear, descriptive commit messages (Conventional Commits style, matching existing history). Still avoid destructive git operations (force-push, hard reset, history rewrite, branch deletion) without explicit per-instance confirmation — those remain governed by the general git safety protocol.
 
 ## Project Overview
