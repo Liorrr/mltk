@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **PR preflight checks** — `python scripts/preflight.py local` runs shared lint, minimal-install regression, documentation freshness, tooling tests, coverage and Rust checks in fresh Python environments. `ready` verifies a clean, pushed feature-branch commit against current `origin/master` and all 16 required branch CI jobs; `open` runs that gate before creating a PR and attaches the verified commit and CI evidence. These helpers target master-based PRs in origin and stop when origin is a fork; direct GitHub PR creation can bypass the local gate.
+- **Homebrew stage in the release procedure** — `python scripts/bump.py homebrew X.Y.Z` points the tap formula (`../homebrew-mltk/Formula/mltk.rb` by default, or `--tap <dir>`) at the PyPI sdist for that version. It refuses unless PyPI lists exactly one sdist named for that version and the downloaded file matches the published sha256, and it changes only the formula's top-level `url` and `sha256` lines. `bump.py release` now reminds you to run it after PyPI publishes. `--dry-run` prints the diff.
+- **CODEOWNERS** — `.github/CODEOWNERS` requests the maintainer's review on pull requests opened by other contributors.
 
 ### Changed
 - **CI runs before PR creation** — every branch push runs the existing OS/Python matrix and security checks, including `scripts/tests/`. Local preflight and CI share job commands. Superseded non-master runs are cancelled within the same event/ref, and every master commit keeps its own run; branch and PR merge-result checks remain separate. Contributor instructions and the PR template require preflight evidence.

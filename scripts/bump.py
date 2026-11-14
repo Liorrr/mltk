@@ -12,13 +12,18 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
+import json
 import os
+import posixpath
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
+from urllib.request import urlopen
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_ROOT = REPO_ROOT / "src" / "mltk"
@@ -373,7 +378,10 @@ def _replace_prose_version_in_text(text: str, old_ver: str, new_ver: str) -> str
 
 
 def _unified_diff(path: Path, old: str, new: str) -> str:
-    rel = path.relative_to(REPO_ROOT).as_posix()
+    try:
+        rel = path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        rel = path.as_posix()
     lines = list(difflib.unified_diff(
         old.splitlines(keepends=True),
         new.splitlines(keepends=True),
@@ -387,6 +395,117 @@ def _print_utf8(text: str) -> None:
     """Print text to stdout, forcing UTF-8 on Windows to avoid cp1252 errors."""
     sys.stdout.buffer.write((text + "\n").encode("utf-8"))
     sys.stdout.buffer.flush()
+
+
+def _fetch(url: str) -> bytes:
+    with urlopen(url, timeout=30) as response:
+        return response.read()
+
+
+def _bump_formula(text: str, url: str, sha256: str) -> str:
+    stale_match = re.search(
+        r"^  (?:version |revision |mirror |bottle do\b).*$",
+        text,
+        re.MULTILINE,
+    )
+    if stale_match:
+        raise ValueError(
+            f"formula needs a manual update for line: {stale_match.group(0).strip()}"
+        )
+    url_re = re.compile(r'^  url "[^"\r\n]*"', re.MULTILINE)
+    sha_re = re.compile(r'^  sha256 "[^"\r\n]*"', re.MULTILINE)
+    url_matches = list(url_re.finditer(text))
+    sha_matches = list(sha_re.finditer(text))
+    if len(url_matches) != 1:
+        raise ValueError("formula must contain exactly one top-level url line")
+    if len(sha_matches) != 1:
+        raise ValueError("formula must contain exactly one top-level sha256 line")
+    text = url_re.sub(lambda _m: f'  url "{url}"', text, count=1)
+    return sha_re.sub(lambda _m: f'  sha256 "{sha256}"', text, count=1)
+
+
+def _read_preserving_line_endings(path: Path) -> str:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return handle.read()
+
+
+def _write_preserving_line_endings(path: Path, text: str) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
+
+
+def cmd_homebrew(version: str, *, tap: Path | None = None, dry_run: bool = False) -> int:
+    version = version.removeprefix("v")
+    if not _VALID_VER.match(version):
+        print(f"error: invalid version format '{version}'. Expected X.Y.Z", file=sys.stderr)
+        return 1
+
+    tap = tap or REPO_ROOT.parent / "homebrew-mltk"
+    formula = tap / "Formula" / "mltk.rb"
+    if not formula.exists():
+        print(
+            f"error: formula not found: {formula} "
+            "(pass --tap <dir> to point at your homebrew-mltk clone)",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        original = _read_preserving_line_endings(formula)
+    except OSError as exc:
+        print(f"error: could not read formula: {exc}", file=sys.stderr)
+        return 1
+
+    metadata_url = f"https://pypi.org/pypi/mlspec/{version}/json"
+    try:
+        metadata = json.loads(_fetch(metadata_url).decode("utf-8"))
+        sdists = [entry for entry in metadata["urls"] if entry.get("packagetype") == "sdist"]
+        if len(sdists) != 1:
+            raise ValueError(f"expected exactly one sdist, found {len(sdists)}")
+        sdist = sdists[0]
+        if sdist.get("yanked"):
+            reason = sdist.get("yanked_reason") or "no reason provided"
+            raise ValueError(f"version {version} is yanked: {reason}")
+        sdist_url = sdist["url"]
+        expected_sha256 = sdist["digests"]["sha256"]
+        filename = posixpath.basename(unquote(urlsplit(sdist_url).path))
+        expected_filename = f"mlspec-{version}.tar.gz"
+        if filename != expected_filename:
+            raise ValueError(f"sdist filename is '{filename}', expected '{expected_filename}'")
+        sdist_bytes = _fetch(sdist_url)
+        actual_sha256 = hashlib.sha256(sdist_bytes).hexdigest()
+        if actual_sha256 != expected_sha256:
+            raise ValueError("downloaded sdist sha256 does not match PyPI metadata")
+        updated = _bump_formula(original, sdist_url, expected_sha256)
+    except (KeyError, TypeError, ValueError, UnicodeDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"error: could not fetch PyPI data: {exc}", file=sys.stderr)
+        return 1
+
+    if updated == original:
+        print(f"The formula is already at {version}.")
+        return 0
+    if dry_run:
+        _print_utf8(_unified_diff(formula, original, updated))
+        return 0
+
+    _write_preserving_line_endings(formula, updated)
+    print(f"Updated {formula} to {version}.")
+    print(
+        f"In the tap, create branch bump-{version} and commit: "
+        f"chore: bump mltk formula to {version}"
+    )
+    print(
+        "Open a pull request (never push to main: on a push, "
+        "brew test-bot builds and tests nothing)."
+    )
+    print(
+        "Read the brew test step output itself; a failed or skipped "
+        "step still leaves the check green."
+    )
+    return 0
 
 
 def _git_add(files: list[Path]) -> None:
@@ -552,6 +671,7 @@ def cmd_release(new_ver: str, dry_run: bool) -> int:
     changed_names = " ".join(p.relative_to(REPO_ROOT).as_posix() for p in all_changed)
     print(f"Refreshed: {changed_names}" if all_changed else "No changes needed.")
     print(f"Remember: git commit && git tag v{new_ver}")
+    print(f"Once PyPI has published {new_ver}, run: python scripts/bump.py homebrew {new_ver}")
     return 0
 
 
@@ -589,6 +709,11 @@ def main() -> None:
     rel_p.add_argument("version", help="New version e.g. 1.0.0")
     rel_p.add_argument("--dry-run", action="store_true", help="Preview diff without writing.")
 
+    homebrew_p = sub.add_parser("homebrew", help="Bump the Homebrew tap formula to a PyPI release.")
+    homebrew_p.add_argument("version", help="Version or tag, e.g. 1.0.0 or v1.0.0")
+    homebrew_p.add_argument("--tap", type=Path, help="Homebrew tap directory.")
+    homebrew_p.add_argument("--dry-run", action="store_true", help="Preview diff without writing.")
+
     notes_p = sub.add_parser("notes", help="Print a version's CHANGELOG section as release notes.")
     notes_p.add_argument("version", help="Version or tag, e.g. 1.0.0 or v1.0.0")
     notes_p.add_argument("--out", type=Path, help="Write the notes to this file.")
@@ -613,6 +738,9 @@ def main() -> None:
 
     elif args.cmd == "notes":
         sys.exit(cmd_notes(args.version, args.out))
+
+    elif args.cmd == "homebrew":
+        sys.exit(cmd_homebrew(args.version, tap=args.tap, dry_run=args.dry_run))
 
 
 if __name__ == "__main__":
