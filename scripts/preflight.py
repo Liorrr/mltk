@@ -37,7 +37,9 @@ COMMANDS = {
     "test": [
         # Deliberately use the console entry point, just as in CI. `python -m`
         # adds cwd to sys.path and has hidden collection failures in the past.
-        ["pytest", "--collect-only", "-q"],
+        # syrupy 7 exits 1 when no snapshot test runs, which is always the case
+        # under --collect-only; import/collection errors still exit non-zero.
+        ["pytest", "--collect-only", "-q", "--snapshot-warn-unused"],
         ["pytest", "scripts/tests", "-q"],
         ["pytest", "--cov=mltk", "--cov-report=xml", "--cov-fail-under=60", "-q"],
     ],

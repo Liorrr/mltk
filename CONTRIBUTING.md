@@ -144,13 +144,13 @@ The local checks do not require GitHub CLI access.
 
 The `ready` command is a contributor process gate; it cannot prevent someone
 from opening a PR directly through GitHub. Keep branch protection and required
-PR checks enabled. The helper targets `origin`. For fork-to-upstream PRs,
-it validates the fork's CI and master only; verify the upstream integration
-separately before opening an upstream PR. Upstream PR checks still apply.
+PR checks enabled. The helper targets `origin` and stops when `origin` is a
+fork (see above); fork PRs rely on this repository's PR checks instead.
 
 ### PR Checklist
 
-- [ ] Local preflight passed; `ready` verified the final pushed commit.
+- [ ] Local preflight passed; `ready` verified the final pushed commit (from a
+      fork, `ready` does not apply and PR CI is the check).
 - [ ] New functions have docstrings (Args, Returns, Example)
 - [ ] New tests have scenario + WHY docstrings
 - [ ] Doc page updated or created for new assertions

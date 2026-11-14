@@ -101,7 +101,7 @@ def test_console_entrypoint_and_failure_stop(monkeypatch, tmp_path):
     monkeypatch.setattr(preflight, "run", run)
     with pytest.raises(subprocess.CalledProcessError):
         preflight.job("test", tmp_path / "python")
-    assert calls[-1] == [str(executable), "--collect-only", "-q"]
+    assert calls[-1] == [str(executable), "--collect-only", "-q", "--snapshot-warn-unused"]
     assert not any("--cov=mltk" in args for args in calls)
 
 
