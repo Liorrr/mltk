@@ -8,10 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **PR preflight checks** — `python scripts/preflight.py local` runs shared lint, minimal-install regression, documentation freshness, tooling tests, coverage and Rust checks in fresh Python environments. `ready` verifies a clean, pushed feature-branch commit against current `origin/master` and all 16 required branch CI jobs; `open` runs that gate before creating a PR and attaches the verified commit and CI evidence. These helpers target master-based PRs in origin; direct GitHub PR creation can bypass the local gate.
+- **PR preflight checks** — `python scripts/preflight.py local` runs shared lint, minimal-install regression, documentation freshness, tooling tests, coverage and Rust checks in fresh Python environments. `ready` verifies a clean, pushed feature-branch commit against current `origin/master` and all 16 required branch CI jobs; `open` runs that gate before creating a PR and attaches the verified commit and CI evidence. These helpers target master-based PRs in origin and stop when origin is a fork; direct GitHub PR creation can bypass the local gate.
 
 ### Changed
-- **CI runs before PR creation** — every branch push runs the existing OS/Python matrix and security checks, including `scripts/tests/`. Local preflight and CI share job commands. Superseded non-master runs are cancelled within the same event/ref; branch and PR merge-result checks remain separate. Contributor instructions and the PR template require preflight evidence.
+- **CI runs before PR creation** — every branch push runs the existing OS/Python matrix and security checks, including `scripts/tests/`. Local preflight and CI share job commands. Superseded non-master runs are cancelled within the same event/ref, and every master commit keeps its own run; branch and PR merge-result checks remain separate. Contributor instructions and the PR template require preflight evidence.
 
 ### Fixed
 

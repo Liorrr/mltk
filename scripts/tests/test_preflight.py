@@ -157,7 +157,18 @@ def test_cleanup_lock_does_not_turn_success_into_failure(monkeypatch, tmp_path):
             handle.close()
 
 
-def mock_checkout(monkeypatch, *, dirty="", pushed="candidate", ancestor=True):
+def repo_view(args, *, fork):
+    """Return only the requested fields, as gh does, so a dropped field is caught."""
+    available = {
+        "nameWithOwner": "contributor/project" if fork else "example/project",
+        "isFork": fork,
+        "parent": {"name": "project", "owner": {"login": "example"}} if fork else None,
+    }
+    fields = args[args.index("--json") + 1].split(",")
+    return json.dumps({name: available[name] for name in fields})
+
+
+def mock_checkout(monkeypatch, *, dirty="", pushed="candidate", ancestor=True, fork=False):
     def capture(args):
         if args[:3] == ["git", "rev-parse", "--show-toplevel"]:
             return str(preflight.ROOT)
@@ -170,7 +181,7 @@ def mock_checkout(monkeypatch, *, dirty="", pushed="candidate", ancestor=True):
         if args[:3] == ["git", "remote", "get-url"]:
             return "https://github.com/example/project.git"
         if args[:3] == ["gh", "repo", "view"]:
-            return json.dumps({"nameWithOwner": "example/project"})
+            return repo_view(args, fork=fork)
         if args[:2] == ["git", "ls-remote"]:
             return f"base\trefs/heads/master\n{pushed}\trefs/heads/feat/example"
         if args[:3] == ["gh", "run", "list"]:
@@ -262,6 +273,29 @@ def test_open_uses_verified_branch_and_repository(monkeypatch, tmp_path):
     assert "Commit: `candidate`" in bodies[0]
     assert "https://example.test/10" in bodies[0]
     assert body.read_text(encoding="utf-8") == "Changes"
+
+
+def test_fork_origin_refuses_ready_and_open(monkeypatch, tmp_path):
+    """A fork's master is not the PR base; open must not target the fork."""
+    body = tmp_path / "body.md"
+    body.write_text("Changes", encoding="utf-8")
+    mock_checkout(monkeypatch, fork=True)
+    calls = []
+    monkeypatch.setattr(preflight, "run", lambda *a, **k: calls.append(a))
+    with pytest.raises(RuntimeError, match="origin is a fork of example/project"):
+        preflight.ready()
+    with pytest.raises(RuntimeError, match="origin is a fork"):
+        preflight.open_pr("Example", body)
+    assert calls == []
+
+
+def test_master_commits_never_share_a_concurrency_group():
+    """GitHub replaces a pending run in a shared group, even without cancel-in-progress."""
+    workflow = (preflight.ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    concurrency = yaml.load(workflow, Loader=yaml.BaseLoader)["concurrency"]
+    assert "github.ref == 'refs/heads/master'" in concurrency["group"]
+    assert "github.sha" in concurrency["group"]
+    assert concurrency["cancel-in-progress"] == "${{ github.ref != 'refs/heads/master' }}"
 
 
 def test_job_install_refuses_global_environment(monkeypatch):

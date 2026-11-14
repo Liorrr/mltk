@@ -184,9 +184,22 @@ def ready() -> dict[str, str]:
         raise RuntimeError("Open PRs from a feature branch, not master")
     sha = capture(["git", "rev-parse", "HEAD"])
     origin = capture(["git", "remote", "get-url", "origin"])
-    repository = json.loads(capture([
-        "gh", "repo", "view", origin, "--json", "nameWithOwner",
-    ]))["nameWithOwner"]
+    info = json.loads(capture([
+        "gh", "repo", "view", origin, "--json", "nameWithOwner,isFork,parent",
+    ]))
+    if info.get("isFork"):
+        # A fork's master is not the PR base, and gh pr create would target the fork.
+        parent = info.get("parent") or {}
+        upstream = "/".join(
+            part for part in ((parent.get("owner") or {}).get("login"), parent.get("name"))
+            if part
+        ) or "the upstream repository"
+        raise RuntimeError(
+            f"origin is a fork of {upstream}. ready and open only verify branches pushed "
+            f"to {upstream} itself. From a fork, run local, push to your fork, and open "
+            f"the PR on {upstream} directly; its PR CI checks the merge result.",
+        )
+    repository = info["nameWithOwner"]
     # Query the actual remote, not potentially stale origin/* tracking refs.
     refs = capture([
         "git", "ls-remote", "--heads", "origin", "refs/heads/master", f"refs/heads/{branch}",

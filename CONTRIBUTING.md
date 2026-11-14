@@ -131,6 +131,11 @@ def test_check_fails(self) -> None:
    PR CI still checks the merge result. Local success is not proof of other OSes,
    dependency-audit success, or future dependency resolution.
 
+Steps 6 and 7 apply to branches pushed to this repository. When `origin` is a
+fork, `ready` and `open` stop and say so, because the fork's master is not the
+PR base. From a fork, run step 4, push to your fork, and open the PR against this
+repository with `gh pr create` or the GitHub web page; PR CI checks the merge result.
+
 Before running `ready` or `open`, install the GitHub CLI (`gh`) and authenticate
 with `gh auth login` (or an appropriately scoped token). `ready` needs read
 access to the origin repository and its Actions runs, plus Git access to origin.
