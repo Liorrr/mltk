@@ -315,7 +315,7 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 ## Error handling
 
 - For `assert_llm_judge_score`, judge exceptions and unparseable replies are errors: the item has no score and is excluded from the mean by default. `on_error="fail_if_all"` (the default) fails only when every item errors, `"strict"` fails on any error, and `"zero"` zero-fills errored items.
-- Text replies use strict explicit-score parsing: a JSON `"score"` key is authoritative; fenced or prefixed JSON is accepted; `N/max` requires a denominator matching `max_score`; and `legacy_parse=True` restores first-number scraping. Any numeric score outside the inclusive `[0, max_score]` range is a judge error, not a pass or a clamped value.
+- Text replies use strict explicit-score parsing: a JSON `"score"` key is authoritative; fenced or prefixed JSON is accepted; `N/max` requires a denominator matching `max_score`; and `legacy_parse=True` restores first-number scraping. A negative numeric callback value, or a negative explicit score under strict parsing, is outside `[0, max_score]` and is a judge error. Legacy parsing reads unsigned numbers, so it ignores a minus sign in text such as `"Score: -4"`; an above-maximum legacy number is still an error.
 - If `judge_fn` **raises or returns gibberish** during pairwise comparison, the item counts as a **tie** (neither side benefits from judge failure).
 - If `prompts` and `responses` have **different lengths**, the assertion fails immediately with a descriptive error message.
 
@@ -323,7 +323,7 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 
 ## Related
 
-- [LLM Judge Defaults](judge-defaults.md) -- configure a default judge once so every subjective assertion uses it automatically
+- [LLM Judge Defaults](judge-defaults.md) -- configure a default judge once for `assert_with_judge`
 - [Multimodal Evaluation](multimodal.md) -- LLM-as-Judge assertions for image-text evaluation
 - [Behavioral Consistency](behavioral-consistency.md) -- uses `method="llm"` for LLM-as-Judge dispatch
 - [Assertion Index](assertion-index.md) -- full list of all 245 assertions

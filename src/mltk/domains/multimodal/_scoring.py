@@ -15,7 +15,7 @@ from mltk.core.error_policy import (
     error_policy_verdict,
     unknown_on_error_result,
 )
-from mltk.core.judge_parse import parse_judge_score
+from mltk.core.judge_parse import check_score_range, parse_judge_score
 from mltk.core.result import Severity, TestResult
 
 _parse_score = parse_judge_score
@@ -23,10 +23,14 @@ _parse_score = parse_judge_score
 
 def _judge_error_result(
     name: str, score: float | None, error: str | None, on_error: str,
-) -> TestResult | None:
+) -> tuple[TestResult | None, float | None, str | None]:
     """Apply the release error policy before a single numeric judge verdict."""
     if on_error not in EVAL_ON_ERROR:
-        return unknown_on_error_result(name, on_error, EVAL_ON_ERROR)
+        return unknown_on_error_result(name, on_error, EVAL_ON_ERROR), score, error
+    if score is not None and error is None:
+        error = check_score_range(score, 1.0)
+        if error is not None:
+            score = None
     errored = error is not None or score is None
     if error_policy_verdict(on_error, int(errored), 1):
         error = error or "Could not parse score from judge response"
@@ -34,8 +38,8 @@ def _judge_error_result(
             False, name=name, message=f"Judge error: {error}",
             severity=Severity.CRITICAL, score=None, error=error,
             errored=True, on_error=on_error,
-        )
-    return None
+        ), score, error
+    return None, score, error
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:

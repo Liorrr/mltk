@@ -17,32 +17,25 @@ provider, any model, any cost point. But in a real test suite with 20+ assertion
 the same `judge_fn` setup appears 20+ times:
 
 ```python
-import openai
-from mltk.domains.llm.coherence import assert_coherence
 from mltk.domains.llm.judge import assert_llm_judge_score
 from mltk.domains.llm.rag import assert_faithfulness
 
-client = openai.OpenAI()
-
 # Without defaults -- repeated in every test file
-def openai_judge(prompt: str) -> float:
-    return float(
-        client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-        ).choices[0].message.content.strip()
-    )
+def judge(prompt: str) -> float:
+    return 4.0
 
-answers = "The answer is grounded."
-contexts = "The context supports the answer."
-texts = ["A coherent example."]
-p = ["question"]
-r = ["answer"]
-assert_faithfulness(answers, contexts, judge_fn=openai_judge)
-assert_coherence(texts, judge_fn=openai_judge)
+
+def faithfulness_judge(answer: str, context: str) -> float:
+    return 0.9
+
+
+answer = "The answer is grounded."
+context = "The context supports the answer."
+prompts = ["question"]
+responses = ["answer"]
+assert_faithfulness(answer, context, method="llm", judge_fn=faithfulness_judge)
 assert_llm_judge_score(
-    judge_fn=openai_judge, prompts=p, responses=r, criterion="helpfulness"
+    judge_fn=judge, prompts=prompts, responses=responses, criterion="helpfulness"
 )
 # ...17 more assertions all repeating the same judge_fn
 ```
@@ -187,10 +180,12 @@ fallback chain in order:
 ```
 1. Explicit judge_fn argument      -- Always used if provided
 2. Default judge (module-level)    -- Used by assert_with_judge if configured
-3. Lexical overlap (token F1)      -- Used by assert_with_judge when no judge exists
+3. Lexical token coverage          -- Used by assert_with_judge when no judge exists
 ```
 
-The fallback chain applies to `assert_with_judge`. RAG and safety assertions do not
+The fallback chain applies to `assert_with_judge`. Its lexical score is the share
+of tokens in the first text that also appear in the reference text, not an F1 score.
+RAG and safety assertions do not
 consume this module-level default, and `assert_llm_judge_score` requires its own
 judge function.
 
@@ -198,7 +193,7 @@ judge function.
 
 | Assertion | Without any judge | With default judge |
 |-----------|------------------|--------------------|
-| `assert_with_judge` | Lexical overlap | Default judge used |
+| `assert_with_judge` | Lexical token coverage | Default judge used |
 | RAG and safety assertions | Their configured fallback or `judge_fn` requirement | Default ignored |
 | `assert_llm_judge_score` | `judge_fn` is a required argument | Default ignored |
 | `assert_llm_judge_pairwise` | `judge_fn` is a required argument | Default ignored |
@@ -334,6 +329,7 @@ class TestWithRealJudge:
 ### Parametrize judge backends
 
 ```python
+from mltk.core.assertion import MltkAssertionError
 import pytest
 from mltk.domains.llm.judge_defaults import assert_with_judge, configure_default_judge
 
@@ -346,13 +342,22 @@ def make_mock_judge(score: float):
 ])
 def test_judge_thresholds(score, should_pass):
     configure_default_judge(make_mock_judge(score))
-    result = assert_with_judge(
-        "faithfulness",
-        "The sky is blue.",
-        "Scientific studies confirm the sky appears blue.",
-        min_score=0.75,
-    )
-    assert result.passed == should_pass
+    if should_pass:
+        result = assert_with_judge(
+            "faithfulness",
+            "The sky is blue.",
+            "Scientific studies confirm the sky appears blue.",
+            min_score=0.75,
+        )
+        assert result.passed
+    else:
+        with pytest.raises(MltkAssertionError):
+            assert_with_judge(
+                "faithfulness",
+                "The sky is blue.",
+                "Scientific studies confirm the sky appears blue.",
+                min_score=0.75,
+            )
 ```
 
 ---
@@ -429,7 +434,7 @@ MLTK_JUDGE_BACKEND=openai MLTK_JUDGE_MODEL=gpt-4o pytest tests/llm/
 
 | Scenario | Behavior |
 |----------|----------|
-| `judge_fn` omitted, no default configured, fallback available | `assert_with_judge` uses lexical token overlap (`fallback_method="lexical"`, the only built-in fallback) |
+| `judge_fn` omitted, no default configured, fallback available | `assert_with_judge` uses lexical token coverage (`fallback_method="lexical"`, the only built-in fallback) |
 | `judge_fn` omitted, no default, `fallback_method` is not `"lexical"` | The assertion fails with `No judge available and fallback method '<name>' requires one.` |
 | `judge_fn` raises exception during scoring | It is a judge error governed by `on_error`: `fail_if_all` fails when all items error, `strict` fails on any error, and `zero` zero-fills |
 | Default judge (set with `configure_default_judge`) returns text | `assert_with_judge` uses the strict parser on a 0–1 scale: JSON `"score"` is authoritative, fenced/prefixed JSON is accepted, and `N/max` requires denominator `1`. `legacy_parse=True` restores first-number scraping. Unparseable or out-of-range scores are errors governed by `on_error`; scores outside `[0, 1]` are never clamped. |

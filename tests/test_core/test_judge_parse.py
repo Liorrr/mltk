@@ -143,7 +143,10 @@ def test_numeric_adapters_share_strict_parser(surface):
         assert exc.value.result.details["score"] is None
     assert invoke('invalid', on_error="zero", min_score=0).details["score"] == 0
     assert invoke('there are 0.8 points', legacy_parse=True).details["score"] == 0.8
-    assert invoke(1.0, legacy_parse=True, min_score=1).details["score"] == 1
+    for boundary in (0.0, 1.0):
+        assert invoke(boundary, min_score=boundary).details["score"] == boundary
+    with pytest.raises(MltkAssertionError):
+        invoke(-1.0, legacy_parse=True, min_score=-2)
 
 
 def test_configured_default_judge_uses_shared_parser(monkeypatch):

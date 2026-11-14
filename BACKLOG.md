@@ -24,7 +24,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **PR #44 review threads reconciled**: the five open threads were each re-verified on master (scenario, pinning test, a revert that makes it fail) and resolved with that evidence.
 - [x] **Judge scores outside the scale are errors, and the judge docs match the parser** (this change). See the CHANGELOG.
 
-## DONE (S0-S106: 245 assertions, 6424+ tests, 38 Rust tests) — v0.17.0
+## DONE (S0-S106: 245 assertions, 6447+ tests, 38 Rust tests) — v0.17.0
 
 ### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
 - [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).
@@ -108,7 +108,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 245 assertions, 6424+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 245 assertions, 6447+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -266,6 +266,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
   - Original note: It does not call `parse_judge_score`, so `{"reasoning_steps": 3, "score": 0.2}` scores 3.0 and `{"score": null, "confidence": 0.95}` scores 0.95, and both pass `min_score=0.5`. Switching it to the shared parser changes scores for users of the default judge, so it needs a CHANGELOG "Changed" entry.
 - [x] **`docs/api/judge-defaults.md` describes behaviour the code does not have.** Docs corrected (this change): the default judge is documented as applying to `assert_with_judge` only, with the strict parser and `on_error`.
   - Original note: It says every subjective assertion falls back to the default judge set with `configure_default_judge`, but only `assert_with_judge` reads it: nothing outside `judge_defaults.py` calls `get_default_judge` or `resolve_judge`. Its error-handling table also says a judge exception gives the item a 0.0 score with an error flag in `per_item_scores`, but `assert_with_judge` fails critically. The page needs rewriting against the code, or the default judge needs wiring into the assertions it names.
+- [ ] **RAG, safety and invariance judge callbacks have no score range check.** These paths use `float(judge_fn(...))` directly, without the shared parser or `on_error`, so `assert_faithfulness(answer, context, method="llm", judge_fn=lambda a, c: 7.0)` passes. Applying the out-of-range rule there first needs an error contract for these assertions (they have no `on_error` parameter). Design it together with the default-judge wiring below.
 - [ ] **Wire the default judge into the RAG and safety assertions (feature).** `configure_default_judge` reaches only `assert_with_judge`. With `method="llm"` and no `judge_fn`, `assert_faithfulness` and the other RAG/safety judge paths fail with "requires a judge_fn" instead of using the configured default, and `resolve_judge` is never called. Each assertion has its own prompt and score scale, so the default (a `str -> str` callable) needs a per-assertion wrapper and scale before it can be used.
 - [ ] **Hand-rolled `on_error` validation** remains in `src/mltk/cli/security_scan.py` and `src/mltk/testdefs/schema.py`; use `mltk.core.error_policy.RED_TEAM_ON_ERROR`.
 - [ ] **The plugin collects nothing under pytest-xdist (`-n`)** — exports, the HTML report and the new `assertions` list are empty on workers.
@@ -353,7 +354,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 6424+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 6447+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).

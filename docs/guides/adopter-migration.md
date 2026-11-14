@@ -36,10 +36,10 @@ The public adapters supply the expected scale:
 
 | API | Expected fraction denominator | Score treatment |
 | --- | --- | --- |
-| `assert_llm_judge_score` in `mltk.domains.llm.judge` | `max_score` (default `5.0`) | Raw scores are averaged and compared with `min_score`. |
-| `LLMJudgeScorer` in `mltk.eval` | `max_score` (default `5.0`) | Divides the raw score by `max_score` and clamps to `[0, 1]`. |
-| `assert_with_judge` in `mltk.domains.llm.judge_defaults` | `1.0` | Uses the score on its configured 0–1 scale. |
-| `assert_prompt_faithfulness`, `assert_image_coherence` in `mltk.domains.multimodal.alignment`; `assert_image_helpfulness`, `assert_vqa_accuracy` in `mltk.domains.multimodal.vlm` | `1.0` | Numeric judge branches expect the 0–1 scale. |
+| `assert_llm_judge_score` in `mltk.domains.llm.judge` | `max_score` (default `5.0`) | Raw scores are averaged and compared with `min_score`; a score outside `[0, max_score]` is a judge error under `on_error`. |
+| `LLMJudgeScorer` in `mltk.eval` | `max_score` (default `5.0`) | Divides in-range raw scores by `max_score`; a score outside `[0, max_score]` is an errored `Score`, not clamped. |
+| `assert_with_judge` in `mltk.domains.llm.judge_defaults` | `1.0` | Uses the score on its configured 0–1 scale; a score outside `[0, 1]` is a judge error under `on_error`. |
+| `assert_prompt_faithfulness`, `assert_image_coherence` in `mltk.domains.multimodal.alignment`; `assert_image_helpfulness`, `assert_vqa_accuracy` in `mltk.domains.multimodal.vlm` | `1.0` | Numeric judge branches expect the 0–1 scale; a score outside `[0, 1]` is a judge error under `on_error`. |
 
 The following parser checks run locally without calling a model:
 

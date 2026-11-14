@@ -122,6 +122,54 @@ def _mock_judge_garbage(prompt: str) -> str:
     return "I cannot evaluate this image."
 
 
+_NUMERIC_JUDGE_APIS = [
+    pytest.param(
+        assert_prompt_faithfulness,
+        {"prompt": "A red car", "image": None, "image_description": "A red car"},
+        id="prompt-faithfulness",
+    ),
+    pytest.param(
+        assert_image_coherence,
+        {"text": "A medical report", "image": None, "image_description": "An x-ray"},
+        id="image-coherence",
+    ),
+    pytest.param(
+        assert_image_helpfulness,
+        {
+            "question": "What color is the car?",
+            "image": None,
+            "answer": "Red",
+            "image_description": "A red car",
+        },
+        id="image-helpfulness",
+    ),
+    pytest.param(
+        assert_vqa_accuracy,
+        {
+            "question": "What color is the car?",
+            "image": None,
+            "expected_answer": "red",
+            "actual_answer": "blue",
+        },
+        id="vqa-accuracy",
+    ),
+]
+
+
+@pytest.mark.parametrize(("assertion", "kwargs"), _NUMERIC_JUDGE_APIS)
+@pytest.mark.parametrize("raw", [7.0, "Score: 7", '{"score": 4}'])
+def test_numeric_judge_apis_reject_out_of_range_scores(assertion, kwargs, raw) -> None:
+    with pytest.raises(MltkAssertionError, match=r"outside \[0, 1\.0\]"):
+        assertion(judge_fn=lambda _: raw, **kwargs)
+
+
+@pytest.mark.parametrize(("assertion", "kwargs"), _NUMERIC_JUDGE_APIS)
+@pytest.mark.parametrize("raw", [0.0, 1.0])
+def test_numeric_judge_apis_accept_score_boundaries(assertion, kwargs, raw) -> None:
+    result = assertion(judge_fn=lambda _: raw, min_score=0.0, **kwargs)
+    assert result.passed is True
+
+
 # ===============================================================
 # Part 1: Image Utilities (_image.py)
 # ===============================================================
