@@ -28,7 +28,7 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 
-from mltk.core.judge_parse import parse_judge_score
+from mltk.core.judge_parse import check_score_range, parse_judge_score
 from mltk.eval._types import EvalState, Score
 
 __all__ = [
@@ -408,10 +408,17 @@ class LLMJudgeScorer(Scorer):
                 metadata={"error": f"non-finite score: {score_val}"},
             )
 
+        range_error = check_score_range(score_val, self.max_score)
+        if range_error is not None:
+            return Score(
+                value=0.0,
+                errored=True,
+                explanation=f"Judge error: {range_error}",
+                metadata={"error": range_error},
+            )
+
         # Normalize to [0.0, 1.0]
-        normalized = min(
-            max(score_val / self.max_score, 0.0), 1.0
-        )
+        normalized = score_val / self.max_score
 
         return Score(
             value=normalized,

@@ -314,8 +314,8 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 
 ## Error handling
 
-- If `judge_fn` **raises an exception** during scoring, the item gets score `0.0` with an error flag in `per_item_scores`. The assertion does not crash.
-- If `judge_fn` returns text, a reply that is a JSON object with a `"score"` key scores that value, and any other reply scores its first number. If the reply is **unparseable** (no number, or a null or non-numeric `"score"`), the item gets score `0.0`.
+- For `assert_llm_judge_score`, judge exceptions and unparseable replies are errors: the item has no score and is excluded from the mean by default. `on_error="fail_if_all"` (the default) fails only when every item errors, `"strict"` fails on any error, and `"zero"` zero-fills errored items.
+- Text replies use strict explicit-score parsing: a JSON `"score"` key is authoritative; fenced or prefixed JSON is accepted; `N/max` requires a denominator matching `max_score`; and `legacy_parse=True` restores first-number scraping. Any numeric score outside the inclusive `[0, max_score]` range is a judge error, not a pass or a clamped value.
 - If `judge_fn` **raises or returns gibberish** during pairwise comparison, the item counts as a **tie** (neither side benefits from judge failure).
 - If `prompts` and `responses` have **different lengths**, the assertion fails immediately with a descriptive error message.
 

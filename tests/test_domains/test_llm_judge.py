@@ -52,9 +52,9 @@ def test_judge_custom_delimiters_and_signed_numeric_legacy():
     )
     assert result.details["avg_score"] == 4
     result = assert_llm_judge_score(
-        lambda _: -1.0, ["p"], ["r"], min_score=-2, legacy_parse=True,
+        lambda _: 0.0, ["p"], ["r"], min_score=0, legacy_parse=True,
     )
-    assert result.details["avg_score"] == -1
+    assert result.details["avg_score"] == 0
 
 def _high_scorer(prompt: str) -> float:
     """Judge that always returns a high score."""
@@ -205,6 +205,41 @@ class TestAssertLlmJudgeScore:
         # "I think the response is quite good actually" has no number
         # so the score is missing.
         assert result.details["per_item_scores"][0]["score"] is None
+
+    @pytest.mark.parametrize("raw", [7.0, "Score: 7"])
+    def test_out_of_range_scores_are_errors_and_excluded(self, raw) -> None:
+        def judge(prompt: str):
+            return 4.0 if "good" in prompt else raw
+
+        result = assert_llm_judge_score(
+            judge, ["good", "bad"], ["answer", "answer"], min_score=3.0,
+        )
+        assert result.details["avg_score"] == 4.0
+        assert result.details["n_valid"] == 1
+        assert result.details["per_item_scores"][1]["errored"] is True
+        assert "outside [0, 5.0]" in result.details["per_item_scores"][1]["error"]
+
+    @pytest.mark.parametrize("raw", [7.0, "Score: 7"])
+    def test_all_out_of_range_scores_fail(self, raw) -> None:
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_llm_judge_score(lambda _: raw, ["p"], ["r"])
+        assert "Judge errors: 1/1" in exc.value.result.message
+
+    @pytest.mark.parametrize("raw", [0.0, 5.0, "Score: 0", "Score: 5"])
+    def test_score_boundaries_are_accepted(self, raw) -> None:
+        result = assert_llm_judge_score(
+            lambda _: raw, ["p"], ["r"], min_score=0.0,
+        )
+        assert result.details["errored_count"] == 0
+
+    def test_legacy_parse_rejects_out_of_range_first_number(self) -> None:
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_llm_judge_score(
+                lambda _: "7 reasons", ["p"], ["r"], legacy_parse=True,
+            )
+        item = exc.value.result.details["per_item_scores"][0]
+        assert item["errored"] is True
+        assert "outside [0, 5.0]" in item["error"]
 
     def test_empty_prompts_pass(self) -> None:
         """EDGE: Empty prompts list passes with zero items."""

@@ -13,9 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CODEOWNERS** — `.github/CODEOWNERS` requests the maintainer's review on pull requests opened by other contributors.
 
 ### Changed
+- **Judge scores outside the scale are judge errors (behaviour change).** Applies to `assert_llm_judge_score` and `LLMJudgeScorer` (range `[0, max_score]`) and `assert_with_judge` (range `[0, 1]`). A score below 0 or above the maximum, whether returned as a number or parsed from text and with or without `legacy_parse=True`, is now an error under `on_error`: it is excluded from the mean, an all-error run fails, and `on_error="zero"` zero-fills. It no longer passes. `LLMJudgeScorer` no longer clamps such scores into `[0, 1]`. To migrate, return scores on the assertion's scale or set `max_score` to match the judge.
 - **CI runs before PR creation** — every branch push runs the existing OS/Python matrix and security checks, including `scripts/tests/`. Local preflight and CI share job commands. Superseded non-master runs are cancelled within the same event/ref, and every master commit keeps its own run; branch and PR merge-result checks remain separate. Contributor instructions and the PR template require preflight evidence.
 
 ### Fixed
+- **Judge docs match the parser.** `docs/api/llm-judge.md`, `docs/api/judge-defaults.md` and `docs/api/eval-pipeline.md` no longer describe first-number parsing or a `0.0` score for judge errors. They describe strict explicit-score parsing, the `on_error` policies and the out-of-range rule. `judge-defaults.md` now says the default judge set with `configure_default_judge` is used by `assert_with_judge` only, and its Ollama examples return the raw reply instead of a regex score with a `0.0` fallback.
 
 ## [0.17.0] — 2026-11-10
 ### Added

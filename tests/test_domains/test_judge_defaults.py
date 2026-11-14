@@ -312,6 +312,33 @@ class TestAssertWithJudgeErrors:
         assert "Judge error" in result.message
         assert "RuntimeError" in result.message
 
+    @pytest.mark.parametrize("raw", [4.0, "4"])
+    def test_out_of_range_scores_are_errors(self, raw) -> None:
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_with_judge(
+                "range_test", "input", "reference", judge_fn=lambda *_: raw,
+            )
+        result = exc.value.result
+        assert result.details["errored"] is True
+        assert result.details["score"] is None
+        assert "outside [0, 1.0]" in result.message
+
+    @pytest.mark.parametrize("raw", [0.0, 1.0, "0", "1"])
+    def test_score_boundaries_are_accepted(self, raw) -> None:
+        result = assert_with_judge(
+            "range_test", "input", "reference", judge_fn=lambda *_: raw,
+            min_score=0.0,
+        )
+        assert result.details["errored"] is False
+
+    def test_legacy_parse_rejects_out_of_range_first_number(self) -> None:
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_with_judge(
+                "range_test", "input", "reference",
+                judge_fn=lambda *_: "4 reasons", legacy_parse=True,
+            )
+        assert "outside [0, 1.0]" in exc.value.result.message
+
 
 # ===================================================================
 # assert_with_judge -- result metadata

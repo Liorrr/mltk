@@ -1,7 +1,8 @@
 # LLM Judge Defaults
 
-Configure a default judge once and every subjective assertion uses it automatically --
-no more passing `judge_fn` to every call.
+Configure a default judge once for `assert_with_judge`, so that assertion does not
+need a `judge_fn` on every call. Other subjective assertions do not implicitly read
+this setting.
 
 **Module:** `mltk.domains.llm.judge_defaults`
 
@@ -11,12 +12,18 @@ no more passing `judge_fn` to every call.
 
 ### The repetition problem
 
-Every subjective mltk assertion (faithfulness, coherence, toxicity via LLM, etc.)
-accepts a `judge_fn` callable. That design gives you full control: pick any
+`assert_with_judge` accepts a `judge_fn` callable. That design gives you full control: pick any
 provider, any model, any cost point. But in a real test suite with 20+ assertions,
 the same `judge_fn` setup appears 20+ times:
 
 ```python
+import openai
+from mltk.domains.llm.coherence import assert_coherence
+from mltk.domains.llm.judge import assert_llm_judge_score
+from mltk.domains.llm.rag import assert_faithfulness
+
+client = openai.OpenAI()
+
 # Without defaults -- repeated in every test file
 def openai_judge(prompt: str) -> float:
     return float(
@@ -27,6 +34,11 @@ def openai_judge(prompt: str) -> float:
         ).choices[0].message.content.strip()
     )
 
+answers = "The answer is grounded."
+contexts = "The context supports the answer."
+texts = ["A coherent example."]
+p = ["question"]
+r = ["answer"]
 assert_faithfulness(answers, contexts, judge_fn=openai_judge)
 assert_coherence(texts, judge_fn=openai_judge)
 assert_llm_judge_score(
@@ -35,18 +47,23 @@ assert_llm_judge_score(
 # ...17 more assertions all repeating the same judge_fn
 ```
 
-`configure_default_judge` solves this by registering a module-level default that
-every assertion falls back to when `judge_fn` is not provided:
+`configure_default_judge` registers a module-level default used by
+`assert_with_judge` when `judge_fn` is not provided:
 
 ```python
 # Once at the top of conftest.py or test setup
 from mltk.domains.llm.judge_defaults import configure_default_judge
+
+openai_judge = lambda prompt: "0.8"
+answer = "The answer is grounded."
+context = "The context supports the answer."
 configure_default_judge(openai_judge)
 
-# Now every assertion finds the judge automatically
-assert_faithfulness(answers, contexts)          # uses openai_judge
-assert_coherence(texts)                         # uses openai_judge
-assert_llm_judge_score(prompts=p, responses=r)  # uses openai_judge
+# The convenience assertion finds the judge automatically
+from mltk.domains.llm.judge_defaults import assert_with_judge
+assert_with_judge("faithfulness", answer, context)  # uses openai_judge
+
+# RAG, safety, and assert_llm_judge_score still require their own judge_fn.
 ```
 
 ---
@@ -56,11 +73,10 @@ assert_llm_judge_score(prompts=p, responses=r)  # uses openai_judge
 Register a callable as the module-level default judge. Called once per session.
 
 ```python
+from collections.abc import Callable
 from mltk.domains.llm.judge_defaults import configure_default_judge
 
-configure_default_judge(
-    judge_fn: Callable[[str], str] | None,
-) -> None
+def configure_default_judge(judge_fn: Callable[[str], str] | None) -> None: ...
 ```
 
 ### Parameters
@@ -73,7 +89,7 @@ configure_default_judge(
 
 After calling `configure_default_judge(fn)`:
 
-- Any assertion that accepts `judge_fn` will use `fn` when the argument is omitted.
+- `assert_with_judge` uses `fn` when its `judge_fn` argument is omitted.
 - The default is stored at module level in `mltk.domains.llm.judge_defaults._default_judge`.
 - Thread-safe: protected by a module-level lock.
 - Calling `configure_default_judge` again replaces the previous default.
@@ -106,7 +122,7 @@ import urllib.request
 import json
 from mltk.domains.llm.judge_defaults import configure_default_judge
 
-def ollama_judge(prompt: str) -> float:
+def ollama_judge(prompt: str) -> str:
     """Call a local Ollama model. Requires `ollama serve` running."""
     payload = json.dumps({
         "model": "llama3.2",
@@ -120,11 +136,7 @@ def ollama_judge(prompt: str) -> float:
     )
     with urllib.request.urlopen(req) as resp:
         body = json.loads(resp.read())
-    text = body["message"]["content"].strip()
-    # Extract numeric score from response
-    import re
-    match = re.search(r"\b([0-5](?:\.\d+)?)\b", text)
-    return float(match.group(1)) if match else 0.0
+    return body["message"]["content"]
 
 configure_default_judge(ollama_judge)
 ```
@@ -135,7 +147,7 @@ configure_default_judge(ollama_judge)
 from mltk.domains.llm.judge_defaults import configure_default_judge
 
 # Fast, deterministic, zero cost -- ideal for unit tests
-configure_default_judge(lambda prompt: "4.0")
+configure_default_judge(lambda prompt: "0.8")
 ```
 
 ---
@@ -174,38 +186,46 @@ fallback chain in order:
 
 ```
 1. Explicit judge_fn argument      -- Always used if provided
-2. Default judge (module-level)    -- Used if configure_default_judge was called
-3. Embedding similarity            -- Used if sentence-transformers is installed
-4. Lexical overlap (token F1)      -- Always available, no dependencies
+2. Default judge (module-level)    -- Used by assert_with_judge if configured
+3. Lexical overlap (token F1)      -- Used by assert_with_judge when no judge exists
 ```
 
-The fallback chain applies per assertion. Some assertions (e.g., `assert_faithfulness`)
-can meaningfully use embedding or lexical methods and always have a fallback path.
-Others (e.g., `assert_llm_judge_score`) require a judge and raise `ValueError` if no
-judge is available via the first two steps.
+The fallback chain applies to `assert_with_judge`. RAG and safety assertions do not
+consume this module-level default, and `assert_llm_judge_score` requires its own
+judge function.
 
 ### Fallback behavior by assertion
 
 | Assertion | Without any judge | With default judge |
 |-----------|------------------|--------------------|
-| `assert_faithfulness` | Lexical NLI fallback | Judge handles it |
-| `assert_coherence` | Embedding cosine fallback | Judge handles it |
-| `assert_no_toxicity` | Regex patterns (built-in) | Judge handles it |
-| `assert_semantic_similarity` | Token F1 | Judge handles it |
-| `assert_llm_judge_score` | `ValueError` -- judge required | Default judge used |
-| `assert_llm_judge_pairwise` | `ValueError` -- judge required | Default judge used |
+| `assert_with_judge` | Lexical overlap | Default judge used |
+| RAG and safety assertions | Their configured fallback or `judge_fn` requirement | Default ignored |
+| `assert_llm_judge_score` | `judge_fn` is a required argument | Default ignored |
+| `assert_llm_judge_pairwise` | `judge_fn` is a required argument | Default ignored |
 
-### Disabling fallbacks
+### Requiring a judge
 
-To force all assertions to use a judge (and fail explicitly if none is configured),
-set the `require_judge` flag per call:
+`assert_faithfulness(answer, context, ..., method="llm", judge_fn=None)` fails
+with `method='llm' requires a judge_fn callable`; it does not fall back or read
+the configured default judge. Its judge callback receives `(answer_or_text,
+context)` and returns a float. `assert_with_judge` has no flag that disables its
+lexical fallback; set `fallback_method` to something other than `"lexical"` to
+fail when no judge is available.
 
 ```python
-# Forces a judge -- falls back to nothing, raises if no judge configured
+from mltk.domains.llm.rag import assert_faithfulness
+
+def my_judge(answer: str, context: str) -> float:
+    return 0.9
+
+answer = "The sky is blue."
+context = "Scientific studies confirm the sky appears blue."
 assert_faithfulness(
-    answers,
-    contexts,
-    require_judge=True,
+    answer,
+    context,
+    min_score=0.7,
+    method="llm",
+    judge_fn=my_judge,
 )
 ```
 
@@ -213,61 +233,47 @@ assert_faithfulness(
 
 ## Integration with Existing Assertions
 
-### `assert_faithfulness`
+### Using `assert_with_judge` for faithfulness
 
-Checks whether generated answers are grounded in the provided context.
-With a default judge, the LLM evaluates semantic entailment instead of using
-keyword overlap.
+Checks whether generated answers are grounded in the provided context using the
+configured default judge.
 
 ```python
-from mltk.domains.llm.judge_defaults import configure_default_judge
-from mltk.domains.llm import assert_faithfulness
+from mltk.domains.llm.judge_defaults import (
+    assert_with_judge,
+    configure_default_judge,
+)
 
-configure_default_judge(lambda prompt: "4.2")
+configure_default_judge(lambda prompt: "0.8")
 
-result = assert_faithfulness(
-    answers=["The report confirms Q3 revenue grew 12%."],
-    contexts=["Q3 revenue increased by 12% year-over-year."],
-    threshold=0.8,
-    # judge_fn omitted -- default judge used automatically
+result = assert_with_judge(
+    "faithfulness",
+    "The report confirms Q3 revenue grew 12%.",
+    "Q3 revenue increased by 12% year-over-year.",
+    min_score=0.8,
 )
 assert result.passed
-print(result.details["method"])  # "judge"
+print(result.details["method"])  # "llm"
 ```
 
-### `assert_no_toxicity` with LLM judge
+### Other assertions
 
-The built-in regex detection is fast but narrow. A judge catches nuanced cases
-(sarcasm, coded language, context-dependent offensiveness):
+The built-in regex detection is fast but narrow. For nuanced toxicity detection,
+use `method="classifier"`, which runs a local toxicity classifier and requires
+downloading its model. `configure_default_judge` does not affect toxicity.
 
 ```python
-from mltk.domains.llm.judge_defaults import configure_default_judge
 from mltk.domains.llm import assert_no_toxicity
-
-configure_default_judge(openai_judge)
 
 result = assert_no_toxicity(
     texts=["Yeah, totally brilliant move there."],
     max_toxic_pct=0.0,
-    use_judge=True,  # Opt-in to judge -- regex not always sufficient
+    method="classifier",
 )
 ```
 
-### `assert_coherence`
-
-Evaluates whether the output has clear logical structure and readable flow.
-Without a judge this falls back to embedding coherence proxies. With a judge:
-
-```python
-from mltk.domains.llm import assert_coherence
-
-result = assert_coherence(
-    texts=model_outputs,
-    threshold=0.75,
-    # Default judge used if configured
-)
-print(result.details["method"])  # "judge" or "embedding"
-```
+`configure_default_judge` is not consumed by the RAG and safety assertions or by
+`assert_llm_judge_score`; pass their own `judge_fn` where supported.
 
 ---
 
@@ -275,8 +281,8 @@ print(result.details["method"])  # "judge" or "embedding"
 
 ### conftest.py pattern
 
-Set the default judge once in `conftest.py`. Every test file in the session
-inherits it automatically.
+Set the default judge once in `conftest.py` for tests that call
+`assert_with_judge`.
 
 ```python
 # conftest.py
@@ -286,7 +292,7 @@ from mltk.domains.llm.judge_defaults import configure_default_judge
 
 def pytest_configure(config):
     """Register default judge before any tests run."""
-    configure_default_judge(lambda prompt: "4.0")
+    configure_default_judge(lambda prompt: "0.8")
 
 
 def pytest_unconfigure(config):
@@ -303,15 +309,16 @@ from mltk.domains.llm.judge_defaults import configure_default_judge
 class TestWithMockJudge:
     @pytest.fixture(autouse=True)
     def use_mock_judge(self):
-        configure_default_judge(lambda p: "4.0")
+        configure_default_judge(lambda p: "0.8")
         yield
         configure_default_judge(None)
 
-    def test_faithfulness_passes(self):
-        from mltk.domains.llm import assert_faithfulness
-        result = assert_faithfulness(
-            answers=["Paris is the capital of France."],
-            contexts=["France's capital is Paris."],
+    def test_with_judge_passes(self):
+        from mltk.domains.llm.judge_defaults import assert_with_judge
+        result = assert_with_judge(
+            "faithfulness",
+            "Paris is the capital of France.",
+            "France's capital is Paris.",
         )
         assert result.passed
 
@@ -328,22 +335,22 @@ class TestWithRealJudge:
 
 ```python
 import pytest
-from mltk.domains.llm.judge_defaults import configure_default_judge
-from mltk.domains.llm import assert_faithfulness
+from mltk.domains.llm.judge_defaults import assert_with_judge, configure_default_judge
 
 def make_mock_judge(score: float):
     return lambda prompt: score
 
 @pytest.mark.parametrize("score,should_pass", [
-    (4.5, True),
-    (2.0, False),
+    (0.9, True),
+    (0.2, False),
 ])
-def test_faithfulness_thresholds(score, should_pass):
+def test_judge_thresholds(score, should_pass):
     configure_default_judge(make_mock_judge(score))
-    result = assert_faithfulness(
-        answers=["The sky is blue."],
-        contexts=["Scientific studies confirm the sky appears blue."],
-        threshold=0.75,
+    result = assert_with_judge(
+        "faithfulness",
+        "The sky is blue.",
+        "Scientific studies confirm the sky appears blue.",
+        min_score=0.75,
     )
     assert result.passed == should_pass
 ```
@@ -377,9 +384,9 @@ def _build_judge():
         return _fn
 
     if backend == "ollama":
-        import urllib.request, json, re
+        import urllib.request, json
         model = os.environ.get("MLTK_JUDGE_MODEL", "llama3.2")
-        def _fn(prompt: str) -> float:
+        def _fn(prompt: str) -> str:
             payload = json.dumps({
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
@@ -392,13 +399,11 @@ def _build_judge():
             )
             with urllib.request.urlopen(req) as resp:
                 body = json.loads(resp.read())
-            text = body["message"]["content"].strip()
-            match = re.search(r"\b([0-5](?:\.\d+)?)\b", text)
-            return float(match.group(1)) if match else 0.0
+            return body["message"]["content"]
         return _fn
 
     # default: mock judge for local/CI runs with no LLM access
-    return lambda prompt: 4.0
+    return lambda prompt: "0.8"
 
 
 def pytest_configure(config):
@@ -424,8 +429,8 @@ MLTK_JUDGE_BACKEND=openai MLTK_JUDGE_MODEL=gpt-4o pytest tests/llm/
 
 | Scenario | Behavior |
 |----------|----------|
-| `judge_fn` omitted, no default configured, fallback available | Fallback method (embedding / lexical) is used |
-| `judge_fn` omitted, no default, no fallback (`require_judge=True`) | `ValueError` with message explaining how to configure |
-| `judge_fn` raises exception during scoring | Item scores `0.0`; error flag in `per_item_scores`; assertion does not crash |
-| Default judge (set with `configure_default_judge`) returns text | `assert_with_judge` scores the first number in the reply. Unlike `assert_llm_judge_score`, it does not read a JSON `"score"` key first. No number gives `0.0` |
-| `configure_default_judge` called with `None` | Clears the default; assertions fall back to `fallback_method` |
+| `judge_fn` omitted, no default configured, fallback available | `assert_with_judge` uses lexical token overlap (`fallback_method="lexical"`, the only built-in fallback) |
+| `judge_fn` omitted, no default, `fallback_method` is not `"lexical"` | The assertion fails with `No judge available and fallback method '<name>' requires one.` |
+| `judge_fn` raises exception during scoring | It is a judge error governed by `on_error`: `fail_if_all` fails when all items error, `strict` fails on any error, and `zero` zero-fills |
+| Default judge (set with `configure_default_judge`) returns text | `assert_with_judge` uses the strict parser on a 0–1 scale: JSON `"score"` is authoritative, fenced/prefixed JSON is accepted, and `N/max` requires denominator `1`. `legacy_parse=True` restores first-number scraping. Unparseable or out-of-range scores are errors governed by `on_error`; scores outside `[0, 1]` are never clamped. |
+| `configure_default_judge` called with `None` | Clears the default; `assert_with_judge` falls back to its `fallback_method`. Other assertions never read the default. |
