@@ -6,7 +6,21 @@ import math
 
 import pytest
 
-from mltk.core.judge_parse import parse_judge_score
+from mltk.core.judge_parse import check_score_range, parse_judge_score
+
+
+@pytest.mark.parametrize(
+    ("score", "max_score"), [(-0.1, 1.0), (1.1, 1.0), (6.0, 5.0)],
+)
+def test_check_score_range_rejects_out_of_range(score: float, max_score: float) -> None:
+    assert check_score_range(score, max_score) == (
+        f"score {score} outside [0, {max_score}]"
+    )
+
+
+@pytest.mark.parametrize("score", [0.0, 1.0])
+def test_check_score_range_accepts_boundaries(score: float) -> None:
+    assert check_score_range(score, 1.0) is None
 
 
 def test_parse_judge_score_json_and_text() -> None:
@@ -129,7 +143,10 @@ def test_numeric_adapters_share_strict_parser(surface):
         assert exc.value.result.details["score"] is None
     assert invoke('invalid', on_error="zero", min_score=0).details["score"] == 0
     assert invoke('there are 0.8 points', legacy_parse=True).details["score"] == 0.8
-    assert invoke(-1.0, legacy_parse=True, min_score=-2).details["score"] == -1
+    for boundary in (0.0, 1.0):
+        assert invoke(boundary, min_score=boundary).details["score"] == boundary
+    with pytest.raises(MltkAssertionError):
+        invoke(-1.0, legacy_parse=True, min_score=-2)
 
 
 def test_configured_default_judge_uses_shared_parser(monkeypatch):

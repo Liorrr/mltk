@@ -131,7 +131,7 @@ def assert_image_helpfulness(
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
-    failure = _judge_error_result(
+    failure, score, error = _judge_error_result(
         "multimodal.vlm.image_helpfulness", score, error, on_error,
     )
     if failure is not None:
@@ -271,19 +271,18 @@ def assert_vqa_accuracy(
         norm_actual = actual_answer.strip().lower()
         score = 1.0 if norm_expected == norm_actual else 0.0
 
+    failure, score, error = _judge_error_result(
+        "multimodal.vlm.vqa_accuracy",
+        score, error, on_error,
+    )
+    if failure is not None:
+        return failure
     if score is None:
         score = 0.0
         if error is None:
             error = "Could not parse score from judge response"
 
     passed = score >= min_score
-
-    failure = _judge_error_result(
-        "multimodal.vlm.vqa_accuracy",
-        score if error is None else None, error, on_error,
-    )
-    if failure is not None:
-        return failure
     message = (
         f"VQA accuracy ({method}): {score:.4f} >= "
         f"{min_score}"

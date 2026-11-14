@@ -333,7 +333,7 @@ def assert_prompt_faithfulness(
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
-    failure = _judge_error_result(
+    failure, score, error = _judge_error_result(
         "multimodal.alignment.prompt_faithfulness", score, error, on_error,
     )
     if failure is not None:
@@ -450,19 +450,18 @@ def assert_image_coherence(
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
 
+    failure, score, error = _judge_error_result(
+        "multimodal.alignment.image_coherence",
+        score, error, on_error,
+    )
+    if failure is not None:
+        return failure
     if score is None:
         score = 0.0
         if error is None:
             error = "Could not parse score from judge response"
 
     passed = score >= min_score
-
-    failure = _judge_error_result(
-        "multimodal.alignment.image_coherence",
-        score if error is None else None, error, on_error,
-    )
-    if failure is not None:
-        return failure
     message = (
         f"Image coherence: {score:.4f} >= "
         f"{min_score}"

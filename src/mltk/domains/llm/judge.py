@@ -30,7 +30,7 @@ from mltk.core.error_policy import (
     error_policy_verdict,
     unknown_on_error_result,
 )
-from mltk.core.judge_parse import parse_judge_score
+from mltk.core.judge_parse import check_score_range, parse_judge_score
 from mltk.core.result import Severity, TestResult
 from mltk.core.validation import require_same_length
 
@@ -307,6 +307,10 @@ def assert_llm_judge_score(
                 raw, reasoning_delimiters=reasoning_delimiters,
                 legacy=legacy_parse, expected_max_score=max_score,
             )
+            if score is not None:
+                error = check_score_range(score, max_score)
+                if error is not None:
+                    score = None
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
 

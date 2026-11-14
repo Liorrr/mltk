@@ -67,6 +67,20 @@ def test_judge_fraction_scale_mismatch_errors(reply):
     assert legacy.value == 0.8
 
 
+@pytest.mark.parametrize("reply", [7.0, "Score: 7"])
+def test_judge_out_of_range_score_errors_instead_of_clamping(reply):
+    result = LLMJudgeScorer(lambda _: reply, max_score=5).score(_make_state())
+    assert result.errored
+    assert result.value == 0.0
+    assert "outside [0, 5]" in result.metadata["error"]
+
+
+@pytest.mark.parametrize("reply", [0.0, 5.0, "0", "5"])
+def test_judge_score_boundaries_are_not_errors(reply):
+    result = LLMJudgeScorer(lambda _: reply, max_score=5).score(_make_state())
+    assert not result.errored
+
+
 def _make_state(
     output: str = "",
     target: str | None = "4",
@@ -440,17 +454,19 @@ class TestLLMJudgeScorer:
         result = scorer.score(state)
         assert result.value == pytest.approx(0.7)
 
-    def test_over_max_clamped_to_one(self):
+    def test_over_max_score_is_an_error(self):
         # SCENARIO: judge returns above max_score
-        # WHY: value must be clamped to 1.0
-        # EXPECTED: value == 1.0
+        # WHY: out-of-range judge scores are errors, not clamped values
+        # EXPECTED: errored zero score with a range error
         def judge(prompt: str) -> float:
             return 6.0
 
         scorer = LLMJudgeScorer(judge_fn=judge)
         state = _make_state(output="answer")
         result = scorer.score(state)
-        assert result.value == pytest.approx(1.0)
+        assert result.errored is True
+        assert result.value == 0.0
+        assert "outside [0, 5.0]" in result.metadata["error"]
 
     def test_metadata_has_raw_score(self):
         # SCENARIO: metadata includes raw score

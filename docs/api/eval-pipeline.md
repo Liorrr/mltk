@@ -707,8 +707,8 @@ The raw score is normalized to `[0.0, 1.0]` by dividing by `max_score`.
 
 !!! warning "Judge calibration"
     `max_score` must match what your judge model actually returns. If your
-    judge returns 0–10 but `max_score=5.0`, all scores above 5 will be
-    clipped to 1.0. Always verify the score range your judge uses before
+    judge returns 0–10 but `max_score=5.0`, scores above 5 are judge errors.
+    Always verify the score range your judge uses before
     running evaluation.
 
 !!! note "Judge errors are tracked"
@@ -717,12 +717,13 @@ The raw score is normalized to `[0.0, 1.0]` by dividing by `max_score`.
     `metadata["error"]`. Errored samples are excluded from `mean` and
     `accuracy`; `0.0` is retained so metrics never contain `NaN`.
 
-String replies use JSON-first parsing. When the whole reply parses as a JSON
-object with a `score` key, that key is authoritative (a null or non-numeric
-value is an error). Any other reply falls back to the first number in the text,
-including JSON inside a Markdown code fence or after a lead-in sentence, so ask
-the judge for bare JSON. For example, `{"reasoning_steps": 3, "score": 8}` is 8,
-while `"4/5"` is 4.
+String replies use strict explicit-score parsing. A JSON `score` key is
+authoritative (a null or non-numeric value is an error), including JSON inside a
+Markdown fence or after a lead-in sentence. `N/max` is accepted only when the
+denominator matches the scorer's configured maximum. `legacy_parse=True` restores
+first-number scraping. Numeric scores outside `[0, max_score]` are errors, not
+clamped. For example, `{"reasoning_steps": 3, "score": 4}` is 4, while `"4/5"`
+is 4 only when `max_score=5`.
 
 `EvalResult.errors` reports `errored`, `n_valid`, and `error_rate` for every
 scorer that produced scores. A scorer whose samples all errored has no

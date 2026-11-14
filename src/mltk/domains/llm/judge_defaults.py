@@ -34,7 +34,7 @@ from mltk.core.error_policy import (
     error_policy_verdict,
     unknown_on_error_result,
 )
-from mltk.core.judge_parse import parse_judge_score
+from mltk.core.judge_parse import check_score_range, parse_judge_score
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
 
@@ -233,6 +233,10 @@ def assert_with_judge(
             )
             if score is None:
                 error = "Could not parse numeric score from judge"
+            else:
+                error = check_score_range(score, 1.0)
+                if error is not None:
+                    score = None
         except Exception as exc:
             score = None
             error = f"{type(exc).__name__}: {exc}"

@@ -27,6 +27,15 @@ def _finite_score(value: object) -> float | None:
     return score if math.isfinite(score) else None
 
 
+def check_score_range(score: float, max_score: float) -> str | None:
+    """Return an error when a judge score is not on the configured scale."""
+    if not math.isfinite(score):
+        return f"non-finite score: {score}"
+    if score < 0 or score > max_score:
+        return f"score {score} outside [0, {max_score}]"
+    return None
+
+
 def _strip_reasoning(raw: str, delimiters: Sequence[tuple[str, str]]) -> str | None:
     pairs = [("<think>", "</think>"), *delimiters]
     tokens: dict[str, tuple[bool, str]] = {}

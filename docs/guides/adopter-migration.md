@@ -36,10 +36,10 @@ The public adapters supply the expected scale:
 
 | API | Expected fraction denominator | Score treatment |
 | --- | --- | --- |
-| `assert_llm_judge_score` in `mltk.domains.llm.judge` | `max_score` (default `5.0`) | Raw scores are averaged and compared with `min_score`. |
-| `LLMJudgeScorer` in `mltk.eval` | `max_score` (default `5.0`) | Divides the raw score by `max_score` and clamps to `[0, 1]`. |
-| `assert_with_judge` in `mltk.domains.llm.judge_defaults` | `1.0` | Uses the score on its configured 0–1 scale. |
-| `assert_prompt_faithfulness`, `assert_image_coherence` in `mltk.domains.multimodal.alignment`; `assert_image_helpfulness`, `assert_vqa_accuracy` in `mltk.domains.multimodal.vlm` | `1.0` | Numeric judge branches expect the 0–1 scale. |
+| `assert_llm_judge_score` in `mltk.domains.llm.judge` | `max_score` (default `5.0`) | Raw scores are averaged and compared with `min_score`; a score outside `[0, max_score]` is a judge error under `on_error`. |
+| `LLMJudgeScorer` in `mltk.eval` | `max_score` (default `5.0`) | Divides in-range raw scores by `max_score`; a score outside `[0, max_score]` is an errored `Score`, not clamped. |
+| `assert_with_judge` in `mltk.domains.llm.judge_defaults` | `1.0` | Uses the score on its configured 0–1 scale; a score outside `[0, 1]` is a judge error under `on_error`. |
+| `assert_prompt_faithfulness`, `assert_image_coherence` in `mltk.domains.multimodal.alignment`; `assert_image_helpfulness`, `assert_vqa_accuracy` in `mltk.domains.multimodal.vlm` | `1.0` | Numeric judge branches expect the 0–1 scale; a score outside `[0, 1]` is a judge error under `on_error`. |
 
 The following parser checks run locally without calling a model:
 
@@ -62,9 +62,12 @@ The public numeric assertions listed above and `LLMJudgeScorer` accept
 `legacy_parse=True`. The shared parser spells this option `legacy=True`.
 Compatibility parsing first tries a whole-response JSON score and then the
 first unsigned number in the text. It ignores reasoning delimiters and fraction
-scale mismatches, and retains permissive nonfinite conversion. Prefer explicit
-score responses when updating judge prompts; compatibility parsing can select
-a number from reasoning instead of the intended grade.
+scale mismatches. The scored assertions listed above, `LLMJudgeScorer`,
+`assert_with_judge` and the four multimodal judges now treat a non-finite or
+out-of-range score as a judge error under `on_error`, with or without
+`legacy_parse=True`.
+Prefer explicit score responses when updating judge prompts; compatibility
+parsing can select a number from reasoning instead of the intended grade.
 
 For example, this executable check demonstrates the scale-check opt-out:
 
@@ -75,8 +78,11 @@ assert parse_judge_score("4/10", expected_max_score=5, legacy=True) == 4.0
 ```
 
 Numeric callback values retain their sign and value rather than passing through
-the legacy text-number search. `LLMJudgeScorer` keeps its numeric normalization
-path and rejects nonfinite scores even with `legacy_parse=True`.
+the legacy text-number search. The scored assertions listed above,
+`LLMJudgeScorer`, `assert_with_judge` and the four multimodal judges reject
+non-finite and out-of-range scores, including with `legacy_parse=True`; the
+shared parser itself still returns the parsed value, as the example above
+demonstrates.
 
 Parsing compatibility and error handling are independent. The error-policy
 keyword on assertions is **`on_error`**, not `error_policy`:
