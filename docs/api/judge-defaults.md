@@ -76,7 +76,7 @@ def configure_default_judge(judge_fn: Callable[[str], str] | None) -> None: ...
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `judge_fn` | `Callable[[str], str] \| None` | *(required)* | Callable that accepts an evaluation prompt string and returns the judge response string. Pass `None` to clear the default and revert to requiring explicit `judge_fn` arguments. |
+| `judge_fn` | `Callable[[str], str] \| None` | *(required)* | Callable that accepts an evaluation prompt string and returns the judge response string. Pass `None` to clear the default; `assert_with_judge` then uses its `fallback_method`, while other assertions never read this default. |
 
 ### Effect
 
@@ -86,7 +86,7 @@ After calling `configure_default_judge(fn)`:
 - The default is stored at module level in `mltk.domains.llm.judge_defaults._default_judge`.
 - Thread-safe: protected by a module-level lock.
 - Calling `configure_default_judge` again replaces the previous default.
-- Pass `None` to clear the default and revert to requiring explicit `judge_fn` arguments.
+- Pass `None` to clear the default; `assert_with_judge` then uses its `fallback_method`, while other assertions never read this default.
 
 ### Example: OpenAI judge
 
