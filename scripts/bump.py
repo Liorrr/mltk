@@ -403,6 +403,15 @@ def _fetch(url: str) -> bytes:
 
 
 def _bump_formula(text: str, url: str, sha256: str) -> str:
+    stale_match = re.search(
+        r"^  (?:version |revision |mirror |bottle do\b).*$",
+        text,
+        re.MULTILINE,
+    )
+    if stale_match:
+        raise ValueError(
+            f"formula needs a manual update for line: {stale_match.group(0).strip()}"
+        )
     url_re = re.compile(r'^  url "[^"\r\n]*"', re.MULTILINE)
     sha_re = re.compile(r'^  sha256 "[^"\r\n]*"', re.MULTILINE)
     url_matches = list(url_re.finditer(text))
@@ -454,6 +463,9 @@ def cmd_homebrew(version: str, *, tap: Path | None = None, dry_run: bool = False
         if len(sdists) != 1:
             raise ValueError(f"expected exactly one sdist, found {len(sdists)}")
         sdist = sdists[0]
+        if sdist.get("yanked"):
+            reason = sdist.get("yanked_reason") or "no reason provided"
+            raise ValueError(f"version {version} is yanked: {reason}")
         sdist_url = sdist["url"]
         expected_sha256 = sdist["digests"]["sha256"]
         filename = posixpath.basename(unquote(urlsplit(sdist_url).path))

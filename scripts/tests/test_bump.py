@@ -238,6 +238,22 @@ class TestHomebrewFormula:
         with pytest.raises(ValueError, match="top-level sha256"):
             _bump_formula(text, "new-url", "new-hash")
 
+    @pytest.mark.parametrize("stale_line", [
+        '  version "0.16.0"',
+        '  revision 1',
+        '  mirror "https://example.com/mlspec.tar.gz"',
+        '  bottle do',
+    ])
+    def test_rejects_stale_top_level_lines(self, stale_line: str) -> None:
+        text = REAL_FORMULA.replace(
+            '  sha256 "2a927686cbd60583f62abb83265b13c067b59e2e7b45b7474e804b15a4c132d3"\n',
+            '  sha256 "2a927686cbd60583f62abb83265b13c067b59e2e7b45b7474e804b15a4c132d3"\n'
+            f"{stale_line}\n",
+            1,
+        )
+        with pytest.raises(ValueError, match="manual update"):
+            _bump_formula(text, "https://example/mlspec-0.17.0.tar.gz", "new-hash")
+
     def test_replacement_values_are_literal(self) -> None:
         text = 'class Mltk < Formula\n  url "old"\n  sha256 "old-hash"\nend\n'
         result = _bump_formula(text, r"new\url", r"new\sha\1")
@@ -355,6 +371,32 @@ class TestHomebrewCommand:
         assert bump.cmd_homebrew("0.17.0", tap=tap) == 1
         assert formula.read_bytes() == original
         assert "mlspec-0.16.0.tar.gz" in capsys.readouterr().err
+
+    def test_rejects_yanked_sdist_without_writing(
+        self, tmp_path: Path, monkeypatch: object, capsys: object
+    ) -> None:
+        tap, formula = self._setup_tap(tmp_path)
+        original = formula.read_bytes()
+        data = b"real sdist bytes"
+        url = "https://example/mlspec-0.17.0.tar.gz"
+        digest = hashlib.sha256(data).hexdigest()
+        metadata = {"urls": [{
+            "packagetype": "sdist",
+            "url": url,
+            "digests": {"sha256": digest},
+            "yanked": True,
+            "yanked_reason": "security issue",
+        }]}
+        monkeypatch.setattr(
+            bump,
+            "_fetch",
+            lambda requested: json.dumps(metadata).encode()
+            if requested.endswith("/json") else data,
+        )
+
+        assert bump.cmd_homebrew("0.17.0", tap=tap) == 1
+        assert formula.read_bytes() == original
+        assert "yanked" in capsys.readouterr().err
 
     def test_dry_run_and_missing_formula(
         self, tmp_path: Path, monkeypatch: object, capsys: object
