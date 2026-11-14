@@ -68,4 +68,4 @@ git push origin vX.Y.Z
 ## After publishing
 
 - Check that `https://pypi.org/pypi/mlspec/X.Y.Z/json` (and the same path on `test.pypi.org`) lists the four wheels and the sdist, that `gh release view vX.Y.Z` shows the notes, and that the GHCR and Docker Hub `vX.Y.Z` digests equal `latest` (`vX.Y.Z-full` equals `full`).
-- Bump the Homebrew tap (`Liorrr/homebrew-mltk`): set the formula's `url` and `sha256` to the PyPI sdist, through a pull request. On a push to `main`, `brew test-bot` builds and tests nothing; on a PR it builds, audits and tests the formula. Read the `brew test` step itself: a failed or skipped step still leaves the check green.
+- Bump the Homebrew tap (`Liorrr/homebrew-mltk`) with `python scripts/bump.py homebrew X.Y.Z` (optionally `--tap <path>`), then submit the change through a pull request. On a push to `main`, `brew test-bot` builds and tests nothing; on a PR it builds, audits and tests the formula. Read the `brew test` step itself: a failed or skipped step still leaves the check green.

@@ -1,8 +1,12 @@
 """Tests for scripts/bump.py."""
 from __future__ import annotations
 
+import hashlib
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 # Make scripts/ importable without an __init__.py
 _SCRIPTS_DIR = Path(__file__).resolve().parents[1]
@@ -12,10 +16,15 @@ if str(_SCRIPTS_DIR) not in sys.path:
 import bump  # noqa: E402
 from bump import (  # noqa: E402
     LiveCounts,
+    _bump_formula,
     _replace_counts_in_text,
     _roll_changelog,
     cmd_refresh,
     cmd_verify,
+)
+
+REAL_FORMULA = (Path(__file__).parent / "fixtures" / "homebrew_mltk_0_16_0.rb").read_text(
+    encoding="utf-8"
 )
 
 
@@ -197,3 +206,194 @@ class TestVersionBumpPyproject:
     def test_invalid_version_exits_nonzero(self, monkeypatch: object) -> None:
         exit_code = bump.cmd_release("not-a-version", dry_run=False)
         assert exit_code == 1
+
+
+class TestHomebrewFormula:
+    def test_bumps_only_top_level_lines(self) -> None:
+        updated = _bump_formula(REAL_FORMULA, "https://example/mlspec-0.17.0.tar.gz", "newhash")
+        old_url = (
+            'url "https://files.pythonhosted.org/packages/80/86/'
+            '248f1dd2b796920649d226c0843c9192923a8ef74086b119f2a0f1e4139f/'
+            'mlspec-0.16.0.tar.gz"'
+        )
+        old_sha = 'sha256 "2a927686cbd60583f62abb83265b13c067b59e2e7b45b7474e804b15a4c132d3"'
+        assert updated.replace('url "https://example/mlspec-0.17.0.tar.gz"', old_url).replace(
+            'sha256 "newhash"', old_sha
+        ) == REAL_FORMULA
+        assert 'version ' not in updated
+
+    @pytest.mark.parametrize("text", [
+        'class Mltk < Formula\n  sha256 "old"\nend\n',
+        'class Mltk < Formula\n  url "one"\n  url "two"\n  sha256 "old"\nend\n',
+    ])
+    def test_requires_exactly_one_top_level_url(self, text: str) -> None:
+        with pytest.raises(ValueError, match="top-level url"):
+            _bump_formula(text, "new-url", "new-hash")
+
+    @pytest.mark.parametrize("text", [
+        'class Mltk < Formula\n  url "old"\nend\n',
+        'class Mltk < Formula\n  url "one"\n  sha256 "one"\n  sha256 "two"\nend\n',
+    ])
+    def test_requires_exactly_one_top_level_sha256(self, text: str) -> None:
+        with pytest.raises(ValueError, match="top-level sha256"):
+            _bump_formula(text, "new-url", "new-hash")
+
+    def test_replacement_values_are_literal(self) -> None:
+        text = 'class Mltk < Formula\n  url "old"\n  sha256 "old-hash"\nend\n'
+        result = _bump_formula(text, r"new\url", r"new\sha\1")
+        assert r'  url "new\url"' in result
+        assert r'  sha256 "new\sha\1"' in result
+
+    def test_does_not_change_resource_block(self) -> None:
+        text = (
+            'class Mltk < Formula\n  url "old"\n  sha256 "old-hash"\n'
+            '    resource "x" do\n      url "nested"\n      sha256 "nested-hash"\n'
+            '    end\nend\n'
+        )
+        result = _bump_formula(text, "new", "new-hash")
+        assert '  url "new"' in result
+        assert '  sha256 "new-hash"' in result
+        assert '      url "nested"' in result
+        assert '      sha256 "nested-hash"' in result
+
+    def test_preserves_crlf(self) -> None:
+        text = 'class Mltk < Formula\r\n  url "old"\r\n  sha256 "old-hash"\r\nend\r\n'
+        result = _bump_formula(text, "new", "new-hash")
+        assert result == 'class Mltk < Formula\r\n  url "new"\r\n  sha256 "new-hash"\r\nend\r\n'
+
+
+class TestHomebrewCommand:
+    def _setup_tap(self, tmp_path: Path) -> tuple[Path, Path]:
+        formula = tmp_path / "Formula" / "mltk.rb"
+        formula.parent.mkdir()
+        formula.write_bytes(REAL_FORMULA.encode())
+        return tmp_path, formula
+
+    def test_end_to_end_and_idempotence(
+        self, tmp_path: Path, monkeypatch: object, capsys: object
+    ) -> None:
+        tap, formula = self._setup_tap(tmp_path)
+        data = b"real sdist bytes"
+        url = "https://files.pythonhosted.org/packages/mlspec-0.17.0.tar.gz"
+        digest = hashlib.sha256(data).hexdigest()
+        payload = json.dumps({"urls": [{
+            "packagetype": "sdist", "url": url, "digests": {"sha256": digest}
+        }]}).encode()
+        monkeypatch.setattr(
+            bump, "_fetch", lambda requested: payload if requested.endswith("/json") else data
+        )
+
+        assert bump.cmd_homebrew("v0.17.0", tap=tap) == 0
+        assert 'mlspec-0.17.0.tar.gz' in formula.read_text()
+        assert digest in formula.read_text()
+        assert b"\r" not in formula.read_bytes()
+        assert bump.cmd_homebrew("0.17.0", tap=tap) == 0
+        assert "already at 0.17.0" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("sdist_count", [0, 2])
+    def test_rejects_wrong_sdist_count(
+        self,
+        tmp_path: Path,
+        monkeypatch: object,
+        capsys: object,
+        sdist_count: int,
+    ) -> None:
+        tap, formula = self._setup_tap(tmp_path)
+        original = formula.read_bytes()
+        data = b"real sdist bytes"
+        digest = hashlib.sha256(data).hexdigest()
+        urls = [{
+            "packagetype": "sdist",
+            "url": "https://example/mlspec-0.17.0.tar.gz",
+            "digests": {"sha256": digest},
+        }] * sdist_count
+        payload = json.dumps({"urls": urls}).encode()
+        monkeypatch.setattr(
+            bump, "_fetch", lambda requested: payload if requested.endswith("/json") else data
+        )
+        assert bump.cmd_homebrew("0.17.0", tap=tap) == 1
+        assert formula.read_bytes() == original
+        assert f"found {sdist_count}" in capsys.readouterr().err
+
+    def test_rejects_digest_mismatch_without_writing(
+        self, tmp_path: Path, monkeypatch: object
+    ) -> None:
+        tap, formula = self._setup_tap(tmp_path)
+        original = formula.read_bytes()
+        url = "https://example/mlspec-0.17.0.tar.gz"
+        metadata = {"urls": [{"packagetype": "sdist", "url": url, "digests": {"sha256": "wrong"}}]}
+        monkeypatch.setattr(
+            bump,
+            "_fetch",
+            lambda requested: json.dumps(metadata).encode()
+            if requested.endswith("/json") else b"bytes",
+        )
+        assert bump.cmd_homebrew("0.17.0", tap=tap) == 1
+        assert formula.read_bytes() == original
+
+    def test_rejects_filename_version_mismatch(
+        self, tmp_path: Path, monkeypatch: object, capsys: object
+    ) -> None:
+        tap, formula = self._setup_tap(tmp_path)
+        original = formula.read_bytes()
+        data = b"real sdist bytes"
+        digest = hashlib.sha256(data).hexdigest()
+        url = "https://example/mlspec-0.16.0.tar.gz"
+        metadata = {
+            "urls": [{
+                "packagetype": "sdist",
+                "url": url,
+                "digests": {"sha256": digest},
+            }]
+        }
+        monkeypatch.setattr(
+            bump,
+            "_fetch",
+            lambda requested: json.dumps(metadata).encode()
+            if requested.endswith("/json") else data,
+        )
+        assert bump.cmd_homebrew("0.17.0", tap=tap) == 1
+        assert formula.read_bytes() == original
+        assert "mlspec-0.16.0.tar.gz" in capsys.readouterr().err
+
+    def test_dry_run_and_missing_formula(
+        self, tmp_path: Path, monkeypatch: object, capsys: object
+    ) -> None:
+        tap, formula = self._setup_tap(tmp_path)
+        data = b"bytes"
+        url = "https://example/mlspec-0.17.0.tar.gz"
+        digest = hashlib.sha256(data).hexdigest()
+        metadata = {"urls": [{"packagetype": "sdist", "url": url, "digests": {"sha256": digest}}]}
+        monkeypatch.setattr(
+            bump,
+            "_fetch",
+            lambda requested: json.dumps(metadata).encode()
+            if requested.endswith("/json") else data,
+        )
+        original = formula.read_bytes()
+        assert bump.cmd_homebrew("0.17.0", tap=tap, dry_run=True) == 0
+        assert formula.read_bytes() == original
+        assert "---" in capsys.readouterr().out
+        formula.unlink()
+        assert bump.cmd_homebrew("0.17.0", tap=tap) == 1
+        assert "pass --tap <dir>" in capsys.readouterr().err
+
+    def test_end_to_end_preserves_crlf(self, tmp_path: Path, monkeypatch: object) -> None:
+        tap, formula = self._setup_tap(tmp_path)
+        original = formula.read_bytes().replace(b"\n", b"\r\n")
+        formula.write_bytes(original)
+        data = b"real sdist bytes"
+        url = "https://example/mlspec-0.17.0.tar.gz"
+        digest = hashlib.sha256(data).hexdigest()
+        metadata = {"urls": [{"packagetype": "sdist", "url": url, "digests": {"sha256": digest}}]}
+        monkeypatch.setattr(
+            bump,
+            "_fetch",
+            lambda requested: json.dumps(metadata).encode()
+            if requested.endswith("/json") else data,
+        )
+        expected = _bump_formula(original.decode(), url, digest).encode()
+
+        assert bump.cmd_homebrew("0.17.0", tap=tap) == 0
+        result = formula.read_bytes()
+        assert result == expected
