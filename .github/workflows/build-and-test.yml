@@ -1,0 +1,129 @@
+name: Build and test
+on:
+  workflow_call:
+
+jobs:
+  # Builds and tests the wheels and sdist via the shared reusable workflow.
+  wheels:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+          - os: ubuntu-24.04-arm
+            name: linux-arm64
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.name }}
+          path: dist/
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+
+  test-wheels:
+    needs: wheels
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+          - os: ubuntu-24.04-arm
+            name: linux-arm64
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-${{ matrix.name }}
+          path: dist
+      - name: Install local wheel
+        shell: bash
+        run: |
+          VERSION=$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')
+          VENV="$RUNNER_TEMP/mltk-wheel-venv"
+          python -m venv "$VENV"
+          if [ "${{ runner.os }}" = "Windows" ]; then PY="$VENV/Scripts/python.exe"; else PY="$VENV/bin/python"; fi
+          "$PY" -m pip install --no-index --no-deps --only-binary=:all: --find-links dist "mlspec==$VERSION"
+          "$PY" -m pip install --find-links dist "mlspec==$VERSION"
+          "$PY" -m pip install pytest
+          echo "MLTK_TEST_PYTHON=$PY" >> "$GITHUB_ENV"
+          echo "MLTK_TEST_VENV=$VENV" >> "$GITHUB_ENV"
+          echo "MLTK_TEST_VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Run installed-package smoke tests
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        env:
+          MLTK_REPO_ROOT: ${{ github.workspace }}
+          MLTK_INSTALLED_PACKAGE_VERSION: ${{ env.MLTK_TEST_VERSION }}
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then source "$MLTK_TEST_VENV/Scripts/activate"; else source "$MLTK_TEST_VENV/bin/activate"; fi
+          python -m pytest "$GITHUB_WORKSPACE/tests/release/test_installed_package.py" -q -p no:cacheprovider
+
+  test-sdist:
+    needs: sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Rust toolchain
+        run: |
+          cargo --version
+          rustc --version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - name: Install local sdist
+        shell: bash
+        run: |
+          VERSION=$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')
+          VENV="$RUNNER_TEMP/mltk-sdist-venv"
+          python -m venv "$VENV"
+          "$VENV/bin/python" -m pip install "dist/mlspec-${VERSION}.tar.gz"
+          "$VENV/bin/python" -m pip install pytest
+          echo "MLTK_TEST_PYTHON=$VENV/bin/python" >> "$GITHUB_ENV"
+          echo "MLTK_TEST_VENV=$VENV" >> "$GITHUB_ENV"
+          echo "MLTK_TEST_VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Run installed-package smoke tests
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        env:
+          MLTK_REPO_ROOT: ${{ github.workspace }}
+          MLTK_INSTALLED_PACKAGE_VERSION: ${{ env.MLTK_TEST_VERSION }}
+        run: |
+          source "$MLTK_TEST_VENV/bin/activate"
+          python -m pytest "$GITHUB_WORKSPACE/tests/release/test_installed_package.py" -q -p no:cacheprovider

@@ -721,25 +721,15 @@ Use container health status for:
 
 ### Release Smoke Testing
 
-The release workflow includes a `test-wheels` job that runs **between** wheel building and PyPI publishing. For each platform (Linux, macOS, Windows), it:
+The reusable `.github/workflows/build-and-test.yml` workflow builds four wheels (Linux x86_64 and arm64, macOS arm64, and Windows) plus an sdist. `test-wheels` has one cell per wheel and installs only the local wheel, with no source fallback. `test-sdist` builds from the local sdist.
 
-1. Installs the built wheel artifact
-2. Verifies `import mltk` succeeds and prints the version
-3. Runs `tests/test_rust_bridge.py` to confirm the Rust extension loads and bridge functions return correct types
-
-This gate prevents publishing broken wheels. The publish step only runs after all three platforms pass smoke tests.
+Every cell runs `tests/release/test_installed_package.py` against the installed package from outside the checkout. The smoke tests verify the exact version, native extension, pytest plugin, and a parity comparison. The `Release rehearsal` workflow runs this same build and test path on packaging pull requests and manual dispatch without publishing.
 
 ### TestPyPI Staging Gate
 
-After wheel smoke tests pass, the release workflow publishes to **TestPyPI** before production PyPI. The pipeline is:
+After the build-and-test jobs and `release-notes` check pass, `release.yml` runs `test-pypi` to publish to TestPyPI with trusted publishing (OIDC), followed by `pypi` publishing to production PyPI. There is no separate TestPyPI verification job.
 
-1. **`publish-testpypi`** -- publishes all wheels to `https://test.pypi.org/` using trusted publishing (OIDC)
-2. **`verify-testpypi`** -- installs the package from TestPyPI into a clean environment and runs import smoke tests (`mltk.data`, `mltk.model`)
-3. **`publish`** -- only after TestPyPI verification succeeds, publishes to production PyPI
-
-This catches packaging issues (missing files, broken metadata, dependency conflicts) that only surface during an actual `pip install` from a real index. TestPyPI uses the same infrastructure as PyPI, so if it works there, it will work in production.
-
-To configure TestPyPI trusted publishing, add a pending publisher at [test.pypi.org/manage/account/publishing](https://test.pypi.org/manage/account/publishing/) with the same repository and workflow file as your production PyPI publisher.
+To configure TestPyPI trusted publishing, add a pending publisher at [test.pypi.org/manage/account/publishing](https://test.pypi.org/manage/account/publishing/) with the same repository and workflow file (`release.yml`) as the production PyPI publisher.
 
 ---
 

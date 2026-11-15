@@ -4,70 +4,9 @@ on:
     tags: ['v*']
 
 jobs:
-  wheels:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            name: linux-x64
-          - os: ubuntu-24.04-arm
-            name: linux-arm64
-          - os: macos-latest
-            name: macos
-          - os: windows-latest
-            name: windows
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: build
-          args: --release --out dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels-${{ matrix.name }}
-          path: dist/
-
-  sdist:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: sdist
-          args: --out dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sdist
-          path: dist/
-
-  test-wheels:
-    needs: [wheels, sdist]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]  # x86_64 smoke test only
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - name: Install from wheel
-        shell: bash
-        run: |
-          pip install dist/*.whl || pip install dist/*.tar.gz
-          pip install pytest scipy
-      - name: Verify import and version
-        run: python -c "import mltk; print(mltk.__version__)"
-      - name: Run bridge smoke test
-        run: python -m pytest tests/test_rust_bridge.py -q
+  # Builds and tests the wheels and sdist via the shared reusable workflow.
+  build-and-test:
+    uses: ./.github/workflows/build-and-test.yml
 
   # Fails the run before anything is published when CHANGELOG.md has no
   # section (or only empty headings) for the tag's version. Uploads nothing:
@@ -81,6 +20,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Check tag matches package version
+        shell: bash
+        run: |
+          VERSION=$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')
+          test "$GITHUB_REF_NAME" = "v$VERSION"
       - name: Check the CHANGELOG section for the tag
         run: python scripts/bump.py notes "$GITHUB_REF_NAME"
 
@@ -88,7 +32,7 @@ jobs:
   # Requires Trusted Publisher configured at test.pypi.org (project: mlspec, owner: Liorrr,
   # repo: mltk, workflow: release.yml) before the first tag push.
   test-pypi:
-    needs: [test-wheels, release-notes]
+    needs: [build-and-test, release-notes]
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:
