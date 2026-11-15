@@ -895,7 +895,12 @@ class TestCliDocsOutsideCheckout:
         code = (
             "import importlib.util as u, subprocess, sys; real = u.find_spec; "
             "u.find_spec = lambda n, *a: object() if n == 'mkdocs' else real(n, *a); "
-            "subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a, 3); "
+            # Fake only the mkdocs call: on Windows/Python 3.11, `platform`
+            # also calls subprocess.run during CLI startup.
+            "real_run = subprocess.run; "
+            "subprocess.run = lambda args, *a, **k: ("
+            "subprocess.CompletedProcess(args, 3) if 'mkdocs' in args "
+            "else real_run(args, *a, **k)); "
             "sys.argv = ['mltk', 'docs', 'serve']; "
             "from mltk.cli.app import main; main()"
         )
