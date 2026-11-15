@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- **Unmeasured trace tokens and durations stay `None`, and budget checks fail on them (behaviour change).** `AgentTrace.total_tokens`, `AgentTrace.total_duration_ms` and `ToolCall.duration_ms` now default to `None` (not measured) instead of `0`, and `AgentTrace.from_dict` keeps a missing or `null` value as `None`. `to_agent_trace` no longer turns an unobserved `CaptureRecord` field into `0`: `total_tokens` is `None` unless both input and output tokens were observed. `assert_cost_budget` and `assert_mcp_context_window` take a keyword-only `on_unmeasured` policy: `"fail"` (the default) fails when a budgeted field is `None`, `"pass"` treats it as within budget, and `"skip"` checks only the measured budgets (the result is skipped when none was measured). A measured `0` is checked normally, and a measured overrun fails under every policy. `assert_cost_budget` reports the budgeted fields that were not measured in `details["unmeasured"]`, and an `*_exceeded` flag is `None` for such a field. Before, an unmeasured trace counted as zero tokens and zero milliseconds and passed any budget. To keep the old verdict for traces without counts, pass `on_unmeasured="pass"`. `to_span_trace` still turns missing numbers into `0`, because `Span` fields are not optional.
 
 ### Fixed
 

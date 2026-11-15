@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from mltk.domains.llm.agentic import assert_tool_chain
 from mltk.domains.llm.from_capture import to_agent_trace, to_span_trace
 from mltk.domains.llm.span import SpanKind
@@ -37,14 +39,59 @@ def test_to_agent_trace_feeds_assert_tool_chain() -> None:
     assert trace.total_duration_ms == 12.0
 
 
-def test_to_agent_trace_coerces_missing_tokens_to_zero() -> None:
+def test_to_agent_trace_keeps_unobserved_fields_none() -> None:
     rec = CaptureRecord(tier=ClearanceTier.T0)
     trace = to_agent_trace(rec)
     assert rec.input_tokens is None
     assert rec.output_tokens is None
     assert rec.total_duration_ms is None
+    assert trace.total_tokens is None
+    assert trace.total_duration_ms is None
+
+
+def test_to_agent_trace_partial_token_count_is_not_a_total() -> None:
+    rec = CaptureRecord(tier=ClearanceTier.T0, input_tokens=11, output_tokens=None)
+    assert to_agent_trace(rec).total_tokens is None
+    rec = CaptureRecord(tier=ClearanceTier.T0, input_tokens=None, output_tokens=7)
+    assert to_agent_trace(rec).total_tokens is None
+
+
+def test_to_agent_trace_keeps_measured_zero() -> None:
+    rec = CaptureRecord(
+        tier=ClearanceTier.T0, input_tokens=0, output_tokens=0, total_duration_ms=0.0,
+    )
+    trace = to_agent_trace(rec)
     assert trace.total_tokens == 0
     assert trace.total_duration_ms == 0.0
+
+
+def test_to_agent_trace_keeps_untimed_tool_call_none() -> None:
+    rec = CaptureRecord(
+        tier=ClearanceTier.T0,
+        tool_calls=(
+            CapturedCall(name="timed", duration_ms=3.0),
+            CapturedCall(name="untimed"),
+        ),
+    )
+    trace = to_agent_trace(rec)
+    assert [tc.duration_ms for tc in trace.tool_calls] == [3.0, None]
+
+
+def test_unmeasured_capture_fails_cost_budget_by_default() -> None:
+    from mltk.core.assertion import MltkAssertionError
+    from mltk.domains.llm.agentic import assert_cost_budget
+
+    trace = to_agent_trace(CaptureRecord(tier=ClearanceTier.T0))
+    with pytest.raises(MltkAssertionError) as exc:
+        assert_cost_budget(trace, max_total_tokens=1000)
+    assert exc.value.result.details["unmeasured"] == ["total_tokens"]
+
+
+def test_to_span_trace_still_coerces_none_to_zero() -> None:
+    # Span fields are not optional; this projection stays lossy (documented).
+    span_trace = to_span_trace(CaptureRecord(tier=ClearanceTier.T0))
+    assert span_trace.total_duration_ms == 0.0
+    assert span_trace.spans[0].input_tokens == 0
 
 
 def test_adapter_does_not_mutate_capture_record() -> None:
