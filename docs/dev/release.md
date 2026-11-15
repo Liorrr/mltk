@@ -35,7 +35,7 @@ See `CONTRIBUTING.md` in the repo root for the full workflow.
 ## Before tagging
 
 1. Open a release PR with the bump. Its CI must pass on a run newer than master's head.
-2. Rehearse the build and test path with the `Release rehearsal` workflow. It runs on release-related pull requests (or via `workflow_dispatch`), calls the reusable build workflow, and never publishes. Each `test-wheels` cell installs only its locally built compatible wheel, with no source fallback, and runs the installed-package smoke tests from outside the checkout. The `test-sdist` cell is the only source-build test. For a local rehearsal, build from a clean export of the release commit:
+2. Rehearse the build and test path with the `Release rehearsal` workflow. It runs on release-related pull requests (or via `workflow_dispatch`), calls the reusable build workflow, and never publishes. Each `test-wheels` cell (one per platform and per Python, 3.11 and 3.14) installs only its locally built compatible wheel, with no source fallback, and runs the installed-package smoke tests from outside the checkout. The `test-sdist` cell is the only source-build test. For a local rehearsal, build from a clean export of the release commit:
 
     ```bash
     (
@@ -62,7 +62,7 @@ git tag -a vX.Y.Z <merge-commit> -m "vX.Y.Z — <highlights>"
 git push origin vX.Y.Z
 ```
 
-- **Release** (`.github/workflows/release.yml`, on the tag): builds and tests CPython 3.12 wheels for Linux x86_64 and arm64, macOS arm64 and Windows, plus the sdist, then publishes to TestPyPI and to PyPI (`mlspec`). Its `release-notes` job checks the tag matches `pyproject.toml` and fails before publishing if `CHANGELOG.md` has no section with entries for the tag's version. After PyPI, `github-release` creates the GitHub Release with the output of `bump.py notes` (a re-run updates the notes). If that job fails, re-run it: Docker publishing starts only when the whole workflow succeeds.
+- **Release** (`.github/workflows/release.yml`, on the tag): builds stable-ABI (abi3, Python 3.11 and later) wheels for Linux x86_64 and arm64, macOS arm64 and Windows, tests each one on Python 3.11 and 3.14, builds the sdist, then publishes to TestPyPI and to PyPI (`mlspec`). Its `release-notes` job checks the tag matches `pyproject.toml` and fails before publishing if `CHANGELOG.md` has no section with entries for the tag's version. After PyPI, `github-release` creates the GitHub Release with the output of `bump.py notes` (a re-run updates the notes). If that job fails, re-run it: Docker publishing starts only when the whole workflow succeeds.
 - **Publish Docker images** (`.github/workflows/docker-publish.yml`) starts when Release completes. It waits until the version is on PyPI, builds `runtime-slim` and `runtime-full` for amd64 and arm64, pushes `ghcr.io/liorrr/mltk:vX.Y.Z`, `:latest`, `:vX.Y.Z-full` and `:full`, and mirrors them to Docker Hub as `liorcohenil/mltk`. Its runs are listed under the default branch, not the tag. The Docker Hub mirror job is `continue-on-error`, so check the registry rather than the job status.
 
 ## After publishing

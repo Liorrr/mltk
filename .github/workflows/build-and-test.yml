@@ -44,26 +44,30 @@ jobs:
           name: sdist
           path: dist/
 
+  # The wheels use the stable ABI (abi3), so one wheel per platform must
+  # install on every supported Python: test the floor (3.11) and 3.14.
   test-wheels:
     needs: wheels
     strategy:
       fail-fast: false
       matrix:
+        name: [linux-x64, linux-arm64, macos, windows]
+        python: ["3.11", "3.14"]
         include:
-          - os: ubuntu-latest
-            name: linux-x64
-          - os: ubuntu-24.04-arm
-            name: linux-arm64
-          - os: macos-latest
-            name: macos
-          - os: windows-latest
-            name: windows
+          - name: linux-x64
+            os: ubuntu-latest
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+          - name: macos
+            os: macos-latest
+          - name: windows
+            os: windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
       - uses: actions/download-artifact@v4
         with:
           name: wheels-${{ matrix.name }}

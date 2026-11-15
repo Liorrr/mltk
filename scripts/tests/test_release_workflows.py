@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import tomllib
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,6 +105,12 @@ def test_build_and_test_is_reusable_and_tests_each_wheel():
         for line in pip_lines
     )
     wheel_test = workflow["jobs"]["test-wheels"]
+    test_name_axis = set(wheel_test["strategy"]["matrix"]["name"])
+    assert test_name_axis == names
+    assert all(
+        set(entry) == {"name", "os"}
+        for entry in wheel_test["strategy"]["matrix"]["include"]
+    )
     test_names = {entry["name"] for entry in wheel_test["strategy"]["matrix"]["include"]}
     assert test_names == names
     install = next(
@@ -135,6 +142,19 @@ def test_build_and_test_is_reusable_and_tests_each_wheel():
                 assert action.startswith(("actions/", "PyO3/maturin-action"))
     assert all(job in workflow["jobs"] for job in ("test-wheels", "test-sdist"))
 
+
+def test_wheels_use_the_stable_abi_from_the_supported_floor():
+    """One abi3 wheel per platform must install on every supported Python."""
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    floor = pyproject["project"]["requires-python"].removeprefix(">=")
+    major, minor = floor.split(".")
+    assert f"pyo3/abi3-py{major}{minor}" in pyproject["tool"]["maturin"]["features"]
+    wheel_test = load_workflow("build-and-test.yml")["jobs"]["test-wheels"]
+    pythons = wheel_test["strategy"]["matrix"]["python"]
+    assert floor in pythons
+    assert any(tuple(map(int, v.split("."))) > (int(major), int(minor)) for v in pythons)
+    setup = next(step for step in wheel_test["steps"] if "setup-python" in step.get("uses", ""))
+    assert setup["with"]["python-version"] == "${{ matrix.python }}"
 
 def test_rehearsal_only_calls_build_workflow_without_publish_permissions():
     workflow = load_workflow("release-rehearsal.yml")

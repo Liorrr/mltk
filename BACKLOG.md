@@ -15,6 +15,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 - [ ] Behavioral false-pass hardening: leakage must distinguish model errors from observed non-leaks; stability must not turn model errors into agreeing empty outputs. Planning is prepared; default error policy, compatibility behavior and minimum valid observations remain to be decided before implementation.
 
+## DONE — v0.17.2 (2026-11-15)
+
+- [x] **Released v0.17.2** (packaging only): the Rust extension is built for the stable ABI (`abi3-py311`), so each platform's PyPI wheel installs on Python 3.11 and later; release `test-wheels` installs each wheel on Python 3.11 and 3.14. Before, the wheels were CPython 3.12 only and other Pythons built the sdist, which needs a Rust toolchain. See the CHANGELOG.
+
 ## DONE — v0.17.1 (2026-11-15)
 
 - [x] **Released v0.17.1**: Python 3.10 dropped (`requires-python >=3.11`); out-of-range judge scores are judge errors; judge docs corrected; release CI tests the built wheels plus a non-publishing rehearsal; the dependency audit covers mlspec's CI-tested set on every supported Python; PR preflight checks; the `bump.py homebrew` stage; CODEOWNERS. See the CHANGELOG.
@@ -27,7 +31,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Judge scores outside the scale are errors, and the judge docs match the parser** ([#48](https://github.com/Liorrr/mltk/pull/48)). See the CHANGELOG.
 - [x] **The CI dependency audit checks mlspec's dependencies** ([#50](https://github.com/Liorrr/mltk/pull/50)): it audits the CI-tested dependency set instead of pip-audit's own environment.
 
-## DONE (S0-S106: 245 assertions, 6449+ tests, 38 Rust tests) — v0.17.1
+## DONE (S0-S106: 245 assertions, 6449+ tests, 38 Rust tests) — v0.17.2
 
 ### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
 - [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).
@@ -237,7 +241,8 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **MCP sandbox replay.** `mltk_experiment(sandbox=True)` now returns an error, because a finding passed as JSON names no assertion and its arguments (model, arrays) cannot be serialised, so `SandboxedExperimentRunner` has nothing to replay. To support it, `mltk_scan` JSON would need to carry the assertion's import path and path-based arguments (model and data files) that the sandbox can load.
 
 ### Follow-ups from the v0.15.0 release — found 2026-11-06
-- [ ] **PyPI wheels are CPython 3.12 only.** The release build (`build-and-test.yml`, called by `release.yml`) makes one wheel per platform with Python 3.12, and the extension is not built for the stable ABI, so Python 3.11, 3.13 and 3.14 install from the sdist and need a Rust toolchain. Build abi3 wheels (PyO3 `abi3-py311`, if the extension compiles under the limited API) or add a Python-version matrix to the wheel job.
+- [x] **PyPI wheels are CPython 3.12 only.** Done for 0.17.2: the extension is built for the stable ABI (`pyo3/abi3-py311`), so each platform gets one `cp311-abi3` wheel, and release `test-wheels` installs it on Python 3.11 and 3.14.
+  - Original note: the release build (`build-and-test.yml`, called by `release.yml`) makes one wheel per platform with Python 3.12, and the extension is not built for the stable ABI, so Python 3.11, 3.13 and 3.14 install from the sdist and need a Rust toolchain. Build abi3 wheels (PyO3 `abi3-py311`, if the extension compiles under the limited API) or add a Python-version matrix to the wheel job.
 - [x] **No CI rehearsal of the release path.** Done ([#49](https://github.com/Liorrr/mltk/pull/49)): the `Release rehearsal` workflow runs the shared build-and-test workflow on packaging PRs and on manual dispatch, without publishing; release `test-wheels` installs only the locally built wheels.
   - Original note: `release.yml` runs only on a `v*` tag push and always publishes, so its wheel and `test-wheels` jobs cannot run before a release. A `workflow_dispatch` or pull-request path that builds every wheel and runs `test-wheels` with the publish jobs skipped would cover the platforms a local dry run cannot.
 - [ ] **`bump.py release` leaves two manual edits:** the `mltk-rust` package version in `rust/Cargo.lock` (it keeps the old version until edited or rewritten by the next `cargo` build) and the sprint heading in `BACKLOG.md` that still says "(unreleased)".
