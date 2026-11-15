@@ -48,13 +48,23 @@ def test_identical_parity_runs_pass():
         return Run(
             run_id=run_id,
             label=run_id,
-            items=[Item("item-1", "all", [Trial("1", values={"passed": True})])],
+            items=[
+                Item(
+                    "item-1",
+                    "all",
+                    [
+                        Trial("1", values={"passed": True}),
+                        Trial("2", values={"passed": True}),
+                        Trial("3", values={"passed": True}),
+                    ],
+                ),
+            ],
         )
 
     report = compare_runs(
         make_run("base"),
         make_run("candidate"),
         layers=[LayerSpec("passed")],
-        manifest=Manifest(items={"item-1": "all"}, trial_ids=("1",)),
+        manifest=Manifest(items={"item-1": "all"}),
     )
     assert report.status == "PASS"
