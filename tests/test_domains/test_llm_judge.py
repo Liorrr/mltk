@@ -778,14 +778,20 @@ class TestParseWinner:
             ("A and B are equally good, so TIE", None),
             ("A is better than B", None),
             ("A is better", "a"),
-            ("A.\nB rambles", "a"),
+            ("A.\nB rambles", None),
             ("B is a better answer", "b"),
             ("A is a better answer", "a"),
             # Symmetric: naming the other response errors on either side,
             # so errors excluded from the win rate never favour one side.
             ("B is better than A", None),
-            ("Response B is better than A", "b"),
-            ("Response A is better than B", "a"),
+            ("Response B is better than A", None),
+            ("Response A is better than B", None),
+            ("Response B is better", "b"),
+            ("Response A is verbose. Response B covers it. Winner: B", None),
+            ("Response B is verbose. Response A covers it. Winner: A", None),
+            ("Verdict: A narrow win for B", None),
+            ("TIE. A and B are equally good", "tie"),
+            ("It is not a tie, B is better", "tie"),
             ("Winner: Response A", "a"),
             ("Verdict: Response B.", "b"),
             # A capitalised "A" may be the article; it errors after either
@@ -797,8 +803,9 @@ class TestParseWinner:
             ("Winner: A tie", "tie"),
             ("Verdict: A tie.", "tie"),
             ("B or a tie, hard to say", None),
-            ("B, though it is nearly a tie", "b"),
-            ("Winner: A, B is weaker", "a"),
+            ("B, though it is nearly a tie", None),
+            ("Winner: A, B is weaker", None),
+            ("Winner: B, A is weaker", None),
         ],
     )
     def test_cases(self, raw: str, expected: str | None) -> None:
@@ -900,6 +907,9 @@ class TestPairwiseParserSymmetry:
             ("A or TIE", "B or TIE"),
             ("A is better. A key fact is missing.", "B is better. A key fact is missing."),
             ("A is better. A cites sources.", "B is better. B cites sources."),
+            ("Response A is verbose. Response B wins", "Response B is verbose. Response A wins"),
+            ("Winner: A, B is weaker", "Winner: B, A is weaker"),
+            ("Response A is better", "Response B is better"),
         ]
         swap = {"a": "b", "b": "a", "tie": "tie", None: None}
         for reply_a, reply_b in pairs:

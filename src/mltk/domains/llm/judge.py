@@ -186,58 +186,57 @@ def _format_pairwise_prompt(
 
 _parse_score = parse_judge_score
 
-_PREFIXED_VERDICT_RE = re.compile(
-    r"^\W*(?:(?:WINNER|VERDICT|ANSWER)\W*(?:RESPONSE\W+)?|RESPONSE\W+)(A|B|TIE)\b",
-    re.IGNORECASE,
+# The leading verdict: optional "Winner:"/"Verdict:"/"Answer:", optional
+# "Response", then A, B or TIE as a whole word; group 2 is the rest.
+_LEADING_VERDICT_RE = re.compile(
+    r"^\W*(?:(?:WINNER|VERDICT|ANSWER)\W*)?(?:RESPONSE\W+)?(A|B|TIE)\b(.*)",
+    re.DOTALL | re.IGNORECASE,
 )
-_LEADING_VERDICT_RE = re.compile(r"^\W*(A|B|TIE)\b(.*)", re.DOTALL | re.IGNORECASE)
 _ARTICLE_TIE_RE = re.compile(
     r"^\W*(?:(?:WINNER|VERDICT|ANSWER)\W*)?A\s+TIE\b", re.IGNORECASE,
 )
 _TIE_WORD_RE = re.compile(r"\bTIE\b", re.IGNORECASE)
-# Any verdict letter named again later in the reply, including the leading
-# letter itself. Case-sensitive on purpose: a lowercase "a" is the English
-# article ("B is a better answer"). A capitalised "A" may also be the
-# article ("A key fact is missing"), and English has no capitalised article
-# "B", so checking only the other letter would turn B-leading replies into
-# errors more often than A-leading ones; errors leave the win rate, so that
-# would bias it toward A. Checking both letters for both keeps it symmetric.
+# A response letter named anywhere after the leading verdict, including the
+# leading letter itself. Case-sensitive on purpose: a lowercase "a" is the
+# English article ("B is a better answer"). A capitalised "A" may also be
+# the article ("A key fact is missing") and English has no capitalised
+# article "B", so the check covers both letters after either verdict: a rule
+# that turned only one side's replies into errors would bias the win rate,
+# because errors leave it.
 _LETTER_RE = re.compile(r"\b[AB]\b")
-_RIVALS = {
-    "A": (_LETTER_RE, _TIE_WORD_RE),
-    "B": (_LETTER_RE, _TIE_WORD_RE),
-    "TIE": (),
-}
 
 
 def _parse_winner(raw: str) -> str | None:
     """Extract the winner from a pairwise judge response.
 
-    Returns ``"a"``, ``"b"`` or ``"tie"`` when the response leads with the
-    verdict as a whole word (``"A"``, ``"B."``, ``"**TIE**"``,
-    ``"Winner: B"``, ``"Winner: Response A"``, ``"Response A ..."``), or
-    ``"tie"`` for ``"A tie"`` / ``"Winner: A tie"`` or when it names a tie
-    as a word anywhere. A bare leading ``A`` or ``B`` followed by more words
-    is accepted only when the rest contains no standalone uppercase ``A`` or
-    ``B`` and no ``TIE``: ``"A is better than B"``, ``"B is better than A"``
-    and ``"B is better. A key fact is missing."`` are all errors, and so is
-    ``"A is better. A cites sources."``. Both letters are checked the same
-    way so errors never favour one side, and a leading ``"A"`` may be the
-    article (``"A and B are equally good, so TIE"``).
-    Anything else is unparseable and returns ``None``, so a judge error is
-    never counted as a tie and a word such as ``"Both"`` or ``"Absolutely"``
-    is never counted as a win.
+    The reply must lead with one verdict -- ``A``, ``B`` or ``TIE`` as a
+    whole word, optionally after ``Winner:``/``Verdict:``/``Answer:`` and/or
+    ``Response`` (``"A"``, ``"b."``, ``"**TIE**"``, ``"Winner: Response A"``,
+    ``"Response B is better"``) -- and must not name another one. After a
+    leading ``A`` or ``B``, any later standalone uppercase ``A`` or ``B`` or
+    the word ``TIE`` makes the reply ambiguous, and it is unparseable:
+    ``"A is better than B"``, ``"B is better than A"``, ``"Response A is
+    verbose. Response B covers it. Winner: B"``, ``"Verdict: A narrow win for
+    B"`` and ``"A is better. A cites sources."``. Both letters are checked
+    the same way, so errors never favour one side. A leading ``TIE`` is a
+    tie, ``"A tie"`` / ``"Winner: A tie"`` is a tie, and a reply with no
+    leading verdict is a tie when it names a tie as a word (``"It's a
+    tie"``); reading such a reply as a tie can lower a win rate but never
+    raise one.
+
+    Anything else returns ``None`` (a judge error), so an error is never
+    counted as a tie and a word such as ``"Both"`` or ``"Absolutely"`` is
+    never counted as a win.
     """
     cleaned = raw.strip()
     if _ARTICLE_TIE_RE.match(cleaned):
         return "tie"
-    match = _PREFIXED_VERDICT_RE.match(cleaned)
-    if match:
-        return match.group(1).lower()
     match = _LEADING_VERDICT_RE.match(cleaned)
     if match:
         token, rest = match.group(1).upper(), match.group(2)
-        if rest[:1] in (" ", "\t") and any(r.search(rest) for r in _RIVALS[token]):
+        if token == "TIE":
+            return "tie"
+        if _LETTER_RE.search(rest) or _TIE_WORD_RE.search(rest):
             return None
         return token.lower()
     if _TIE_WORD_RE.search(cleaned):

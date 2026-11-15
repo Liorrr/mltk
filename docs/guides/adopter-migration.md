@@ -327,9 +327,12 @@ exception or an unparseable reply as a tie. Such comparisons are errors under
 the same `on_error` policy as `assert_llm_judge_score`: by default they are
 excluded from the win rate, and a run where every comparison errored fails. Use
 `on_error="zero"` to keep errored comparisons in the denominator as non-wins.
-The reply must lead with the verdict as a whole word (`A`, `B.`, `Winner: B`,
-`Response A ...`) or name a tie; a reply starting with `Both` or `Absolutely` is
-now an error rather than a B or A win.
+The reply must lead with one verdict as a whole word (`A`, `B.`, `Winner: B`,
+`Response A is better`) or name a tie, and must not name the other response
+afterwards: `A is better than B` and `Response A ... Winner: B` are errors, the
+same for both letters. A reply starting with `Both` or `Absolutely` is now an
+error rather than a B or A win. Ask the judge for the verdict alone, or for the
+verdict first with an explanation that does not repeat the letters.
 
 ```python
 from mltk.domains.llm.judge import assert_llm_judge_pairwise
