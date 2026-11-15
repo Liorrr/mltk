@@ -15,7 +15,9 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 - [ ] Behavioral false-pass hardening: leakage must distinguish model errors from observed non-leaks; stability must not turn model errors into agreeing empty outputs. Planning is prepared; default error policy, compatibility behavior and minimum valid observations remain to be decided before implementation.
 
-## DONE — post-v0.17.0 (unreleased)
+## DONE — v0.17.1 (2026-11-15)
+
+- [x] **Released v0.17.1**: Python 3.10 dropped (`requires-python >=3.11`); out-of-range judge scores are judge errors; judge docs corrected; release CI tests the built wheels plus a non-publishing rehearsal; the dependency audit covers mlspec's CI-tested set on every supported Python; PR preflight checks; the `bump.py homebrew` stage; CODEOWNERS. See the CHANGELOG.
 
 - [x] **PR preflight hardening** ([#46](https://github.com/Liorrr/mltk/pull/46), merged 2026-11-14): fresh local environments, shared local/CI commands, console-pytest collection, explicit tooling tests, branch-push CI and exact-commit `ready`/`open` checks. Review cycles fixed per-commit master CI runs, refused forks in `ready`/`open`, and made collect-only tolerate syrupy 7's unused-snapshot exit.
 - [x] **Homebrew stage in the release procedure** ([#47](https://github.com/Liorrr/mltk/pull/47), merged 2026-11-14): `python scripts/bump.py homebrew X.Y.Z` points the tap formula at the verified PyPI sdist. It refuses yanked releases and version-coupled formula lines. Also added `.github/CODEOWNERS`.
@@ -25,7 +27,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Judge scores outside the scale are errors, and the judge docs match the parser** ([#48](https://github.com/Liorrr/mltk/pull/48)). See the CHANGELOG.
 - [x] **The CI dependency audit checks mlspec's dependencies** (this change): it audits the CI-tested dependency set instead of pip-audit's own environment.
 
-## DONE (S0-S106: 245 assertions, 6449+ tests, 38 Rust tests) — v0.17.0
+## DONE (S0-S106: 245 assertions, 6449+ tests, 38 Rust tests) — v0.17.1
 
 ### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
 - [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).
@@ -262,6 +264,8 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **The server does not store per-test `assertions`.** The plugin leaves them out of the `--mltk-server` push (they nearly double the payload against the server's 10 MB limit), and `ResultItem` (`src/mltk/server/routes.py`) uses pydantic's default config, so it would ignore them anyway. Storing them needs a schema and a size budget.
 - [ ] **A nested in-process pytest session can drop the outer test's recorded assertions.** `pytester.parseconfigure("--mltk-export-json", path)` inside a recording test runs `pytest_configure` again, which arms a fresh recorder list, so the outer test loses the assertions it recorded before the call. Arming in a `pytest_runtestloop` hookwrapper instead of `pytest_configure` would scope the list to the session that runs tests.
 - [ ] **Hypothesis shrink examples are exported as caught failures.** Every failing example `@given` tries while shrinking records a critical failure that Hypothesis catches, so each appears in `assertions` with `caught: true`. Expected behaviour, but `docs/api/pytest-plugin.md` should say so.
+- [ ] **Audit contract does not check line order.** If a freeze line runs before its install, the frozen list is empty and `pip-audit` passes on it; the contract test would not notice. Add a `test -s` check on each frozen requirements file in the security job, with a matching contract assertion.
+- [ ] **`doctor.MIN_PYTHON` is not tied to `requires-python`.** Add a test that compares `">=" + MIN_PYTHON` with `pyproject.toml`'s `requires-python`, so the next floor bump cannot drift.
 - [ ] **`QualityFilter` (`domains/llm/synthetic/_quality.py`) has no judge-score range check.** It has its own parser and a documented 0–1 score, so out-of-range scores are used in the average and the average is clamped to the documented range; NaN scores can also pass. Apply the shared range rule when its error handling moves to `mltk.core.error_policy` (next item).
 - [ ] **Other judge paths still turn errors into scores.** `assert_llm_judge_score` averages failed calls, a pairwise judge error counts as a tie, and `domains/llm/synthetic/_quality.py` scores errors as 0.0. Route them through `mltk.core.error_policy`.
 - [x] **Judge replies with fenced or prefixed JSON fall back to the first number.** Fixed in v0.17.0: strict `parse_judge_score` reads the `score` key from fenced (```` ```json ````) and prefixed JSON; only `legacy=True` takes the first number.

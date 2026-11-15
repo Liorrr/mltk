@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.17.1] — 2026-11-15
+### Added
 - **Release rehearsal workflow** — `Release rehearsal` runs the release build and package tests on pull requests that touch packaging (the release workflows, `pyproject.toml`, `rust/`, `src/mltk/_rust.py`, `MANIFEST.in` and the release smoke tests in `tests/release/`) and on manual dispatch. It never publishes.
 - **PR preflight checks** — `python scripts/preflight.py local` runs shared lint, minimal-install regression, documentation freshness, tooling tests, coverage and Rust checks in fresh Python environments. It refuses interpreters other than Python 3.11, 3.12 and 3.13 and requires a Rust toolchain (`cargo`, with rustfmt and clippy). `ready` verifies a clean, pushed feature-branch commit against current `origin/master` and all 16 required branch CI jobs; `open` runs that gate before creating a PR and attaches the verified commit and CI evidence. These helpers target master-based PRs in origin and stop when origin is a fork; direct GitHub PR creation can bypass the local gate.
 - **Homebrew stage in the release procedure** — `python scripts/bump.py homebrew X.Y.Z` points the tap formula (`../homebrew-mltk/Formula/mltk.rb` by default, or `--tap <dir>`) at the PyPI sdist for that version. It refuses unless PyPI lists exactly one sdist named for that version, the release is not yanked, and the downloaded file matches the published sha256. It also refuses unless the formula has exactly one top-level `url` line and exactly one top-level `sha256` line. It changes only the formula's top-level `url` and `sha256` lines, and refuses a formula with a top-level `version`, `revision`, `mirror` or `bottle` block, which would go stale. Nothing is written when it refuses. `bump.py release` now reminds you to run it after PyPI publishes. `--dry-run` prints the diff.
