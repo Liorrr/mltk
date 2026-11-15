@@ -773,6 +773,16 @@ class TestParseWinner:
             ("I think A", None),
             ("TIED", None),
             ("", None),
+            # A leading "A" may be the article.
+            ("A tie.", "tie"),
+            ("A and B are equally good, so TIE", None),
+            ("A is better than B", None),
+            ("A is better", "a"),
+            ("A.\nB rambles", "a"),
+            ("B is a better answer", "b"),
+            ("B or a tie, hard to say", None),
+            ("B, though it is nearly a tie", "b"),
+            ("Winner: A, B is weaker", "a"),
         ],
     )
     def test_cases(self, raw: str, expected: str | None) -> None:

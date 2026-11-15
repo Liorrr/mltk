@@ -30,7 +30,7 @@ BLEU matches whole-word n-grams, so it under-scores Hebrew, Arabic, Finnish and 
 | `references` | `list[str]` | *(required)* | Reference translations/texts |
 | `hypotheses` | `list[str]` | *(required)* | Model-generated translations/texts |
 | `min_score` | `float` | `0.3` | Minimum required BLEU score (0-1) |
-| `tokenizer` | `"whitespace" \| "unicode"` | `"whitespace"` | Keyword-only. `"whitespace"` splits on whitespace and keeps case and punctuation (unchanged behaviour). `"unicode"` casefolds and splits into runs of Unicode letters, digits and combining marks, dropping punctuation and symbols, for any script. |
+| `tokenizer` | `"whitespace" \| "unicode"` | `"whitespace"` | Keyword-only. `"whitespace"` splits on whitespace and keeps case and punctuation (unchanged behaviour). `"unicode"` casefolds and splits into runs of Unicode letters, digits and combining marks, dropping punctuation and symbols, with Chinese and Japanese characters as one token each. |
 
 Unknown `tokenizer` values raise `ValueError`.
 
@@ -49,7 +49,7 @@ Unknown `tokenizer` values raise `ValueError`.
 
 Assert ROUGE score meets minimum threshold. Uses the `rouge-score` library with a Unicode-aware tokenizer.
 
-Text is casefolded and split on every character that is not a letter, digit or combining mark; ASCII tokens longer than three characters are Porter-stemmed, as in `rouge-score`'s default. On ASCII text the tokens and scores are identical to that default. The default tokenizer drops every character outside `a-z0-9`, so it scored identical Hebrew, Arabic, CJK or Cyrillic texts 0; those words are now kept, and identical texts score 1.0. Accented Latin letters are kept too: `café` is one token, where the default produced `caf`.
+Text is casefolded and split on every character that is not a letter, digit or combining mark. Chinese and Japanese characters (Han ideographs and kana) are one token each, because those languages do not put spaces between words; other scripts written without spaces, such as Thai, stay one token per run, so use `assert_chrf` for them. ASCII tokens longer than three characters are Porter-stemmed, as in `rouge-score`'s default. On ASCII text the tokens and scores are identical to that default. The default tokenizer drops every character outside `a-z0-9`, so it scored identical Hebrew, Arabic, CJK or Cyrillic texts 0; those words are now kept, and identical texts score 1.0. Accented Latin letters are kept too: `café` is one token, where the default produced `caf`.
 
 ```python
 from mltk.domains.nlp import assert_rouge

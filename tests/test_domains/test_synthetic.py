@@ -1198,3 +1198,17 @@ class TestQualityFilterErrors:
             llm_fn=llm, seed=SEED, quality_filter=True, max_retries=1,
         )
         assert gen.generate_one(SAMPLE_CHUNK) is None
+
+    def test_dict_reply_is_scored(self) -> None:
+        qf = QualityFilter(
+            llm_fn=lambda p: {"self_containment": 0.8, "answerability": 0.6},  # type: ignore[arg-type,return-value]
+        )
+        assert qf.score(self._pair()) == pytest.approx(0.7)
+
+    @pytest.mark.parametrize("reply", [7, None, ["x"]])
+    def test_non_string_reply_is_a_scoring_error(self, reply: object) -> None:
+        from mltk.domains.llm.synthetic._quality import QualityScoringError
+
+        qf = QualityFilter(llm_fn=lambda p: reply, max_retries=1)  # type: ignore[arg-type,return-value]
+        with pytest.raises(QualityScoringError, match="not a string"):
+            qf.score(self._pair())

@@ -7,7 +7,12 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
-from mltk.domains.llm.trace import ON_UNMEASURED_OPTIONS, AgentTrace, OnUnmeasured
+from mltk.domains.llm.trace import (
+    ON_UNMEASURED_OPTIONS,
+    AgentTrace,
+    OnUnmeasured,
+    is_valid_measurement,
+)
 
 
 def _token_overlap(a: str, b: str) -> float:
@@ -611,7 +616,10 @@ def assert_cost_budget(
     - ``"skip"``: unmeasured budgets are dropped; measured ones are still
       checked. If no budgeted field was measured, the result is skipped.
 
-    A measured ``0`` is a real measurement and is checked normally.
+    A measured ``0`` is a real measurement and is checked normally. A
+    budgeted value that is not a finite, non-negative number (``NaN``,
+    ``inf``, ``-5``, a boolean) is an invalid measurement and fails under
+    every policy.
 
     Args:
         trace: The agent execution trace whose costs to validate.
@@ -623,8 +631,9 @@ def assert_cost_budget(
     Returns:
         TestResult with ``total_tokens``, ``max_total_tokens``,
         ``total_duration_ms``, ``max_duration_ms``, ``token_budget_exceeded``,
-        ``duration_budget_exceeded``, ``unmeasured`` and ``on_unmeasured``.
-        An ``*_exceeded`` flag is ``None`` when its field was not measured.
+        ``duration_budget_exceeded``, ``unmeasured``, ``invalid`` and
+        ``on_unmeasured``. An ``*_exceeded`` flag is ``None`` when its field
+        was not measured or holds an invalid value.
 
     Raises:
         ValueError: If neither ``max_total_tokens`` nor ``max_duration_ms``
@@ -660,6 +669,7 @@ def assert_cost_budget(
     tokens = trace.total_tokens
     duration = trace.total_duration_ms
     unmeasured: list[str] = []
+    invalid: list[str] = []
     token_exceeded: bool | None = False
     duration_exceeded: bool | None = False
 
@@ -667,12 +677,18 @@ def assert_cost_budget(
         if tokens is None:
             unmeasured.append("total_tokens")
             token_exceeded = None
+        elif not is_valid_measurement(tokens):
+            invalid.append(f"total_tokens={tokens!r}")
+            token_exceeded = None
         else:
             token_exceeded = tokens > max_total_tokens
 
     if max_duration_ms is not None:
         if duration is None:
             unmeasured.append("total_duration_ms")
+            duration_exceeded = None
+        elif not is_valid_measurement(duration):
+            invalid.append(f"total_duration_ms={duration!r}")
             duration_exceeded = None
         else:
             duration_exceeded = duration > max_duration_ms
@@ -685,16 +701,17 @@ def assert_cost_budget(
         "token_budget_exceeded": token_exceeded,
         "duration_budget_exceeded": duration_exceeded,
         "unmeasured": unmeasured,
+        "invalid": invalid,
         "on_unmeasured": on_unmeasured,
     }
 
     over: list[str] = []
     within: list[str] = []
-    if max_total_tokens is not None and tokens is not None:
+    if token_exceeded is not None and max_total_tokens is not None:
         target = over if token_exceeded else within
         sign = ">" if token_exceeded else "<="
         target.append(f"tokens {tokens} {sign} {max_total_tokens}")
-    if max_duration_ms is not None and duration is not None:
+    if duration_exceeded is not None and max_duration_ms is not None:
         target = over if duration_exceeded else within
         sign = ">" if duration_exceeded else "<="
         target.append(f"duration {duration:.1f}ms {sign} {max_duration_ms:.1f}ms")
@@ -705,6 +722,16 @@ def assert_cost_budget(
         message = f"Cost budget exceeded: {', '.join(over)}"
         if unmeasured:
             message += f"; not measured: {missing}"
+        if invalid:
+            message += f"; invalid: {', '.join(invalid)}"
+    elif invalid:
+        # NaN, infinite or negative values are not measurements of a cost;
+        # comparing them with a budget would pass silently (NaN > x is False).
+        passed = False
+        message = (
+            f"Cost budget unverifiable: invalid measurement {', '.join(invalid)} "
+            "(must be a finite, non-negative number)"
+        )
     elif unmeasured and on_unmeasured == "fail":
         passed = False
         message = (

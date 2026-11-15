@@ -41,6 +41,7 @@ from mltk.domains.llm.trace import (
     AgentTrace,
     OnUnmeasured,
     ToolCall,
+    is_valid_measurement,
 )
 
 __all__ = [
@@ -581,7 +582,9 @@ def assert_mcp_context_window(
     ``trace.total_tokens = None`` means tokens were not counted, so
     utilization cannot be computed. ``on_unmeasured`` decides the
     verdict: ``"fail"`` (default), ``"pass"``, or ``"skip"``. A measured
-    ``0`` is checked normally.
+    ``0`` is checked normally. A ``total_tokens`` that is not a finite,
+    non-negative number (``NaN``, ``-5``, a boolean) fails under every
+    policy.
 
     Args:
         trace: The MCP agent trace to validate.
@@ -654,6 +657,22 @@ def assert_mcp_context_window(
             ),
             severity=Severity.CRITICAL,
             **details,
+        )
+    if not is_valid_measurement(trace.total_tokens):
+        return assert_true(
+            False,
+            name=name,
+            message=(
+                "Context window unverifiable: invalid measurement "
+                f"total_tokens={trace.total_tokens!r} "
+                "(must be a finite, non-negative number)"
+            ),
+            severity=Severity.CRITICAL,
+            utilization=None,
+            total_tokens=trace.total_tokens,
+            context_limit=limit,
+            max_utilization=max_utilization,
+            invalid=[f"total_tokens={trace.total_tokens!r}"],
         )
 
     utilization = trace.total_tokens / limit

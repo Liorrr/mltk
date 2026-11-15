@@ -1816,3 +1816,12 @@ class TestContextWindowUnmeasured:
         trace = McpTrace(total_tokens=1, model_context_limit=1000)
         with pytest.raises(MltkAssertionError, match="Unknown on_unmeasured"):
             assert_mcp_context_window(trace, on_unmeasured="zero")
+
+
+class TestContextWindowInvalidMeasurement:
+    @pytest.mark.parametrize("bad", [-5, float("-inf"), float("nan"), True])
+    @pytest.mark.parametrize("policy", ["fail", "pass", "skip"])
+    def test_invalid_tokens_fail_under_every_policy(self, bad: object, policy: str) -> None:
+        trace = McpTrace(total_tokens=bad, model_context_limit=100)  # type: ignore[arg-type]
+        with pytest.raises(MltkAssertionError, match="invalid measurement"):
+            assert_mcp_context_window(trace, on_unmeasured=policy)

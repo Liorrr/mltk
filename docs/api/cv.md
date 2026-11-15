@@ -305,7 +305,7 @@ assert result.details["tar"] == 2 / 3       # 2 of 3 mates accepted
 | `labels` | `array-like` | *(required)* | Binary labels (1=mate, 0=non-mate), same length as `similarities` |
 | `threshold` | `float` | *(required, keyword-only)* | Operating threshold; a pair is accepted when its similarity is `>= threshold` |
 | `max_far` | `float` | `0.001` | Maximum allowed FAR, in `[0, 1]` (keyword-only) |
-| `on_empty` | `"fail" \| "skip" \| "pass"` | `"fail"` | Policy when there are no non-mate pairs (FAR undefined) or no mate pairs (TAR undefined). With `"pass"`, an empty non-mate set passes, and an empty mate set is waived while FAR is still checked. |
+| `on_empty` | `"fail" \| "skip" \| "pass"` | `"fail"` | Policy when there are no non-mate pairs (FAR undefined) or no mate pairs (TAR undefined). An empty non-mate set is skipped (`"skip"`) or passed (`"pass"`). An empty mate set is waived under either (`tar` is `None`), but FAR is still checked. |
 
 Mismatched lengths, non-1-D inputs, a non-finite similarity, a label outside {0, 1}, a non-finite `threshold` or a `max_far` outside `[0, 1]` raise `ValueError`.
 

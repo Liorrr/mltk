@@ -104,18 +104,18 @@ class TestFaceFAREmpty:
         assert passed.passed is True
         assert passed.details.get("skipped") is not True
 
-    def test_no_mates_skip(self) -> None:
-        result = assert_face_far([0.2, 0.1], [0, 0], threshold=0.5, on_empty="skip")
-        assert result.details["skipped"] is True
-
-    def test_no_mates_pass_still_checks_far(self) -> None:
-        """on_empty='pass' waives the empty mate set but FAR is still checked."""
-        result = assert_face_far([0.2, 0.1], [0, 0], threshold=0.5, on_empty="pass")
+    @pytest.mark.parametrize("policy", ["skip", "pass"])
+    def test_no_mates_waives_tar_but_checks_far(self, policy: str) -> None:
+        """FAR is measurable without mates, so it is checked, not skipped."""
+        result = assert_face_far([0.2, 0.1], [0, 0], threshold=0.5, on_empty=policy)
         assert result.passed is True
+        assert result.details.get("skipped") is not True
         assert result.details["tar"] is None
-        assert result.details["far"] == 0.0
         with pytest.raises(MltkAssertionError, match="FAR too high"):
-            assert_face_far([0.9, 0.1], [0, 0], threshold=0.5, on_empty="pass")
+            assert_face_far(
+                [0.9, 0.95, 0.99], [0, 0, 0], threshold=0.5, max_far=0.001,
+                on_empty=policy,
+            )
 
     def test_unknown_on_empty_fails(self) -> None:
         with pytest.raises(MltkAssertionError, match="Unknown on_empty"):

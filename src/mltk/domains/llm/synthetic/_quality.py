@@ -140,7 +140,13 @@ class QualityFilter:
             except Exception as exc:  # noqa: BLE001
                 last_error = f"{type(exc).__name__}: {exc}"
                 continue
-            result = _parse_score(raw)
+            if isinstance(raw, dict):
+                result = _extract_scores(raw)
+            elif isinstance(raw, str):
+                result = _parse_score(raw)
+            else:
+                last_error = f"scorer returned {type(raw).__name__}, not a string"
+                continue
             if result is not None:
                 return result
             last_error = (

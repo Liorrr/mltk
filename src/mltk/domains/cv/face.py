@@ -61,8 +61,9 @@ def assert_face_far(
         max_far: Maximum allowed FAR, in ``[0, 1]``.
         on_empty: Policy when there are no non-mate pairs (FAR undefined) or
             no mate pairs (TAR undefined): ``"fail"`` (default), ``"skip"``,
-            or ``"pass"``. With ``"pass"``, an empty non-mate set passes and
-            an empty mate set is waived while FAR is still checked.
+            or ``"pass"``. An empty non-mate set is skipped or passed. An
+            empty mate set is waived under ``"skip"`` and ``"pass"``
+            (``tar`` is ``None``), but FAR is still checked.
 
     Returns:
         TestResult with ``far``, ``max_far``, ``threshold``,
@@ -99,7 +100,9 @@ def assert_face_far(
             total_non_mates=0,
             total_mates=len(mate_sims),
         )
-    if len(mate_sims) == 0 and on_empty != "pass":
+    if len(mate_sims) == 0 and on_empty == "fail":
+        # With "skip" or "pass" only TAR is waived: FAR is still measurable
+        # here, so it is still checked rather than skipped or passed.
         return empty_input_result(
             name=_NAME,
             reason="No mate pairs: TAR at the threshold is undefined",

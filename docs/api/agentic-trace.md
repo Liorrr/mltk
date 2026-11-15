@@ -542,7 +542,7 @@ assert result.passed is True
 - `on_unmeasured="pass"`: treat unmeasured budgets as met. Measured budgets are still checked.
 - `on_unmeasured="skip"`: drop unmeasured budgets and check the rest. If no budgeted field was measured, the result is skipped.
 
-A measured overrun fails under every policy.
+A measured overrun fails under every policy, and so does a budgeted value that is not a finite, non-negative number (`NaN`, `inf`, a negative count): it is listed in `details["invalid"]`.
 
 #### Parameters
 
@@ -566,6 +566,7 @@ A measured overrun fails under every policy.
 - `total_duration_ms` -- total duration from the trace (`None` if not measured)
 - `max_duration_ms` -- the duration budget that was enforced (or `None` if not set)
 - `unmeasured` -- budgeted fields that were `None` on the trace
+- `invalid` -- budgeted fields whose value is not a finite, non-negative number (each as `field=value`)
 - `on_unmeasured` -- the policy that was applied
 
 ---

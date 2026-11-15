@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import math
+import numbers
 from dataclasses import dataclass, field
 from typing import Any, Literal, get_args
 
@@ -33,6 +35,18 @@ class ToolCall:
     result: str | None = None
     error: str | None = None
     duration_ms: float | None = None
+
+
+def is_valid_measurement(value: Any) -> bool:
+    """Return ``True`` for a finite, non-negative number (not a boolean).
+
+    ``None`` (not measured) is handled separately by the callers; this
+    rejects values that cannot be a token count or a duration, such as
+    ``NaN``, ``inf`` or a negative number.
+    """
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return False
+    return math.isfinite(value) and value >= 0
 
 
 def _optional_float(value: Any) -> float | None:

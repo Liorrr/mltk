@@ -79,8 +79,14 @@ class TestUnicodeWords:
     def test_casefold_and_separators(self) -> None:
         assert _unicode_words("Straße_ÉTÉ--Ωμέγα") == ["strasse", "été", "ωμέγα"]
 
-    def test_cjk_and_cyrillic(self) -> None:
-        assert _unicode_words("Привет мир。你好") == ["привет", "мир", "你好"]
+    def test_cjk_is_one_token_per_character(self) -> None:
+        # Chinese and Japanese have no spaces between words.
+        assert _unicode_words("Привет мир。你好") == ["привет", "мир", "你", "好"]
+        assert _unicode_words("ひらがなとカタカナ") == list("ひらがなとカタカナ")
+        assert _unicode_words("東京abc々") == ["東", "京", "abc", "々"]
+
+    def test_hangul_stays_word_based(self) -> None:
+        assert _unicode_words("안녕하세요 세계") == ["안녕하세요", "세계"]
 
     def test_digits_kept_punctuation_dropped(self) -> None:
         assert _unicode_words("v2.0 (beta) #1") == ["v2", "0", "beta", "1"]
@@ -176,6 +182,15 @@ class TestUnicodeRouge:
         pytest.importorskip("rouge_score", reason="rouge-score required")
         with pytest.raises(MltkAssertionError):
             assert_rouge(["שלום עולם"], ["חתול כלב"], min_score=0.3)
+
+    def test_near_identical_chinese_scores_partial_overlap(self) -> None:
+        # Mirror of the CJK fix: as whole clauses these shared nothing (0.0).
+        pytest.importorskip("rouge_score", reason="rouge-score required")
+        result = assert_rouge(
+            ["我喜欢吃苹果和香蕉"], ["我喜欢吃苹果和橘子"],
+            variant="rouge1", min_score=0.0,
+        )
+        assert result.details["score"] == pytest.approx(7 / 9)
 
     def test_partial_hebrew_overlap(self) -> None:
         pytest.importorskip("rouge_score", reason="rouge-score required")

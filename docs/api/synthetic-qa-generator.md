@@ -529,14 +529,16 @@ to 1.0:
 The reply must contain both as JSON
 (`{"self_containment": 0.9, "answerability": 0.8}`, fenced
 or bare) or as `self_containment: 0.9` /
-`answerability: 0.8` text. The pair's score is the
+`answerability: 0.8` text; a scorer that returns a dict
+with both keys is accepted too. The pair's score is the
 **average** of the two, and the pair is kept when that
 average is ≥ `quality_threshold` (default 0.6).
 
 A scoring call that raises, or a reply without two
 finite numbers in `[0, 1]` (a missing dimension, a
-boolean, `NaN`, or a value such as `1.5` or `-0.2`), is
-a scoring **error**, not a low score: out-of-range values
+boolean, `NaN`, or a value such as `1.5` or `-0.2`), or a
+reply that is neither a string nor a dict, is a scoring
+**error**, not a low score: out-of-range values
 are not clamped. The filter retries up to `max_retries`
 times; if every attempt fails, `QualityFilter.score`
 raises `QualityScoringError` (before, it returned 0.0).

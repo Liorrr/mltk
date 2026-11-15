@@ -184,7 +184,7 @@ result = assert_llm_judge_pairwise(
 
 ### Verdicts and judge errors
 
-The reply must lead with the verdict as a whole word -- `A`, `B.`, `**TIE**`, `Winner: B` or `Response A is better` -- or name a tie as a word anywhere (`It's a tie`). A judge call that raises, or a reply that names no verdict (`Both are good`, `Absolutely`, `I think A`), is a judge **error**, not a tie:
+The reply must lead with the verdict as a whole word -- `A`, `B.`, `**TIE**`, `Winner: B` or `Response A is better` -- or name a tie as a word anywhere (`It's a tie`, `A tie.`). A bare leading `A` or `B` followed by more words counts only when the rest names no rival verdict, because a leading `A` can be the article: `A is better` is an A win, but `A and B are equally good, so TIE` and `A is better than B` are errors. Prefix the verdict (`Winner: A`) or return it alone to avoid this. A judge call that raises, or a reply that names no verdict (`Both are good`, `Absolutely`, `I think A`), is a judge **error**, not a tie:
 
 - `on_error="fail_if_all"` (default): errors are excluded from the win rate; the result fails when every comparison errored.
 - `on_error="strict"`: any error fails the result.

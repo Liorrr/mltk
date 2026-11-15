@@ -670,3 +670,45 @@ class TestErrorRecoveryAlternating:
         assert result.passed is True
         assert result.details["max_error_streak"] == 2
         assert result.details["total_errors"] == 4
+
+
+class TestCostBudgetInvalidMeasurement:
+    """A NaN, infinite or negative value is not a measurement and must fail.
+
+    NaN compares False with everything, so `NaN > budget` used to pass.
+    """
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("-inf"), float("inf"), -5.0])
+    @pytest.mark.parametrize("policy", ["fail", "pass", "skip"])
+    def test_invalid_duration_fails_under_every_policy(self, bad: float, policy: str) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=10, total_duration_ms=bad)
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_cost_budget(trace, max_duration_ms=1000.0, on_unmeasured=policy)
+        result = exc_info.value.result
+        assert result.details["invalid"] == [f"total_duration_ms={bad!r}"]
+        assert result.details["duration_budget_exceeded"] is None
+
+    @pytest.mark.parametrize("bad", [-1, True, float("nan")])
+    def test_invalid_tokens_fail(self, bad: object) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=bad)  # type: ignore[arg-type]
+        with pytest.raises(MltkAssertionError, match="invalid measurement"):
+            assert_cost_budget(trace, max_total_tokens=100)
+
+    def test_nan_from_json_fails(self) -> None:
+        import json
+
+        trace = AgentTrace.from_dict(json.loads('{"total_duration_ms": NaN}'))
+        with pytest.raises(MltkAssertionError, match="invalid measurement"):
+            assert_cost_budget(trace, max_duration_ms=1.0)
+
+    def test_numpy_integer_is_a_valid_measurement(self) -> None:
+        import numpy as np
+
+        trace = AgentTrace(tool_calls=[], total_tokens=np.int64(10))  # type: ignore[arg-type]
+        assert assert_cost_budget(trace, max_total_tokens=100).passed is True
+
+    def test_unbudgeted_invalid_field_is_ignored(self) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=10, total_duration_ms=float("nan"))
+        result = assert_cost_budget(trace, max_total_tokens=100)
+        assert result.passed is True
+        assert result.details["invalid"] == []
