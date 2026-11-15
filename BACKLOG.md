@@ -22,7 +22,8 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Homebrew formula at 0.17.0** (`Liorrr/homebrew-mltk` PR #3), made with the new stage; `brew test` ran on macOS and Linux.
 - [x] **Master branch protection**: pull requests with all 16 CI checks required (branch up to date), resolved conversations, no force-push or deletion. Merged branches are deleted automatically.
 - [x] **PR #44 review threads reconciled**: the five open threads were each re-verified on master (scenario, pinning test, a revert that makes it fail) and resolved with that evidence.
-- [x] **Judge scores outside the scale are errors, and the judge docs match the parser** (this change). See the CHANGELOG.
+- [x] **Judge scores outside the scale are errors, and the judge docs match the parser** ([#48](https://github.com/Liorrr/mltk/pull/48)). See the CHANGELOG.
+- [x] **The CI dependency audit checks mlspec's dependencies** (this change): it audits the CI-tested dependency set instead of pip-audit's own environment.
 
 ## DONE (S0-S106: 245 assertions, 6447+ tests, 38 Rust tests) — v0.17.0
 
@@ -260,6 +261,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **The server does not store per-test `assertions`.** The plugin leaves them out of the `--mltk-server` push (they nearly double the payload against the server's 10 MB limit), and `ResultItem` (`src/mltk/server/routes.py`) uses pydantic's default config, so it would ignore them anyway. Storing them needs a schema and a size budget.
 - [ ] **A nested in-process pytest session can drop the outer test's recorded assertions.** `pytester.parseconfigure("--mltk-export-json", path)` inside a recording test runs `pytest_configure` again, which arms a fresh recorder list, so the outer test loses the assertions it recorded before the call. Arming in a `pytest_runtestloop` hookwrapper instead of `pytest_configure` would scope the list to the session that runs tests.
 - [ ] **Hypothesis shrink examples are exported as caught failures.** Every failing example `@given` tries while shrinking records a critical failure that Hypothesis catches, so each appears in `assertions` with `caught: true`. Expected behaviour, but `docs/api/pytest-plugin.md` should say so.
+- [ ] **`QualityFilter` (`domains/llm/synthetic/_quality.py`) has no judge-score range check.** It has its own parser and a documented 0–1 score, so an out-of-range judge score is used as is. Apply the shared range rule when its error handling moves to `mltk.core.error_policy` (next item).
 - [ ] **Other judge paths still turn errors into scores.** `assert_llm_judge_score` averages failed calls, a pairwise judge error counts as a tie, and `domains/llm/synthetic/_quality.py` scores errors as 0.0. Route them through `mltk.core.error_policy`.
 - [ ] **Judge replies with fenced or prefixed JSON fall back to the first number.** `parse_judge_score` only honours the `score` key when the whole reply parses as JSON, so ```` ```json {...} ``` ```` or "Here is my rating: {...}" scores the first number (e.g. a `reasoning_steps` count). Extracting the outermost `{...}` span first would change `assert_llm_judge_score` and the multimodal judges too, so it needs its own decision.
 - [x] **`assert_with_judge` reads the default judge's reply with its own first-number regex.** Fixed in v0.17.0: it calls the shared strict `parse_judge_score` with `on_error`.

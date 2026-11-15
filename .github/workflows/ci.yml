@@ -102,7 +102,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Python dependency audit
-        run: pip install pip-audit && pip-audit --strict
+        run: |
+          python -m venv "$RUNNER_TEMP/audit-venv"
+          "$RUNNER_TEMP/audit-venv/bin/python" -m pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx]" onnx
+          "$RUNNER_TEMP/audit-venv/bin/python" -m pip freeze --exclude-editable > "$RUNNER_TEMP/mlspec-audit-requirements.txt"
+          python -m pip install pip-audit
+          pip-audit --strict --no-deps --disable-pip -r "$RUNNER_TEMP/mlspec-audit-requirements.txt"
 
       - name: Rust dependency audit
         working-directory: rust
