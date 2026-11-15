@@ -251,3 +251,27 @@ contradiction = result.details["contradiction"]
 assert contradiction is None  # Not checked by token overlap.
 assert (contradiction is False) is False  # Not a checked negative.
 ```
+
+## Face FAR needs the operating threshold
+
+`assert_face_far` in `mltk.domains.cv.face` now requires a keyword-only
+`threshold=` and measures FAR there: a non-mate pair is a false accept when its
+similarity is `>= threshold`. Earlier versions used the median mate similarity
+as the threshold, so the reported FAR described a threshold nobody had deployed.
+A call without `threshold` raises `TypeError`, and `max_far` is now keyword-only
+too. Pass the threshold your system accepts at:
+
+```python
+from mltk.domains.cv.face import assert_face_far
+
+result = assert_face_far(
+    [0.91, 0.84, 0.42, 0.71, 0.33], [1, 1, 1, 0, 0], threshold=0.5, max_far=0.5,
+)
+assert result.details["threshold"] == 0.5
+assert result.details["tar"] == 2 / 3  # TAR at the same threshold
+```
+
+No non-mate pairs (FAR undefined) or no mate pairs (TAR undefined) now fail by
+default; before, zero non-mates passed. Use `on_empty="skip"` or
+`on_empty="pass"` to opt out. Mismatched lengths, labels outside {0, 1} and
+non-finite similarities raise `ValueError`.
