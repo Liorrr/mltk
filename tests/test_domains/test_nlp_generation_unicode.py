@@ -85,6 +85,11 @@ class TestUnicodeWords:
         assert _unicode_words("ひらがなとカタカナ") == list("ひらがなとカタカナ")
         assert _unicode_words("東京abc々") == ["東", "京", "abc", "々"]
 
+    def test_kana_block_punctuation_is_a_separator(self) -> None:
+        assert _unicode_words("東京・大阪") == ["東", "京", "大", "阪"]
+        assert _unicode_words("゠゛゜") == []
+        assert _unicode_words("コーヒー") == list("コーヒー")  # ー is a letter
+
     def test_hangul_stays_word_based(self) -> None:
         assert _unicode_words("안녕하세요 세계") == ["안녕하세요", "세계"]
 

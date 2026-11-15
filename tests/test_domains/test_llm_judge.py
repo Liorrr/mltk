@@ -780,6 +780,14 @@ class TestParseWinner:
             ("A is better", "a"),
             ("A.\nB rambles", "a"),
             ("B is a better answer", "b"),
+            ("A is a better answer", "a"),
+            # Symmetric: naming the other response errors on either side,
+            # so errors excluded from the win rate never favour one side.
+            ("B is better than A", None),
+            ("Response B is better than A", "b"),
+            ("Response A is better than B", "a"),
+            ("Winner: Response A", "a"),
+            ("Verdict: Response B.", "b"),
             ("B or a tie, hard to say", None),
             ("B, though it is nearly a tie", "b"),
             ("Winner: A, B is weaker", "a"),
@@ -870,3 +878,25 @@ class TestPairwiseErrorPolicy:
         param = inspect.signature(assert_llm_judge_pairwise).parameters["on_error"]
         assert param.kind is inspect.Parameter.KEYWORD_ONLY
         assert param.default == "fail_if_all"
+
+
+class TestPairwiseParserSymmetry:
+    def test_mirrored_replies_parse_the_same_way(self) -> None:
+        from mltk.domains.llm.judge import _parse_winner
+
+        pairs = [
+            ("A is better than B", "B is better than A"),
+            ("A wins", "B wins"),
+            ("A, clearly", "B, clearly"),
+            ("A is a clear winner", "B is a clear winner"),
+            ("A or TIE", "B or TIE"),
+        ]
+        swap = {"a": "b", "b": "a", "tie": "tie", None: None}
+        for reply_a, reply_b in pairs:
+            assert _parse_winner(reply_b) == swap[_parse_winner(reply_a)], (reply_a, reply_b)
+
+    def test_errors_do_not_inflate_one_side(self) -> None:
+        # The judge preferred A 6 times out of 10; B must not pass.
+        replies = ["B is better than A."] * 4 + ["A is better than B."] * 6
+        with pytest.raises(MltkAssertionError):
+            _pairwise(replies, expected_winner="b", min_win_rate=0.6)

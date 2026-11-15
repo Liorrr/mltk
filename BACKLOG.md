@@ -31,7 +31,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Judge scores outside the scale are errors, and the judge docs match the parser** ([#48](https://github.com/Liorrr/mltk/pull/48)). See the CHANGELOG.
 - [x] **The CI dependency audit checks mlspec's dependencies** ([#50](https://github.com/Liorrr/mltk/pull/50)): it audits the CI-tested dependency set instead of pip-audit's own environment.
 
-## DONE (S0-S106: 245 assertions, 6630+ tests, 38 Rust tests) — v0.17.2
+## DONE (S0-S106: 245 assertions, 6639+ tests, 38 Rust tests) — v0.17.2
 
 ### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
 - [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).
@@ -115,7 +115,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 245 assertions, 6630+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 245 assertions, 6639+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -230,6 +230,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **The Docker publish wait step polls the wrong PyPI index.** `.github/workflows/docker-publish.yml` waits until `https://pypi.org/pypi/mlspec/<version>/json` returns 200, but the image build runs `pip install`, which reads the simple index (`https://pypi.org/simple/mlspec/`). The simple index lagged the JSON API on the v0.17.2 release, so the `runtime-full` build failed on its first attempt and passed on a rerun. Poll the simple index until it lists the version's files.
 - [ ] **`to_span_trace` still turns unobserved numbers into `0`.** `Span.duration_ms`, `Span.input_tokens`/`output_tokens` and `SpanTrace.total_duration_ms` are not optional, so a `CaptureRecord` with no token or duration data projects to zeros, and `SpanTrace.total_tokens` and the span budget assertions in `span_eval.py` see a measured 0. `AgentTrace` keeps `None` since this batch. Making the `Span` fields optional needs a rule for the `SpanTrace` aggregates and the span budget checks (the `AgentTrace` `on_unmeasured` policy is the precedent).
 - [ ] **CI does not install the `nlp` extra, so the ROUGE, BLEU and chrF tests are skipped there.** `tests/test_domains/test_nlp_generation.py` skips at module level without `nltk` and `rouge-score`, and the English-parity tests for the Unicode ROUGE tokenizer (`test_nlp_generation_unicode.py`) skip without them. They run locally with `mlspec[nlp]`. Adding `nlp` to the CI test install (and `scripts/preflight.py` `CI_INSTALL`, which the security audit also uses) would run them on every push.
+- [ ] **`assert_llm_judge_pairwise` passes on an empty `prompts` list.** It returns an INFO pass ("No items to compare", `win_rate=0.0`) without measuring anything, the same empty-input pattern that `assert_face_far` and `assert_refusal_consistency` now route through `on_empty` (default fail). `assert_llm_judge_score` has the same empty-list pass. Route both through `mltk.core.empty`.
 - [ ] **GLiNER models are not pinned.** `_GLINER_REVISIONS` in `src/mltk/data/pii_ner.py` maps both GLiNER models to `"main"` (marked "pin before release"), so they load the repository's current head and warn. Pin them to full 40-hex commit SHAs, as `_MODEL_REVISIONS` now does for the embedding and NLI models.
 
 ### Follow-ups from the v0.16.0 review cycles — found 2026-11-07
@@ -375,7 +376,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 6630+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 6639+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).

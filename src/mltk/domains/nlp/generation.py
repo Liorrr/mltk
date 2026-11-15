@@ -50,12 +50,14 @@ def _unicode_words(text: str) -> list[str]:
     """
     chars: list[str] = []
     for ch in text.casefold():
-        if _is_cjk_char(ch):
-            chars.append(f" {ch} ")
-        elif unicodedata.category(ch)[0] in "LNM":
-            chars.append(ch)
-        else:
+        if unicodedata.category(ch)[0] not in "LNM":
+            # Separators first: the kana blocks also hold punctuation and
+            # symbols (・ ゠ ゛ ゜), which must not become tokens.
             chars.append(" ")
+        elif _is_cjk_char(ch):
+            chars.append(f" {ch} ")
+        else:
+            chars.append(ch)
     return "".join(chars).split()
 
 

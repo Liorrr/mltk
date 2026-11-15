@@ -187,16 +187,18 @@ def _format_pairwise_prompt(
 _parse_score = parse_judge_score
 
 _PREFIXED_VERDICT_RE = re.compile(
-    r"^\W*(?:(?:WINNER|VERDICT|ANSWER)\W*|RESPONSE\W+)(A|B|TIE)\b"
+    r"^\W*(?:(?:WINNER|VERDICT|ANSWER)\W*(?:RESPONSE\W+)?|RESPONSE\W+)(A|B|TIE)\b",
+    re.IGNORECASE,
 )
-_LEADING_VERDICT_RE = re.compile(r"^\W*(A|B|TIE)\b(.*)", re.DOTALL)
-_ARTICLE_TIE_RE = re.compile(r"^\W*A\s+TIE\b")
-_TIE_WORD_RE = re.compile(r"\bTIE\b")
-# Words that contradict a leading verdict followed by more words. "A" is
-# not a rival of "B": in "B is a better answer" it is the English article.
+_LEADING_VERDICT_RE = re.compile(r"^\W*(A|B|TIE)\b(.*)", re.DOTALL | re.IGNORECASE)
+_ARTICLE_TIE_RE = re.compile(r"^\W*A\s+TIE\b", re.IGNORECASE)
+_TIE_WORD_RE = re.compile(r"\bTIE\b", re.IGNORECASE)
+# A verdict letter named again later in the reply. Case-sensitive on
+# purpose: an uppercase "A"/"B" refers to a response, while a lowercase "a"
+# is the English article ("B is a better answer").
 _RIVALS = {
     "A": (re.compile(r"\bB\b"), _TIE_WORD_RE),
-    "B": (_TIE_WORD_RE,),
+    "B": (re.compile(r"\bA\b"), _TIE_WORD_RE),
     "TIE": (),
 }
 
@@ -206,15 +208,18 @@ def _parse_winner(raw: str) -> str | None:
 
     Returns ``"a"``, ``"b"`` or ``"tie"`` when the response leads with the
     verdict as a whole word (``"A"``, ``"B."``, ``"**TIE**"``,
-    ``"Winner: B"``, ``"Response A ..."``), or ``"tie"`` for ``"A tie"`` or
-    when it names a tie as a word anywhere. A bare leading ``A`` or ``B``
-    followed by more words is accepted only when the rest names no rival
-    verdict, because a leading ``"A"`` may be the article (``"A and B are
-    equally good, so TIE"``). Anything else is unparseable and returns
-    ``None``, so a judge error is never counted as a tie and a word such as
-    ``"Both"`` or ``"Absolutely"`` is never counted as a win.
+    ``"Winner: B"``, ``"Winner: Response A"``, ``"Response A ..."``), or
+    ``"tie"`` for ``"A tie"`` or when it names a tie as a word anywhere. A
+    bare leading ``A`` or ``B`` followed by more words is accepted only when
+    the rest names no other verdict (an uppercase ``A``/``B`` or ``TIE``):
+    ``"A is better than B"`` and ``"B is better than A"`` are both errors,
+    treated the same way so errors never favour one side, and a leading
+    ``"A"`` may be the article (``"A and B are equally good, so TIE"``).
+    Anything else is unparseable and returns ``None``, so a judge error is
+    never counted as a tie and a word such as ``"Both"`` or ``"Absolutely"``
+    is never counted as a win.
     """
-    cleaned = raw.strip().upper()
+    cleaned = raw.strip()
     match = _PREFIXED_VERDICT_RE.match(cleaned)
     if match:
         return match.group(1).lower()
@@ -222,7 +227,7 @@ def _parse_winner(raw: str) -> str | None:
         return "tie"
     match = _LEADING_VERDICT_RE.match(cleaned)
     if match:
-        token, rest = match.groups()
+        token, rest = match.group(1).upper(), match.group(2)
         if rest[:1] in (" ", "\t") and any(r.search(rest) for r in _RIVALS[token]):
             return None
         return token.lower()
