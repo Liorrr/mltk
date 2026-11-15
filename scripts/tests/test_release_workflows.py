@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
+SMOKE_TEST = ROOT / "tests" / "release" / "test_installed_package.py"
+
+
+def smoke_version_env_name() -> str:
+    tree = ast.parse(SMOKE_TEST.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            if any(
+                isinstance(target, ast.Name)
+                and target.id == "INSTALLED_PACKAGE_VERSION_ENV"
+                for target in node.targets
+            ):
+                value = ast.literal_eval(node.value)
+                assert isinstance(value, str)
+                return value
+    raise AssertionError("smoke test version environment constant not found")
 
 
 def load_workflow(name: str) -> dict:
@@ -68,6 +85,13 @@ def test_build_and_test_is_reusable_and_tests_each_wheel():
     assert "--no-index" in install
     assert "--only-binary" in install
     assert "pip install pytest" in install
+    assert wheel_test["strategy"]["fail-fast"] == "false"
+    version_env = smoke_version_env_name()
+    wheel_smoke = named_step(workflow, "test-wheels", "Run installed-package smoke tests")
+    sdist_smoke = named_step(workflow, "test-sdist", "Run installed-package smoke tests")
+    expected_version = "${{ env.MLTK_TEST_VERSION }}"
+    assert wheel_smoke["env"].get(version_env) == expected_version
+    assert sdist_smoke["env"].get(version_env) == expected_version
     sdist_install = named_step(workflow, "test-sdist", "Install local sdist")["run"]
     assert 'pip install "dist/mlspec-${VERSION}.tar.gz"' in sdist_install
     assert "--find-links" not in sdist_install

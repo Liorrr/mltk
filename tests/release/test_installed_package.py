@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-if not os.environ.get("MLTK_INSTALLED_PACKAGE_VERSION"):
+INSTALLED_PACKAGE_VERSION_ENV = "MLTK_INSTALLED_PACKAGE_VERSION"
+
+if not os.environ.get(INSTALLED_PACKAGE_VERSION_ENV):
     pytest.skip(
         "release artifact smoke tests require an installed-package version",
         allow_module_level=True,
@@ -18,7 +20,7 @@ if not os.environ.get("MLTK_INSTALLED_PACKAGE_VERSION"):
 def test_installed_package_is_external_and_has_expected_version():
     import mltk
 
-    version = os.environ["MLTK_INSTALLED_PACKAGE_VERSION"]
+    version = os.environ[INSTALLED_PACKAGE_VERSION_ENV]
     repo_root = Path(os.environ["MLTK_REPO_ROOT"]).resolve()
     assert repo_root not in Path(mltk.__file__).resolve().parents
     assert metadata.version("mlspec") == version

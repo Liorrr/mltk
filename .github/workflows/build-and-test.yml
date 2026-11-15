@@ -47,6 +47,7 @@ jobs:
   test-wheels:
     needs: wheels
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -85,6 +86,7 @@ jobs:
         working-directory: ${{ runner.temp }}
         env:
           MLTK_REPO_ROOT: ${{ github.workspace }}
+          MLTK_INSTALLED_PACKAGE_VERSION: ${{ env.MLTK_TEST_VERSION }}
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then source "$MLTK_TEST_VENV/Scripts/activate"; else source "$MLTK_TEST_VENV/bin/activate"; fi
           python -m pytest "$GITHUB_WORKSPACE/tests/release/test_installed_package.py" -q -p no:cacheprovider
@@ -121,6 +123,7 @@ jobs:
         working-directory: ${{ runner.temp }}
         env:
           MLTK_REPO_ROOT: ${{ github.workspace }}
+          MLTK_INSTALLED_PACKAGE_VERSION: ${{ env.MLTK_TEST_VERSION }}
         run: |
           source "$MLTK_TEST_VENV/bin/activate"
           python -m pytest "$GITHUB_WORKSPACE/tests/release/test_installed_package.py" -q -p no:cacheprovider
