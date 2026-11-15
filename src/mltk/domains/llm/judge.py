@@ -191,14 +191,21 @@ _PREFIXED_VERDICT_RE = re.compile(
     re.IGNORECASE,
 )
 _LEADING_VERDICT_RE = re.compile(r"^\W*(A|B|TIE)\b(.*)", re.DOTALL | re.IGNORECASE)
-_ARTICLE_TIE_RE = re.compile(r"^\W*A\s+TIE\b", re.IGNORECASE)
+_ARTICLE_TIE_RE = re.compile(
+    r"^\W*(?:(?:WINNER|VERDICT|ANSWER)\W*)?A\s+TIE\b", re.IGNORECASE,
+)
 _TIE_WORD_RE = re.compile(r"\bTIE\b", re.IGNORECASE)
-# A verdict letter named again later in the reply. Case-sensitive on
-# purpose: an uppercase "A"/"B" refers to a response, while a lowercase "a"
-# is the English article ("B is a better answer").
+# Any verdict letter named again later in the reply, including the leading
+# letter itself. Case-sensitive on purpose: a lowercase "a" is the English
+# article ("B is a better answer"). A capitalised "A" may also be the
+# article ("A key fact is missing"), and English has no capitalised article
+# "B", so checking only the other letter would turn B-leading replies into
+# errors more often than A-leading ones; errors leave the win rate, so that
+# would bias it toward A. Checking both letters for both keeps it symmetric.
+_LETTER_RE = re.compile(r"\b[AB]\b")
 _RIVALS = {
-    "A": (re.compile(r"\bB\b"), _TIE_WORD_RE),
-    "B": (re.compile(r"\bA\b"), _TIE_WORD_RE),
+    "A": (_LETTER_RE, _TIE_WORD_RE),
+    "B": (_LETTER_RE, _TIE_WORD_RE),
     "TIE": (),
 }
 
@@ -209,22 +216,24 @@ def _parse_winner(raw: str) -> str | None:
     Returns ``"a"``, ``"b"`` or ``"tie"`` when the response leads with the
     verdict as a whole word (``"A"``, ``"B."``, ``"**TIE**"``,
     ``"Winner: B"``, ``"Winner: Response A"``, ``"Response A ..."``), or
-    ``"tie"`` for ``"A tie"`` or when it names a tie as a word anywhere. A
-    bare leading ``A`` or ``B`` followed by more words is accepted only when
-    the rest names no other verdict (an uppercase ``A``/``B`` or ``TIE``):
-    ``"A is better than B"`` and ``"B is better than A"`` are both errors,
-    treated the same way so errors never favour one side, and a leading
-    ``"A"`` may be the article (``"A and B are equally good, so TIE"``).
+    ``"tie"`` for ``"A tie"`` / ``"Winner: A tie"`` or when it names a tie
+    as a word anywhere. A bare leading ``A`` or ``B`` followed by more words
+    is accepted only when the rest contains no standalone uppercase ``A`` or
+    ``B`` and no ``TIE``: ``"A is better than B"``, ``"B is better than A"``
+    and ``"B is better. A key fact is missing."`` are all errors, and so is
+    ``"A is better. A cites sources."``. Both letters are checked the same
+    way so errors never favour one side, and a leading ``"A"`` may be the
+    article (``"A and B are equally good, so TIE"``).
     Anything else is unparseable and returns ``None``, so a judge error is
     never counted as a tie and a word such as ``"Both"`` or ``"Absolutely"``
     is never counted as a win.
     """
     cleaned = raw.strip()
+    if _ARTICLE_TIE_RE.match(cleaned):
+        return "tie"
     match = _PREFIXED_VERDICT_RE.match(cleaned)
     if match:
         return match.group(1).lower()
-    if _ARTICLE_TIE_RE.match(cleaned):
-        return "tie"
     match = _LEADING_VERDICT_RE.match(cleaned)
     if match:
         token, rest = match.group(1).upper(), match.group(2)

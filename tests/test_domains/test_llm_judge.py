@@ -788,6 +788,14 @@ class TestParseWinner:
             ("Response A is better than B", "a"),
             ("Winner: Response A", "a"),
             ("Verdict: Response B.", "b"),
+            # A capitalised "A" may be the article; it errors after either
+            # leading letter, so it cannot tip the win rate toward A.
+            ("B is better. A key fact is missing.", None),
+            ("A is better. A key fact is missing.", None),
+            ("B is better. B cites sources.", None),
+            ("A is better. A cites sources.", None),
+            ("Winner: A tie", "tie"),
+            ("Verdict: A tie.", "tie"),
             ("B or a tie, hard to say", None),
             ("B, though it is nearly a tie", "b"),
             ("Winner: A, B is weaker", "a"),
@@ -890,13 +898,27 @@ class TestPairwiseParserSymmetry:
             ("A, clearly", "B, clearly"),
             ("A is a clear winner", "B is a clear winner"),
             ("A or TIE", "B or TIE"),
+            ("A is better. A key fact is missing.", "B is better. A key fact is missing."),
+            ("A is better. A cites sources.", "B is better. B cites sources."),
         ]
         swap = {"a": "b", "b": "a", "tie": "tie", None: None}
         for reply_a, reply_b in pairs:
             assert _parse_winner(reply_b) == swap[_parse_winner(reply_a)], (reply_a, reply_b)
 
-    def test_errors_do_not_inflate_one_side(self) -> None:
-        # The judge preferred A 6 times out of 10; B must not pass.
-        replies = ["B is better than A."] * 4 + ["A is better than B."] * 6
+    @pytest.mark.parametrize(
+        ("expected", "winning", "losing"),
+        [
+            ("b", "B is better than A.", "A is better than B."),
+            ("a", "A is better than B.", "B is better than A."),
+            ("a", "A is better. A key fact is missing.", "B is better. A key fact is missing."),
+            ("b", "B is better. A key fact is missing.", "A is better. A key fact is missing."),
+        ],
+    )
+    def test_errors_do_not_inflate_one_side(
+        self, expected: str, winning: str, losing: str,
+    ) -> None:
+        # The judge preferred the other side 6 times out of 10; the expected
+        # winner must not pass because the losing replies became errors.
+        replies = [winning] * 4 + [losing] * 6
         with pytest.raises(MltkAssertionError):
-            _pairwise(replies, expected_winner="b", min_win_rate=0.6)
+            _pairwise(replies, expected_winner=expected, min_win_rate=0.6)
