@@ -94,7 +94,7 @@ Issues = "https://github.com/Liorrr/mltk/issues"
 [tool.maturin]
 python-source = "src"
 module-name = "mltk._mltk_rust"
-features = ["pyo3/extension-module"]
+features = ["pyo3/extension-module", "pyo3/abi3-py311"]
 manifest-path = "rust/Cargo.toml"
 include = [
   { path = "LICENSE-COMMERCIAL", format = ["sdist", "wheel"] }
