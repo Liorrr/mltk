@@ -53,7 +53,7 @@ COMMANDS = {
 REQUIRED_JOBS = {"lint", "claim-regression", "docs-freshness", "security"} | {
     f"test ({platform}, {version})"
     for platform in ("ubuntu-latest", "macos-latest", "windows-latest")
-    for version in ("3.10", "3.12", "3.13")
+    for version in ("3.11", "3.12", "3.13")
 } | {f"rust ({platform})" for platform in ("ubuntu-latest", "macos-latest", "windows-latest")}
 
 
@@ -119,8 +119,8 @@ def scripts_directory(python: Path) -> Path:
 
 def local() -> None:
     """Use fresh minimal and full environments, never the developer's extras."""
-    if sys.version_info[:2] not in {(3, 10), (3, 12), (3, 13)}:
-        raise RuntimeError("Use a CI interpreter: Python 3.10, 3.12 (recommended), or 3.13")
+    if sys.version_info[:2] not in {(3, 11), (3, 12), (3, 13)}:
+        raise RuntimeError("Use a CI interpreter: Python 3.11, 3.12 (recommended), or 3.13")
     if not shutil.which("cargo"):
         raise RuntimeError("Install Rust with rustfmt and clippy before running preflight")
     run(["cargo", "fmt", "--version"])

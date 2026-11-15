@@ -81,8 +81,8 @@ Numeric callback values retain their sign and value rather than passing through
 the legacy text-number search. The scored assertions listed above,
 `LLMJudgeScorer`, `assert_with_judge` and the four multimodal judges reject
 non-finite and out-of-range scores, including with `legacy_parse=True`; the
-shared parser itself still returns the parsed value, as the example above
-demonstrates.
+shared parser itself still returns the parsed number, while the assertions
+apply the range check.
 
 Parsing compatibility and error handling are independent. The error-policy
 keyword on assertions is **`on_error`**, not `error_policy`:

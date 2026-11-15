@@ -48,7 +48,7 @@ This is the recommended approach for most projects since `pyproject.toml` alread
 
 ### How it works
 
-mltk uses `tomllib` (Python 3.11+) or `tomli` (Python 3.10) to parse the TOML file. If neither is available, it falls back to default config values.
+mltk uses `tomllib` (Python 3.11+) to parse the TOML file. If it is unavailable, it falls back to default config values.
 
 ---
 

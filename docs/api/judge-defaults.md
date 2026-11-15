@@ -155,8 +155,9 @@ from mltk.domains.llm.judge_defaults import configure_default_judge
 configure_default_judge(None)
 ```
 
-After clearing, assertions that use `resolve_judge` with `method="auto"` will
-fall back to the `fallback_method` (typically `"lexical"`).
+After clearing, `assert_with_judge` uses its `fallback_method` (lexical overlap
+by default). `resolve_judge` is a helper for custom assertions; no built-in
+assertion calls it.
 
 ---
 

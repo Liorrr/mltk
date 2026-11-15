@@ -502,7 +502,7 @@ mltk-plugin-finance/
 name = "mltk-plugin-finance"
 version = "0.1.0"
 description = "Financial ML assertions for mltk"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["mlspec>=0.6.0", "numpy>=1.24"]
 
 [build-system]

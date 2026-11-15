@@ -8,7 +8,7 @@ version = "0.17.0"
 description = "pytest for ML — unified testing across the entire ML lifecycle"
 license = {file = "LICENSE"}
 license-files = ["LICENSE", "LICENSE-COMMERCIAL"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{name = "Lior Cohen"}]
 readme = "README.md"
 keywords = ["ml", "testing", "pytest", "data-quality", "drift-detection", "mlops"]
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -52,7 +51,7 @@ nli = ["sentence-transformers>=2.0"]  # NLI cross-encoder for bidirectional enta
 ner = ["presidio-analyzer>=2.2", "spacy>=3.4.4"]  # NER-based PII detection (names, orgs, locations)
 mcp = ["jsonschema>=4.0"]  # MCP tool schema validation
 multimodal = ["Pillow>=9.0", "scikit-image>=0.20"]  # Multimodal image-text evaluation
-onnx = ["onnxruntime>=1.23"]  # ONNX Runtime for assert_onnx_valid and ONNX model loading (1.23 is the last release with Python 3.10 wheels)
+onnx = ["onnxruntime>=1.23"]  # ONNX Runtime for assert_onnx_valid and ONNX model loading
 clip = ["open-clip-torch>=2.24", "Pillow>=9.0"]  # CLIPScore image-text similarity
 classifier = ["transformers>=4.40", "torch>=2.0"]  # transformer-based toxicity classification
 torch = ["torch>=2.0"]  # for gradient inspection helpers (assertions work with pure numpy)

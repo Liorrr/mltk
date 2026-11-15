@@ -17,6 +17,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
+import mltk.doctor as doctor
 from mltk.doctor import DiagnosticResult, diagnose
 
 # ---------------------------------------------------------------------------
@@ -71,7 +74,7 @@ def test_result_fields_present() -> None:
 
 def test_python_version_ok() -> None:
     """SCENARIO: diagnose() runs on the current Python interpreter.
-    WHY: mltk requires Python >= 3.10. Since we're running tests, the current
+    WHY: mltk requires Python >= 3.11. Since we're running tests, the current
          Python must pass this check — if it FAIL here, the test suite itself
          wouldn't have loaded.
     EXPECTED: The 'Python version' check has status 'OK'.
@@ -84,6 +87,16 @@ def test_python_version_ok() -> None:
         f"Python {sys.version_info.major}.{sys.version_info.minor} "
         f"should pass but got status '{r.status}': {r.message}"
     )
+
+
+@pytest.mark.parametrize(("version", "expected_status"), [
+    ((3, 10, 9), "FAIL"),
+    ((3, 11, 0), "OK"),
+])
+def test_python_version_minimum_boundary(monkeypatch, version, expected_status) -> None:
+    monkeypatch.setattr(doctor.sys, "version_info", version)
+    result = doctor._check_python_version()
+    assert result.status == expected_status
 
 
 # ---------------------------------------------------------------------------

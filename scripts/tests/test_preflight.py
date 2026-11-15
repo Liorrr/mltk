@@ -320,7 +320,7 @@ def test_ci_uses_shared_jobs_and_keeps_matrix():
     assert config["on"]["push"]["branches"] == ["**"]
     matrix = config["jobs"]["test"]["strategy"]["matrix"]
     assert matrix == {"os": ["ubuntu-latest", "macos-latest", "windows-latest"],
-                      "python": ["3.10", "3.12", "3.13"]}
+                      "python": ["3.11", "3.12", "3.13"]}
     expected = {name for name, job in config["jobs"].items() if "strategy" not in job}
     expected |= {f"test ({os_name}, {version})" for os_name in matrix["os"]
                  for version in matrix["python"]}

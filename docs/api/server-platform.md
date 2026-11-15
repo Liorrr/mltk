@@ -684,4 +684,4 @@ pip install "mlspec[server,cli]"
 # Installs: fastapi, uvicorn, pydantic, typer, rich (in addition to mltk core)
 ```
 
-Python 3.10+ required.
+Python 3.11+ required.

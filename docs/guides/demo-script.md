@@ -2,7 +2,7 @@
 
 **Event:** April 19 presentation
 **Duration:** 16 minutes (2 opening + 12 demo + 1 Q&A intro + 1 closing)
-**Setup:** Python 3.10+, `pip install mlspec[cli]`,
+**Setup:** Python 3.11+, `pip install mlspec[cli]`,
 terminal visible to audience.
 
 ---

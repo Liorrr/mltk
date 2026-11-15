@@ -8,7 +8,7 @@ rules that apply to every task.
 ## Project
 
 mltk = "pytest for ML" — unified testing across the entire ML lifecycle.
-Python 3.10+ with Rust acceleration (maturin build).
+Python 3.11+ with Rust acceleration (maturin build).
 
 Current version: see `pyproject.toml`. Full API reference (assertions, MCP
 tools, CLI commands, scanners, classes with file:line):

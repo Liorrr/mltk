@@ -8,6 +8,8 @@ import importlib.util
 import sys
 from dataclasses import dataclass
 
+MIN_PYTHON = (3, 11)
+
 
 @dataclass
 class DiagnosticResult:
@@ -20,20 +22,21 @@ class DiagnosticResult:
 
 
 def _check_python_version() -> DiagnosticResult:
-    """Python version must be >= 3.10."""
+    """Python version must meet the package minimum."""
     vi = sys.version_info
-    version_str = f"{vi.major}.{vi.minor}.{vi.micro}"
-    if vi >= (3, 10):
+    version_str = f"{vi[0]}.{vi[1]}.{vi[2]}"
+    min_version = ".".join(str(part) for part in MIN_PYTHON)
+    if vi[:2] >= MIN_PYTHON:
         return DiagnosticResult(
             name="Python version",
             status="OK",
-            message=f"Python {version_str} (>=3.10 required)",
+            message=f"Python {version_str} (>={min_version} required)",
         )
     return DiagnosticResult(
         name="Python version",
         status="FAIL",
-        message=f"Python {version_str} is below the required 3.10",
-        fix_hint="Upgrade to Python 3.10 or later: https://python.org/downloads",
+        message=f"Python {version_str} is below the required {min_version}",
+        fix_hint=f"Upgrade to Python {min_version} or later: https://python.org/downloads",
     )
 
 
