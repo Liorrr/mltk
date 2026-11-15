@@ -290,7 +290,7 @@ A typical workflow combining mltk-vscode features:
 | Requirement | Minimum |
 |-------------|---------|
 | VS Code | 1.85.0+ |
-| Python | 3.10+ |
+| Python | 3.11+ |
 | mltk | 0.6.0+ (installed in workspace Python environment) |
 | Node.js | Not required (extension is pre-built) |
 

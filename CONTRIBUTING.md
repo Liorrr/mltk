@@ -110,7 +110,7 @@ def test_check_fails(self) -> None:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/my-feature`)
 3. Write code + tests + docs
-4. Run `python scripts/preflight.py local` with Python 3.12 (or CI's 3.10/3.13).
+4. Run `python scripts/preflight.py local` with Python 3.12 (or CI's 3.11/3.13).
    This creates fresh lint, minimal, and full virtual environments, installs the same
    dependencies as CI, verifies the imported checkout, then runs lint, the slim
    regression, documentation freshness, console-pytest collection and coverage,

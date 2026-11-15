@@ -61,7 +61,7 @@ pip install "mlspec[dev]"
 
 ### Requirements
 
-- Python 3.10 or later
+- Python 3.11 or later
 - numpy >= 1.24
 - pandas >= 2.0
 
@@ -75,7 +75,7 @@ Expected output:
 
 ```text
 mltk doctor
-  [OK]   Python version: 3.12.1 (>= 3.10)
+[OK]   Python version: 3.12.1 (>= 3.11)
   [OK]   Core deps: numpy 1.26.4, pandas 2.2.0
   [WARN] Optional dep: scipy not installed (pip install mlspec[scipy])
   [OK]   Config: mltk.yaml found

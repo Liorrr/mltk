@@ -685,7 +685,7 @@ jobs:
 
 ### Python Version Matrix
 
-The test job runs on Python **3.10**, **3.12**, and **3.13** across all three OS targets (ubuntu, macOS, Windows). Python 3.13 was added to catch compatibility issues with the latest CPython release, including changes to the C API that affect PyO3-based extensions.
+The test job runs on Python **3.11**, **3.12**, and **3.13** across all three OS targets (ubuntu, macOS, Windows). Python 3.13 was added to catch compatibility issues with the latest CPython release, including changes to the C API that affect PyO3-based extensions.
 
 ### Coverage Enforcement
 
@@ -1746,7 +1746,7 @@ Each check returns a **fix hint** when it fails. Exit code is `1` if any check f
 
 | # | Check | OK | WARN | FAIL |
 |---|-------|-----|------|------|
-| 1 | Python version | >= 3.10 | -- | < 3.10 |
+| 1 | Python version | >= 3.11 | -- | < 3.11 |
 | 2 | Core dependencies | numpy + pandas installed | -- | Missing |
 | 3 | Optional dependencies | All installed | Some missing | -- |
 | 4 | Config file | Found + parseable | Not found | Parse error |
@@ -1861,7 +1861,7 @@ Make sure you are using the same `--db` path that the server is using.
 SyntaxError: future feature annotations is not defined
 ```
 
-**Fix:** mltk requires Python 3.10+. Check with `python --version` and upgrade if needed.
+**Fix:** mltk requires Python 3.11+. Check with `python --version` and upgrade if needed.
 
 #### Missing Rust extension
 

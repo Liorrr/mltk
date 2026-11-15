@@ -1412,7 +1412,7 @@ live in the same output as data quality tests and model performance tests.
 **Zero dependencies** — Inspect AI requires `inspect_ai` (13+ transitive
 dependencies including `rich`, `click`, `pydantic`, async runtimes).
 Braintrust and LangSmith require cloud accounts. mltk's eval pipeline uses
-only Python stdlib — it works anywhere Python 3.10+ works.
+only Python stdlib — it works anywhere Python 3.11+ works.
 
 **Full ML lifecycle** — Other eval frameworks are evaluation-only. mltk
 combines the eval pipeline with data quality testing (`assert_no_drift`,

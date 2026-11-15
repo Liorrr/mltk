@@ -3,7 +3,7 @@
 **pytest for ML** -- unified testing across the entire ML lifecycle.
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
 [![Tests](https://img.shields.io/badge/tests-6447%2B%20passed-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 

@@ -17,7 +17,7 @@ mltk doctor
 Output:
 ```
 mltk doctor
-  [OK]   Python version: 3.12.1 (>= 3.10)
+[OK]   Python version: 3.12.1 (>= 3.11)
   [OK]   Core deps: numpy 1.26.4, pandas 2.2.0
   [WARN] Optional dep: scipy not installed (pip install mlspec[scipy])
   [OK]   Config: mltk.yaml found
@@ -34,7 +34,7 @@ mltk doctor
 
 | # | Check | OK | WARN | FAIL |
 |---|-------|-----|------|------|
-| 1 | Python version | >= 3.10 | — | < 3.10 |
+| 1 | Python version | >= 3.11 | — | < 3.11 |
 | 2 | Core dependencies | numpy + pandas installed | — | Missing |
 | 3 | Optional dependencies | All installed | Some missing | — |
 | 4 | Config file | Found + parseable | Not found | Parse error |
