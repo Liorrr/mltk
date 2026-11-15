@@ -275,3 +275,16 @@ No non-mate pairs (FAR undefined) or no mate pairs (TAR undefined) now fail by
 default; before, zero non-mates passed. Use `on_empty="skip"` or
 `on_empty="pass"` to opt out. Mismatched lengths, labels outside {0, 1} and
 non-finite similarities raise `ValueError`.
+
+## ROUGE keeps non-ASCII words
+
+`assert_rouge` in `mltk.domains.nlp.generation` now tokenizes Unicode text.
+`rouge-score`'s default tokenizer dropped every character outside `a-z0-9`, so
+Hebrew, Arabic, CJK or Cyrillic texts produced no tokens and identical texts
+scored 0. On ASCII text the tokens and scores are unchanged. Accented Latin
+letters are now kept (`café` instead of `caf`), so scores on text with accents
+can move. Thresholds tuned on non-ASCII scores need re-tuning.
+
+`assert_bleu` keeps whitespace tokenization by default. Pass
+`tokenizer="unicode"` to casefold and split on punctuation for any script. For
+Hebrew and other morphologically rich languages, prefer `assert_chrf`.

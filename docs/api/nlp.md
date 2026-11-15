@@ -18,7 +18,10 @@ Assert BLEU score meets minimum threshold. Uses NLTK corpus BLEU with smoothing.
 from mltk.domains.nlp import assert_bleu
 
 assert_bleu(references, hypotheses, min_score=0.3)
+assert_bleu(references, hypotheses, min_score=0.3, tokenizer="unicode")
 ```
+
+BLEU matches whole-word n-grams, so it under-scores Hebrew, Arabic, Finnish and other morphologically rich languages, where one word carries prefixes and suffixes. Use [`assert_chrf`](#assert_chrf) for those languages.
 
 #### Parameters
 
@@ -27,6 +30,9 @@ assert_bleu(references, hypotheses, min_score=0.3)
 | `references` | `list[str]` | *(required)* | Reference translations/texts |
 | `hypotheses` | `list[str]` | *(required)* | Model-generated translations/texts |
 | `min_score` | `float` | `0.3` | Minimum required BLEU score (0-1) |
+| `tokenizer` | `"whitespace" \| "unicode"` | `"whitespace"` | Keyword-only. `"whitespace"` splits on whitespace and keeps case and punctuation (unchanged behaviour). `"unicode"` casefolds and splits into runs of Unicode letters, digits and combining marks, dropping punctuation and symbols, for any script. |
+
+Unknown `tokenizer` values raise `ValueError`.
 
 #### Returns
 
@@ -35,12 +41,15 @@ assert_bleu(references, hypotheses, min_score=0.3)
 - `min_score` -- configured threshold
 - `num_references` -- number of reference texts
 - `num_hypotheses` -- number of hypothesis texts
+- `tokenizer` -- tokenizer used
 
 ---
 
 ### assert_rouge
 
-Assert ROUGE score meets minimum threshold. Uses `rouge-score` library with stemming.
+Assert ROUGE score meets minimum threshold. Uses the `rouge-score` library with a Unicode-aware tokenizer.
+
+Text is casefolded and split on every character that is not a letter, digit or combining mark; ASCII tokens longer than three characters are Porter-stemmed, as in `rouge-score`'s default. On ASCII text the tokens and scores are identical to that default. The default tokenizer drops every character outside `a-z0-9`, so it scored identical Hebrew, Arabic, CJK or Cyrillic texts 0; those words are now kept, and identical texts score 1.0. Accented Latin letters are kept too: `café` is one token, where the default produced `caf`.
 
 ```python
 from mltk.domains.nlp import assert_rouge
