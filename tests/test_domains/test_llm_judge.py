@@ -379,16 +379,30 @@ class TestAssertLlmJudgePairwise:
         assert result.details["wins_b"] == 0
         assert result.details["win_rate"] == 0.0
 
-    def test_unexpected_value_counted_as_tie(self) -> None:
-        """EDGE: Judge returns something other than A/B/TIE."""
-        def weird_judge(prompt: str) -> str:
+    def test_response_prefixed_verdict_is_parsed(self) -> None:
+        """'Response A is ...' names A as the winner."""
+        def verbose_judge(prompt: str) -> str:
             return "Response A is clearly better because..."
 
-        # "Response A is..." starts with "R", not "A", so _parse_winner
-        # will not match A or B -- it becomes a tie.
-        with pytest.raises(MltkAssertionError) as exc:
+        result = assert_llm_judge_pairwise(
+            judge_fn=verbose_judge,
+            prompts=["Q1"],
+            responses_a=["A1"],
+            responses_b=["B1"],
+            expected_winner="a",
+            min_win_rate=0.5,
+        )
+        assert result.details["wins_a"] == 1
+        assert result.details["errored_count"] == 0
+
+    def test_unparseable_verdict_is_an_error_not_a_tie(self) -> None:
+        """EDGE: a reply that names no verdict is a judge error."""
+        def vague_judge(prompt: str) -> str:
+            return "Both responses have merits."
+
+        with pytest.raises(MltkAssertionError, match="Judge errors: 1/1") as exc:
             assert_llm_judge_pairwise(
-                judge_fn=weird_judge,
+                judge_fn=vague_judge,
                 prompts=["Q1"],
                 responses_a=["A1"],
                 responses_b=["B1"],
@@ -396,10 +410,13 @@ class TestAssertLlmJudgePairwise:
                 min_win_rate=0.5,
             )
         result = exc.value.result
-        assert result.details["ties"] == 1
+        assert result.details["ties"] == 0
+        assert result.details["wins_b"] == 0  # "Both" is not a B win
+        assert result.details["errored_count"] == 1
+        assert "Could not parse a verdict" in result.details["errors"][0]["error"]
 
-    def test_judge_error_counted_as_tie(self) -> None:
-        """EDGE: Judge that raises exception counted as tie."""
+    def test_judge_exception_is_an_error_not_a_tie(self) -> None:
+        """EDGE: a judge that raises is an error, excluded from the tally."""
         with pytest.raises(MltkAssertionError) as exc:
             assert_llm_judge_pairwise(
                 judge_fn=_error_judge,
@@ -410,7 +427,10 @@ class TestAssertLlmJudgePairwise:
                 min_win_rate=0.5,
             )
         result = exc.value.result
-        assert result.details["ties"] == 1
+        assert result.details["ties"] == 0
+        assert result.details["errored_count"] == 1
+        assert result.details["win_rate"] is None
+        assert result.details["errors"][0]["index"] == 0
 
     def test_empty_prompts_pass(self) -> None:
         """EDGE: Empty prompts list passes with zero comparisons."""
@@ -726,3 +746,117 @@ class TestParseScoreJson:
         """
         raw = '{"score": "N/A", "reasoning": "cannot evaluate 3 criteria"}'
         assert _parse_score(raw) is None
+
+
+# ---------------------------------------------------------------------------
+# Pairwise verdict parsing and the on_error contract
+# ---------------------------------------------------------------------------
+
+
+class TestParseWinner:
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("A", "a"),
+            ("b.", "b"),
+            ("  B  ", "b"),
+            ("**TIE**", "tie"),
+            ("Tie", "tie"),
+            ("Winner: B", "b"),
+            ("Verdict - TIE", "tie"),
+            ("Response A is better", "a"),
+            ("(A) because it is concise", "a"),
+            ('"B"', "b"),
+            ("It's a tie.", "tie"),
+            ("Both are good", None),
+            ("Absolutely, the first one", None),
+            ("I think A", None),
+            ("TIED", None),
+            ("", None),
+        ],
+    )
+    def test_cases(self, raw: str, expected: str | None) -> None:
+        from mltk.domains.llm.judge import _parse_winner
+
+        assert _parse_winner(raw) == expected
+
+
+def _scripted_judge(replies: list[object]):  # noqa: ANN202
+    """Return a judge that replays *replies*; an Exception instance is raised."""
+    it = iter(replies)
+
+    def judge(prompt: str) -> str:
+        reply = next(it)
+        if isinstance(reply, Exception):
+            raise reply
+        return str(reply)
+
+    return judge
+
+
+def _pairwise(replies: list[object], **kwargs: object):  # noqa: ANN202
+    n = len(replies)
+    return assert_llm_judge_pairwise(
+        judge_fn=_scripted_judge(replies),
+        prompts=[f"Q{i}" for i in range(n)],
+        responses_a=[f"A{i}" for i in range(n)],
+        responses_b=[f"B{i}" for i in range(n)],
+        **kwargs,
+    )
+
+
+class TestPairwiseErrorPolicy:
+    def test_errors_are_excluded_from_the_win_rate(self) -> None:
+        # 2 A wins + 2 errors: the measured win rate is 2/2, not 2/4.
+        result = _pairwise(
+            ["A", "A", RuntimeError("down"), "no idea"], min_win_rate=0.6,
+        )
+        assert result.passed is True
+        assert result.details["win_rate"] == 1.0
+        assert result.details["n_valid"] == 2
+        assert result.details["errored_count"] == 2
+        assert result.details["ties"] == 0
+
+    def test_zero_keeps_errors_as_non_wins(self) -> None:
+        # Mirror of the exclusion: the legacy denominator gives 2/4 < 0.6.
+        with pytest.raises(MltkAssertionError) as exc:
+            _pairwise(
+                ["A", "A", RuntimeError("down"), "no idea"],
+                min_win_rate=0.6, on_error="zero",
+            )
+        assert exc.value.result.details["win_rate"] == 0.5
+
+    def test_all_errors_fail_even_with_zero_min_win_rate(self) -> None:
+        # Before, errors were ties and 0.0 >= 0.0 passed.
+        with pytest.raises(MltkAssertionError, match="Judge errors: 2/2"):
+            _pairwise([RuntimeError("x"), "???"], min_win_rate=0.0)
+
+    def test_zero_policy_all_errors_scores_zero(self) -> None:
+        result = _pairwise(
+            [RuntimeError("x"), "???"], min_win_rate=0.0, on_error="zero",
+        )
+        assert result.passed is True
+        assert result.details["win_rate"] == 0.0
+
+    def test_strict_fails_on_any_error(self) -> None:
+        with pytest.raises(MltkAssertionError, match="Judge errors: 1/3"):
+            _pairwise(["A", "A", RuntimeError("x")], on_error="strict")
+
+    def test_real_ties_still_count(self) -> None:
+        with pytest.raises(MltkAssertionError) as exc:
+            _pairwise(["A", "TIE", "TIE"], min_win_rate=0.5)
+        d = exc.value.result.details
+        assert d["ties"] == 2
+        assert d["win_rate"] == pytest.approx(1 / 3, abs=1e-4)
+        assert d["errored_count"] == 0
+
+    def test_unknown_on_error_fails(self) -> None:
+        with pytest.raises(MltkAssertionError, match="Unknown on_error"):
+            _pairwise(["A"], on_error="ignore")
+
+    def test_on_error_is_keyword_only(self) -> None:
+        import inspect
+
+        param = inspect.signature(assert_llm_judge_pairwise).parameters["on_error"]
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        assert param.default == "fail_if_all"

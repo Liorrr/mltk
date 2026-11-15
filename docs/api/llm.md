@@ -497,13 +497,15 @@ Compare two responses using a pairwise LLM judge. The judge picks a winner (A or
 from mltk.domains.llm import assert_llm_judge_pairwise
 
 result = assert_llm_judge_pairwise(
-    judge_fn=my_pairwise_judge,
-    prompt="Summarize the key themes of Romeo and Juliet.",
-    response_a="The play is about love, fate, and family feuds in Verona.",
-    response_b="Romeo and Juliet is a Shakespeare play.",
-    expected_winner="A",
+    judge_fn=my_pairwise_judge,  # returns "A", "B" or "TIE"
+    prompts=["Summarize the key themes of Romeo and Juliet."],
+    responses_a=["The play is about love, fate, and family feuds in Verona."],
+    responses_b=["Romeo and Juliet is a Shakespeare play."],
+    expected_winner="a",
 )
 ```
+
+A judge exception or a reply without a verdict is a judge error, not a tie; see [LLM-as-Judge](llm-judge.md#verdicts-and-judge-errors).
 
 !!! note "OWASP Mapping"
     LLM-as-Judge assertions evaluate **output quality**, not security vulnerabilities. They do not map to any OWASP Top 10 for LLMs category. For security-focused assertions, see `assert_no_toxicity`, `assert_no_system_prompt_leakage`, and `assert_refusal_consistency` in the [Safety](#safety) section above.

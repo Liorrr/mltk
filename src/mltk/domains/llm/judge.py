@@ -21,6 +21,7 @@ The user controls cost, latency, and model selection.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 
 from mltk.core.assertion import assert_true, timed_assertion
@@ -185,21 +186,29 @@ def _format_pairwise_prompt(
 
 _parse_score = parse_judge_score
 
-def _parse_winner(raw: str) -> str:
+_VERDICT_RE = re.compile(
+    r"^\W*(?:(?:WINNER|VERDICT|ANSWER)\W*)?(?:RESPONSE\W+)?(A|B|TIE)\b"
+)
+_TIE_WORD_RE = re.compile(r"\bTIE\b")
+
+
+def _parse_winner(raw: str) -> str | None:
     """Extract the winner from a pairwise judge response.
 
-    Returns "a", "b", or "tie".  Unrecognized outputs default to "tie"
-    so that ambiguous judge responses do not inflate win counts.
+    Returns ``"a"``, ``"b"`` or ``"tie"`` when the response leads with the
+    verdict as a whole word (``"A"``, ``"B."``, ``"**TIE**"``,
+    ``"Winner: B"``, ``"Response A ..."``), or ``"tie"`` when it names a tie
+    as a word anywhere. Anything else is unparseable and returns ``None``,
+    so a judge error is never counted as a tie and a word such as
+    ``"Both"`` or ``"Absolutely"`` is never counted as a win.
     """
     cleaned = raw.strip().upper()
-    if cleaned.startswith("A"):
-        return "a"
-    if cleaned.startswith("B"):
-        return "b"
-    if "TIE" in cleaned:
+    match = _VERDICT_RE.match(cleaned)
+    if match:
+        return match.group(1).lower()
+    if _TIE_WORD_RE.search(cleaned):
         return "tie"
-    # Could not determine -- treat as tie
-    return "tie"
+    return None
 
 # ---------------------------------------------------------------------------
 # Assertions
@@ -375,6 +384,8 @@ def assert_llm_judge_pairwise(
     min_win_rate: float = 0.6,
     criterion: str = "helpfulness",
     rubric: str | None = None,
+    *,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert that one set of responses is preferred over another by a judge LLM.
 
@@ -388,6 +399,14 @@ def assert_llm_judge_pairwise(
     judge should return "A", "B", or "TIE".  The test passes when the
     ``expected_winner`` achieves at least ``min_win_rate``.
 
+    A judge call that raises, or a reply that names no verdict (see
+    :func:`_parse_winner`), is a judge **error**, not a tie. With the
+    default ``on_error="fail_if_all"`` errors are excluded from the win
+    rate and a run where every comparison errored fails.
+    ``on_error="strict"`` fails on any error, and ``on_error="zero"``
+    keeps errored comparisons in the denominator as non-wins (the old
+    behaviour, where an error counted as a tie).
+
     Args:
         judge_fn: Callable that takes a formatted comparison prompt and
             returns a string indicating the winner ("A", "B", or "TIE").
@@ -400,10 +419,16 @@ def assert_llm_judge_pairwise(
             winner must win (0.0--1.0, default 0.6).
         criterion: Evaluation criterion name.
         rubric: Custom rubric description.
+        on_error: ``"fail_if_all"`` (default), ``"strict"`` or ``"zero"``;
+            see above.
 
     Returns:
         TestResult with details: ``win_rate``, ``min_win_rate``,
-        ``wins_a``, ``wins_b``, ``ties``, ``n_comparisons``.
+        ``wins_a``, ``wins_b``, ``ties``, ``n_comparisons``,
+        ``errored_count``, ``n_valid``, ``on_error`` and ``errors``
+        (``{"index", "error"}`` per errored comparison). ``win_rate`` is
+        ``None`` when no comparison produced a verdict (except under
+        ``on_error="zero"``).
 
     Example:
         >>> def mock_judge(prompt: str) -> str:
@@ -417,6 +442,10 @@ def assert_llm_judge_pairwise(
         ...     min_win_rate=0.6,
         ... )
     """
+    if on_error not in EVAL_ON_ERROR:
+        return unknown_on_error_result(
+            "llm.judge.pairwise", on_error, EVAL_ON_ERROR,
+        )
     require_same_length(
         "assert_llm_judge_pairwise",
         prompts=prompts,
@@ -450,8 +479,11 @@ def assert_llm_judge_pairwise(
     wins_a = 0
     wins_b = 0
     ties = 0
+    errors: list[dict[str, object]] = []
 
-    for prompt, resp_a, resp_b in zip(prompts, responses_a, responses_b, strict=True):
+    for index, (prompt, resp_a, resp_b) in enumerate(
+        zip(prompts, responses_a, responses_b, strict=True),
+    ):
         comparison_prompt = _format_pairwise_prompt(
             prompt=prompt,
             response_a=resp_a,
@@ -462,40 +494,53 @@ def assert_llm_judge_pairwise(
 
         try:
             raw = str(judge_fn(comparison_prompt))
-            winner = _parse_winner(raw)
-        except Exception:
-            # Judge error -- count as tie (no side benefits)
-            winner = "tie"
-
-        if winner == "a":
+        except Exception as exc:
+            errors.append({"index": index, "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        winner = _parse_winner(raw)
+        if winner is None:
+            errors.append({
+                "index": index,
+                "error": f"Could not parse a verdict (A, B or TIE) from {raw[:80]!r}",
+            })
+        elif winner == "a":
             wins_a += 1
         elif winner == "b":
             wins_b += 1
         else:
             ties += 1
 
+    errored_count = len(errors)
+    n_valid = n - errored_count
+    denominator = n if on_error == "zero" else n_valid
     expected_wins = wins_a if expected == "a" else wins_b
-    win_rate = expected_wins / n
+    win_rate = expected_wins / denominator if denominator else None
 
-    passed = win_rate >= min_win_rate
-
+    passed = win_rate is not None and win_rate >= min_win_rate
+    shown = f"{win_rate:.4f}" if win_rate is not None else "no verdict"
+    tally = f"(A:{wins_a} B:{wins_b} Tie:{ties} Err:{errored_count})"
     message = (
         f"Pairwise ({criterion}): {expected_winner} wins "
-        f"{win_rate:.4f} >= {min_win_rate} "
-        f"(A:{wins_a} B:{wins_b} Tie:{ties})"
+        f"{shown} >= {min_win_rate} {tally}"
         if passed
         else f"Pairwise ({criterion}): {expected_winner} wins "
-        f"{win_rate:.4f} < {min_win_rate} "
-        f"(A:{wins_a} B:{wins_b} Tie:{ties})"
+        f"{shown} < {min_win_rate} {tally}"
     )
+    if error_policy_verdict(on_error, errored_count, n):
+        passed = False
+        message = f"Judge errors: {errored_count}/{n}; {message}"
 
     return assert_true(
         passed, name="llm.judge.pairwise", message=message,
         severity=Severity.CRITICAL,
-        win_rate=round(win_rate, 4),
+        win_rate=round(win_rate, 4) if win_rate is not None else None,
         min_win_rate=min_win_rate,
         wins_a=wins_a,
         wins_b=wins_b,
         ties=ties,
         n_comparisons=n,
+        errored_count=errored_count,
+        n_valid=n_valid,
+        on_error=on_error,
+        errors=errors,
     )

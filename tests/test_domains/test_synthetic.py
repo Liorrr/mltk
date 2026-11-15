@@ -1112,3 +1112,89 @@ class TestEdgeCaseHardening:
                 QuestionType.COUNTERFACTUAL,
                 QuestionType.OUT_OF_SCOPE,
             }
+
+
+# ---------------------------------------------------------------------------
+# QualityFilter: a failed scoring call is an error, not a 0.0 score
+# ---------------------------------------------------------------------------
+
+
+class TestQualityFilterErrors:
+    @staticmethod
+    def _pair() -> QAPair:
+        return QAPair(question="Q?", answer="A.", context="ctx")
+
+    @staticmethod
+    def _filter(reply: object, max_retries: int = 0) -> QualityFilter:
+        def llm(prompt: str) -> str:
+            if isinstance(reply, Exception):
+                raise reply
+            return str(reply)
+
+        return QualityFilter(llm_fn=llm, threshold=0.6, max_retries=max_retries)
+
+    def test_failed_call_raises_not_zero(self) -> None:
+        from mltk.domains.llm.synthetic._quality import QualityScoringError
+
+        qf = self._filter(RuntimeError("endpoint down"), max_retries=1)
+        with pytest.raises(QualityScoringError, match="2 attempt.*endpoint down"):
+            qf.score(self._pair())
+
+    def test_measured_zero_is_a_score(self) -> None:
+        # Mirror: a real 0.0 judgement is returned, not raised.
+        qf = self._filter('{"self_containment": 0.0, "answerability": 0.0}')
+        assert qf.score(self._pair()) == 0.0
+        assert qf.passes(self._pair()) is False
+
+    def test_unparseable_reply_raises(self) -> None:
+        from mltk.domains.llm.synthetic._quality import QualityScoringError
+
+        with pytest.raises(QualityScoringError, match="no finite"):
+            self._filter("not json").score(self._pair())
+
+    @pytest.mark.parametrize(
+        "reply",
+        [
+            '{"self_containment": 1.5, "answerability": 0.5}',
+            '{"self_containment": -0.2, "answerability": 0.9}',
+            '{"self_containment": NaN, "answerability": 0.5}',
+            '{"self_containment": Infinity, "answerability": 0.5}',
+            '{"answerability": 0.9}',
+            '{"self_containment": true, "answerability": 0.9}',
+            '{"self_containment": "high", "answerability": 0.9}',
+            "self_containment: 0.9, answerability: 1.7",
+        ],
+    )
+    def test_unusable_scores_are_errors(self, reply: str) -> None:
+        from mltk.domains.llm.synthetic._quality import QualityScoringError
+
+        with pytest.raises(QualityScoringError):
+            self._filter(reply).score(self._pair())
+
+    def test_in_range_scores_average(self) -> None:
+        # Mirror of the range check: 1.0 and 0.5 are on the scale.
+        qf = self._filter('{"self_containment": 1.0, "answerability": 0.5}')
+        assert qf.score(self._pair()) == 0.75
+
+    def test_retry_recovers_after_an_error(self) -> None:
+        replies = iter([RuntimeError("flaky"), '{"self_containment": 0.8, "answerability": 0.8}'])
+
+        def llm(prompt: str) -> str:
+            reply = next(replies)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply
+
+        qf = QualityFilter(llm_fn=llm, max_retries=1)
+        assert qf.score(self._pair()) == pytest.approx(0.8)
+
+    def test_generator_discards_pairs_it_could_not_score(self) -> None:
+        def llm(prompt: str) -> str:
+            if "quality evaluator" in prompt:
+                raise RuntimeError("scorer down")
+            return '{"question": "Q?", "answer": "A."}'
+
+        gen = SyntheticQAGenerator(
+            llm_fn=llm, seed=SEED, quality_filter=True, max_retries=1,
+        )
+        assert gen.generate_one(SAMPLE_CHUNK) is None

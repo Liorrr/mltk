@@ -518,29 +518,31 @@ quality after generation (LLM mode only).
 **Stage 2 — golden quality (LLM mode only):**
 
 After generating a QA pair, the filter sends a scoring
-prompt to `llm_fn` asking for two scores:
+prompt to `llm_fn` asking for two scores, each from 0.0
+to 1.0:
 
-```
-Rate this question-answer pair (score 0.0 to 1.0 each):
+1. `self_containment`: is the answer fully supported by
+   the context?
+2. `answerability`: can the question be answered from
+   the context?
 
-1. Self-containment: Can the question be understood
-   without reading the source document?
-2. Answerability: Is the answer clearly and completely
-   derivable from the given context?
+The reply must contain both as JSON
+(`{"self_containment": 0.9, "answerability": 0.8}`, fenced
+or bare) or as `self_containment: 0.9` /
+`answerability: 0.8` text. The pair's score is the
+**average** of the two, and the pair is kept when that
+average is ≥ `quality_threshold` (default 0.6).
 
-Question: {question}
-Context: {context}
-Answer: {answer}
-
-Return JSON:
-{"self_containment": float, "answerability": float}
-```
-
-Both scores must be ≥ `quality_threshold` (default 0.6).
-If either fails, the generator retries the generation
-prompt once (`max_retries=1`). If the second attempt
-also fails, the pair is discarded. The discarded count
-is logged at `DEBUG` level.
+A scoring call that raises, or a reply without two
+finite numbers in `[0, 1]` (a missing dimension, a
+boolean, `NaN`, or a value such as `1.5` or `-0.2`), is
+a scoring **error**, not a low score: out-of-range values
+are not clamped. The filter retries up to `max_retries`
+times; if every attempt fails, `QualityFilter.score`
+raises `QualityScoringError` (before, it returned 0.0).
+The generator catches the error and discards that
+attempt, so an unscorable pair is never kept and never
+recorded with a made-up `quality_score`.
 
 In template mode, Stage 2 is skipped. Template questions
 are guaranteed to be answerable by construction (the

@@ -288,3 +288,29 @@ can move. Thresholds tuned on non-ASCII scores need re-tuning.
 `assert_bleu` keeps whitespace tokenization by default. Pass
 `tokenizer="unicode"` to casefold and split on punctuation for any script. For
 Hebrew and other morphologically rich languages, prefer `assert_chrf`.
+
+## Pairwise judge errors are not ties
+
+`assert_llm_judge_pairwise` in `mltk.domains.llm.judge` no longer counts a judge
+exception or an unparseable reply as a tie. Such comparisons are errors under
+the same `on_error` policy as `assert_llm_judge_score`: by default they are
+excluded from the win rate, and a run where every comparison errored fails. Use
+`on_error="zero"` to keep errored comparisons in the denominator as non-wins.
+The reply must lead with the verdict as a whole word (`A`, `B.`, `Winner: B`,
+`Response A ...`) or name a tie; a reply starting with `Both` or `Absolutely` is
+now an error rather than a B or A win.
+
+```python
+from mltk.domains.llm.judge import assert_llm_judge_pairwise
+
+replies = iter(["A", "A", "I cannot decide"])
+result = assert_llm_judge_pairwise(
+    judge_fn=lambda prompt: next(replies),
+    prompts=["q1", "q2", "q3"],
+    responses_a=["a1", "a2", "a3"],
+    responses_b=["b1", "b2", "b3"],
+    min_win_rate=0.9,
+)
+assert result.details["win_rate"] == 1.0  # 2 of 2 verdicts; the error is excluded
+assert result.details["errored_count"] == 1
+```

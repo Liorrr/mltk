@@ -180,17 +180,30 @@ result = assert_llm_judge_pairwise(
 | `min_win_rate` | `float` | `0.6` | Minimum fraction of comparisons the expected winner must win |
 | `criterion` | `str` | `"helpfulness"` | Evaluation criterion |
 | `rubric` | `str \| None` | `None` | Custom rubric text |
+| `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for judge errors: `"fail_if_all"`, `"strict"` or `"zero"` (see below) |
+
+### Verdicts and judge errors
+
+The reply must lead with the verdict as a whole word -- `A`, `B.`, `**TIE**`, `Winner: B` or `Response A is better` -- or name a tie as a word anywhere (`It's a tie`). A judge call that raises, or a reply that names no verdict (`Both are good`, `Absolutely`, `I think A`), is a judge **error**, not a tie:
+
+- `on_error="fail_if_all"` (default): errors are excluded from the win rate; the result fails when every comparison errored.
+- `on_error="strict"`: any error fails the result.
+- `on_error="zero"`: errored comparisons stay in the denominator as non-wins (the behaviour before errors were separated from ties).
 
 ### Result details
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `win_rate` | `float` | Fraction of comparisons won by expected_winner |
+| `win_rate` | `float \| None` | Fraction of verdicts won by expected_winner (`None` when no comparison produced a verdict, except under `on_error="zero"`) |
 | `min_win_rate` | `float` | The threshold that was required |
 | `wins_a` | `int` | Number of comparisons won by A |
 | `wins_b` | `int` | Number of comparisons won by B |
-| `ties` | `int` | Number of comparisons where neither won |
+| `ties` | `int` | Number of comparisons the judge called a tie |
 | `n_comparisons` | `int` | Total number of comparisons |
+| `errored_count` | `int` | Comparisons where the judge raised or named no verdict |
+| `n_valid` | `int` | Comparisons with a verdict |
+| `on_error` | `str` | The policy that was applied |
+| `errors` | `list[dict]` | `{"index", "error"}` for each errored comparison |
 
 ---
 
@@ -316,7 +329,7 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 
 - For `assert_llm_judge_score`, judge exceptions and unparseable replies are errors: the item has no score and is excluded from the mean by default. `on_error="fail_if_all"` (the default) fails only when every item errors, `"strict"` fails on any error, and `"zero"` zero-fills errored items.
 - Text replies use strict explicit-score parsing: a JSON `"score"` key is authoritative; fenced or prefixed JSON is accepted; `N/max` requires a denominator matching `max_score`; and `legacy_parse=True` restores first-number scraping. A negative numeric callback value, or a negative explicit score under strict parsing, is outside `[0, max_score]` and is a judge error. Legacy parsing reads unsigned numbers, so it ignores a minus sign in text such as `"Score: -4"`; even with legacy parsing, an above-maximum number is an error.
-- If `judge_fn` **raises or returns gibberish** during pairwise comparison, the item counts as a **tie** (neither side benefits from judge failure).
+- For `assert_llm_judge_pairwise`, a judge exception or a reply that names no verdict is an **error**, not a tie. It is excluded from the win rate by default, and `on_error` works as for `assert_llm_judge_score` (`"zero"` keeps errors in the denominator as non-wins).
 - If `prompts` and `responses` have **different lengths**, the assertion fails immediately with a descriptive error message.
 
 ---
