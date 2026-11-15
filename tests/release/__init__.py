@@ -1,0 +1,1 @@
+"""Release artifact smoke tests."""

@@ -1,0 +1,21 @@
+name: Release rehearsal
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - .github/workflows/release.yml
+      - .github/workflows/build-and-test.yml
+      - .github/workflows/release-rehearsal.yml
+      - pyproject.toml
+      - rust/**
+      - src/mltk/_rust.py
+      - MANIFEST.in
+      - tests/release/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/build-and-test.yml
