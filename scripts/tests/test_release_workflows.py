@@ -105,6 +105,12 @@ def test_build_and_test_is_reusable_and_tests_each_wheel():
         for line in pip_lines
     )
     wheel_test = workflow["jobs"]["test-wheels"]
+    test_name_axis = set(wheel_test["strategy"]["matrix"]["name"])
+    assert test_name_axis == names
+    assert all(
+        set(entry) == {"name", "os"}
+        for entry in wheel_test["strategy"]["matrix"]["include"]
+    )
     test_names = {entry["name"] for entry in wheel_test["strategy"]["matrix"]["include"]}
     assert test_names == names
     install = next(

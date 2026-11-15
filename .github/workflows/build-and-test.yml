@@ -45,7 +45,7 @@ jobs:
           path: dist/
 
   # The wheels use the stable ABI (abi3), so one wheel per platform must
-  # install on every supported Python: test the oldest and the newest.
+  # install on every supported Python: test the floor (3.11) and 3.14.
   test-wheels:
     needs: wheels
     strategy:
