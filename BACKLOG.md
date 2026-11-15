@@ -15,6 +15,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 - [ ] Behavioral false-pass hardening: leakage must distinguish model errors from observed non-leaks; stability must not turn model errors into agreeing empty outputs. Planning is prepared; default error policy, compatibility behavior and minimum valid observations remain to be decided before implementation.
 
+## DONE — v0.17.2 (2026-11-15)
+
+- [x] **Released v0.17.2** (packaging only): the Rust extension is built for the stable ABI (`abi3-py311`), so each platform's PyPI wheel installs on Python 3.11 and later; release `test-wheels` installs each wheel on Python 3.11 and 3.14. Before, the wheels were CPython 3.12 only and other Pythons built the sdist, which needs a Rust toolchain. See the CHANGELOG.
+
 ## DONE — v0.17.1 (2026-11-15)
 
 - [x] **Released v0.17.1**: Python 3.10 dropped (`requires-python >=3.11`); out-of-range judge scores are judge errors; judge docs corrected; release CI tests the built wheels plus a non-publishing rehearsal; the dependency audit covers mlspec's CI-tested set on every supported Python; PR preflight checks; the `bump.py homebrew` stage; CODEOWNERS. See the CHANGELOG.
@@ -27,7 +31,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Judge scores outside the scale are errors, and the judge docs match the parser** ([#48](https://github.com/Liorrr/mltk/pull/48)). See the CHANGELOG.
 - [x] **The CI dependency audit checks mlspec's dependencies** ([#50](https://github.com/Liorrr/mltk/pull/50)): it audits the CI-tested dependency set instead of pip-audit's own environment.
 
-## DONE (S0-S106: 245 assertions, 6449+ tests, 38 Rust tests) — v0.17.1
+## DONE (S0-S106: 245 assertions, 6449+ tests, 38 Rust tests) — v0.17.2
 
 ### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
 - [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).

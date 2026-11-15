@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.17.2] — 2026-11-15
+### Fixed
 - **PyPI wheels install on Python 3.11 and later, not only 3.12.** The Rust extension is now built for the stable ABI (abi3, Python 3.11 and later), so each platform's single wheel serves every Python version. Before, the wheels were built for CPython 3.12 only, so `pip install mlspec` on Python 3.11, 3.13 or 3.14 built the sdist and failed without a Rust toolchain. Release CI now installs and tests each wheel on Python 3.11 and 3.14.
 
 ## [0.17.1] — 2026-11-15
