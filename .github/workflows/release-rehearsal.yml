@@ -10,6 +10,7 @@ on:
       - rust/**
       - src/mltk/_rust.py
       - MANIFEST.in
+      - tests/release/**
   workflow_dispatch:
 
 permissions:

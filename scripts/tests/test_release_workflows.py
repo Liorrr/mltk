@@ -43,11 +43,40 @@ def named_step(workflow: dict, job_name: str, step_name: str) -> dict:
     )
 
 
+def granted_write_scopes(workflow: dict) -> set[str]:
+    """Return permission scopes granted write access by a parsed workflow."""
+    scopes: set[str] = set()
+
+    def collect(permissions: object) -> None:
+        if isinstance(permissions, dict):
+            scopes.update(scope for scope, access in permissions.items() if access == "write")
+        elif permissions == "write-all":
+            scopes.add("*")
+
+    collect(workflow.get("permissions"))
+    for job in workflow.get("jobs", {}).values():
+        collect(job.get("permissions"))
+    return scopes
+
+
 def test_release_keeps_tag_trigger_and_publish_jobs():
     workflow = load_workflow("release.yml")
     assert workflow["on"] == {"push": {"tags": ["v*"]}}
     assert workflow["jobs"]["build-and-test"]["uses"] == "./.github/workflows/build-and-test.yml"
     assert {"test-pypi", "pypi", "github-release"} <= set(workflow["jobs"])
+    assert granted_write_scopes(workflow) == {"id-token", "contents"}
+    assert granted_write_scopes(
+        {"jobs": {"test-pypi": workflow["jobs"]["test-pypi"]}}
+    ) == {"id-token"}
+    assert granted_write_scopes({"jobs": {"pypi": workflow["jobs"]["pypi"]}}) == {"id-token"}
+    assert granted_write_scopes(
+        {"jobs": {"github-release": workflow["jobs"]["github-release"]}}
+    ) == {"contents"}
+    assert all(
+        granted_write_scopes({"jobs": {name: job}}) == set()
+        for name, job in workflow["jobs"].items()
+        if name not in {"test-pypi", "pypi", "github-release"}
+    )
 
 
 def test_build_and_test_is_reusable_and_tests_each_wheel():
@@ -68,7 +97,7 @@ def test_build_and_test_is_reusable_and_tests_each_wheel():
         if "upload-artifact" in step.get("uses", "")
     }
     assert sdist_artifacts == {"sdist"}
-    assert all("id-token: write" not in str(job) for job in workflow["jobs"].values())
+    assert granted_write_scopes(workflow) == set()
     pip_lines = [step.get("run", "") for step in all_steps(workflow)]
     assert not any(
         "dist/*.tar.gz" in line or "pip install" in line and "||" in line
@@ -118,13 +147,13 @@ def test_rehearsal_only_calls_build_workflow_without_publish_permissions():
         "rust/**",
         "src/mltk/_rust.py",
         "MANIFEST.in",
+        "tests/release/**",
     ]
     assert workflow["permissions"] == {"contents": "read"}
     assert workflow["jobs"]["build-and-test"]["uses"] == "./.github/workflows/build-and-test.yml"
+    assert granted_write_scopes(workflow) == set()
     text = str(workflow)
     assert "pypa/gh-action-pypi-publish" not in text
-    assert "id-token: write" not in text
-    assert "contents: write" not in text
 
 
 def test_docker_publish_still_listens_to_release_only():
