@@ -21,13 +21,17 @@ def security_workflow() -> str:
                        for step in security_config()["jobs"]["security"]["steps"])
 
 
+def matrix_pythons() -> list[str]:
+    return security_config()["jobs"]["test"]["strategy"]["matrix"]["python"]
+
+
 def security_commands() -> list[list[str]]:
     return [shlex.split(line) for line in security_workflow().splitlines() if line.strip()]
 
 
 def test_security_audit_matches_ci_install_extras():
     commands = security_commands()
-    for version in ("3.11", "3.12", "3.13"):
+    for version in matrix_pythons():
         audit_python = f"$RUNNER_TEMP/audit-venv-{version}/bin/python"
         install = next(command for command in commands if command[:3] == [
             audit_python, "-m", "pip",
@@ -37,7 +41,7 @@ def test_security_audit_matches_ci_install_extras():
 
 def test_security_audit_is_strict_and_uses_frozen_requirements():
     commands = security_commands()
-    for version in ("3.11", "3.12", "3.13"):
+    for version in matrix_pythons():
         audit_python = f"$RUNNER_TEMP/audit-venv-{version}/bin/python"
         requirements_path = f"$RUNNER_TEMP/mlspec-audit-{version}.txt"
         freeze = next(command for command in commands if command[:3] == [
@@ -58,9 +62,9 @@ def test_security_audit_is_strict_and_uses_frozen_requirements():
 def test_security_audit_sets_up_and_audits_every_supported_python():
     setup = next(step for step in security_config()["jobs"]["security"]["steps"]
                  if step.get("uses") == "actions/setup-python@v5")
-    assert setup["with"]["python-version"].split() == ["3.11", "3.12", "3.13"]
+    assert setup["with"]["python-version"].split() == matrix_pythons()
     commands = security_commands()
-    for version in ("3.11", "3.12", "3.13"):
+    for version in matrix_pythons():
         assert ["python" + version, "-m", "venv",
                 f"$RUNNER_TEMP/audit-venv-{version}"] in commands
 

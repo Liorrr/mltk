@@ -75,7 +75,7 @@ Expected output:
 
 ```text
 mltk doctor
-[OK]   Python version: 3.12.1 (>= 3.11)
+  [OK]   Python version: 3.12.1 (>= 3.11)
   [OK]   Core deps: numpy 1.26.4, pandas 2.2.0
   [WARN] Optional dep: scipy not installed (pip install mlspec[scipy])
   [OK]   Config: mltk.yaml found
