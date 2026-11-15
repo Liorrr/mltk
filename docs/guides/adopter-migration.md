@@ -2,8 +2,9 @@
 
 This guide describes the implemented evaluation and assertion changes relative
 to the v0.16.0 baseline. Review judge response formats, stored-output identities,
-empty refusal datasets, and consumers of semantic-equivalence results when
-adopting these changes.
+empty refusal datasets, consumers of semantic-equivalence results, trace budget
+checks, face FAR thresholds, non-ASCII ROUGE scores and pairwise judge errors
+when adopting these changes.
 
 ## Numeric judge parsing
 
@@ -251,6 +252,34 @@ contradiction = result.details["contradiction"]
 assert contradiction is None  # Not checked by token overlap.
 assert (contradiction is False) is False  # Not a checked negative.
 ```
+
+## Unmeasured trace numbers fail budgets
+
+`AgentTrace.total_tokens`, `AgentTrace.total_duration_ms` and
+`ToolCall.duration_ms` in `mltk.domains.llm.trace` default to `None` (not
+measured), and `AgentTrace.from_dict` and `to_agent_trace` keep a missing value as
+`None` instead of `0`. `assert_cost_budget` and `assert_mcp_context_window` fail
+when a budgeted field was not measured; before, an unmeasured trace counted as
+zero tokens and passed any budget. A measured `0` still passes.
+
+```python
+import pytest
+
+from mltk.core.assertion import MltkAssertionError
+from mltk.domains.llm.agentic import assert_cost_budget
+from mltk.domains.llm.trace import AgentTrace
+
+trace = AgentTrace.from_dict({"tool_calls": [{"name": "search"}]})  # no counts
+with pytest.raises(MltkAssertionError):
+    assert_cost_budget(trace, max_total_tokens=10_000)
+
+# Opt out when the trace source cannot count tokens:
+result = assert_cost_budget(trace, max_total_tokens=10_000, on_unmeasured="skip")
+assert result.details["skipped"] is True
+```
+
+`on_unmeasured="pass"` keeps the old verdict. Code that reads these fields
+directly must handle `None`, for example in arithmetic or format strings.
 
 ## Face FAR needs the operating threshold
 
