@@ -2,8 +2,9 @@
 
 This guide describes the implemented evaluation and assertion changes relative
 to the v0.16.0 baseline. Review judge response formats, stored-output identities,
-empty refusal datasets, and consumers of semantic-equivalence results when
-adopting these changes.
+empty refusal datasets, consumers of semantic-equivalence results, trace budget
+checks, face FAR thresholds, non-ASCII ROUGE scores and pairwise judge errors
+when adopting these changes.
 
 ## Numeric judge parsing
 
@@ -250,4 +251,100 @@ result = assert_semantic_equivalence(
 contradiction = result.details["contradiction"]
 assert contradiction is None  # Not checked by token overlap.
 assert (contradiction is False) is False  # Not a checked negative.
+```
+
+## Unmeasured trace numbers fail budgets
+
+`AgentTrace.total_tokens`, `AgentTrace.total_duration_ms` and
+`ToolCall.duration_ms` in `mltk.domains.llm.trace` default to `None` (not
+measured), and `AgentTrace.from_dict` and `to_agent_trace` keep a missing value as
+`None` instead of `0`. `assert_cost_budget` and `assert_mcp_context_window` fail
+when a budgeted field was not measured; before, an unmeasured trace counted as
+zero tokens and passed any budget. A measured `0` still passes.
+
+```python
+import pytest
+
+from mltk.core.assertion import MltkAssertionError
+from mltk.domains.llm.agentic import assert_cost_budget
+from mltk.domains.llm.trace import AgentTrace
+
+trace = AgentTrace.from_dict({"tool_calls": [{"name": "search"}]})  # no counts
+with pytest.raises(MltkAssertionError):
+    assert_cost_budget(trace, max_total_tokens=10_000)
+
+# Opt out when the trace source cannot count tokens:
+result = assert_cost_budget(trace, max_total_tokens=10_000, on_unmeasured="skip")
+assert result.details["skipped"] is True
+```
+
+`on_unmeasured="pass"` keeps the old verdict. Code that reads these fields
+directly must handle `None`, for example in arithmetic or format strings.
+
+## Face FAR needs the operating threshold
+
+`assert_face_far` in `mltk.domains.cv.face` now requires a keyword-only
+`threshold=` and measures FAR there: a non-mate pair is a false accept when its
+similarity is `>= threshold`. Earlier versions used the median mate similarity
+as the threshold, so the reported FAR described a threshold nobody had deployed.
+A call without `threshold` raises `TypeError`, and `max_far` is now keyword-only
+too. Pass the threshold your system accepts at:
+
+```python
+from mltk.domains.cv.face import assert_face_far
+
+result = assert_face_far(
+    [0.91, 0.84, 0.42, 0.71, 0.33], [1, 1, 1, 0, 0], threshold=0.5, max_far=0.5,
+)
+assert result.details["threshold"] == 0.5
+assert result.details["tar"] == 2 / 3  # TAR at the same threshold
+```
+
+No non-mate pairs (FAR undefined) or no mate pairs (TAR undefined) now fail by
+default; before, zero non-mates passed. Use `on_empty="skip"` or
+`on_empty="pass"` to opt out; with no mate pairs, either one waives TAR but
+FAR is still checked. Mismatched lengths, labels outside {0, 1} and
+non-finite similarities raise `ValueError`.
+
+## ROUGE keeps non-ASCII words
+
+`assert_rouge` in `mltk.domains.nlp.generation` now tokenizes Unicode text.
+`rouge-score`'s default tokenizer dropped every character outside `a-z0-9`, so
+Hebrew, Arabic, CJK or Cyrillic texts produced no tokens and identical texts
+scored 0. Chinese and Japanese text is tokenized one character per token. On
+ASCII text the tokens and scores are unchanged. Accented Latin
+letters are now kept (`café` instead of `caf`), so scores on text with accents
+can move. Thresholds tuned on non-ASCII scores need re-tuning.
+
+`assert_bleu` keeps whitespace tokenization by default. Pass
+`tokenizer="unicode"` to casefold and split on punctuation for any script. For
+Hebrew and other morphologically rich languages, prefer `assert_chrf`.
+
+## Pairwise judge errors are not ties
+
+`assert_llm_judge_pairwise` in `mltk.domains.llm.judge` no longer counts a judge
+exception or an unparseable reply as a tie. Such comparisons are errors under
+the same `on_error` policy as `assert_llm_judge_score`: by default they are
+excluded from the win rate, and a run where every comparison errored fails. Use
+`on_error="zero"` to keep errored comparisons in the denominator as non-wins.
+The reply must lead with one verdict as a whole word (`A`, `B.`, `Winner: B`,
+`Response A is better`) or name a tie, and must not name the other response
+afterwards: `A is better than B` and `Response A ... Winner: B` are errors, the
+same for both letters. A reply starting with `Both` or `Absolutely` is now an
+error rather than a B or A win. Ask the judge for the verdict alone, or for the
+verdict first with an explanation that does not repeat the letters.
+
+```python
+from mltk.domains.llm.judge import assert_llm_judge_pairwise
+
+replies = iter(["A", "A", "I cannot decide"])
+result = assert_llm_judge_pairwise(
+    judge_fn=lambda prompt: next(replies),
+    prompts=["q1", "q2", "q3"],
+    responses_a=["a1", "a2", "a3"],
+    responses_b=["b1", "b2", "b3"],
+    min_win_rate=0.9,
+)
+assert result.details["win_rate"] == 1.0  # 2 of 2 verdicts; the error is excluded
+assert result.details["errored_count"] == 1
 ```

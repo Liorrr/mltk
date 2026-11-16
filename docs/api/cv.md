@@ -282,29 +282,43 @@ assert_idf1(gt, pred, min_idf1=0.5)
 
 ### assert_face_far
 
-Assert False Accept Rate is below threshold. FAR = fraction of non-mate pairs incorrectly accepted. Standard for biometric systems (NIST FRVT).
+Assert the False Accept Rate at the deployed operating threshold is below `max_far`. FAR = fraction of non-mate pairs accepted, where a pair is accepted when its similarity is `>= threshold`. The True Accept Rate of the mate pairs at the same threshold is reported alongside. Standard for biometric systems (NIST FRVT).
 
 ```python
 from mltk.domains.cv import assert_face_far
 
-assert_face_far(similarities, labels, max_far=0.001)
+similarities = [0.91, 0.84, 0.42, 0.71, 0.33, 0.20, 0.12]
+labels = [1, 1, 1, 0, 0, 0, 0]  # 1 = mate, 0 = non-mate
+
+result = assert_face_far(similarities, labels, threshold=0.5, max_far=0.25)
+assert result.details["far"] == 0.25        # 1 of 4 non-mates accepted
+assert result.details["tar"] == 2 / 3       # 2 of 3 mates accepted
 ```
+
+`threshold` is required and keyword-only: FAR is only meaningful at the threshold the system actually accepts at. Earlier versions picked the median mate similarity as the threshold, which reported a FAR for a threshold nobody deployed.
 
 #### Parameters
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `similarities` | `array-like` | *(required)* | Pairwise similarity scores |
-| `labels` | `array-like` | *(required)* | Binary labels (1=mate, 0=non-mate) |
-| `max_far` | `float` | `0.001` | Maximum allowed FAR |
+| `similarities` | `array-like` | *(required)* | Pairwise similarity scores (1-D, finite) |
+| `labels` | `array-like` | *(required)* | Binary labels (1=mate, 0=non-mate), same length as `similarities` |
+| `threshold` | `float` | *(required, keyword-only)* | Operating threshold; a pair is accepted when its similarity is `>= threshold` |
+| `max_far` | `float` | `0.001` | Maximum allowed FAR, in `[0, 1]` (keyword-only) |
+| `on_empty` | `"fail" \| "skip" \| "pass"` | `"fail"` | Policy when there are no non-mate pairs (FAR undefined) or no mate pairs (TAR undefined). An empty non-mate set is skipped (`"skip"`) or passed (`"pass"`). An empty mate set is waived under either (`tar` is `None`), but FAR is still checked. |
+
+Mismatched lengths, non-1-D inputs, a non-finite similarity, a label outside {0, 1}, a non-finite `threshold` or a `max_far` outside `[0, 1]` raise `ValueError`.
 
 #### Returns
 
 `TestResult` with details:
-- `far` -- computed FAR
-- `max_far` -- configured threshold
-- `threshold` -- similarity threshold used
-- `false_accepts` -- number of false accepts
+- `far` -- FAR at `threshold`
+- `max_far` -- configured limit
+- `threshold` -- the operating threshold you passed
+- `false_accepts` -- non-mate pairs at or above the threshold
 - `total_non_mates` -- total non-mate pairs
+- `tar` -- TAR at `threshold` (`None` when there are no mate pairs)
+- `true_accepts` -- mate pairs at or above the threshold
+- `total_mates` -- total mate pairs
 
 ---

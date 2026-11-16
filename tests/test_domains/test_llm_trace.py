@@ -11,13 +11,14 @@ class TestToolCallDefaults:
     def test_name_only(self) -> None:
         # SCENARIO: Create a ToolCall providing only the required name field.
         # WHY: All optional fields should fall back to sensible defaults.
-        # EXPECTED: arguments={}, result=None, error=None, duration_ms=0.0.
+        # EXPECTED: arguments={}, result=None, error=None, duration_ms=None
+        #   (not timed -- distinct from a measured 0.0).
         tc = ToolCall(name="search")
         assert tc.name == "search"
         assert tc.arguments == {}
         assert tc.result is None
         assert tc.error is None
-        assert tc.duration_ms == 0.0
+        assert tc.duration_ms is None
 
     def test_default_arguments_are_independent(self) -> None:
         # SCENARIO: Two ToolCalls created without explicit arguments dicts.
@@ -71,11 +72,12 @@ class TestAgentTraceEmpty:
     def test_empty_trace(self) -> None:
         # SCENARIO: Agent trace with no tool calls (pure reasoning, no actions).
         # WHY: An empty trace is valid — the agent may have answered without tools.
-        # EXPECTED: tool_calls=[], total_tokens=0, total_duration_ms=0.0, metadata={}.
+        # EXPECTED: tool_calls=[], total_tokens=None, total_duration_ms=None
+        #   (not measured), metadata={}.
         trace = AgentTrace()
         assert trace.tool_calls == []
-        assert trace.total_tokens == 0
-        assert trace.total_duration_ms == 0.0
+        assert trace.total_tokens is None
+        assert trace.total_duration_ms is None
         assert trace.metadata == {}
 
     def test_empty_trace_properties(self) -> None:
@@ -383,11 +385,11 @@ class TestFromDictFlatList:
 
     def test_flat_list_defaults(self) -> None:
         # SCENARIO: Flat list — total_tokens and total_duration_ms are not available.
-        # WHY: A bare list has no place for aggregate fields; they should default.
-        # EXPECTED: total_tokens=0, total_duration_ms=0.0, metadata={}.
+        # WHY: A bare list has no place for aggregate fields; they stay unmeasured.
+        # EXPECTED: total_tokens=None, total_duration_ms=None, metadata={}.
         trace = AgentTrace.from_dict([{"name": "x"}])
-        assert trace.total_tokens == 0
-        assert trace.total_duration_ms == 0.0
+        assert trace.total_tokens is None
+        assert trace.total_duration_ms is None
         assert trace.metadata == {}
 
 
@@ -400,8 +402,8 @@ class TestFromDictMissingFields:
         # EXPECTED: step_count=0, defaults for all aggregate fields.
         trace = AgentTrace.from_dict({})
         assert trace.step_count == 0
-        assert trace.total_tokens == 0
-        assert trace.total_duration_ms == 0.0
+        assert trace.total_tokens is None
+        assert trace.total_duration_ms is None
         assert trace.metadata == {}
 
     def test_missing_tool_call_name(self) -> None:
@@ -424,14 +426,14 @@ class TestFromDictMissingFields:
 
     def test_missing_optional_top_level_fields(self) -> None:
         # SCENARIO: Dict has tool_calls but no total_tokens, total_duration_ms, or metadata.
-        # WHY: All top-level fields are optional and should default.
-        # EXPECTED: total_tokens=0, total_duration_ms=0.0, metadata={}.
+        # WHY: All top-level fields are optional; missing ones stay unmeasured.
+        # EXPECTED: total_tokens=None, total_duration_ms=None, metadata={}.
         data = {
             "tool_calls": [{"name": "ping", "arguments": {}}],
         }
         trace = AgentTrace.from_dict(data)
-        assert trace.total_tokens == 0
-        assert trace.total_duration_ms == 0.0
+        assert trace.total_tokens is None
+        assert trace.total_duration_ms is None
         assert trace.metadata == {}
 
     def test_missing_result_and_error(self) -> None:
@@ -444,10 +446,56 @@ class TestFromDictMissingFields:
         assert trace.tool_calls[0].error is None
         assert trace.failed_calls == []
 
-    def test_missing_duration_ms_defaults_to_zero(self) -> None:
+    def test_missing_duration_ms_stays_none(self) -> None:
         # SCENARIO: Tool call dict without duration_ms.
-        # WHY: Should default to 0.0, not raise.
-        # EXPECTED: duration_ms == 0.0.
+        # WHY: An untimed call is not a 0 ms call; it must not raise either.
+        # EXPECTED: duration_ms is None.
         data = {"tool_calls": [{"name": "search"}]}
         trace = AgentTrace.from_dict(data)
+        assert trace.tool_calls[0].duration_ms is None
+
+
+class TestUnmeasuredRoundTrip:
+    """None (not measured) survives from_dict and a JSON round trip."""
+
+    def test_explicit_null_stays_none(self) -> None:
+        data = {
+            "tool_calls": [{"name": "search", "duration_ms": None}],
+            "total_tokens": None,
+            "total_duration_ms": None,
+        }
+        trace = AgentTrace.from_dict(data)
+        assert trace.total_tokens is None
+        assert trace.total_duration_ms is None
+        assert trace.tool_calls[0].duration_ms is None
+
+    def test_measured_zero_stays_zero(self) -> None:
+        data = {
+            "tool_calls": [{"name": "search", "duration_ms": 0}],
+            "total_tokens": 0,
+            "total_duration_ms": 0,
+        }
+        trace = AgentTrace.from_dict(data)
+        assert trace.total_tokens == 0
+        assert isinstance(trace.total_tokens, int)
+        assert trace.total_duration_ms == 0.0
         assert trace.tool_calls[0].duration_ms == 0.0
+
+    def test_json_round_trip_keeps_none_and_values(self) -> None:
+        import dataclasses
+        import json
+
+        original = AgentTrace(
+            tool_calls=[
+                ToolCall(name="timed", duration_ms=12.5),
+                ToolCall(name="untimed"),
+            ],
+            total_tokens=None,
+            total_duration_ms=40.0,
+        )
+        payload = json.loads(json.dumps(dataclasses.asdict(original)))
+        assert payload["total_tokens"] is None
+        restored = AgentTrace.from_dict(payload)
+        assert restored.total_tokens is None
+        assert restored.total_duration_ms == 40.0
+        assert [tc.duration_ms for tc in restored.tool_calls] == [12.5, None]

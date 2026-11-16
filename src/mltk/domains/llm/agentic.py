@@ -7,7 +7,12 @@ import numpy as np
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
-from mltk.domains.llm.trace import AgentTrace
+from mltk.domains.llm.trace import (
+    ON_UNMEASURED_OPTIONS,
+    AgentTrace,
+    OnUnmeasured,
+    is_valid_measurement,
+)
 
 
 def _token_overlap(a: str, b: str) -> float:
@@ -582,6 +587,8 @@ def assert_cost_budget(
     trace: AgentTrace,
     max_total_tokens: int | None = None,
     max_duration_ms: float | None = None,
+    *,
+    on_unmeasured: OnUnmeasured = "fail",
 ) -> TestResult:
     """Assert an agent's resource consumption stays within budget.
 
@@ -599,15 +606,34 @@ def assert_cost_budget(
     ``max_duration_ms``) must be provided — otherwise the assertion has nothing
     to check and raises a ``ValueError``.
 
+    A budgeted field that is ``None`` on the trace was **not measured**, and
+    the budget cannot be verified. ``on_unmeasured`` decides the verdict:
+
+    - ``"fail"`` (default): the result fails, naming the unmeasured fields.
+      Measured budgets are still checked and reported.
+    - ``"pass"``: unmeasured budgets are treated as met; measured ones are
+      still checked.
+    - ``"skip"``: unmeasured budgets are dropped; measured ones are still
+      checked. If no budgeted field was measured, the result is skipped.
+
+    A measured ``0`` is a real measurement and is checked normally. A
+    budgeted value that is not a finite, non-negative number (``NaN``,
+    ``inf``, ``-5``, a boolean) is an invalid measurement and fails under
+    every policy.
+
     Args:
         trace: The agent execution trace whose costs to validate.
         max_total_tokens: Maximum total token consumption allowed (optional).
         max_duration_ms: Maximum wall-clock duration in milliseconds (optional).
+        on_unmeasured: Policy for a budgeted field that is ``None``:
+            ``"fail"`` (default), ``"pass"`` or ``"skip"``.
 
     Returns:
         TestResult with ``total_tokens``, ``max_total_tokens``,
         ``total_duration_ms``, ``max_duration_ms``, ``token_budget_exceeded``,
-        and ``duration_budget_exceeded``.
+        ``duration_budget_exceeded``, ``unmeasured``, ``invalid`` and
+        ``on_unmeasured``. An ``*_exceeded`` flag is ``None`` when its field
+        was not measured or holds an invalid value.
 
     Raises:
         ValueError: If neither ``max_total_tokens`` nor ``max_duration_ms``
@@ -622,55 +648,122 @@ def assert_cost_budget(
         ... )
         >>> assert_cost_budget(trace, max_total_tokens=1000)
     """
+    name = "llm.agentic.cost_budget"
     if max_total_tokens is None and max_duration_ms is None:
         raise ValueError(
             "At least one budget must be specified: "
             "max_total_tokens or max_duration_ms"
         )
+    if on_unmeasured not in ON_UNMEASURED_OPTIONS:
+        return assert_true(
+            False,
+            name=name,
+            message=(
+                f"Unknown on_unmeasured: '{on_unmeasured}'. "
+                f"Supported: {', '.join(ON_UNMEASURED_OPTIONS)}"
+            ),
+            severity=Severity.CRITICAL,
+            on_unmeasured=on_unmeasured,
+        )
 
-    token_exceeded = False
-    duration_exceeded = False
+    tokens = trace.total_tokens
+    duration = trace.total_duration_ms
+    unmeasured: list[str] = []
+    invalid: list[str] = []
+    token_exceeded: bool | None = False
+    duration_exceeded: bool | None = False
 
     if max_total_tokens is not None:
-        token_exceeded = trace.total_tokens > max_total_tokens
+        if tokens is None:
+            unmeasured.append("total_tokens")
+            token_exceeded = None
+        elif not is_valid_measurement(tokens):
+            invalid.append(f"total_tokens={tokens!r}")
+            token_exceeded = None
+        else:
+            token_exceeded = tokens > max_total_tokens
 
     if max_duration_ms is not None:
-        duration_exceeded = trace.total_duration_ms > max_duration_ms
+        if duration is None:
+            unmeasured.append("total_duration_ms")
+            duration_exceeded = None
+        elif not is_valid_measurement(duration):
+            invalid.append(f"total_duration_ms={duration!r}")
+            duration_exceeded = None
+        else:
+            duration_exceeded = duration > max_duration_ms
 
-    passed = not token_exceeded and not duration_exceeded
+    details: dict[str, object] = {
+        "total_tokens": tokens,
+        "max_total_tokens": max_total_tokens,
+        "total_duration_ms": duration,
+        "max_duration_ms": max_duration_ms,
+        "token_budget_exceeded": token_exceeded,
+        "duration_budget_exceeded": duration_exceeded,
+        "unmeasured": unmeasured,
+        "invalid": invalid,
+        "on_unmeasured": on_unmeasured,
+    }
 
-    if passed:
-        parts = []
-        if max_total_tokens is not None:
-            parts.append(f"tokens {trace.total_tokens} <= {max_total_tokens}")
-        if max_duration_ms is not None:
-            parts.append(
-                f"duration {trace.total_duration_ms:.1f}ms "
-                f"<= {max_duration_ms:.1f}ms"
-            )
-        message = f"Cost within budget: {', '.join(parts)}"
+    over: list[str] = []
+    within: list[str] = []
+    if token_exceeded is not None and max_total_tokens is not None:
+        target = over if token_exceeded else within
+        sign = ">" if token_exceeded else "<="
+        target.append(f"tokens {tokens} {sign} {max_total_tokens}")
+    if duration_exceeded is not None and max_duration_ms is not None:
+        target = over if duration_exceeded else within
+        sign = ">" if duration_exceeded else "<="
+        target.append(f"duration {duration:.1f}ms {sign} {max_duration_ms:.1f}ms")
+
+    missing = ", ".join(unmeasured)
+    if over:
+        passed = False
+        message = f"Cost budget exceeded: {', '.join(over)}"
+        if unmeasured:
+            message += f"; not measured: {missing}"
+        if invalid:
+            message += f"; invalid: {', '.join(invalid)}"
+    elif invalid:
+        # NaN, infinite or negative values are not measurements of a cost;
+        # comparing them with a budget would pass silently (NaN > x is False).
+        passed = False
+        message = (
+            f"Cost budget unverifiable: invalid measurement {', '.join(invalid)} "
+            "(must be a finite, non-negative number)"
+        )
+    elif unmeasured and on_unmeasured == "fail":
+        passed = False
+        message = (
+            f"Cost budget unverifiable: {missing} not measured "
+            "(on_unmeasured='fail')"
+        )
+        if within:
+            message += f"; measured: {', '.join(within)}"
+    elif unmeasured and on_unmeasured == "skip" and not within:
+        return assert_true(
+            True,
+            name=name,
+            message=f"Skipped: {missing} not measured (on_unmeasured='skip')",
+            severity=Severity.INFO,
+            skipped=True,
+            reason=f"{missing} not measured",
+            **details,
+        )
     else:
-        parts = []
-        if token_exceeded:
-            parts.append(
-                f"tokens {trace.total_tokens} > {max_total_tokens}"
+        passed = True
+        message = "Cost within budget"
+        if within:
+            message += f": {', '.join(within)}"
+        if unmeasured:
+            message += (
+                f" ({missing} not measured, on_unmeasured='{on_unmeasured}')"
             )
-        if duration_exceeded:
-            parts.append(
-                f"duration {trace.total_duration_ms:.1f}ms "
-                f"> {max_duration_ms:.1f}ms"
-            )
-        message = f"Cost budget exceeded: {', '.join(parts)}"
 
     return assert_true(
-        passed, name="llm.agentic.cost_budget", message=message,
+        passed, name=name, message=message,
         severity=Severity.CRITICAL,
-        total_tokens=trace.total_tokens,
-        max_total_tokens=max_total_tokens,
-        total_duration_ms=trace.total_duration_ms,
-        max_duration_ms=max_duration_ms,
-        token_budget_exceeded=token_exceeded,
-        duration_budget_exceeded=duration_exceeded,
+        **details,
     )
 
 

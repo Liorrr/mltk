@@ -849,6 +849,68 @@ class TestCliDocsCommands:
         assert "mkdocs.yml" in result.stdout.lower() or "mkdocs" in result.stderr.lower()
 
 
+class TestCliDocsOutsideCheckout:
+    """`mltk docs` explains that it needs a source checkout, and exits 1."""
+
+    DOCS_URL = "https://github.com/Liorrr/mltk/tree/master/docs"
+
+    @pytest.mark.parametrize("command", ["serve", "build", "open"])
+    def test_outside_checkout_points_to_source_docs(
+        self, tmp_path: Path, command: str,
+    ) -> None:
+        result = _run_cli("docs", command, cwd=str(tmp_path))
+        assert result.returncode == 1
+        assert "source checkout" in result.stderr
+        assert self.DOCS_URL in result.stderr
+        assert "not published" in result.stderr
+
+    def test_help_says_source_checkout(self) -> None:
+        result = _run_cli("docs", "--help")
+        assert result.returncode == 0
+        flat = " ".join(result.stdout.split())
+        assert "source checkout" in flat
+        assert "not published" in flat
+
+    @pytest.mark.parametrize("command", ["serve", "build"])
+    def test_checkout_without_mkdocs_installed_exits_1(
+        self, tmp_path: Path, command: str,
+    ) -> None:
+        (tmp_path / "mkdocs.yml").write_text("site_name: x\n", encoding="utf-8")
+        code = (
+            "import importlib.util as u, sys; real = u.find_spec; "
+            "u.find_spec = lambda n, *a: None if n == 'mkdocs' else real(n, *a); "
+            f"sys.argv = ['mltk', 'docs', {command!r}]; "
+            "from mltk.cli.app import main; main()"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True, text=True, timeout=30, cwd=str(tmp_path),
+        )
+        assert result.returncode == 1
+        assert "mlspec[docs]" in result.stderr
+
+    def test_serve_propagates_mkdocs_failure(self, tmp_path: Path) -> None:
+        """A failing `mkdocs serve` is a failing `mltk docs serve`, not exit 0."""
+        (tmp_path / "mkdocs.yml").write_text("site_name: x\n", encoding="utf-8")
+        code = (
+            "import importlib.util as u, subprocess, sys; real = u.find_spec; "
+            "u.find_spec = lambda n, *a: object() if n == 'mkdocs' else real(n, *a); "
+            # Fake only the mkdocs call: on Windows/Python 3.11, `platform`
+            # also calls subprocess.run during CLI startup.
+            "real_run = subprocess.run; "
+            "subprocess.run = lambda args, *a, **k: ("
+            "subprocess.CompletedProcess(args, 3) if 'mkdocs' in args "
+            "else real_run(args, *a, **k)); "
+            "sys.argv = ['mltk', 'docs', 'serve']; "
+            "from mltk.cli.app import main; main()"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True, text=True, timeout=30, cwd=str(tmp_path),
+        )
+        assert result.returncode == 3
+
+
 # ---------------------------------------------------------------------------
 # TestCliVersion
 # ---------------------------------------------------------------------------

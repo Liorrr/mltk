@@ -1570,7 +1570,7 @@ class TestEdgeCaseHardeningR2:
         trace = McpTrace()
         assert trace.tool_calls == []
         assert trace.resource_accesses == []
-        assert trace.total_tokens == 0
+        assert trace.total_tokens is None  # not measured
         assert trace.model_context_limit == 0
         assert trace.step_count == 0
         assert trace.tool_names == []
@@ -1780,3 +1780,48 @@ class TestMcpResourceAccessNoConstraint:
                 forbidden_uris=None,
                 max_reads=None,
             )
+
+
+class TestContextWindowUnmeasured:
+    """assert_mcp_context_window -- total_tokens=None was not measured."""
+
+    def test_unmeasured_fails_by_default(self) -> None:
+        trace = McpTrace(model_context_limit=1000)
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_mcp_context_window(trace)
+        r = exc.value.result
+        assert r.details["utilization"] is None
+        assert r.details["unmeasured"] == ["total_tokens"]
+        assert "not measured" in r.message
+
+    def test_measured_zero_passes(self) -> None:
+        trace = McpTrace(total_tokens=0, model_context_limit=1000)
+        r = assert_mcp_context_window(trace)
+        assert r.passed is True
+        assert r.details["utilization"] == 0.0
+
+    def test_pass_policy(self) -> None:
+        trace = McpTrace(model_context_limit=1000)
+        r = assert_mcp_context_window(trace, on_unmeasured="pass")
+        assert r.passed is True
+        assert r.details.get("skipped") is not True
+
+    def test_skip_policy(self) -> None:
+        trace = McpTrace(model_context_limit=1000)
+        r = assert_mcp_context_window(trace, on_unmeasured="skip")
+        assert r.passed is True
+        assert r.details["skipped"] is True
+
+    def test_unknown_policy_fails(self) -> None:
+        trace = McpTrace(total_tokens=1, model_context_limit=1000)
+        with pytest.raises(MltkAssertionError, match="Unknown on_unmeasured"):
+            assert_mcp_context_window(trace, on_unmeasured="zero")
+
+
+class TestContextWindowInvalidMeasurement:
+    @pytest.mark.parametrize("bad", [-5, float("-inf"), float("nan"), True])
+    @pytest.mark.parametrize("policy", ["fail", "pass", "skip"])
+    def test_invalid_tokens_fail_under_every_policy(self, bad: object, policy: str) -> None:
+        trace = McpTrace(total_tokens=bad, model_context_limit=100)  # type: ignore[arg-type]
+        with pytest.raises(MltkAssertionError, match="invalid measurement"):
+            assert_mcp_context_window(trace, on_unmeasured=policy)

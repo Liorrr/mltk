@@ -420,14 +420,45 @@ quality:
     app.add_typer(contract_app)
 
     # Docs subcommands
-    docs_app = typer.Typer(name="docs", help="Documentation server")
+    docs_source_url = "https://github.com/Liorrr/mltk/tree/master/docs"
+    docs_app = typer.Typer(
+        name="docs",
+        help=(
+            "Build or serve the documentation from a source checkout of mltk "
+            "(run from the repository root, where mkdocs.yml is). The docs "
+            f"site is not published; read the source at {docs_source_url}"
+        ),
+    )
+
+    def _require_docs_checkout() -> None:
+        """Exit non-zero unless the cwd is a docs source checkout with mkdocs."""
+        import importlib.util
+
+        if not Path("mkdocs.yml").exists():
+            typer.echo(
+                "mkdocs.yml not found in the current directory. `mltk docs` "
+                "builds the documentation from a source checkout of mltk: "
+                "clone https://github.com/Liorrr/mltk and run it from the "
+                "repository root.\n"
+                "The docs site is not published; read the documentation "
+                f"source at {docs_source_url}",
+                err=True,
+            )
+            raise typer.Exit(1)
+        if importlib.util.find_spec("mkdocs") is None:
+            typer.echo(
+                "mkdocs is not installed. Install it with: "
+                "pip install 'mlspec[docs]'",
+                err=True,
+            )
+            raise typer.Exit(1)
 
     @docs_app.command("serve")
     def docs_serve(
         port: int = typer.Option(8000, help="Port to serve on"),
         host: str = typer.Option("127.0.0.1", help="Host to bind to"),
     ) -> None:
-        """Serve documentation locally with hot reload."""
+        """Serve documentation locally with hot reload (source checkout only)."""
         import os
         import subprocess
         import sys
@@ -435,37 +466,27 @@ quality:
         port = int(os.environ.get("MLTK_DOCS_PORT", str(port)))
         host = os.environ.get("MLTK_DOCS_HOST", host)
 
-        mkdocs_yml = Path("mkdocs.yml")
-        if not mkdocs_yml.exists():
-            print(  # noqa: T201
-                "mkdocs.yml not found in current directory. "
-                "Run this command from the project root."
-            )
-            raise typer.Exit(1)
+        _require_docs_checkout()
 
         print(f"Serving docs at http://{host}:{port}")  # noqa: T201
         print("Press Ctrl+C to stop")  # noqa: T201
-        subprocess.run(  # noqa: S603
+        result = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "mkdocs", "serve",
              "-a", f"{host}:{port}"],
             check=False,
         )
+        if result.returncode != 0:
+            raise typer.Exit(result.returncode)
 
     @docs_app.command("build")
     def docs_build(
         output: str = typer.Option("site", help="Output directory"),
     ) -> None:
-        """Build static HTML documentation."""
+        """Build static HTML documentation (source checkout only)."""
         import subprocess
         import sys
 
-        mkdocs_yml = Path("mkdocs.yml")
-        if not mkdocs_yml.exists():
-            print(  # noqa: T201
-                "mkdocs.yml not found in current directory. "
-                "Run this command from the project root."
-            )
-            raise typer.Exit(1)
+        _require_docs_checkout()
 
         result = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "mkdocs", "build",
@@ -484,7 +505,7 @@ quality:
     def docs_open(
         port: int = typer.Option(8000, help="Port to serve on"),
     ) -> None:
-        """Build docs, start a local server, and open in browser."""
+        """Build docs, serve them locally, and open a browser (source checkout only)."""
         import http.server
         import os
         import subprocess
@@ -495,13 +516,7 @@ quality:
         port = int(os.environ.get("MLTK_DOCS_PORT", str(port)))
 
         # Build first
-        mkdocs_yml = Path("mkdocs.yml")
-        if not mkdocs_yml.exists():
-            print(  # noqa: T201
-                "mkdocs.yml not found in current directory. "
-                "Run this command from the project root."
-            )
-            raise typer.Exit(1)
+        _require_docs_checkout()
 
         print("Building docs...")  # noqa: T201
         build_result = subprocess.run(  # noqa: S603

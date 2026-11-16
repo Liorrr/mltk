@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import json
+import math
+import numbers
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, get_args
+
+OnUnmeasured = Literal["fail", "pass", "skip"]
+"""Policy for a budgeted trace field that was not measured (``None``)."""
+
+ON_UNMEASURED_OPTIONS: tuple[str, ...] = get_args(OnUnmeasured)
 
 
 @dataclass
@@ -19,14 +26,37 @@ class ToolCall:
         arguments: Arguments passed to the tool.
         result: Tool output, if available.
         error: Error message if the call failed.
-        duration_ms: Execution time in milliseconds.
+        duration_ms: Execution time in milliseconds, or ``None`` when the
+            call was not timed. ``None`` is distinct from a measured ``0.0``.
     """
 
     name: str
     arguments: dict[str, Any] = field(default_factory=dict)
     result: str | None = None
     error: str | None = None
-    duration_ms: float = 0.0
+    duration_ms: float | None = None
+
+
+def is_valid_measurement(value: Any) -> bool:
+    """Return ``True`` for a finite, non-negative number (not a boolean).
+
+    ``None`` (not measured) is handled separately by the callers; this
+    rejects values that cannot be a token count or a duration, such as
+    ``NaN``, ``inf`` or a negative number.
+    """
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return False
+    return math.isfinite(value) and value >= 0
+
+
+def _optional_float(value: Any) -> float | None:
+    """Return ``None`` for a missing value, else ``float(value)``."""
+    return None if value is None else float(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    """Return ``None`` for a missing value, else ``int(value)``."""
+    return None if value is None else int(value)
 
 
 def _parse_tool_call(raw: dict[str, Any]) -> ToolCall:
@@ -38,7 +68,8 @@ def _parse_tool_call(raw: dict[str, Any]) -> ToolCall:
     2. **OpenAI function-calling** — ``{"function": {"name": "search",
        "arguments": "{...}"}, "type": "function"}``
 
-    JSON-encoded ``arguments`` strings are decoded automatically.
+    JSON-encoded ``arguments`` strings are decoded automatically. A missing
+    or ``null`` ``duration_ms`` stays ``None`` (not timed).
     """
     # OpenAI function-calling layout: unwrap the nested "function" key.
     if "function" in raw and isinstance(raw["function"], dict):
@@ -61,7 +92,7 @@ def _parse_tool_call(raw: dict[str, Any]) -> ToolCall:
         arguments=arguments if isinstance(arguments, dict) else {},
         result=raw.get("result"),
         error=raw.get("error"),
-        duration_ms=float(raw.get("duration_ms", 0.0)),
+        duration_ms=_optional_float(raw.get("duration_ms")),
     )
 
 
@@ -74,14 +105,21 @@ class AgentTrace:
 
     Attributes:
         tool_calls: Ordered list of tool calls performed by the agent.
-        total_tokens: Total tokens consumed across the trace.
-        total_duration_ms: Total wall-clock time in milliseconds.
+        total_tokens: Total tokens consumed across the trace, or ``None``
+            when tokens were not counted.
+        total_duration_ms: Total wall-clock time in milliseconds, or
+            ``None`` when the run was not timed.
         metadata: Arbitrary metadata attached to the trace.
+
+    ``None`` means *not measured* and is distinct from a measured ``0``.
+    Budget assertions such as
+    :func:`~mltk.domains.llm.agentic.assert_cost_budget` fail on an
+    unmeasured budgeted field by default (``on_unmeasured="fail"``).
     """
 
     tool_calls: list[ToolCall] = field(default_factory=list)
-    total_tokens: int = 0
-    total_duration_ms: float = 0.0
+    total_tokens: int | None = None
+    total_duration_ms: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # ------------------------------------------------------------------
@@ -105,6 +143,10 @@ class AgentTrace:
            ``"arguments"`` may be a JSON string.
         3. **Flat list** — a bare ``list`` of tool-call dicts (treated as
            if wrapped in ``{"tool_calls": [...]}``.
+
+        A missing or ``null`` ``total_tokens`` / ``total_duration_ms`` /
+        ``duration_ms`` stays ``None`` (not measured); it is never
+        coerced to ``0``.
 
         Args:
             data: A dictionary (or list) representing a serialised trace.
@@ -131,8 +173,8 @@ class AgentTrace:
 
         return cls(
             tool_calls=tool_calls,
-            total_tokens=int(data.get("total_tokens", 0)),
-            total_duration_ms=float(data.get("total_duration_ms", 0.0)),
+            total_tokens=_optional_int(data.get("total_tokens")),
+            total_duration_ms=_optional_float(data.get("total_duration_ms")),
             metadata=dict(data.get("metadata", {})),
         )
 

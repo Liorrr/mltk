@@ -782,13 +782,14 @@ result = assert_mcp_context_window(
 | `trace` | `McpTrace` | *(required)* | The agent trace |
 | `model_context_limit` | `int` | *(required)* | Model's declared context window (tokens) |
 | `max_utilization` | `float` | `0.9` | Maximum utilization fraction (0-1) |
+| `on_unmeasured` | `"fail" \| "pass" \| "skip"` | `"fail"` | Keyword-only. What to do when `trace.total_tokens` is `None` (not counted) |
 
 #### Returns
 
 `TestResult` with:
 
 - `passed`: whether utilization is under the limit
-- `utilization`: fraction of context window used
+- `utilization`: fraction of context window used (`None` when tokens were not measured or `total_tokens` is not a finite, non-negative number; such a value fails under every policy)
 - `total_tokens`: total tokens in the trace
 - `context_limit`: the model's context window
 - `max_utilization`: the threshold that was checked

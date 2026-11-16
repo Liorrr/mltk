@@ -10,6 +10,7 @@ time.sleep, fixed seeds throughout.
 
 from __future__ import annotations
 
+import os
 import re
 from unittest.mock import MagicMock, patch
 
@@ -17,6 +18,7 @@ import numpy as np
 import pytest
 
 from mltk.domains.llm._backends import (
+    _MODEL_REPOS,
     _MODEL_REVISIONS,
     _NLI_LABELS,
     _softmax,
@@ -60,12 +62,100 @@ class TestModelRevisions:
                 f"{model}: '{rev}' is not hex"
             )
 
-    def test_revision_length_reasonable(self) -> None:
-        """Revisions are >= 8 hex chars (short SHA)."""
+    def test_revisions_are_full_commit_shas(self) -> None:
+        """Every pin is a full 40-hex commit SHA.
+
+        The Hub does not resolve short SHAs (the old 16-hex MiniLM pin
+        404'd), and a branch name is not immutable.
+        """
+        full_sha = re.compile(r"^[0-9a-f]{40}$")
         for model, rev in _MODEL_REVISIONS.items():
-            assert len(rev) >= 8, (
-                f"{model}: revision too short"
-            )
+            assert full_sha.match(rev), f"{model}: {rev!r} is not a full SHA"
+
+    def test_every_pin_has_a_hub_repo(self) -> None:
+        assert set(_MODEL_REPOS) == set(_MODEL_REVISIONS)
+        for name, repo in _MODEL_REPOS.items():
+            assert "/" in repo
+            assert repo.endswith(name.rsplit("/", 1)[-1])
+
+
+class TestRevisionPlumbing:
+    """The pin reaches the loader for every artifact (mocked, offline)."""
+
+    def test_sentence_model_gets_revision(self) -> None:
+        import mltk.domains.llm._backends as be
+
+        mock_st = MagicMock()
+        be._load_sentence_model.cache_clear()
+        with patch.dict("sys.modules", {
+            "sentence_transformers": MagicMock(SentenceTransformer=mock_st),
+        }):
+            be._load_sentence_model("all-MiniLM-L6-v2")
+        be._load_sentence_model.cache_clear()
+        mock_st.assert_called_once_with(
+            "all-MiniLM-L6-v2", revision=_MODEL_REVISIONS["all-MiniLM-L6-v2"],
+        )
+
+    def test_cross_encoder_gets_constructor_revision(self) -> None:
+        """revision= goes to the constructor, which pins config, weights and
+        tokenizer; model_kwargs alone would leave config and tokenizer on main.
+        """
+        import mltk.domains.llm._backends as be
+
+        mock_ce = MagicMock()
+        name = "cross-encoder/nli-deberta-v3-base"
+        be._load_nli_model.cache_clear()
+        with patch.dict("sys.modules", {
+            "sentence_transformers": MagicMock(CrossEncoder=mock_ce),
+        }):
+            be._load_nli_model(name)
+        be._load_nli_model.cache_clear()
+        mock_ce.assert_called_once_with(name, revision=_MODEL_REVISIONS[name])
+        _, kwargs = mock_ce.call_args
+        assert "model_kwargs" not in kwargs
+
+    def test_unpinned_model_gets_no_revision(self) -> None:
+        import mltk.domains.llm._backends as be
+
+        mock_ce = MagicMock()
+        be._load_nli_model.cache_clear()
+        with patch.dict("sys.modules", {
+            "sentence_transformers": MagicMock(CrossEncoder=mock_ce),
+        }):
+            be._load_nli_model("some/other-model")
+        be._load_nli_model.cache_clear()
+        mock_ce.assert_called_once_with("some/other-model")
+
+    def test_extras_floor_supports_constructor_revision(self) -> None:
+        """CrossEncoder(revision=) exists from sentence-transformers 2.5."""
+        from pathlib import Path
+
+        import tomllib
+
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        extras = tomllib.loads(pyproject.read_text(encoding="utf-8"))[
+            "project"]["optional-dependencies"]
+        for extra in ("embedding", "nli"):
+            assert "sentence-transformers>=2.5" in extras[extra], extra
+
+
+@pytest.mark.network
+@pytest.mark.skipif(
+    not os.environ.get("MLTK_NETWORK_TESTS"),
+    reason="opt-in: set MLTK_NETWORK_TESTS=1 to query the Hugging Face Hub",
+)
+@pytest.mark.parametrize("name", sorted(_MODEL_REVISIONS))
+def test_pin_resolves_on_the_hub(name: str) -> None:
+    """Each pin resolves to that exact commit on the Hub (HTTP 200)."""
+    import json
+    import urllib.request
+
+    repo, sha = _MODEL_REPOS[name], _MODEL_REVISIONS[name]
+    url = f"https://huggingface.co/api/models/{repo}/revision/{sha}"
+    with urllib.request.urlopen(url, timeout=30) as resp:  # noqa: S310
+        assert resp.status == 200
+        body = json.loads(resp.read().decode("utf-8"))
+    assert body["sha"] == sha
 
 
 # ================================================================

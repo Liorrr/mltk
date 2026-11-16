@@ -24,7 +24,7 @@ A single tool/function call within an agent trace.
 | `arguments` | `dict[str, Any]` | `{}` | Arguments passed to the tool |
 | `result` | `str \| None` | `None` | Tool output, if available |
 | `error` | `str \| None` | `None` | Error message if the call failed |
-| `duration_ms` | `float` | `0.0` | Execution time in milliseconds |
+| `duration_ms` | `float \| None` | `None` | Execution time in milliseconds; `None` means the call was not timed |
 
 ```python
 from mltk.domains.llm.trace import ToolCall
@@ -53,9 +53,11 @@ A complete execution trace collecting all tool calls, token usage, wall-clock du
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `tool_calls` | `list[ToolCall]` | `[]` | Ordered list of tool calls |
-| `total_tokens` | `int` | `0` | Total tokens consumed |
-| `total_duration_ms` | `float` | `0.0` | Total wall-clock time in milliseconds |
+| `total_tokens` | `int \| None` | `None` | Total tokens consumed; `None` means not counted |
+| `total_duration_ms` | `float \| None` | `None` | Total wall-clock time in milliseconds; `None` means not timed |
 | `metadata` | `dict[str, Any]` | `{}` | Arbitrary metadata attached to the trace |
+
+`None` means **not measured** and is different from a measured `0`. `AgentTrace.from_dict` keeps a missing or `null` `total_tokens`, `total_duration_ms` or `duration_ms` as `None`; it never fills in `0`. Budget assertions fail on an unmeasured budgeted field by default (see [`assert_cost_budget`](#assert_cost_budget)).
 
 #### Properties
 
@@ -470,8 +472,11 @@ Agentic systems need hard budget limits enforced outside the LLM's reasoning loo
 `assert_cost_budget` checks two independent dimensions: total tokens consumed and total wall-clock duration. Either or both can be specified. This assertion is designed to run in CI/CD pipelines as a cost gate -- if an agent trace from a test run exceeds the budget, the build fails before the agent is deployed to production.
 
 ```python
+import pytest
+
+from mltk.core.assertion import MltkAssertionError
 from mltk.domains.llm.agentic import assert_cost_budget
-from mltk.domains.llm.trace import AgentTrace
+from mltk.domains.llm.trace import AgentTrace, ToolCall
 
 # A trace from a normal agent run
 trace = AgentTrace(
@@ -487,8 +492,8 @@ trace = AgentTrace(
 # Pass: within both budgets
 result = assert_cost_budget(trace, max_total_tokens=50_000, max_duration_ms=120_000)
 assert result.passed is True
-assert result.details["tokens_exceeded"] is False
-assert result.details["duration_exceeded"] is False
+assert result.details["token_budget_exceeded"] is False
+assert result.details["duration_budget_exceeded"] is False
 
 # A runaway trace that burned through tokens
 expensive_trace = AgentTrace(
@@ -497,20 +502,47 @@ expensive_trace = AgentTrace(
     total_duration_ms=600_000.0,  # 10 minutes
 )
 
-# Fail: token budget exceeded
-result = assert_cost_budget(expensive_trace, max_total_tokens=100_000)
-assert result.passed is False
-assert result.details["tokens_exceeded"] is True
-assert result.details["actual_tokens"] == 850_000
+# Fail: token budget exceeded (a failed CRITICAL result raises)
+with pytest.raises(MltkAssertionError) as exc:
+    assert_cost_budget(expensive_trace, max_total_tokens=100_000)
+result = exc.value.result
+assert result.details["token_budget_exceeded"] is True
+assert result.details["total_tokens"] == 850_000
 assert result.details["max_total_tokens"] == 100_000
 
 # Fail: duration budget exceeded (even if tokens are within budget)
-result = assert_cost_budget(expensive_trace, max_duration_ms=300_000)
-assert result.passed is False
-assert result.details["duration_exceeded"] is True
-assert result.details["actual_duration_ms"] == 600_000.0
+with pytest.raises(MltkAssertionError) as exc:
+    assert_cost_budget(expensive_trace, max_duration_ms=300_000)
+result = exc.value.result
+assert result.details["duration_budget_exceeded"] is True
+assert result.details["total_duration_ms"] == 600_000.0
 assert result.details["max_duration_ms"] == 300_000
 ```
+
+#### Unmeasured fields
+
+A budget on a field the trace did not measure (`None`) cannot be verified, so by default the assertion fails and names the field. A measured `0` is a real measurement and passes any non-negative budget. Use `on_unmeasured` to opt out:
+
+```python
+untimed = AgentTrace(tool_calls=[], total_tokens=1_200)  # total_duration_ms=None
+
+# Default: fail -- the duration budget cannot be verified
+with pytest.raises(MltkAssertionError) as exc:
+    assert_cost_budget(untimed, max_total_tokens=5_000, max_duration_ms=60_000)
+assert exc.value.result.details["unmeasured"] == ["total_duration_ms"]
+
+# Opt out: check only what was measured
+result = assert_cost_budget(
+    untimed, max_total_tokens=5_000, max_duration_ms=60_000, on_unmeasured="skip",
+)
+assert result.passed is True
+```
+
+- `on_unmeasured="fail"` (default): fail when any budgeted field is `None`. Measured budgets are still checked and reported.
+- `on_unmeasured="pass"`: treat unmeasured budgets as met. Measured budgets are still checked.
+- `on_unmeasured="skip"`: drop unmeasured budgets and check the rest. If no budgeted field was measured, the result is skipped.
+
+A measured overrun fails under every policy, and so does a budgeted value that is not a finite, non-negative number (`NaN`, `inf`, a negative count): it is listed in `details["invalid"]`.
 
 #### Parameters
 
@@ -519,6 +551,7 @@ assert result.details["max_duration_ms"] == 300_000
 | `trace` | `AgentTrace` | *(required)* | The agent execution trace to verify |
 | `max_total_tokens` | `int \| None` | `None` | Maximum allowed total token consumption. Skipped if `None`. |
 | `max_duration_ms` | `float \| None` | `None` | Maximum allowed wall-clock duration in milliseconds. Skipped if `None`. |
+| `on_unmeasured` | `"fail" \| "pass" \| "skip"` | `"fail"` | Keyword-only. What to do when a budgeted field on the trace is `None` (not measured). |
 
 > At least one of `max_total_tokens` or `max_duration_ms` must be provided.
 
@@ -526,12 +559,15 @@ assert result.details["max_duration_ms"] == 300_000
 
 `TestResult` with details:
 
-- `tokens_exceeded` -- `True` if `actual_tokens > max_total_tokens`
-- `actual_tokens` -- total tokens from the trace
+- `token_budget_exceeded` -- `True` if `total_tokens > max_total_tokens`; `None` if the tokens were budgeted but not measured
+- `total_tokens` -- total tokens from the trace (`None` if not measured)
 - `max_total_tokens` -- the token budget that was enforced (or `None` if not set)
-- `duration_exceeded` -- `True` if `actual_duration_ms > max_duration_ms`
-- `actual_duration_ms` -- total duration from the trace
+- `duration_budget_exceeded` -- `True` if `total_duration_ms > max_duration_ms`; `None` if the duration was budgeted but not measured
+- `total_duration_ms` -- total duration from the trace (`None` if not measured)
 - `max_duration_ms` -- the duration budget that was enforced (or `None` if not set)
+- `unmeasured` -- budgeted fields that were `None` on the trace
+- `invalid` -- budgeted fields whose value is not a finite, non-negative number (each as `field=value`)
+- `on_unmeasured` -- the policy that was applied
 
 ---
 

@@ -9,7 +9,10 @@ of 1.0 -- template generation is deterministic and inherently
 grounded, so filtering would just add overhead.
 
 In LLM mode, the filter sends a scoring prompt to the same
-``llm_fn`` callable and parses the numeric score.
+``llm_fn`` callable and parses the numeric score. A scoring call
+that raises, or a reply without two finite scores in ``[0, 1]``,
+is retried; when every attempt fails, :meth:`QualityFilter.score`
+raises :class:`QualityScoringError` instead of reporting 0.0.
 """
 
 from __future__ import annotations
@@ -18,6 +21,18 @@ import json
 import re
 from collections.abc import Callable
 from typing import Any
+
+from mltk.core.judge_parse import check_score_range
+
+_DIMENSIONS = ("self_containment", "answerability")
+
+
+class QualityScoringError(RuntimeError):
+    """Every attempt to score a QA pair failed (raised or unparseable).
+
+    A failed scoring call is not a low-quality verdict: the pair was not
+    scored at all. The generator catches it and discards the attempt.
+    """
 
 
 class QualityFilter:
@@ -94,6 +109,12 @@ class QualityFilter:
         Returns:
             Float score between 0.0 and 1.0.  Returns 1.0
             in template mode (no ``llm_fn``).
+
+        Raises:
+            QualityScoringError: If every attempt (``1 + max_retries``)
+                raised or returned no usable scores: a missing
+                dimension, a non-numeric or boolean value, a non-finite
+                value, or a value outside ``[0, 1]``.
         """
         if self._llm_fn is None:
             return 1.0
@@ -111,17 +132,31 @@ class QualityFilter:
             answer=answer,
         )
 
-        for _ in range(1 + self._max_retries):
+        attempts = 1 + self._max_retries
+        last_error = "no attempt made"
+        for _ in range(attempts):
             try:
                 raw = self._llm_fn(prompt)
-                result = _parse_score(raw)
-                if result is not None:
-                    return result
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                last_error = f"{type(exc).__name__}: {exc}"
                 continue
+            if isinstance(raw, dict):
+                result = _extract_scores(raw)
+            elif isinstance(raw, str):
+                result = _parse_score(raw)
+            else:
+                last_error = f"scorer returned {type(raw).__name__}, not a string"
+                continue
+            if result is not None:
+                return result
+            last_error = (
+                "no finite self_containment and answerability scores in "
+                f"[0, 1] in {str(raw)[:80]!r}"
+            )
 
-        # If all retries fail, return 0.0 (fail-safe)
-        return 0.0
+        raise QualityScoringError(
+            f"Quality scoring failed after {attempts} attempt(s): {last_error}"
+        )
 
     def passes(self, pair: object) -> bool:
         """Return ``True`` if *pair* meets the threshold.
@@ -133,6 +168,9 @@ class QualityFilter:
 
         Returns:
             ``True`` if the score is >= ``threshold``.
+
+        Raises:
+            QualityScoringError: If the pair could not be scored.
         """
         return self.score(pair) >= self.threshold
 
@@ -183,9 +221,9 @@ def _parse_score(raw: str) -> float | None:
         try:
             sc = float(sc_match.group(1))
             ans = float(ans_match.group(1))
-            return _clamp_avg(sc, ans)
         except ValueError:
-            pass
+            return None
+        return _checked_avg(sc, ans)
 
     return None
 
@@ -202,16 +240,29 @@ def _try_json_parse(raw: str) -> dict[str, Any] | None:
 
 
 def _extract_scores(data: dict[str, Any]) -> float | None:
-    """Average self_containment and answerability scores."""
-    try:
-        sc = float(data.get("self_containment", 0))
-        ans = float(data.get("answerability", 0))
-        return _clamp_avg(sc, ans)
-    except (TypeError, ValueError):
+    """Average self_containment and answerability scores.
+
+    A missing dimension, a boolean, or a value that is not a number is
+    unusable (``None``); it is never read as ``0``.
+    """
+    values: list[float] = []
+    for key in _DIMENSIONS:
+        value = data.get(key)
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            values.append(float(value))
+        except (TypeError, ValueError):
+            return None
+    return _checked_avg(*values)
+
+
+def _checked_avg(a: float, b: float) -> float | None:
+    """Average two scores, or ``None`` if either is off the [0, 1] scale.
+
+    Out-of-range and non-finite scores are judge errors (see
+    :func:`mltk.core.judge_parse.check_score_range`); they are not clamped.
+    """
+    if check_score_range(a, 1.0) or check_score_range(b, 1.0):
         return None
-
-
-def _clamp_avg(a: float, b: float) -> float:
-    """Average two scores, clamped to [0.0, 1.0]."""
-    avg = (a + b) / 2.0
-    return max(0.0, min(1.0, avg))
+    return (a + b) / 2.0

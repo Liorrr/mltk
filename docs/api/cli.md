@@ -307,8 +307,10 @@ See [Data Contracts](contracts.md).
 
 ## Docs Subcommands
 
+The `docs` commands build the documentation from a **source checkout** of mltk: run them from the repository root, where `mkdocs.yml` is, with the `docs` extra installed (`pip install 'mlspec[docs]'`). An installed package does not include the documentation source. Outside a checkout the commands say so, print the location of the documentation source (<https://github.com/Liorrr/mltk/tree/master/docs>; the docs site is not published), and exit with status 1. They also exit 1 when `mkdocs` is not installed, and `serve` exits with `mkdocs`'s status when it fails.
+
 ### mltk docs serve
-Serve the MkDocs documentation locally with hot reload. Requires `mkdocs.yml` in the current directory.
+Serve the MkDocs documentation locally with hot reload. Requires a source checkout (see above).
 
 ```bash
 mltk docs serve

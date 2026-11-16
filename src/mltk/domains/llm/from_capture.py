@@ -1,8 +1,11 @@
 """Project a CaptureRecord onto AgentTrace / SpanTrace.
 
-These adapters coerce ``None`` into the legacy zeros those schemas
-require. Honesty lives on :class:`~mltk.trace.record.CaptureRecord`;
-the projection is lossy by design.
+:func:`to_agent_trace` keeps every unobserved token or duration as
+``None``, so a budget assertion can tell "not measured" from a measured
+zero. :func:`to_span_trace` still coerces ``None`` to ``0`` because the
+:class:`~mltk.domains.llm.span.Span` fields are not optional; that
+projection is lossy, and :class:`~mltk.trace.record.CaptureRecord`
+stays the source of truth.
 """
 
 from __future__ import annotations
@@ -15,8 +18,10 @@ from mltk.trace import CaptureRecord
 def to_agent_trace(record: CaptureRecord) -> AgentTrace:
     """Adapt *record* to :class:`AgentTrace`.
 
-    ``None`` token/duration fields become ``0`` / ``0.0``. Tool calls
-    missing ``duration_ms`` become ``0.0``.
+    Unobserved fields stay ``None``: ``total_tokens`` is ``None`` unless
+    both ``input_tokens`` and ``output_tokens`` were observed (a partial
+    count is not a total), ``total_duration_ms`` mirrors the record, and
+    each tool call keeps its own ``duration_ms``.
     """
     calls: list[ToolCall] = []
     if record.tool_calls:
@@ -27,17 +32,18 @@ def to_agent_trace(record: CaptureRecord) -> AgentTrace:
                     arguments=dict(captured.arguments),
                     result=captured.result,
                     error=captured.error,
-                    duration_ms=(
-                        0.0 if captured.duration_ms is None else captured.duration_ms
-                    ),
+                    duration_ms=captured.duration_ms,
                 )
             )
-    tokens = (record.input_tokens or 0) + (record.output_tokens or 0)
-    duration = 0.0 if record.total_duration_ms is None else record.total_duration_ms
+    tokens = (
+        None
+        if record.input_tokens is None or record.output_tokens is None
+        else record.input_tokens + record.output_tokens
+    )
     return AgentTrace(
         tool_calls=calls,
         total_tokens=tokens,
-        total_duration_ms=duration,
+        total_duration_ms=record.total_duration_ms,
     )
 
 
@@ -45,7 +51,9 @@ def to_span_trace(record: CaptureRecord) -> SpanTrace:
     """Adapt *record* to :class:`SpanTrace`.
 
     No tool calls → a single ``LLM`` span. Otherwise an ``AGENT`` root
-    plus one ``TOOL`` span per captured call.
+    plus one ``TOOL`` span per captured call. ``Span`` token and duration
+    fields are not optional, so unobserved values become ``0`` here; use
+    :func:`to_agent_trace` when a budget check must see "not measured".
     """
     duration = 0.0 if record.total_duration_ms is None else record.total_duration_ms
     if not record.tool_calls:

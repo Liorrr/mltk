@@ -50,8 +50,12 @@ from mltk.domains.llm.agentic import assert_tool_chain
 assert_tool_chain(to_agent_trace(record), expected_tools=["search"])
 ```
 
-`to_agent_trace` / `to_span_trace` coerce missing numbers to `0` because
-those legacy types use `int` / `float`. Honesty stays on `CaptureRecord`.
+`to_agent_trace` keeps unobserved numbers as `None`: `total_tokens` is
+`None` unless both input and output tokens were observed, and an untimed tool
+call keeps `duration_ms=None`. `assert_cost_budget` then fails a budget it
+cannot verify (opt out with `on_unmeasured=`). `to_span_trace` still coerces
+missing numbers to `0`, because `Span` fields are not optional; honesty stays
+on `CaptureRecord`.
 `to_quality_dict` *omits* `None` keys so `assert_trace_quality` skip-if-missing
 still applies.
 

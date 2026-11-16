@@ -36,7 +36,13 @@ from typing import Any
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.result import Severity, TestResult
-from mltk.domains.llm.trace import AgentTrace, ToolCall
+from mltk.domains.llm.trace import (
+    ON_UNMEASURED_OPTIONS,
+    AgentTrace,
+    OnUnmeasured,
+    ToolCall,
+    is_valid_measurement,
+)
 
 __all__ = [
     "McpToolCall",
@@ -554,6 +560,8 @@ def assert_mcp_context_window(
     trace: McpTrace,
     model_context_limit: int | None = None,
     max_utilization: float = 0.9,
+    *,
+    on_unmeasured: OnUnmeasured = "fail",
 ) -> TestResult:
     """Assert that context window utilization stays within budget.
 
@@ -571,6 +579,13 @@ def assert_mcp_context_window(
     The limit is taken from ``model_context_limit`` if provided, or
     falls back to ``trace.model_context_limit``.
 
+    ``trace.total_tokens = None`` means tokens were not counted, so
+    utilization cannot be computed. ``on_unmeasured`` decides the
+    verdict: ``"fail"`` (default), ``"pass"``, or ``"skip"``. A measured
+    ``0`` is checked normally. A ``total_tokens`` that is not a finite,
+    non-negative number (``NaN``, ``-5``, a boolean) fails under every
+    policy.
+
     Args:
         trace: The MCP agent trace to validate.
         model_context_limit: Declared model context window size
@@ -578,10 +593,13 @@ def assert_mcp_context_window(
             back to ``trace.model_context_limit`` if ``None``.
         max_utilization: Maximum acceptable utilization ratio
             (default 0.9 = 90%).
+        on_unmeasured: Policy when ``trace.total_tokens`` is ``None``:
+            ``"fail"`` (default), ``"pass"`` or ``"skip"``.
 
     Returns:
         TestResult with ``utilization``, ``total_tokens``,
         ``context_limit``, and ``max_utilization`` details.
+        ``utilization`` is ``None`` when tokens were not measured.
 
     Example:
         >>> trace = McpTrace(
@@ -597,6 +615,64 @@ def assert_mcp_context_window(
             "Provide it as a parameter (e.g., model_context_limit=200000 "
             "for Claude, 128000 for GPT-4o) or set "
             "trace.model_context_limit before calling."
+        )
+
+    name = "llm.mcp.context_window"
+    if on_unmeasured not in ON_UNMEASURED_OPTIONS:
+        return assert_true(
+            False,
+            name=name,
+            message=(
+                f"Unknown on_unmeasured: '{on_unmeasured}'. "
+                f"Supported: {', '.join(ON_UNMEASURED_OPTIONS)}"
+            ),
+            severity=Severity.CRITICAL,
+            on_unmeasured=on_unmeasured,
+        )
+    if trace.total_tokens is None:
+        details: dict[str, Any] = {
+            "utilization": None,
+            "total_tokens": None,
+            "context_limit": limit,
+            "max_utilization": max_utilization,
+            "unmeasured": ["total_tokens"],
+            "on_unmeasured": on_unmeasured,
+        }
+        if on_unmeasured == "skip":
+            return assert_true(
+                True,
+                name=name,
+                message="Skipped: total_tokens not measured (on_unmeasured='skip')",
+                severity=Severity.INFO,
+                skipped=True,
+                reason="total_tokens not measured",
+                **details,
+            )
+        return assert_true(
+            on_unmeasured == "pass",
+            name=name,
+            message=(
+                "Context window unverifiable: total_tokens not measured "
+                f"(on_unmeasured='{on_unmeasured}')"
+            ),
+            severity=Severity.CRITICAL,
+            **details,
+        )
+    if not is_valid_measurement(trace.total_tokens):
+        return assert_true(
+            False,
+            name=name,
+            message=(
+                "Context window unverifiable: invalid measurement "
+                f"total_tokens={trace.total_tokens!r} "
+                "(must be a finite, non-negative number)"
+            ),
+            severity=Severity.CRITICAL,
+            utilization=None,
+            total_tokens=trace.total_tokens,
+            context_limit=limit,
+            max_utilization=max_utilization,
+            invalid=[f"total_tokens={trace.total_tokens!r}"],
         )
 
     utilization = trace.total_tokens / limit
@@ -620,7 +696,7 @@ def assert_mcp_context_window(
 
     return assert_true(
         passed,
-        name="llm.mcp.context_window",
+        name=name,
         message=message,
         severity=Severity.CRITICAL,
         utilization=utilization,

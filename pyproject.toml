@@ -46,8 +46,8 @@ integrations = ["jira>=3.0"]
 importer = ["datasets>=4.0", "pyarrow>=14"]  # HuggingFace datasets (4.0+ drops script-based/remote-code dataset loading) + local Parquet support for Smart Dataset Importer
 pdf = ["weasyprint>=60"]  # PDF export for compliance reports
 llm = []  # lightweight (numpy only), future: detoxify
-embedding = ["sentence-transformers>=2.0"]  # embedding-based LLM similarity evaluation
-nli = ["sentence-transformers>=2.0"]  # NLI cross-encoder for bidirectional entailment
+embedding = ["sentence-transformers>=2.5"]  # embedding-based LLM similarity evaluation (2.5+: revision= pins)
+nli = ["sentence-transformers>=2.5"]  # NLI cross-encoder for bidirectional entailment (2.5+: CrossEncoder revision=)
 ner = ["presidio-analyzer>=2.2", "spacy>=3.4.4"]  # NER-based PII detection (names, orgs, locations)
 mcp = ["jsonschema>=4.0"]  # MCP tool schema validation
 multimodal = ["Pillow>=9.0", "scikit-image>=0.20"]  # Multimodal image-text evaluation
@@ -136,6 +136,7 @@ markers = [
     "ml_slow: tests that take >30 seconds",
     "ml_nondeterministic: tests with inherent randomness",
     "regression: slim claim-integrity canary (run: pytest tests/regression -q)",
+    "network: opt-in tests that reach the network (set MLTK_NETWORK_TESTS=1)",
 ]
 
 [tool.ruff]

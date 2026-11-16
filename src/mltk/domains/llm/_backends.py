@@ -21,10 +21,20 @@ from mltk.domains.llm._utils import _normalize as normalize_unicode  # noqa: F40
 # Pinned model revisions (supply-chain defense — SEC-2)
 # ---------------------------------------------------------------------------
 
+# Full 40-hex commit SHAs on the Hugging Face Hub. A branch name or a short
+# SHA is not an immutable pin: the Hub does not resolve short SHAs, so a short
+# pin either 404s or silently depends on the client's resolution. Keys are the
+# names callers pass; _MODEL_REPOS maps them to Hub repo ids.
 _MODEL_REVISIONS: dict[str, str] = {
-    "all-mpnet-base-v2": "e8c3b32edf5434bc",
-    "all-MiniLM-L6-v2": "c22d4bce25e7e04e",
-    "cross-encoder/nli-deberta-v3-base": "6c749ce3425cd33b",
+    "all-mpnet-base-v2": "e8c3b32edf5434bc2275fc9bab85f82640a19130",
+    "all-MiniLM-L6-v2": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "cross-encoder/nli-deberta-v3-base": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+}
+
+_MODEL_REPOS: dict[str, str] = {
+    "all-mpnet-base-v2": "sentence-transformers/all-mpnet-base-v2",
+    "all-MiniLM-L6-v2": "sentence-transformers/all-MiniLM-L6-v2",
+    "cross-encoder/nli-deberta-v3-base": "cross-encoder/nli-deberta-v3-base",
 }
 
 
@@ -37,7 +47,8 @@ def _load_sentence_model(model_name: str):  # noqa: ANN201
     """Load and cache a SentenceTransformer model.
 
     Uses pinned revisions for known models to defend against
-    supply-chain attacks on HuggingFace Hub.
+    supply-chain attacks on HuggingFace Hub. ``revision=`` needs
+    sentence-transformers 2.3 or later (the extras require 2.5).
     """
     try:
         from sentence_transformers import SentenceTransformer
@@ -103,7 +114,11 @@ def embedding_cosine_single(
 def _load_nli_model(model_name: str):  # noqa: ANN201
     """Load and cache a CrossEncoder NLI model.
 
-    Uses pinned revisions for known models (SEC-2).
+    Uses pinned revisions for known models (SEC-2). The revision goes to the
+    constructor's ``revision=`` (sentence-transformers 2.5 or later), which
+    pins the config, the weights and the tokenizer together. Passing it only
+    in ``model_kwargs`` pins the weights alone: the config and tokenizer
+    then come from the repo's current ``main``.
     """
     try:
         from sentence_transformers import CrossEncoder
@@ -114,9 +129,9 @@ def _load_nli_model(model_name: str):  # noqa: ANN201
             "Install with: pip install mlspec[nli]"
         ) from None
     revision = _MODEL_REVISIONS.get(model_name)
-    kwargs = {}
+    kwargs: dict[str, str] = {}
     if revision:
-        kwargs["model_kwargs"] = {"revision": revision}
+        kwargs["revision"] = revision
     return CrossEncoder(model_name, **kwargs)
 
 

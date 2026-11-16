@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-11-10 by scripts/generate_skill_index.py
+> Generated 2026-11-16 by scripts/generate_skill_index.py
 
 **245** assertions | **13** MCP tools | **20 top-level + 5 groups** CLI | **8** scanners
 
@@ -61,11 +61,11 @@ def assert_true(condition: bool, name: str, message: str, severity: Severity=Sev
 
 ### cv
 
-**`assert_face_far`** (domains/cv/face.py:14)
+**`assert_face_far`** (domains/cv/face.py:41)
 ```python
-def assert_face_far(similarities: Any, labels: Any, max_far: float=0.001)
+def assert_face_far(similarities: Any, labels: Any, *, threshold: float, max_far: float=0.001, on_empty: Literal['fail', 'skip', 'pass']='fail')
 ```
-> Assert False Accept Rate is below threshold.
+> Assert the False Accept Rate at the operating threshold is low enough.
 
 **`assert_frame_accuracy`** (domains/cv/video.py:18)
 ```python
@@ -519,11 +519,11 @@ def assert_conversation_completeness(turns: list[dict[str, str]], expected_topic
 
 **`assert_cost_budget`** (domains/llm/agentic.py:581)
 ```python
-def assert_cost_budget(trace: AgentTrace, max_total_tokens: int | None=None, max_duration_ms: float | None=None)
+def assert_cost_budget(trace: AgentTrace, max_total_tokens: int | None=None, max_duration_ms: float | None=None, *, on_unmeasured: OnUnmeasured='fail')
 ```
 > Assert an agent's resource consumption stays within budget.
 
-**`assert_error_recovery`** (domains/llm/agentic.py:678)
+**`assert_error_recovery`** (domains/llm/agentic.py:744)
 ```python
 def assert_error_recovery(trace: AgentTrace, max_consecutive_errors: int=3)
 ```
@@ -553,13 +553,13 @@ def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:365)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:378)
 ```python
-def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None)
+def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None, *, on_error: EvalOnError='fail_if_all')
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:209)
+**`assert_llm_judge_score`** (domains/llm/judge.py:218)
 ```python
 def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
 ```
@@ -571,31 +571,31 @@ def assert_map_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_m
 ```
 > Assert that Mean Average Precision@K meets a minimum threshold.
 
-**`assert_mcp_context_window`** (domains/llm/mcp.py:553)
+**`assert_mcp_context_window`** (domains/llm/mcp.py:558)
 ```python
-def assert_mcp_context_window(trace: McpTrace, model_context_limit: int | None=None, max_utilization: float=0.9)
+def assert_mcp_context_window(trace: McpTrace, model_context_limit: int | None=None, max_utilization: float=0.9, *, on_unmeasured: OnUnmeasured='fail')
 ```
 > Assert that context window utilization stays within budget.
 
-**`assert_mcp_error_recovery`** (domains/llm/mcp.py:634)
+**`assert_mcp_error_recovery`** (domains/llm/mcp.py:691)
 ```python
 def assert_mcp_error_recovery(trace: McpTrace, max_same_tool_retries: int=3)
 ```
 > Assert the agent does not retry the same tool with same args.
 
-**`assert_mcp_resource_access`** (domains/llm/mcp.py:433)
+**`assert_mcp_resource_access`** (domains/llm/mcp.py:438)
 ```python
 def assert_mcp_resource_access(trace: McpTrace, expected_uris: Sequence[str] | None=None, forbidden_uris: Sequence[str] | None=None, max_reads: int | None=None)
 ```
 > Assert correct resource access patterns in an MCP session.
 
-**`assert_mcp_tool_schema_conformance`** (domains/llm/mcp.py:189)
+**`assert_mcp_tool_schema_conformance`** (domains/llm/mcp.py:194)
 ```python
 def assert_mcp_tool_schema_conformance(tool_schema: dict[str, Any], actual_args: dict[str, Any], tool_name: str='')
 ```
 > Assert that tool arguments conform to the tool's JSON Schema.
 
-**`assert_mcp_tool_selection`** (domains/llm/mcp.py:300)
+**`assert_mcp_tool_selection`** (domains/llm/mcp.py:305)
 ```python
 def assert_mcp_tool_selection(trace: McpTrace, expected_tools: Sequence[str], server: str | None=None)
 ```
@@ -1157,7 +1157,7 @@ def assert_object_hallucination(vqa_fn: Callable[[str, ImageInput | None, str | 
 ```
 > Assert that a VLM does not hallucinate objects in an image.
 
-**`assert_ocr_accuracy`** (domains/multimodal/vlm.py:357)
+**`assert_ocr_accuracy`** (domains/multimodal/vlm.py:356)
 ```python
 def assert_ocr_accuracy(expected_text: str, actual_text: str, method: str='cer', threshold: float=0.1)
 ```
@@ -1177,13 +1177,13 @@ def assert_vqa_accuracy(question: str, image: ImageInput | None, expected_answer
 
 ### nlp
 
-**`assert_bleu`** (domains/nlp/generation.py:11)
+**`assert_bleu`** (domains/nlp/generation.py:54)
 ```python
-def assert_bleu(references: list[str], hypotheses: list[str], min_score: float=0.3)
+def assert_bleu(references: list[str], hypotheses: list[str], min_score: float=0.3, *, tokenizer: BleuTokenizer='whitespace')
 ```
 > Assert BLEU score meets minimum threshold.
 
-**`assert_chrf`** (domains/nlp/generation.py:136)
+**`assert_chrf`** (domains/nlp/generation.py:206)
 ```python
 def assert_chrf(references: list[str], hypotheses: list[str], min_score: float=0.3, *, word_order: int=0)
 ```
@@ -1213,7 +1213,7 @@ def assert_no_sentiment_drift(ref_texts: list[str], cur_texts: list[str], max_dr
 ```
 > Assert sentiment distribution hasn't shifted between datasets.
 
-**`assert_rouge`** (domains/nlp/generation.py:81)
+**`assert_rouge`** (domains/nlp/generation.py:141)
 ```python
 def assert_rouge(references: list[str], hypotheses: list[str], variant: str='rougeL', min_score: float=0.3)
 ```
@@ -1675,35 +1675,35 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 | # | Command | Line | Description |
 |---|---------|------|-------------|
-| 1 | `mltk chat` | 680 | Interactive Q&A about test results. |
+| 1 | `mltk chat` | 695 | Interactive Q&A about test results. |
 | 2 | `mltk compliance` | 321 | Generate EU AI Act compliance report. |
-| 3 | `mltk compliance-gap` | 823 | Run compliance gap analysis across frameworks. |
-| 4 | `mltk compliance-pdf` | 807 | Convert HTML compliance report to print-ready PDF. |
+| 3 | `mltk compliance-gap` | 838 | Run compliance gap analysis across frameworks. |
+| 4 | `mltk compliance-pdf` | 822 | Convert HTML compliance report to print-ready PDF. |
 | 5 | `mltk container scan` | 33 | Scan a container image for vulnerabilities and secrets. |
 | 6 | `mltk contract generate-tests` | 405 | Generate pytest test file from a data contract. |
 | 7 | `mltk contract init` | 356 | Scaffold an example data contract YAML file. |
 | 8 | `mltk contract validate` | 382 | Validate a data file against a contract. |
-| 9 | `mltk docs build` | 455 | Build static HTML documentation. |
-| 10 | `mltk docs open` | 484 | Build docs, start a local server, and open in browser. |
-| 11 | `mltk docs serve` | 426 | Serve documentation locally with hot reload. |
+| 9 | `mltk docs build` | 482 | Build static HTML documentation (source checkout only). |
+| 10 | `mltk docs open` | 505 | Build docs, serve them locally, and open a browser (source checkout only). |
+| 11 | `mltk docs serve` | 457 | Serve documentation locally with hot reload (source checkout only). |
 | 12 | `mltk doctor` | 208 | Diagnose ML testing environment. |
 | 13 | `mltk drift` | 123 | Compare two datasets for distribution drift. |
-| 14 | `mltk fda-audit` | 784 | Generate FDA 21 CFR Part 11 audit trail. |
-| 15 | `mltk grafana-export` | 1032 | Export a Grafana dashboard JSON for mltk metrics. |
-| 16 | `mltk import` | 677 | Import a dataset, preview mapping, build a suite, and emit pytest. |
+| 14 | `mltk fda-audit` | 799 | Generate FDA 21 CFR Part 11 audit trail. |
+| 15 | `mltk grafana-export` | 1047 | Export a Grafana dashboard JSON for mltk metrics. |
+| 16 | `mltk import` | 692 | Import a dataset, preview mapping, build a suite, and emit pytest. |
 | 17 | `mltk init` | 42 | Scaffold mltk.yaml + example test file. |
-| 18 | `mltk list` | 1258 | List all available mltk assertions. |
+| 18 | `mltk list` | 1273 | List all available mltk assertions. |
 | 19 | `mltk model-card` | 287 | Generate a Google Model Card from test results JSON. |
-| 20 | `mltk notify slack` | 605 | Send test results (or a custom message) to Slack. |
-| 21 | `mltk registry list` | 583 | List all collections in the registry. |
-| 22 | `mltk registry pull` | 568 | Pull a named collection from the registry into a local directory. |
-| 23 | `mltk registry push` | 543 | Push a directory of test files to the registry as a named collection. |
+| 20 | `mltk notify slack` | 620 | Send test results (or a custom message) to Slack. |
+| 21 | `mltk registry list` | 598 | List all collections in the registry. |
+| 22 | `mltk registry pull` | 583 | Pull a named collection from the registry into a local directory. |
+| 23 | `mltk registry push` | 558 | Push a directory of test files to the registry as a named collection. |
 | 24 | `mltk scan` | 80 | Quick data quality scan on a CSV/Parquet file. |
-| 25 | `mltk scan-model` | 1057 | Scan a model for issues and generate tests. |
+| 25 | `mltk scan-model` | 1072 | Scan a model for issues and generate tests. |
 | 26 | `mltk score` | 191 | Show the ML Test Score rubric and how to generate scores. |
-| 27 | `mltk server` | 692 | Start the mltk server platform. |
-| 28 | `mltk server-backup` | 753 | Back up the server database (safe while the server is running). |
-| 29 | `mltk server-create-key` | 715 | Generate an API key for the mltk server. |
+| 27 | `mltk server` | 707 | Start the mltk server platform. |
+| 28 | `mltk server-backup` | 768 | Back up the server database (safe while the server is running). |
+| 29 | `mltk server-create-key` | 730 | Generate an API key for the mltk server. |
 | 30 | `mltk test` | 249 | Run YAML-defined test suite. |
 | 31 | `mltk version` | 35 | Show mltk version. |
 
@@ -1801,7 +1801,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 *(no dataclass fields)*
 
-### `McpToolCall` (domains/llm/mcp.py:58)
+### `McpToolCall` (domains/llm/mcp.py:63)
 > MCP-specific tool call with server namespace and schema.
 
 | Field | Type | Default |
@@ -1810,7 +1810,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | schema | `dict[str, Any]` | `field(default_factory=dict)` |
 | context_tokens | `int` | `0` |
 
-### `McpResourceAccess` (domains/llm/mcp.py:77)
+### `McpResourceAccess` (domains/llm/mcp.py:82)
 > A resource read within an MCP session.
 
 | Field | Type | Default |
@@ -1822,7 +1822,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | error | `str | None` | `None` |
 | duration_ms | `float` | `0.0` |
 
-### `McpTrace` (domains/llm/mcp.py:103)
+### `McpTrace` (domains/llm/mcp.py:108)
 > MCP-aware agent trace extending :class:`AgentTrace`.
 
 | Field | Type | Default |
@@ -1830,7 +1830,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | resource_accesses | `list[McpResourceAccess]` | `field(default_factory=list)` |
 | model_context_limit | `int` | `0` |
 
-### `ToolCall` (domains/llm/trace.py:11)
+### `ToolCall` (domains/llm/trace.py:16)
 > A single tool/function call within an agent trace.
 
 | Field | Type | Default |
@@ -1839,16 +1839,16 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | arguments | `dict[str, Any]` | `field(default_factory=dict)` |
 | result | `str | None` | `None` |
 | error | `str | None` | `None` |
-| duration_ms | `float` | `0.0` |
+| duration_ms | `float | None` | `None` |
 
-### `AgentTrace` (domains/llm/trace.py:69)
+### `AgentTrace` (domains/llm/trace.py:86)
 > A complete execution trace of an AI agent.
 
 | Field | Type | Default |
 |-------|------|---------|
 | tool_calls | `list[ToolCall]` | `field(default_factory=list)` |
-| total_tokens | `int` | `0` |
-| total_duration_ms | `float` | `0.0` |
+| total_tokens | `int | None` | `None` |
+| total_duration_ms | `float | None` | `None` |
 | metadata | `dict[str, Any]` | `field(default_factory=dict)` |
 
 ### `DatasetCard` (eval/dataset.py:156)

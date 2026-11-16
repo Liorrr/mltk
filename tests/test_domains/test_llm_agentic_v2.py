@@ -285,6 +285,101 @@ class TestCostBudget:
         assert result.duration_ms > 0
 
 
+class TestCostBudgetUnmeasured:
+    """assert_cost_budget -- a budgeted field that is None was not measured.
+
+    An unmeasured field cannot prove the budget was met, so the default
+    policy fails. A measured 0 is a real measurement and is checked normally.
+    """
+
+    def test_unmeasured_tokens_with_budget_fails(self) -> None:
+        # Mirror pair (1/2): no token count + a token budget -> FAIL.
+        trace = AgentTrace(tool_calls=[], total_tokens=None, total_duration_ms=10.0)
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_cost_budget(trace, max_total_tokens=1000)
+        result = exc_info.value.result
+        assert result.passed is False
+        assert result.details["unmeasured"] == ["total_tokens"]
+        assert result.details["token_budget_exceeded"] is None
+        assert result.details["total_tokens"] is None
+        assert "not measured" in result.message
+
+    def test_measured_zero_tokens_with_budget_passes(self) -> None:
+        # Mirror pair (2/2): a measured 0 + the same budget -> PASS.
+        trace = AgentTrace(tool_calls=[], total_tokens=0, total_duration_ms=0.0)
+        result = assert_cost_budget(trace, max_total_tokens=1000, max_duration_ms=5.0)
+        assert result.passed is True
+        assert result.details["unmeasured"] == []
+        assert result.details["token_budget_exceeded"] is False
+        assert result.details["duration_budget_exceeded"] is False
+
+    def test_unmeasured_duration_with_budget_fails(self) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=10)
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_cost_budget(trace, max_duration_ms=100.0)
+        assert exc_info.value.result.details["unmeasured"] == ["total_duration_ms"]
+
+    def test_unbudgeted_unmeasured_field_is_ignored(self) -> None:
+        # Only budgeted fields matter: no duration budget, so None duration is fine.
+        trace = AgentTrace(tool_calls=[], total_tokens=10, total_duration_ms=None)
+        result = assert_cost_budget(trace, max_total_tokens=100)
+        assert result.passed is True
+        assert result.details["unmeasured"] == []
+
+    def test_fail_reports_measured_budgets_too(self) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=None, total_duration_ms=50.0)
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_cost_budget(trace, max_total_tokens=100, max_duration_ms=100.0)
+        result = exc_info.value.result
+        assert result.details["duration_budget_exceeded"] is False
+        assert "duration 50.0ms <= 100.0ms" in result.message
+
+    def test_measured_overrun_fails_under_any_policy(self) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=None, total_duration_ms=500.0)
+        for policy in ("fail", "pass", "skip"):
+            with pytest.raises(MltkAssertionError) as exc_info:
+                assert_cost_budget(
+                    trace, max_total_tokens=100, max_duration_ms=100.0,
+                    on_unmeasured=policy,
+                )
+            result = exc_info.value.result
+            assert result.details["duration_budget_exceeded"] is True
+            assert "exceeded" in result.message
+
+    def test_pass_policy_treats_unmeasured_as_met(self) -> None:
+        trace = AgentTrace(tool_calls=[])
+        result = assert_cost_budget(
+            trace, max_total_tokens=100, on_unmeasured="pass",
+        )
+        assert result.passed is True
+        assert result.details.get("skipped") is not True
+        assert result.details["unmeasured"] == ["total_tokens"]
+        assert result.details["on_unmeasured"] == "pass"
+
+    def test_skip_policy_skips_when_nothing_measured(self) -> None:
+        trace = AgentTrace(tool_calls=[])
+        result = assert_cost_budget(
+            trace, max_total_tokens=100, max_duration_ms=10.0, on_unmeasured="skip",
+        )
+        assert result.passed is True
+        assert result.details["skipped"] is True
+        assert result.details["unmeasured"] == ["total_tokens", "total_duration_ms"]
+
+    def test_skip_policy_checks_measured_budget(self) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=None, total_duration_ms=5.0)
+        result = assert_cost_budget(
+            trace, max_total_tokens=100, max_duration_ms=10.0, on_unmeasured="skip",
+        )
+        assert result.passed is True
+        assert result.details.get("skipped") is not True
+        assert result.details["duration_budget_exceeded"] is False
+
+    def test_unknown_policy_fails(self) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=1)
+        with pytest.raises(MltkAssertionError, match="Unknown on_unmeasured"):
+            assert_cost_budget(trace, max_total_tokens=100, on_unmeasured="zero")
+
+
 # -----------------------------------------------------------------------
 # assert_error_recovery
 # -----------------------------------------------------------------------
@@ -575,3 +670,45 @@ class TestErrorRecoveryAlternating:
         assert result.passed is True
         assert result.details["max_error_streak"] == 2
         assert result.details["total_errors"] == 4
+
+
+class TestCostBudgetInvalidMeasurement:
+    """A NaN, infinite or negative value is not a measurement and must fail.
+
+    NaN compares False with everything, so `NaN > budget` used to pass.
+    """
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("-inf"), float("inf"), -5.0])
+    @pytest.mark.parametrize("policy", ["fail", "pass", "skip"])
+    def test_invalid_duration_fails_under_every_policy(self, bad: float, policy: str) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=10, total_duration_ms=bad)
+        with pytest.raises(MltkAssertionError) as exc_info:
+            assert_cost_budget(trace, max_duration_ms=1000.0, on_unmeasured=policy)
+        result = exc_info.value.result
+        assert result.details["invalid"] == [f"total_duration_ms={bad!r}"]
+        assert result.details["duration_budget_exceeded"] is None
+
+    @pytest.mark.parametrize("bad", [-1, True, float("nan")])
+    def test_invalid_tokens_fail(self, bad: object) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=bad)  # type: ignore[arg-type]
+        with pytest.raises(MltkAssertionError, match="invalid measurement"):
+            assert_cost_budget(trace, max_total_tokens=100)
+
+    def test_nan_from_json_fails(self) -> None:
+        import json
+
+        trace = AgentTrace.from_dict(json.loads('{"total_duration_ms": NaN}'))
+        with pytest.raises(MltkAssertionError, match="invalid measurement"):
+            assert_cost_budget(trace, max_duration_ms=1.0)
+
+    def test_numpy_integer_is_a_valid_measurement(self) -> None:
+        import numpy as np
+
+        trace = AgentTrace(tool_calls=[], total_tokens=np.int64(10))  # type: ignore[arg-type]
+        assert assert_cost_budget(trace, max_total_tokens=100).passed is True
+
+    def test_unbudgeted_invalid_field_is_ignored(self) -> None:
+        trace = AgentTrace(tool_calls=[], total_tokens=10, total_duration_ms=float("nan"))
+        result = assert_cost_budget(trace, max_total_tokens=100)
+        assert result.passed is True
+        assert result.details["invalid"] == []
