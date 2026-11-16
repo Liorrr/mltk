@@ -1,6 +1,6 @@
 # Test Coverage Index
 
-The suite includes **6493+ tests**. There are **310** source files matching `test_*.py`.
+The suite includes **6493+ tests**. There are **313** source files matching `test_*.py`.
 Collection varies with installed optional dependencies. The topic tables below are a
 coverage overview; see the [generated test layout](../reference/full-api-index.md#test-layout)
 for current package locations.

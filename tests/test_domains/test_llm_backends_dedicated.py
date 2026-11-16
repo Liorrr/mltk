@@ -127,7 +127,7 @@ class TestRevisionPlumbing:
         mock_ce.assert_called_once_with("some/other-model")
 
     def test_extras_floor_supports_constructor_revision(self) -> None:
-        """CrossEncoder(revision=) exists from sentence-transformers 2.5."""
+        """The extras floor (2.5) covers CrossEncoder(revision=), added in 2.4."""
         from pathlib import Path
 
         import tomllib
