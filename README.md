@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-6655%2B%20passed-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-6493%2B-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 <!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
@@ -32,7 +32,7 @@ pip install mlspec  # PyPI name — 'mltk' pending transfer
 
 ML systems fail silently. A model can train on corrupt data, produce confident predictions from stale features, and pass every unit test while being completely wrong in production. Traditional testing does not catch these failures.
 
-**mltk** gives you **245 assertion definitions** (238 unique names; **229** listed by `mltk list` / discovery) covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
+**mltk** gives you **245 assertion definitions** (242 unique names; how many `mltk list` shows depends on the installed extras) covering the entire ML lifecycle -- data quality, model validation, drift detection, fairness testing, inference benchmarking, training bug detection, LLM evaluation, behavioral consistency, NER-based PII detection, red team security, multimodal evaluation, observability, and production monitoring. One toolkit, one `pip install`, native pytest integration. No more gluing together 5 different tools.
 
 ## Quick Start
 

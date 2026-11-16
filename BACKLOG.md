@@ -15,6 +15,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 - [ ] Behavioral false-pass hardening: leakage must distinguish model errors from observed non-leaks; stability must not turn model errors into agreeing empty outputs. Planning is prepared; default error policy, compatibility behavior and minimum valid observations remain to be decided before implementation.
 
+## DONE — v0.18.0 (2026-11-16)
+
+- [x] **Released v0.18.0**: results for unmeasured, undefined and errored values are reported truthfully ([#53](https://github.com/Liorrr/mltk/pull/53)). Unmeasured trace tokens and durations are `None` and fail budgets by default (`on_unmeasured`); `assert_face_far` measures FAR at a required operating `threshold=` (breaking); ROUGE keeps non-ASCII words and `assert_bleu` gains `tokenizer=`; pairwise judge errors are errors (`on_error`); `QualityFilter` raises on scoring failures; the default embedding and NLI models load at full commit pins (sentence-transformers 2.5 or later); `mltk docs` explains that it needs a source checkout. See the CHANGELOG.
+
 ## DONE — v0.17.2 (2026-11-15)
 
 - [x] **Released v0.17.2** (packaging only): the Rust extension is built for the stable ABI (`abi3-py311`), so each platform's PyPI wheel installs on Python 3.11 and later; release `test-wheels` installs each wheel on Python 3.11 and 3.14. Before, the wheels were CPython 3.12 only and other Pythons built the sdist, which needs a Rust toolchain. See the CHANGELOG.
@@ -31,7 +35,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Judge scores outside the scale are errors, and the judge docs match the parser** ([#48](https://github.com/Liorrr/mltk/pull/48)). See the CHANGELOG.
 - [x] **The CI dependency audit checks mlspec's dependencies** ([#50](https://github.com/Liorrr/mltk/pull/50)): it audits the CI-tested dependency set instead of pip-audit's own environment.
 
-## DONE (S0-S106: 245 assertions, 6655+ tests, 38 Rust tests) — v0.17.2
+## DONE (S0-S106: 245 assertions, 6493+ tests, 40 Rust tests) — v0.18.0
 
 ### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
 - [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).
@@ -115,7 +119,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 245 assertions, 6655+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 245 assertions, 6493+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -226,6 +230,10 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ## BACKLOG (not yet scheduled)
 
+### Follow-ups from the v0.18.0 release — found 2026-11-16
+- [ ] **CI skips the server API tests.** `huggingface-hub` 2.x depends on `httpx2`, not `httpx`, so the CI test install has no `httpx`, and the seven server test modules that use FastAPI's `TestClient` (`test_access_control`, `test_auth`, `test_comparison`, `test_p1_fixes`, `test_rbac`, `test_routes`, `test_webhooks`) skip at import. Install `httpx` in the CI test environment (for example in the `dev` extra) so they run.
+- [ ] **Prose counts that `bump.py refresh` cannot match go stale.** The count regexes match forms such as "245 assertions" and "6493+ tests", but not "224 purpose-built assertions", "238 unique names", "| Tests | 3,388+ |" or "24 commands", which stayed stale until the v0.18.0 release review fixed them in `README.md` and `docs/index.md`. Still unchecked on `docs/index.md`: "Domain kits | 12", "Integrations | 13", and "Compliance frameworks | 8", which lists SOC 2 although there is no built-in SOC 2 framework (only custom frameworks and the audit-log docs mention it).
+
 ### Follow-ups from the truthful-results fixes — found 2026-11-15
 - [ ] **The Docker publish wait step polls the wrong PyPI index.** `.github/workflows/docker-publish.yml` waits until `https://pypi.org/pypi/mlspec/<version>/json` returns 200, but the image build runs `pip install`, which reads the simple index (`https://pypi.org/simple/mlspec/`). The simple index lagged the JSON API on the v0.17.2 release, so the `runtime-full` build failed on its first attempt and passed on a rerun. Poll the simple index until it lists the version's files.
 - [ ] **`to_span_trace` still turns unobserved numbers into `0`.** `Span.duration_ms`, `Span.input_tokens`/`output_tokens` and `SpanTrace.total_duration_ms` are not optional, so a `CaptureRecord` with no token or duration data projects to zeros, and `SpanTrace.total_tokens` and the span budget assertions in `span_eval.py` see a measured 0. `AgentTrace` keeps `None` since this batch. Making the `Span` fields optional needs a rule for the `SpanTrace` aggregates and the span budget checks (the `AgentTrace` `on_unmeasured` policy is the precedent).
@@ -279,9 +287,9 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [ ] **Hypothesis shrink examples are exported as caught failures.** Every failing example `@given` tries while shrinking records a critical failure that Hypothesis catches, so each appears in `assertions` with `caught: true`. Expected behaviour, but `docs/api/pytest-plugin.md` should say so.
 - [ ] **Audit contract does not check line order.** If a freeze line runs before its install, the frozen list is empty and `pip-audit` passes on it; the contract test would not notice. Add a `test -s` check on each frozen requirements file in the security job, with a matching contract assertion.
 - [ ] **`doctor.MIN_PYTHON` is not tied to `requires-python`.** Add a test that compares `">=" + MIN_PYTHON` with `pyproject.toml`'s `requires-python`, so the next floor bump cannot drift.
-- [x] **`QualityFilter` (`domains/llm/synthetic/_quality.py`) has no judge-score range check.** Fixed (unreleased): each dimension must be a finite number in `[0, 1]` (checked with `check_score_range`, not clamped); a missing dimension, a boolean, `NaN` or an out-of-range value is a scoring error.
+- [x] **`QualityFilter` (`domains/llm/synthetic/_quality.py`) has no judge-score range check.** Fixed in v0.18.0: each dimension must be a finite number in `[0, 1]` (checked with `check_score_range`, not clamped); a missing dimension, a boolean, `NaN` or an out-of-range value is a scoring error.
   - Original note: It has its own parser and a documented 0–1 score, so out-of-range scores are used in the average and the average is clamped to the documented range; NaN scores can also pass.
-- [x] **Other judge paths still turn errors into scores.** Fixed (unreleased): a pairwise judge exception or a reply without a verdict is an error routed through `mltk.core.error_policy` (excluded from the win rate, all-error fails, `on_error="strict"`/`"zero"` opt-outs), and the verdict parser matches whole words, so "Both ..." is no longer a B win. `QualityFilter.score` raises `QualityScoringError` after its retries instead of returning 0.0. `assert_llm_judge_score` already excluded failed calls from the mean through `on_error` since v0.17.0.
+- [x] **Other judge paths still turn errors into scores.** Fixed in v0.18.0: a pairwise judge exception or a reply without a verdict is an error routed through `mltk.core.error_policy` (excluded from the win rate, all-error fails, `on_error="strict"`/`"zero"` opt-outs), and the verdict parser matches whole words, so "Both ..." is no longer a B win. `QualityFilter.score` raises `QualityScoringError` after its retries instead of returning 0.0. `assert_llm_judge_score` already excluded failed calls from the mean through `on_error` since v0.17.0.
   - Original note: A pairwise judge error counts as a tie, and `domains/llm/synthetic/_quality.py` scores errors as 0.0. Route them through `mltk.core.error_policy`. (This note also said `assert_llm_judge_score` averages failed calls; v0.17.0 had already fixed that.)
 - [x] **Judge replies with fenced or prefixed JSON fall back to the first number.** Fixed in v0.17.0: strict `parse_judge_score` reads the `score` key from fenced (```` ```json ````) and prefixed JSON; only `legacy=True` takes the first number.
   - Original note: `parse_judge_score` only honours the `score` key when the whole reply parses as JSON, so ```` ```json {...} ``` ```` or "Here is my rating: {...}" scores the first number (e.g. a `reasoning_steps` count). Extracting the outermost `{...}` span first would change `assert_llm_judge_score` and the multimodal judges too, so it needs its own decision.
@@ -377,7 +385,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 6655+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 6493+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).

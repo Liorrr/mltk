@@ -217,12 +217,14 @@ def _replace_counts_in_text(
         return f"{counts.assertions} {m.group(2)}"
     text = assertion_re.sub(_replace_assertion, text)
 
-    # tests badge: tests-3388%2B%20passed-
-    badge_re = re.compile(r"tests-(\d[\d,]*)%2B%20passed-")
+    # tests badge: tests-3388%2B- ("tests | 3388+"). The number is the
+    # collected count, not a pass count, so the legacy "%20passed" label is
+    # rewritten away.
+    badge_re = re.compile(r"tests-(\d[\d,]*)%2B(?:%20passed)?-")
     def _replace_badge(m: re.Match[str]) -> str:
         if _has_since_context(text, m.start()):
             return m.group(0)
-        return f"tests-{counts.tests}%2B%20passed-"
+        return f"tests-{counts.tests}%2B-"
     if not skip_tests:
         text = badge_re.sub(_replace_badge, text)
 

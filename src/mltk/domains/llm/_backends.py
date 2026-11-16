@@ -115,10 +115,12 @@ def _load_nli_model(model_name: str):  # noqa: ANN201
     """Load and cache a CrossEncoder NLI model.
 
     Uses pinned revisions for known models (SEC-2). The revision goes to the
-    constructor's ``revision=`` (sentence-transformers 2.5 or later), which
-    pins the config, the weights and the tokenizer together. Passing it only
-    in ``model_kwargs`` pins the weights alone: the config and tokenizer
-    then come from the repo's current ``main``.
+    constructor's ``revision=`` (sentence-transformers 2.4 or later; the
+    extras require 2.5), which pins the config, the weights and the
+    tokenizer together. Passing it only in ``model_kwargs`` raises
+    ``TypeError`` before sentence-transformers 5.4 and pins the weights
+    alone from 5.4: the config and tokenizer then come from the repo's
+    current ``main``.
     """
     try:
         from sentence_transformers import CrossEncoder

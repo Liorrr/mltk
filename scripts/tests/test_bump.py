@@ -150,6 +150,29 @@ class TestSinceExclusion:
         assert "224 assertions" not in result
 
 
+class TestTestsBadge:
+    """The README badge shows the collected test count, not a pass count."""
+
+    def test_legacy_passed_badge_rewritten_without_passed(self) -> None:
+        counts = _make_counts(tests=4247)
+        text = "[![Tests](https://img.shields.io/badge/tests-3388%2B%20passed-green.svg)]()"
+        result = _replace_counts_in_text(text, counts)
+        assert "badge/tests-4247%2B-green.svg" in result
+        assert "passed" not in result
+
+    def test_current_badge_updated_and_idempotent(self) -> None:
+        counts = _make_counts(tests=4247)
+        text = "[![Tests](https://img.shields.io/badge/tests-3388%2B-green.svg)]()"
+        result = _replace_counts_in_text(text, counts)
+        assert "badge/tests-4247%2B-green.svg" in result
+        assert _replace_counts_in_text(result, counts) == result
+
+    def test_badge_left_alone_when_skipping_tests(self) -> None:
+        counts = _make_counts(tests=4247)
+        text = "[![Tests](https://img.shields.io/badge/tests-3388%2B%20passed-green.svg)]()"
+        assert _replace_counts_in_text(text, counts, skip_tests=True) == text
+
+
 class TestChangelogRoll:
     def test_unreleased_becomes_versioned(self) -> None:
         today = __import__("datetime").date.today().isoformat()
