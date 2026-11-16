@@ -92,7 +92,7 @@ Hit rate, nDCG, coverage, diversity, novelty -- validate that your recommender s
 :point_right: [Recommendation Systems](api/recommendation.md)
 
 ### :brain: Behavioral Consistency
-Paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency -- 7 assertions that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation (token F1, embedding, NLI, LLM-as-Judge). No other tool ships these as pytest assertions.
+Paraphrase invariance, format invariance, output stability, semantic equivalence, directional expectation, retrieval consistency -- 6 assertions that catch models memorizing phrasing instead of learning concepts. Multi-method evaluation (token F1, embedding, NLI, LLM-as-Judge). No other tool ships these as pytest assertions.
 
 :point_right: [Behavioral Consistency](api/behavioral-consistency.md) | [Method Dispatch](guides/method-dispatch.md)
 
@@ -157,7 +157,7 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 === "QA Engineer"
 
-    You write test suites for a living. mltk gives you **224 ready-made assertions** that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
+    You write test suites for a living. mltk gives you **245 assertions**, ready-made, that plug into pytest -- the tool you already know. No ML expertise required: `assert_no_nulls`, `assert_range`, `assert_latency` read like plain English.
 
     :point_right: Start with [Getting Started](getting-started.md), then explore [YAML Test Definitions](api/yaml-tests.md) for no-code tests.
 
@@ -185,10 +185,10 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 
 | Metric | Count |
 |--------|-------|
-| Assertions | 224 across 70+ modules |
-| Tests | 3,388+ |
-| CLI commands | 24 |
-| Behavioral consistency | 7 assertions (paraphrase, format, stability, equivalence, directional, retrieval, + ParaphraseGenerator) |
+| Assertions | 245 assertions across 116 modules |
+| Tests | 6493+ tests |
+| CLI commands | 20 top-level + 5 groups |
+| Behavioral consistency | 6 assertions (paraphrase, format, stability, equivalence, directional, retrieval) plus the `ParaphraseGenerator` class |
 | PII detection methods | 4 (regex, Presidio NER, GLiNER zero-shot, hybrid) |
 | Built-in scanners | 8 (Data, Drift, Leakage, Slice, Bias, Calibration, Robustness, Overfit) |
 | Domain kits | 12 (CV, NLP, Speech, Tabular, LLM, Multimodal, RL, Recommendation, Healthcare, Code Generation, and more) |
@@ -203,15 +203,15 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 | Layer | Modules | What |
 |-------|---------|------|
 | **pytest plugin** | auto-registered | markers, fixtures, `--mltk-report` |
-| **Assertions** | data, model, inference, llm | 224 `assert_*` functions |
-| **Behavioral** | llm.behavioral | 7 consistency assertions, ParaphraseGenerator |
+| **Assertions** | data, model, inference, llm | 245 assertions (`assert_*` functions) |
+| **Behavioral** | llm.behavioral | 6 consistency assertions, ParaphraseGenerator |
 | **Method Dispatch** | llm `method=` param | lexical, embedding, nli, llm-as-judge per assertion |
 | **Training** | training, pipeline, monitor | gradient, leakage, drift, cloud |
 | **Domains** | cv, nlp, speech, tabular, multimodal, rl, recommendation, healthcare, code gen | specialized domain assertions |
 | **Compliance** | compliance, contracts, testdefs | EU AI Act, FDA, YAML, data contracts |
 | **Scanning** | scan, scanners | 8 auto-scanners, test generation, JSON/JUnit/HTML export |
 | **Platform** | report, server, integrations | HTML, dashboard, Jira/Slack/GitHub, VS Code extension |
-| **Foundation** | cli, core, rust extension | 24 commands, TestResult, MltkSuite, PyO3 |
+| **Foundation** | cli, core, rust extension | 20 top-level + 5 groups CLI commands, TestResult, MltkSuite, PyO3 |
 
 Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, `.details`, and `.duration_ms`. Critical failures raise `MltkAssertionError` (a subclass of `AssertionError`), so pytest catches them naturally.
 
