@@ -52,8 +52,10 @@ def unknown_on_error_result(
 def check_zero_threshold(on_error: str, **thresholds: float | None) -> None:
     """Reject ``on_error="zero"`` with a threshold an errored ``0.0`` meets.
 
-    Under ``zero`` an errored item scores ``0.0``. With a threshold at or
-    below 0 that score would pass, so a judge that always errors would pass.
+    Under ``zero`` an errored item scores ``0.0``, which meets a per-item
+    threshold at or below 0, so a judge that always errors could pass. The
+    rule applies to every per-item threshold under ``zero``, even where the
+    caller never counts an errored item as passing (paraphrase invariance).
 
     Args:
         on_error: The error policy.

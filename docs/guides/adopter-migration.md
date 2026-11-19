@@ -309,9 +309,10 @@ Each of these assertions takes a keyword-only `on_error`:
 - `"strict"` fails on any error. It is the default where every item must
   hold: an unjudged claim or span is not supported, while under
   `"fail_if_all"` it would be excluded and count as passing.
-- `"zero"` scores an errored item `0.0`. With a threshold at or below 0
-  (`min_score`, `min_coverage`, `similarity_threshold`) that `0.0` would pass,
-  so the combination raises `ValueError` before any judge call.
+- `"zero"` scores an errored item `0.0` (an errored invariance pair is
+  never counted as equivalent). A per-item threshold at or below 0
+  (`min_score`, `min_coverage`, `similarity_threshold`) would be met by that
+  `0.0`, so the combination raises `ValueError` before any judge call.
 
 `assert_paraphrase_invariance` also takes `min_valid_fraction`. The details
 gain `errored_count`, `n_valid`, `on_error` and `errors`.
@@ -355,7 +356,9 @@ An input with nothing to judge used to pass. These now take `on_empty`
 (`"fail"` by default, `"skip"`, or `"pass"` for the old verdict):
 
 - `assert_llm_judge_score` and `assert_llm_judge_pairwise` with `prompts=[]`.
-- `assert_no_hallucination` with no claims, or only blank claims.
+- `assert_no_hallucination` with no claim the method can check: no claims,
+  only blank claims, or (for the default `"lexical"` method) only claims
+  with no word tokens, such as `"..."`.
 - `assert_span_quality` with no spans, or a `span_kinds` filter that matches
   no span.
 

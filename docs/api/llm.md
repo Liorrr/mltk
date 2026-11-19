@@ -89,7 +89,7 @@ assert_no_hallucination(claims, sources, method="lexical")
 | `method` | `str` | `"lexical"` | `"lexical"` (keyword overlap; `"overlap"` is an alias), `"embedding"`, `"nli"` or `"llm"` |
 | `min_coverage` | `float` | `0.3` | Minimum score for a claim to count as supported |
 | `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Required for `method="llm"`: `(claim, source_text)` to a score in `[0, 1]` |
-| `on_empty` | `str` | `"fail"` | Keyword-only. Policy when there is no claim to check (an empty list, or only blank claims): `"fail"`, `"skip"` or `"pass"` |
+| `on_empty` | `str` | `"fail"` | Keyword-only. Policy when there is no claim the method can check (an empty list, only blank claims, or for `"lexical"` only claims with no word tokens such as `"..."`): `"fail"`, `"skip"` or `"pass"` |
 | `on_error` | `str` | `"strict"` | Keyword-only. Policy for a judge error with `method="llm"`: `"strict"`, `"fail_if_all"` or `"zero"` |
 
 With `method="llm"`, a **judge error** is a `judge_fn` call that raises, or

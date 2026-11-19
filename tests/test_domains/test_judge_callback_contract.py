@@ -486,6 +486,34 @@ def test_one_real_claim_among_blanks_is_checked() -> None:
     assert result.details["unsupported_count"] == 1
 
 
+@pytest.mark.parametrize("claims", [["...", "!!"], ["\U0001f600"]], ids=["punct", "emoji"])
+def test_claims_without_word_tokens_are_empty_for_lexical(claims: list[str]) -> None:
+    # The lexical method skips a claim with no word tokens, so nothing is
+    # measured: the list is empty input, not "all claims supported".
+    result = _run(lambda: assert_no_hallucination(claims, ["Paris is the capital."]))
+    assert result.passed is False
+    assert "empty input is not allowed" in result.message
+
+
+def test_tokenless_claims_are_checked_by_the_judge() -> None:
+    # Mirror: the llm method scores any non-blank claim, so it is not empty.
+    result = _run(lambda: assert_no_hallucination(
+        ["!!"], ["Paris is the capital."], method="llm", judge_fn=_const(0.9),
+    ))
+    assert result.passed is True
+    assert result.details["n_valid"] == 1
+
+
+def test_real_claim_among_tokenless_claims_is_checked() -> None:
+    # Mirror: one claim with word tokens makes the lexical list non-empty.
+    result = _run(lambda: assert_no_hallucination(
+        ["!!", "Berlin is the capital of Spain."], ["Paris is the capital of France."],
+        min_coverage=0.9,
+    ))
+    assert result.passed is False
+    assert result.details["unsupported_count"] == 1
+
+
 def test_no_hallucination_unknown_on_empty_fails() -> None:
     result = _run(lambda: assert_no_hallucination(["claim"], ["claim"], on_empty="ignore"))
     assert result.passed is False

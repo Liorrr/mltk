@@ -323,9 +323,10 @@ def assert_no_hallucination(
         judge_fn: Callable ``(claim, source_text) -> float`` returning a
             score in ``[0, 1]`` for ``method="llm"``.  Required when method
             is ``"llm"``.
-        on_empty: Policy when there is no claim to check (an empty list,
-            or only blank claims): ``"fail"`` (default), ``"skip"``, or
-            ``"pass"`` for the legacy pass.
+        on_empty: Policy when there is no claim the method can check (an
+            empty list, only blank claims, or, for ``"lexical"``, only
+            claims with no word tokens such as ``"..."``): ``"fail"``
+            (default), ``"skip"``, or ``"pass"`` for the legacy pass.
         on_error: Policy for a judge error (``method="llm"`` only): the
             judge raised, or returned ``None``, a boolean, a non-finite
             number or a value outside ``[0, 1]``. ``"strict"`` (default)
@@ -389,7 +390,13 @@ def assert_no_hallucination(
     sources = [normalize_unicode(s) for s in sources]
     source_text = " ".join(sources)
 
-    if not any(claim.strip() for claim in claims):
+    # A claim the method skips is not measured: blank claims for every
+    # method, and claims with no word tokens for the lexical method.
+    checkable = (
+        (lambda claim: bool(_tokenize(claim))) if method == "lexical"
+        else (lambda claim: bool(claim.strip()))
+    )
+    if not any(checkable(claim) for claim in claims):
         return empty_input_result(
             name="llm.hallucination",
             reason="No claims to check",

@@ -187,9 +187,11 @@ outside `[0, 1]`. A judge on a 0--10 scale must rescale before returning.
 - `on_error="fail_if_all"` (default): errored pairs are excluded from the
   invariance rate; the result fails when every pair errored.
 - `on_error="strict"`: any judge error fails the result.
-- `on_error="zero"`: an errored pair scores `0.0` (not equivalent) and stays
-  in the denominator. With a `similarity_threshold <= 0` that `0.0` would
-  count as equivalent, so that combination raises `ValueError`.
+- `on_error="zero"`: an errored pair scores `0.0`, is never counted as
+  equivalent, and stays in the denominator. As for every per-item threshold
+  under `zero`, a `similarity_threshold <= 0` (which a `0.0` score would
+  meet) raises `ValueError`. `min_invariance` is the overall gate: at `0`
+  it passes any run, errors or not.
 
 Single-token outputs switch the method to `label_match` (see above), so the
 judge never runs: every pair is then valid and `n_valid` equals
