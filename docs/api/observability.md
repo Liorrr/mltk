@@ -421,6 +421,8 @@ def assert_trace_quality(
     max_cost_usd: float | None = None,
     min_score: float | None = None,
     judge_fn: Callable[[dict[str, Any]], float] | None = None,
+    on_error: str = "fail_if_all",
+    on_unmeasured: str = "fail",
 ) -> TestResult:
     ...
 ```
@@ -431,11 +433,38 @@ def assert_trace_quality(
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `trace` | `dict[str, Any]` | *(required)* | Dict containing trace data. Expected keys: `latency_ms` (float), `cost_usd` (float), `score` (float), `output` (str), `input` (str). Any key can be absent -- the gate only checks thresholds you explicitly set. |
-| `max_latency_ms` | `float \| None` | `None` | Maximum allowed total trace duration in milliseconds. Reads `trace["latency_ms"]`. If the key is missing, the check is skipped (not failed). |
-| `max_cost_usd` | `float \| None` | `None` | Maximum allowed cost in US dollars. Reads `trace["cost_usd"]`. Same skip-if-missing behavior as latency. |
-| `min_score` | `float \| None` | `None` | Minimum acceptable quality score (0.0--1.0). If `judge_fn` is provided, calls it with the trace dict. Otherwise reads `trace["score"]`. |
-| `judge_fn` | `Callable[[dict[str, Any]], float] \| None` | `None` | Optional callable that takes the trace dict and returns a quality score (0.0--1.0). When provided, overrides `trace["score"]` for the quality check. |
+| `trace` | `dict[str, Any]` | *(required)* | Dict containing trace data. Expected keys: `latency_ms` (float), `cost_usd` (float), `score` (float), `output` (str), `input` (str). The gate only checks thresholds you explicitly set; a key that a set threshold needs and that is missing is **not measured** (see `on_unmeasured`). |
+| `max_latency_ms` | `float \| None` | `None` | Maximum allowed total trace duration in milliseconds. Reads `trace["latency_ms"]`. |
+| `max_cost_usd` | `float \| None` | `None` | Maximum allowed cost in US dollars. Reads `trace["cost_usd"]`. |
+| `min_score` | `float \| None` | `None` | Minimum acceptable quality score. If `judge_fn` is provided, calls it with the trace dict. Otherwise reads `trace["score"]`. |
+| `judge_fn` | `Callable[[dict[str, Any]], float] \| None` | `None` | Optional callable that takes the trace dict and returns a quality score in `[0, 1]`. When provided, overrides `trace["score"]` for the quality check. |
+| `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for a judge error. With one judge call, `"fail_if_all"` and `"strict"` both fail; `"zero"` scores the call `0.0` (and raises `ValueError` up front when `min_score <= 0`). |
+| `on_unmeasured` | `str` | `"fail"` | Keyword-only. Policy for a budgeted key that is missing: `"fail"` fails the result, `"pass"` treats it as met, and `"skip"` checks only the measured budgets (the result is skipped when none was measured). |
+
+### Judge errors and unmeasured values
+
+- **Judge errors.** A `judge_fn` call that raises, or returns `None`, a
+  boolean, a non-finite number or a value outside `[0, 1]`, is a judge error.
+  The value is read with `float()`, so NumPy scalars, numeric strings and
+  `Decimal` work. A judge returning `None` is a judge error, not an
+  unmeasured score. The details then include `errored_count`, `n_valid` and
+  `errors`.
+- **Precomputed scores.** Without a `judge_fn`, `trace["score"]` must be a
+  finite number (not a boolean); its scale is not checked, so a platform's
+  0--10 score works with a matching `min_score`.
+- **Unmeasured values.** A missing (or `None`) `latency_ms`, `cost_usd` or
+  `score` that a threshold needs fails by default. Pass
+  `on_unmeasured="skip"` or `"pass"` for sources that do not record it.
+  A measured `0` is checked normally.
+- **Invalid values.** A latency or cost that is not a finite, non-negative
+  number (`NaN`, `inf`, `-5`, a boolean, a string), or a precomputed score
+  that is not a finite number, is invalid and fails under every
+  `on_unmeasured` policy. It is listed in `details["invalid"]`.
+
+Traces from `mltk.trace` capture (`to_quality_dict`) carry only
+`latency_ms`, so a gate on `max_cost_usd`, or on `min_score` without a
+`judge_fn`, needs `on_unmeasured="skip"`; see
+[Trace Capture](trace-capture.md).
 
 ### Trace format
 
@@ -455,7 +484,8 @@ trace = {
 
 `TestResult` with `name="integrations.trace_quality"` and `.passed` reflecting
 whether ALL requested checks passed. On failure, `.message` lists every violated
-threshold. The details dict contains actual values for each checked dimension:
+threshold. The details dict contains actual values for each checked dimension,
+and always lists what was checked, not measured and invalid:
 
 ```python
 # When all checks pass:
@@ -466,12 +496,17 @@ threshold. The details dict contains actual values for each checked dimension:
     "max_cost_usd": 0.01,
     "score": 0.92,
     "min_score": 0.8,
+    "checked": ["latency_ms", "cost_usd", "score"],
+    "unmeasured": [],
+    "invalid": [],
+    "on_unmeasured": "fail",
+    "on_error": "fail_if_all",
 }
 ```
 
-Only the dimensions you actually check appear in the details dict. If you only
-check `max_latency_ms`, the details will only contain `latency_ms` and
-`max_latency_ms`.
+Only the dimensions you actually check get value entries. If you only check
+`max_latency_ms`, the details contain `latency_ms` and `max_latency_ms` plus
+the five bookkeeping keys above.
 
 ### Example: Deployment gate in CI/CD
 

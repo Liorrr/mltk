@@ -14,6 +14,13 @@ from mltk.core.empty import (
 from mltk.core.empty import (
     unknown_on_empty_result as _unknown_on_empty_result,
 )
+from mltk.core.error_policy import (
+    EVAL_ON_ERROR,
+    EvalOnError,
+    check_zero_threshold,
+    unknown_on_error_result,
+)
+from mltk.core.judge_parse import call_judge
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _normalize, _tokenize
 
@@ -27,6 +34,56 @@ def _flatten_context(context: str | list[str]) -> str:
     return context
 
 
+def _llm_score(
+    judge_fn: Callable[[str, str], float],
+    first: str,
+    second: str,
+    on_error: str,
+    details: dict[str, object],
+) -> float | None:
+    """Call the judge once and record the error contract in *details*.
+
+    Returns the valid score, ``0.0`` for an errored call under
+    ``on_error="zero"``, or ``None`` for an errored call that fails.
+    """
+    score, error = call_judge(judge_fn, first, second)
+    details.update(
+        errored_count=0 if error is None else 1,
+        n_valid=1 if error is None else 0,
+        on_error=on_error,
+        errors=[] if error is None else [{"error": error}],
+    )
+    if error is None:
+        return score
+    return 0.0 if on_error == "zero" else None
+
+
+def _judge_error_result(
+    name: str, min_score: float, details: dict[str, object],
+) -> TestResult:
+    """Fail a single-call judge path whose judge errored."""
+    error = details["errors"][0]["error"]  # type: ignore[index]
+    return assert_true(
+        False, name=name,
+        message=f"Judge error (llm): {error} (on_error='{details['on_error']}')",
+        severity=Severity.CRITICAL,
+        score=None, min_score=min_score,
+        **details,
+    )
+
+
+def _check_policies(
+    name: str, on_empty: str, on_error: str, min_score: float,
+) -> TestResult | None:
+    """Validate the input policies; raise for a zero-threshold conflict."""
+    if on_empty not in _ON_EMPTY_OPTIONS:
+        return _unknown_on_empty_result(name, on_empty)
+    if on_error not in EVAL_ON_ERROR:
+        return unknown_on_error_result(name, on_error, EVAL_ON_ERROR)
+    check_zero_threshold(on_error, min_score=min_score)
+    return None
+
+
 @timed_assertion
 def assert_faithfulness(
     answer: str,
@@ -37,6 +94,8 @@ def assert_faithfulness(
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
     on_empty: str = "fail",
+    *,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert answer is grounded in the provided context.
 
@@ -55,12 +114,22 @@ def assert_faithfulness(
         embedding_model: Model name for ``method="embedding"``.
         nli_model: Model name for ``method="nli"``.
         judge_fn: Callable for ``method="llm"``; receives
-            ``(answer, context_text)`` and returns a 0-1 float.
+            ``(answer, context_text)`` and returns a score in ``[0, 1]``.
         on_empty: Policy for empty answer input: ``"fail"`` (default),
             ``"skip"``, or ``"pass"`` for legacy behavior.
+        on_error: Policy for a judge error (``method="llm"`` only): the
+            judge raised, or returned ``None``, a boolean, a non-finite
+            number or a value outside ``[0, 1]``. ``"fail_if_all"``
+            (default) and ``"strict"`` fail the result (there is one judge
+            call); ``"zero"`` scores the call ``0.0``. ``"zero"`` with
+            ``min_score <= 0`` raises ``ValueError``. Details then include
+            ``errored_count``, ``n_valid``, ``on_error`` and ``errors``.
 
     Returns:
         TestResult with faithfulness score.
+
+    Raises:
+        ValueError: If ``on_error="zero"`` and ``min_score <= 0``.
 
     Example:
         >>> ctx = "The Eiffel Tower is in Paris, France."
@@ -79,8 +148,9 @@ def assert_faithfulness(
             severity=Severity.CRITICAL,
             method=method,
         )
-    if on_empty not in _ON_EMPTY_OPTIONS:
-        return _unknown_on_empty_result("llm.rag.faithfulness", on_empty)
+    invalid = _check_policies("llm.rag.faithfulness", on_empty, on_error, min_score)
+    if invalid is not None:
+        return invalid
 
     context_text = _normalize(_flatten_context(context))
     answer = _normalize(answer)
@@ -144,7 +214,10 @@ def assert_faithfulness(
                 severity=Severity.CRITICAL,
                 method=method,
             )
-        score = float(judge_fn(answer, context_text))
+        llm_score = _llm_score(judge_fn, answer, context_text, on_error, details)
+        if llm_score is None:
+            return _judge_error_result("llm.rag.faithfulness", min_score, details)
+        score = llm_score
 
     passed = score >= min_score
     label = "Faithfulness" if passed else "Low faithfulness"
@@ -152,6 +225,8 @@ def assert_faithfulness(
     message = (
         f"{label} ({method}): {score:.4f} {cmp} {min_score}"
     )
+    if details.get("errored_count"):
+        message += " (judge error scored 0.0, on_error='zero')"
 
     return assert_true(
         passed, name="llm.rag.faithfulness", message=message,
@@ -171,6 +246,8 @@ def assert_context_relevancy(
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
     on_empty: str = "fail",
+    *,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert retrieved context is relevant to the question.
 
@@ -189,12 +266,22 @@ def assert_context_relevancy(
         embedding_model: Model name for ``method="embedding"``.
         nli_model: Model name for ``method="nli"``.
         judge_fn: Callable for ``method="llm"``; receives
-            ``(question, context_text)`` and returns a 0-1 float.
+            ``(question, context_text)`` and returns a score in ``[0, 1]``.
         on_empty: Policy for empty question input: ``"fail"`` (default),
             ``"skip"``, or ``"pass"`` for legacy behavior.
+        on_error: Policy for a judge error (``method="llm"`` only): the
+            judge raised, or returned ``None``, a boolean, a non-finite
+            number or a value outside ``[0, 1]``. ``"fail_if_all"``
+            (default) and ``"strict"`` fail the result (there is one judge
+            call); ``"zero"`` scores the call ``0.0``. ``"zero"`` with
+            ``min_score <= 0`` raises ``ValueError``. Details then include
+            ``errored_count``, ``n_valid``, ``on_error`` and ``errors``.
 
     Returns:
         TestResult with context relevancy score.
+
+    Raises:
+        ValueError: If ``on_error="zero"`` and ``min_score <= 0``.
 
     Example:
         >>> ctx = "Paris is the capital of France."
@@ -213,8 +300,9 @@ def assert_context_relevancy(
             severity=Severity.CRITICAL,
             method=method,
         )
-    if on_empty not in _ON_EMPTY_OPTIONS:
-        return _unknown_on_empty_result("llm.rag.context_relevancy", on_empty)
+    invalid = _check_policies("llm.rag.context_relevancy", on_empty, on_error, min_score)
+    if invalid is not None:
+        return invalid
 
     context_text = _normalize(_flatten_context(context))
     question = _normalize(question)
@@ -277,7 +365,10 @@ def assert_context_relevancy(
                 severity=Severity.CRITICAL,
                 method=method,
             )
-        score = float(judge_fn(question, context_text))
+        llm_score = _llm_score(judge_fn, question, context_text, on_error, details)
+        if llm_score is None:
+            return _judge_error_result("llm.rag.context_relevancy", min_score, details)
+        score = llm_score
 
     passed = score >= min_score
     label = "Context relevancy" if passed else "Low context relevancy"
@@ -285,6 +376,8 @@ def assert_context_relevancy(
     message = (
         f"{label} ({method}): {score:.4f} {cmp} {min_score}"
     )
+    if details.get("errored_count"):
+        message += " (judge error scored 0.0, on_error='zero')"
 
     return assert_true(
         passed, name="llm.rag.context_relevancy", message=message,
@@ -304,6 +397,8 @@ def assert_answer_relevancy(
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
     on_empty: str = "fail",
+    *,
+    on_error: EvalOnError = "fail_if_all",
 ) -> TestResult:
     """Assert answer addresses the question.
 
@@ -322,12 +417,22 @@ def assert_answer_relevancy(
         embedding_model: Model name for ``method="embedding"``.
         nli_model: Model name for ``method="nli"``.
         judge_fn: Callable for ``method="llm"``; receives
-            ``(question, answer)`` and returns a 0-1 float.
+            ``(question, answer)`` and returns a score in ``[0, 1]``.
         on_empty: Policy for empty question input: ``"fail"`` (default),
             ``"skip"``, or ``"pass"`` for legacy behavior.
+        on_error: Policy for a judge error (``method="llm"`` only): the
+            judge raised, or returned ``None``, a boolean, a non-finite
+            number or a value outside ``[0, 1]``. ``"fail_if_all"``
+            (default) and ``"strict"`` fail the result (there is one judge
+            call); ``"zero"`` scores the call ``0.0``. ``"zero"`` with
+            ``min_score <= 0`` raises ``ValueError``. Details then include
+            ``errored_count``, ``n_valid``, ``on_error`` and ``errors``.
 
     Returns:
         TestResult with answer relevancy score.
+
+    Raises:
+        ValueError: If ``on_error="zero"`` and ``min_score <= 0``.
 
     Example:
         >>> assert_answer_relevancy(
@@ -346,8 +451,9 @@ def assert_answer_relevancy(
             severity=Severity.CRITICAL,
             method=method,
         )
-    if on_empty not in _ON_EMPTY_OPTIONS:
-        return _unknown_on_empty_result("llm.rag.answer_relevancy", on_empty)
+    invalid = _check_policies("llm.rag.answer_relevancy", on_empty, on_error, min_score)
+    if invalid is not None:
+        return invalid
 
     question = _normalize(question)
     answer = _normalize(answer)
@@ -410,7 +516,10 @@ def assert_answer_relevancy(
                 severity=Severity.CRITICAL,
                 method=method,
             )
-        score = float(judge_fn(question, answer))
+        llm_score = _llm_score(judge_fn, question, answer, on_error, details)
+        if llm_score is None:
+            return _judge_error_result("llm.rag.answer_relevancy", min_score, details)
+        score = llm_score
 
     passed = score >= min_score
     label = "Answer relevancy" if passed else "Low answer relevancy"
@@ -418,6 +527,8 @@ def assert_answer_relevancy(
     message = (
         f"{label} ({method}): {score:.4f} {cmp} {min_score}"
     )
+    if details.get("errored_count"):
+        message += " (judge error scored 0.0, on_error='zero')"
 
     return assert_true(
         passed, name="llm.rag.answer_relevancy", message=message,

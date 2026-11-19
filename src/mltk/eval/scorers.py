@@ -23,12 +23,11 @@ a callable, keeping provider, cost, and latency under their control.
 
 from __future__ import annotations
 
-import math
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 
-from mltk.core.judge_parse import check_score_range, parse_judge_score
+from mltk.core.judge_parse import callback_score, check_score_range, parse_judge_score
 from mltk.eval._types import EvalState, Score
 
 __all__ = [
@@ -326,7 +325,10 @@ class LLMJudgeScorer(Scorer):
     OpenAI, Anthropic, local Ollama, vLLM, or a custom wrapper.
 
     Judge failures return an errored zero score with the error captured in
-    ``Score.metadata["error"]``.
+    ``Score.metadata["error"]``. A failure is a judge call that raises, a
+    reply with no usable score, ``None``, a boolean (``True`` is not a
+    score, although ``float(True)`` is 1.0), a non-finite number, or a
+    score outside ``[0, max_score]``.
 
     Args:
         judge_fn: Callable that takes a prompt string and returns a
@@ -383,7 +385,7 @@ class LLMJudgeScorer(Scorer):
         prompt = self._format_prompt(state)
 
         try:
-            raw: float | str = self.judge_fn(prompt)
+            raw: object = self.judge_fn(prompt)
             if isinstance(raw, str):
                 raw = self._parse_score(
                     raw,
@@ -391,7 +393,6 @@ class LLMJudgeScorer(Scorer):
                     legacy_parse=self.legacy_parse,
                     expected_max_score=self.max_score,
                 )
-            score_val = float(raw)
         except Exception as exc:
             return Score(
                 value=0.0,
@@ -400,13 +401,17 @@ class LLMJudgeScorer(Scorer):
                 metadata={"error": str(exc)},
             )
 
-        if not math.isfinite(score_val):
+        # None, booleans (float(True) is 1.0) and non-finite values are
+        # errors; the range is checked against max_score below.
+        checked, value_error = callback_score(raw, check_range=False)
+        if checked is None:
             return Score(
                 value=0.0,
                 errored=True,
-                explanation=f"Judge error: non-finite score {score_val}",
-                metadata={"error": f"non-finite score: {score_val}"},
+                explanation=f"Judge error: {value_error}",
+                metadata={"error": value_error},
             )
+        score_val = checked
 
         range_error = check_score_range(score_val, self.max_score)
         if range_error is not None:

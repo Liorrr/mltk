@@ -241,13 +241,14 @@ class TestAssertLlmJudgeScore:
         assert item["errored"] is True
         assert "outside [0, 5.0]" in item["error"]
 
-    def test_empty_prompts_pass(self) -> None:
-        """EDGE: Empty prompts list passes with zero items."""
+    def test_empty_prompts_pass_with_legacy_policy(self) -> None:
+        """EDGE: on_empty="pass" keeps the old zero-item pass."""
         result = assert_llm_judge_score(
             judge_fn=_high_scorer,
             prompts=[],
             responses=[],
             min_score=3.0,
+            on_empty="pass",
         )
         assert result.passed is True
         assert result.details["n_items"] == 0
@@ -432,8 +433,8 @@ class TestAssertLlmJudgePairwise:
         assert result.details["win_rate"] is None
         assert result.details["errors"][0]["index"] == 0
 
-    def test_empty_prompts_pass(self) -> None:
-        """EDGE: Empty prompts list passes with zero comparisons."""
+    def test_empty_prompts_pass_with_legacy_policy(self) -> None:
+        """EDGE: on_empty="pass" keeps the old zero-comparison pass."""
         result = assert_llm_judge_pairwise(
             judge_fn=_winner_a,
             prompts=[],
@@ -441,6 +442,7 @@ class TestAssertLlmJudgePairwise:
             responses_b=[],
             expected_winner="a",
             min_win_rate=0.6,
+            on_empty="pass",
         )
         assert result.passed is True
         assert result.details["n_comparisons"] == 0
@@ -932,3 +934,136 @@ class TestPairwiseParserSymmetry:
         replies = [winning] * 4 + [losing] * 6
         with pytest.raises(MltkAssertionError):
             _pairwise(replies, expected_winner=expected, min_win_rate=0.6)
+
+
+class TestJudgeEmptyPrompts:
+    """An empty prompts list measured nothing; it fails by default."""
+
+    @staticmethod
+    def _score(**kwargs: object):  # noqa: ANN205
+        return assert_llm_judge_score(
+            judge_fn=_high_scorer, prompts=[], responses=[], **kwargs,
+        )
+
+    @staticmethod
+    def _pairwise_empty(**kwargs: object):  # noqa: ANN205
+        return assert_llm_judge_pairwise(
+            judge_fn=_winner_a, prompts=[], responses_a=[], responses_b=[], **kwargs,
+        )
+
+    @pytest.mark.parametrize("call", ["_score", "_pairwise_empty"])
+    def test_empty_prompts_fail_by_default(self, call: str) -> None:
+        with pytest.raises(MltkAssertionError, match="empty input is not allowed"):
+            getattr(self, call)()
+
+    @pytest.mark.parametrize("call", ["_score", "_pairwise_empty"])
+    def test_empty_prompts_skip(self, call: str) -> None:
+        result = getattr(self, call)(on_empty="skip")
+        assert result.passed is True
+        assert result.details["skipped"] is True
+
+    @pytest.mark.parametrize("call", ["_score", "_pairwise_empty"])
+    def test_unknown_on_empty_fails(self, call: str) -> None:
+        with pytest.raises(MltkAssertionError, match="Unknown on_empty"):
+            getattr(self, call)(on_empty="ignore")
+
+    def test_non_empty_prompts_are_unaffected(self) -> None:
+        # Mirror: one prompt is evaluated normally under the default policy.
+        assert _pairwise(["A"]).details["wins_a"] == 1
+        result = assert_llm_judge_score(
+            judge_fn=_high_scorer, prompts=["q"], responses=["r"],
+        )
+        assert result.details["n_items"] == 1
+
+    @pytest.mark.parametrize(
+        "func", [assert_llm_judge_score, assert_llm_judge_pairwise],
+    )
+    def test_on_empty_is_keyword_only_and_fails_by_default(self, func) -> None:  # noqa: ANN001
+        import inspect
+
+        param = inspect.signature(func).parameters["on_empty"]
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        assert param.default == "fail"
+
+
+class TestPairwiseReasoningBlocks:
+    """Reasoning blocks are stripped before the verdict is read."""
+
+    @pytest.mark.parametrize(
+        ("reply", "verdict"),
+        [
+            ("<think>maybe tie</think>A", "a"),
+            ("<think>A looks weak</think>B", "b"),
+            ("<think>A or B?</think>\nTIE", "tie"),
+            ("<think>first</think> <think>second, B</think> A", "a"),
+            ("<think>outer <think>inner B</think> still</think>A", "a"),
+        ],
+    )
+    def test_think_block_is_stripped(self, reply: str, verdict: str) -> None:
+        details = _pairwise([reply], min_win_rate=0.0).details
+        counts = {"a": details["wins_a"], "b": details["wins_b"], "tie": details["ties"]}
+        assert counts[verdict] == 1
+        assert details["errored_count"] == 0
+
+    @pytest.mark.parametrize(
+        "reply",
+        ["<think>unclosed A", "</think>A", "<think>a</think></think>B"],
+    )
+    def test_unbalanced_reasoning_is_an_error(self, reply: str) -> None:
+        with pytest.raises(MltkAssertionError) as exc:
+            _pairwise([reply])
+        details = exc.value.result.details
+        assert details["errored_count"] == 1
+        assert details["ties"] == 0
+        assert "reasoning" in details["errors"][0]["error"]
+
+    def test_custom_delimiters_are_stripped(self) -> None:
+        delimiters = (("<analysis>", "</analysis>"),)
+        details = _pairwise(
+            ["<analysis>it is a tie</analysis>A"], reasoning_delimiters=delimiters,
+        ).details
+        assert details["wins_a"] == 1
+
+    def test_custom_delimiters_are_not_stripped_unless_configured(self) -> None:
+        # Mirror: without the pair, "<analysis>" text stays visible, and the
+        # reply has no leading verdict and names a tie.
+        details = _pairwise(
+            ["<analysis>it is a tie</analysis>A"], min_win_rate=0.0,
+        ).details
+        assert details["ties"] == 1
+
+    @pytest.mark.parametrize(
+        ("reply", "verdict"),
+        [("A", "a"), ("Winner: B", "b"), ("TIE", "tie"), ("It's a tie", "tie")],
+    )
+    def test_replies_without_reasoning_are_unchanged(self, reply: str, verdict: str) -> None:
+        details = _pairwise([reply], min_win_rate=0.0).details
+        counts = {"a": details["wins_a"], "b": details["wins_b"], "tie": details["ties"]}
+        assert counts[verdict] == 1
+
+    @pytest.mark.parametrize(
+        "delimiters",
+        [(("", "</x>"),), (("<x>", "<x>"),), (("<think>", "</other>"),)],
+        ids=["empty", "same", "conflict"],
+    )
+    def test_invalid_delimiters_raise_before_any_judge_call(self, delimiters) -> None:  # noqa: ANN001
+        calls: list[str] = []
+
+        def judge(prompt: str) -> str:
+            calls.append(prompt)
+            return "A"
+
+        with pytest.raises(ValueError, match="delimiters"):
+            assert_llm_judge_pairwise(
+                judge_fn=judge, prompts=["q"], responses_a=["a"], responses_b=["b"],
+                reasoning_delimiters=delimiters,
+            )
+        assert calls == []
+
+    def test_reasoning_delimiters_is_keyword_only(self) -> None:
+        import inspect
+
+        params = inspect.signature(assert_llm_judge_pairwise).parameters
+        param = params["reasoning_delimiters"]
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        assert param.default == ()

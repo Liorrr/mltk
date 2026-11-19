@@ -49,6 +49,31 @@ def unknown_on_error_result(
     )
 
 
+def check_zero_threshold(on_error: str, **thresholds: float | None) -> None:
+    """Reject ``on_error="zero"`` with a threshold an errored ``0.0`` meets.
+
+    Under ``zero`` an errored item scores ``0.0``. With a threshold at or
+    below 0 that score would pass, so a judge that always errors would pass.
+
+    Args:
+        on_error: The error policy.
+        **thresholds: Threshold name to value; ``None`` means not set.
+
+    Raises:
+        ValueError: If ``on_error`` is ``"zero"`` and a set threshold is
+            ``<= 0``.
+    """
+    if on_error != "zero":
+        return
+    for name, value in thresholds.items():
+        if value is not None and value <= 0:
+            raise ValueError(
+                f"on_error='zero' scores an errored item as 0.0, which meets "
+                f"{name}={value}; set {name} above 0 or use on_error="
+                "'fail_if_all' or 'strict'"
+            )
+
+
 def error_policy_verdict(
     on_error: str, errored_count: int, total: int
 ) -> Literal["strict", "all_errored"] | None:

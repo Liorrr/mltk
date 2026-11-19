@@ -119,3 +119,28 @@ def test_to_span_trace_without_tools_is_single_llm_span() -> None:
     span_trace = to_span_trace(rec)
     assert len(span_trace.spans) == 1
     assert span_trace.spans[0].kind is SpanKind.LLM
+
+
+def test_to_span_trace_with_tool_calls_keeps_captured_tokens() -> None:
+    # The AGENT root carries the run's tokens; before, they were dropped
+    # whenever the record had tool calls.
+    span_trace = to_span_trace(_record_with_tools())
+    root = span_trace.spans[0]
+    assert root.kind is SpanKind.AGENT
+    assert (root.input_tokens, root.output_tokens) == (11, 7)
+    assert span_trace.total_tokens == 18
+    assert all(s.total_tokens == 0 for s in span_trace.spans[1:])
+
+
+def test_to_span_trace_without_tools_keeps_captured_tokens() -> None:
+    # Mirror: the single-LLM-span projection already kept them.
+    rec = CaptureRecord(tier=ClearanceTier.T0, input_tokens=3, output_tokens=4)
+    assert to_span_trace(rec).total_tokens == 7
+
+
+def test_to_span_trace_with_tool_calls_still_coerces_none_to_zero() -> None:
+    rec = CaptureRecord(
+        tier=ClearanceTier.T0, tool_calls=(CapturedCall(name="search"),),
+    )
+    root = to_span_trace(rec).spans[0]
+    assert (root.input_tokens, root.output_tokens) == (0, 0)

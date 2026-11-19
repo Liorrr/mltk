@@ -6,6 +6,15 @@ from collections.abc import Callable
 from typing import Any
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.empty import ON_EMPTY_OPTIONS, empty_input_result, unknown_on_empty_result
+from mltk.core.error_policy import (
+    EVAL_ON_ERROR,
+    EvalOnError,
+    check_zero_threshold,
+    error_policy_verdict,
+    unknown_on_error_result,
+)
+from mltk.core.judge_parse import call_judge
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm.span import Span, SpanKind, SpanTrace
 
@@ -37,6 +46,9 @@ def assert_span_quality(
     judge_fn: Callable[[Span], float] | None = None,
     min_score: float = 0.5,
     span_kinds: list[SpanKind] | None = None,
+    *,
+    on_error: EvalOnError = "strict",
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert quality across spans in a trace.
 
@@ -45,14 +57,54 @@ def assert_span_quality(
     Args:
         trace: The span trace to evaluate.
         max_error_rate: Maximum allowed error fraction.
-        judge_fn: Optional callable returning 0.0-1.0.
+        judge_fn: Optional callable returning a score in ``[0, 1]``.
         min_score: Minimum acceptable judge score.
         span_kinds: Filter to these kinds only.
+        on_error: Policy for a judge error: the judge raised, or
+            returned ``None``, a boolean, a non-finite number or a value
+            outside ``[0, 1]``. ``"strict"`` (default) fails on any
+            error, because every span must meet ``min_score`` and an
+            unjudged span has not. ``"fail_if_all"`` excludes errored
+            spans and fails only when every judged span errored.
+            ``"zero"`` scores an errored span ``0.0``.
+        on_empty: Policy when no span is left to check (an empty trace,
+            or a ``span_kinds`` filter that matches none): ``"fail"``
+            (default), ``"skip"``, or ``"pass"`` for the legacy pass.
 
     Returns:
-        TestResult named ``llm.span_eval.quality``.
+        TestResult named ``llm.span_eval.quality``. ``error_count`` counts
+        error *spans* (status ``"error"``); ``errored_count`` counts
+        judge errors, listed in ``errors`` (``{"span_id", "name",
+        "error"}``). ``n_valid`` counts spans with a valid judge score.
+
+    Raises:
+        ValueError: If ``on_error="zero"`` and ``min_score <= 0``.
     """
+    name = "llm.span_eval.quality"
+    if on_error not in EVAL_ON_ERROR:
+        return unknown_on_error_result(name, on_error, EVAL_ON_ERROR)
+    if on_empty not in ON_EMPTY_OPTIONS:
+        return unknown_on_empty_result(name, on_empty)
+    check_zero_threshold(on_error, min_score=min_score)
+
     spans = _filter_spans(trace, span_kinds)
+    if not spans:
+        reason = (
+            "No spans in the trace" if span_kinds is None
+            else "No spans match span_kinds"
+        )
+        return empty_input_result(
+            name=name,
+            reason=reason,
+            on_empty=on_empty,
+            legacy_message="All span quality checks passed",
+            span_count=0,
+            error_rate=0.0,
+            error_count=0,
+            per_span_scores=[],
+            min_score=min_score,
+            failing_spans=[],
+        )
     span_count = len(spans)
     error_count = sum(1 for s in spans if s.is_error)
     error_rate = (
@@ -69,18 +121,21 @@ def assert_span_quality(
 
     per_span_scores: list[dict[str, Any]] = []
     failing_spans: list[str] = []
+    errors: list[dict[str, Any]] = []
+    judged = 0
 
     if judge_fn is not None:
         for s in spans:
-            score = judge_fn(s)
-            per_span_scores.append(
-                {
-                    "span_id": s.span_id,
-                    "name": s.name,
-                    "score": score,
-                }
-            )
-            if score < min_score:
+            judged += 1
+            score, error = call_judge(judge_fn, s)
+            item: dict[str, Any] = {"span_id": s.span_id, "name": s.name}
+            if error is not None:
+                errors.append({**item, "error": error})
+                item.update(errored=True, error=error)
+                score = 0.0 if on_error == "zero" else None
+            item["score"] = score
+            per_span_scores.append(item)
+            if score is not None and score < min_score:
                 failing_spans.append(
                     f"({s.name}): "
                     f"{score:.3f} < {min_score}"
@@ -92,16 +147,27 @@ def assert_span_quality(
             f" below min_score {min_score}"
         )
 
+    errored_count = len(errors)
+    if error_policy_verdict(on_error, errored_count, judged) is not None:
+        violations.insert(
+            0,
+            f"Judge errors: {errored_count}/{judged} spans"
+            f" (on_error='{on_error}')",
+        )
+
     passed = len(violations) == 0
     message = (
         "All span quality checks passed"
         if passed
         else "; ".join(violations)
     )
+    if errored_count and passed:
+        treatment = "scored 0.0" if on_error == "zero" else "excluded"
+        message += f" ({errored_count}/{judged} judge errors {treatment})"
 
     return assert_true(
         passed,
-        name="llm.span_eval.quality",
+        name=name,
         message=message,
         severity=Severity.CRITICAL,
         span_count=span_count,
@@ -110,6 +176,10 @@ def assert_span_quality(
         per_span_scores=per_span_scores,
         min_score=min_score,
         failing_spans=failing_spans,
+        errored_count=errored_count,
+        n_valid=judged - errored_count,
+        on_error=on_error,
+        errors=errors,
     )
 
 

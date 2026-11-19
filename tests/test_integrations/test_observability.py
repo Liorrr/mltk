@@ -697,35 +697,47 @@ class TestAssertTraceQuality:
         assert "latency" in result.message.lower()
         assert "cost" in result.message.lower()
 
-    def test_missing_latency_key_skips_check(self) -> None:
+    def test_missing_latency_key_fails_by_default(self) -> None:
         # SCENARIO: trace dict has no "latency_ms" key
-        # WHY: Not all traces include timing data -- skip, don't fail
-        # EXPECTED: result.passed is True (nothing to check)
+        # WHY: An unmeasured latency cannot be verified against a budget
+        # EXPECTED: fails (on_unmeasured="fail"); "skip" opts out
         from mltk.integrations.trace_quality import (
             assert_trace_quality,
         )
 
+        with pytest.raises(MltkAssertionError, match="latency_ms not measured"):
+            assert_trace_quality(
+                trace={"output": "hello"},
+                max_latency_ms=500,
+            )
         result = assert_trace_quality(
             trace={"output": "hello"},
             max_latency_ms=500,
+            on_unmeasured="skip",
         )
-
         assert result.passed is True
+        assert result.details["skipped"] is True
 
-    def test_missing_cost_key_skips_check(self) -> None:
+    def test_missing_cost_key_fails_by_default(self) -> None:
         # SCENARIO: trace dict has no "cost_usd" key
-        # WHY: Not all traces include cost data
-        # EXPECTED: result.passed is True
+        # WHY: Not all traces include cost data, so it must be opted out
+        # EXPECTED: fails by default; on_unmeasured="pass" passes
         from mltk.integrations.trace_quality import (
             assert_trace_quality,
         )
 
+        with pytest.raises(MltkAssertionError, match="cost_usd not measured"):
+            assert_trace_quality(
+                trace={"output": "hello"},
+                max_cost_usd=0.01,
+            )
         result = assert_trace_quality(
             trace={"output": "hello"},
             max_cost_usd=0.01,
+            on_unmeasured="pass",
         )
-
         assert result.passed is True
+        assert result.details["unmeasured"] == ["cost_usd"]
 
     def test_judge_fn_overrides_trace_score(self) -> None:
         # SCENARIO: judge_fn provided alongside trace["score"]
@@ -863,20 +875,31 @@ class TestAssertTraceQuality:
 
     def test_empty_trace_with_all_thresholds(self) -> None:
         # SCENARIO: Empty trace dict with all thresholds set
-        # WHY: Missing keys should skip, not fail
-        # EXPECTED: result.passed is True (nothing to check)
+        # WHY: Nothing was measured, so no budget can be verified
+        # EXPECTED: fails by default; skipped under on_unmeasured="skip"
         from mltk.integrations.trace_quality import (
             assert_trace_quality,
         )
 
+        with pytest.raises(MltkAssertionError) as exc:
+            assert_trace_quality(
+                trace={},
+                max_latency_ms=500,
+                max_cost_usd=0.01,
+                min_score=0.8,
+            )
+        assert exc.value.result.details["unmeasured"] == [
+            "latency_ms", "cost_usd", "score",
+        ]
         result = assert_trace_quality(
             trace={},
             max_latency_ms=500,
             max_cost_usd=0.01,
             min_score=0.8,
+            on_unmeasured="skip",
         )
-
         assert result.passed is True
+        assert result.details["skipped"] is True
 
     def test_judge_fn_with_no_min_score(self) -> None:
         # SCENARIO: judge_fn provided but min_score is None
@@ -994,8 +1017,8 @@ class TestAssertTraceQualityEdgeCases:
 
     def test_zero_spans_empty_trace(self) -> None:
         # SCENARIO: Empty trace with all thresholds set
-        # WHY: Zero spans should skip, not fail
-        # EXPECTED: result.passed is True
+        # WHY: Zero spans measured nothing; on_unmeasured="pass" opts out
+        # EXPECTED: passes with every check listed as unmeasured
         from mltk.integrations.trace_quality import (
             assert_trace_quality,
         )
@@ -1005,8 +1028,10 @@ class TestAssertTraceQualityEdgeCases:
             max_latency_ms=100,
             max_cost_usd=0.001,
             min_score=0.9,
+            on_unmeasured="pass",
         )
         assert result.passed is True
+        assert result.details["unmeasured"] == ["latency_ms", "cost_usd", "score"]
 
     def test_all_spans_pass(self) -> None:
         # SCENARIO: All metrics well within thresholds

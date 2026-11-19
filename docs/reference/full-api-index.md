@@ -1,5 +1,5 @@
 # mltk Full API Index
-> Generated 2026-11-16 by scripts/generate_skill_index.py
+> Generated 2026-11-19 by scripts/generate_skill_index.py
 
 **245** assertions | **13** MCP tools | **20 top-level + 5 groups** CLI | **8** scanners
 
@@ -455,9 +455,9 @@ def assert_sagemaker_step_status(execution_arn: str, step_name: str, expected_st
 ```
 > Assert that a specific SageMaker Pipeline step has the expected status.
 
-**`assert_trace_quality`** (integrations/trace_quality.py:73)
+**`assert_trace_quality`** (integrations/trace_quality.py:89)
 ```python
-def assert_trace_quality(trace: dict[str, Any], *, max_latency_ms: float | None=None, max_cost_usd: float | None=None, min_score: float | None=None, judge_fn: Callable[[dict[str, Any]], float] | None=None)
+def assert_trace_quality(trace: dict[str, Any], *, max_latency_ms: float | None=None, max_cost_usd: float | None=None, min_score: float | None=None, judge_fn: Callable[[dict[str, Any]], float] | None=None, on_error: EvalOnError='fail_if_all', on_unmeasured: OnUnmeasured='fail')
 ```
 > Assert that an LLM trace meets production quality thresholds.
 
@@ -469,9 +469,9 @@ def assert_agent_handoff(agent_names: list[str], expected_flow: list[str], stric
 ```
 > Assert that agent handoffs follow an expected flow.
 
-**`assert_answer_relevancy`** (domains/llm/rag.py:298)
+**`assert_answer_relevancy`** (domains/llm/rag.py:391)
 ```python
-def assert_answer_relevancy(question: str, answer: str, min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
+def assert_answer_relevancy(question: str, answer: str, min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail', *, on_error: EvalOnError='fail_if_all')
 ```
 > Assert answer addresses the question.
 
@@ -487,21 +487,21 @@ def assert_coherence(text: str, min_score: float=0.3)
 ```
 > Assert text is internally coherent.
 
-**`assert_context_precision`** (domains/llm/rag.py:431)
+**`assert_context_precision`** (domains/llm/rag.py:542)
 ```python
 def assert_context_precision(relevant_ids: list[str], retrieved_ids: list[str], min_precision: float=0.5, on_empty: str='fail')
 ```
 > Assert precision of retrieval: |relevant ∩ retrieved| / |retrieved|.
 
-**`assert_context_recall`** (domains/llm/rag.py:499)
+**`assert_context_recall`** (domains/llm/rag.py:610)
 ```python
 def assert_context_recall(relevant_ids: list[str], retrieved_ids: list[str], min_recall: float=0.5, on_empty: str='fail')
 ```
 > Assert recall of retrieval: |relevant ∩ retrieved| / |relevant|.
 
-**`assert_context_relevancy`** (domains/llm/rag.py:165)
+**`assert_context_relevancy`** (domains/llm/rag.py:240)
 ```python
-def assert_context_relevancy(question: str, context: str | list[str], min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
+def assert_context_relevancy(question: str, context: str | list[str], min_score: float=0.5, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail', *, on_error: EvalOnError='fail_if_all')
 ```
 > Assert retrieved context is relevant to the question.
 
@@ -517,21 +517,21 @@ def assert_conversation_completeness(turns: list[dict[str, str]], expected_topic
 ```
 > Assert conversation covers all expected topics.
 
-**`assert_cost_budget`** (domains/llm/agentic.py:581)
+**`assert_cost_budget`** (domains/llm/agentic.py:586)
 ```python
 def assert_cost_budget(trace: AgentTrace, max_total_tokens: int | None=None, max_duration_ms: float | None=None, *, on_unmeasured: OnUnmeasured='fail')
 ```
 > Assert an agent's resource consumption stays within budget.
 
-**`assert_error_recovery`** (domains/llm/agentic.py:744)
+**`assert_error_recovery`** (domains/llm/agentic.py:771)
 ```python
 def assert_error_recovery(trace: AgentTrace, max_consecutive_errors: int=3)
 ```
 > Assert the agent does not produce long streaks of consecutive errors.
 
-**`assert_faithfulness`** (domains/llm/rag.py:31)
+**`assert_faithfulness`** (domains/llm/rag.py:88)
 ```python
-def assert_faithfulness(answer: str, context: str | list[str], min_score: float=0.7, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail')
+def assert_faithfulness(answer: str, context: str | list[str], min_score: float=0.7, method: str='lexical', embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, on_empty: str='fail', *, on_error: EvalOnError='fail_if_all')
 ```
 > Assert answer is grounded in the provided context.
 
@@ -553,15 +553,15 @@ def assert_knowledge_retention(turns: list[dict[str, str]], min_score: float=0.7
 ```
 > Assert bot retains factual knowledge across conversation turns.
 
-**`assert_llm_judge_pairwise`** (domains/llm/judge.py:378)
+**`assert_llm_judge_pairwise`** (domains/llm/judge.py:419)
 ```python
-def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None, *, on_error: EvalOnError='fail_if_all')
+def assert_llm_judge_pairwise(judge_fn: Callable[[str], str], prompts: list[str], responses_a: list[str], responses_b: list[str], expected_winner: str='a', min_win_rate: float=0.6, criterion: str='helpfulness', rubric: str | None=None, *, on_error: EvalOnError='fail_if_all', on_empty: str='fail', reasoning_delimiters: Sequence[tuple[str, str]]=())
 ```
 > Assert that one set of responses is preferred over another by a judge LLM.
 
-**`assert_llm_judge_score`** (domains/llm/judge.py:218)
+**`assert_llm_judge_score`** (domains/llm/judge.py:252)
 ```python
-def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all')
+def assert_llm_judge_score(judge_fn: Callable[[str], float], prompts: list[str], responses: list[str], criterion: str='helpfulness', min_score: float=3.0, max_score: float=5.0, rubric: str | None=None, *, reasoning_delimiters: Sequence[tuple[str, str]]=(), legacy_parse: bool=False, on_error: EvalOnError='fail_if_all', on_empty: str='fail')
 ```
 > Assert that LLM responses meet a minimum quality score via judge evaluation.
 
@@ -571,31 +571,31 @@ def assert_map_at_k(relevant: list[set], retrieved: list[list], k: int=10, min_m
 ```
 > Assert that Mean Average Precision@K meets a minimum threshold.
 
-**`assert_mcp_context_window`** (domains/llm/mcp.py:558)
+**`assert_mcp_context_window`** (domains/llm/mcp.py:559)
 ```python
 def assert_mcp_context_window(trace: McpTrace, model_context_limit: int | None=None, max_utilization: float=0.9, *, on_unmeasured: OnUnmeasured='fail')
 ```
 > Assert that context window utilization stays within budget.
 
-**`assert_mcp_error_recovery`** (domains/llm/mcp.py:691)
+**`assert_mcp_error_recovery`** (domains/llm/mcp.py:710)
 ```python
 def assert_mcp_error_recovery(trace: McpTrace, max_same_tool_retries: int=3)
 ```
 > Assert the agent does not retry the same tool with same args.
 
-**`assert_mcp_resource_access`** (domains/llm/mcp.py:438)
+**`assert_mcp_resource_access`** (domains/llm/mcp.py:439)
 ```python
 def assert_mcp_resource_access(trace: McpTrace, expected_uris: Sequence[str] | None=None, forbidden_uris: Sequence[str] | None=None, max_reads: int | None=None)
 ```
 > Assert correct resource access patterns in an MCP session.
 
-**`assert_mcp_tool_schema_conformance`** (domains/llm/mcp.py:194)
+**`assert_mcp_tool_schema_conformance`** (domains/llm/mcp.py:195)
 ```python
 def assert_mcp_tool_schema_conformance(tool_schema: dict[str, Any], actual_args: dict[str, Any], tool_name: str='')
 ```
 > Assert that tool arguments conform to the tool's JSON Schema.
 
-**`assert_mcp_tool_selection`** (domains/llm/mcp.py:305)
+**`assert_mcp_tool_selection`** (domains/llm/mcp.py:306)
 ```python
 def assert_mcp_tool_selection(trace: McpTrace, expected_tools: Sequence[str], server: str | None=None)
 ```
@@ -625,21 +625,21 @@ def assert_no_agent_loop(agent_names: list[str], max_cycles: int=2)
 ```
 > Assert that a multi-agent delegation sequence contains no runaway loops.
 
-**`assert_no_forbidden_actions`** (domains/llm/agentic.py:319)
+**`assert_no_forbidden_actions`** (domains/llm/agentic.py:324)
 ```python
 def assert_no_forbidden_actions(trace: AgentTrace, forbidden_tools: list[str])
 ```
 > Assert that no tool call in the trace used a forbidden tool.
 
-**`assert_no_hallucinated_tools`** (domains/llm/agentic.py:518)
+**`assert_no_hallucinated_tools`** (domains/llm/agentic.py:523)
 ```python
 def assert_no_hallucinated_tools(trace: AgentTrace, known_tools: list[str])
 ```
 > Assert every tool call in the trace targets an actually-available tool.
 
-**`assert_no_hallucination`** (domains/llm/safety.py:278)
+**`assert_no_hallucination`** (domains/llm/safety.py:286)
 ```python
-def assert_no_hallucination(claims: list[str], sources: list[str], method: str='lexical', min_coverage: float=0.3, embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_no_hallucination(claims: list[str], sources: list[str], method: str='lexical', min_coverage: float=0.3, embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, *, on_empty: str='fail', on_error: EvalOnError='strict')
 ```
 > Assert LLM claims are supported by source documents.
 
@@ -649,19 +649,19 @@ def assert_no_lost_in_middle(model_fn: Callable[[str], str], facts: list[str], q
 ```
 > Assert that an LLM does not lose information in the middle of its context.
 
-**`assert_no_redundant_calls`** (domains/llm/agentic.py:418)
+**`assert_no_redundant_calls`** (domains/llm/agentic.py:423)
 ```python
 def assert_no_redundant_calls(trace: AgentTrace, max_repeat: int=2, ignore_tools: list[str] | None=None)
 ```
 > Assert no tool is called more than *max_repeat* times consecutively.
 
-**`assert_no_system_prompt_leakage`** (domains/llm/safety.py:492)
+**`assert_no_system_prompt_leakage`** (domains/llm/safety.py:569)
 ```python
 def assert_no_system_prompt_leakage(model_fn: Callable[[str], str], system_prompt: str, extraction_payloads: list[str] | None=None, min_overlap_threshold: float=0.3, method: str='lexical', embedding_model: str='all-mpnet-base-v2')
 ```
 > Assert that the model does not leak its system prompt.
 
-**`assert_no_toxicity`** (domains/llm/safety.py:56)
+**`assert_no_toxicity`** (domains/llm/safety.py:64)
 ```python
 def assert_no_toxicity(texts: list[str], max_toxic_pct: float=0.01, method: str='regex', patterns: list[str] | None=None, classifier_threshold: float=0.5, classifier_model: str='unitary/toxic-bert', classifier_revision: str='4d6c22e74ba2fdd26bc4f7238f50766b045a0d94')
 ```
@@ -703,13 +703,13 @@ def assert_recall_at_k(relevant: list[set], retrieved: list[list], k: int=10, mi
 ```
 > Assert that mean Recall@K meets a minimum threshold.
 
-**`assert_refusal_consistency`** (domains/llm/safety.py:708)
+**`assert_refusal_consistency`** (domains/llm/safety.py:785)
 ```python
 def assert_refusal_consistency(model_fn: Callable[[str], str], unsafe_prompts: list[str], min_refusal_rate: float=0.9, refusal_patterns: list[str] | None=None, on_empty: str='fail')
 ```
 > Assert that a model consistently refuses known-unsafe prompts.
 
-**`assert_safety_taxonomy`** (domains/llm/safety.py:823)
+**`assert_safety_taxonomy`** (domains/llm/safety.py:900)
 ```python
 def assert_safety_taxonomy(model_fn: Callable[[str], str], prompts_by_category: dict[str, list[str]], min_refusal_per_category: float=0.8, refusal_patterns: list[str] | None=None)
 ```
@@ -721,31 +721,31 @@ def assert_semantic_similarity(references: list[str], hypotheses: list[str], min
 ```
 > Assert semantic similarity between reference and generated texts.
 
-**`assert_span_budget`** (domains/llm/span_eval.py:209)
+**`assert_span_budget`** (domains/llm/span_eval.py:279)
 ```python
 def assert_span_budget(trace: SpanTrace, max_total_tokens: int | None=None, max_total_cost_usd: float | None=None, max_spans: int | None=None, max_errors: int=0)
 ```
 > Assert trace stays within resource budget.
 
-**`assert_span_latency`** (domains/llm/span_eval.py:117)
+**`assert_span_latency`** (domains/llm/span_eval.py:187)
 ```python
 def assert_span_latency(trace: SpanTrace, max_latency_ms: float | None=None, by_kind: dict[SpanKind, float] | None=None)
 ```
 > Assert spans meet latency thresholds.
 
-**`assert_span_quality`** (domains/llm/span_eval.py:34)
+**`assert_span_quality`** (domains/llm/span_eval.py:43)
 ```python
-def assert_span_quality(trace: SpanTrace, max_error_rate: float=0.0, judge_fn: Callable[[Span], float] | None=None, min_score: float=0.5, span_kinds: list[SpanKind] | None=None)
+def assert_span_quality(trace: SpanTrace, max_error_rate: float=0.0, judge_fn: Callable[[Span], float] | None=None, min_score: float=0.5, span_kinds: list[SpanKind] | None=None, *, on_error: EvalOnError='strict', on_empty: str='fail')
 ```
 > Assert quality across spans in a trace.
 
-**`assert_span_sequence`** (domains/llm/span_eval.py:303)
+**`assert_span_sequence`** (domains/llm/span_eval.py:373)
 ```python
 def assert_span_sequence(trace: SpanTrace, required_kinds: list[SpanKind] | None=None, required_names: list[str] | None=None, forbidden_kinds: list[SpanKind] | None=None, min_spans: int=1)
 ```
 > Assert trace contains expected span structure.
 
-**`assert_step_efficiency`** (domains/llm/agentic.py:371)
+**`assert_step_efficiency`** (domains/llm/agentic.py:376)
 ```python
 def assert_step_efficiency(trace: AgentTrace, max_steps: int)
 ```
@@ -769,7 +769,7 @@ def assert_summary_faithfulness(source: str, summary: str, min_faithfulness: flo
 ```
 > Assert that a summary does not introduce content absent from the source.
 
-**`assert_task_completion`** (domains/llm/agentic.py:32)
+**`assert_task_completion`** (domains/llm/agentic.py:37)
 ```python
 def assert_task_completion(expected_output: str, actual_output: str, min_score: float=0.7)
 ```
@@ -781,19 +781,19 @@ def assert_text_length(text: str, min_words: int | None=None, max_words: int | N
 ```
 > Assert text word count is within bounds.
 
-**`assert_tool_call_correctness`** (domains/llm/agentic.py:156)
+**`assert_tool_call_correctness`** (domains/llm/agentic.py:161)
 ```python
 def assert_tool_call_correctness(expected_args: dict, actual_args: dict, tolerance: float=0.01)
 ```
 > Assert tool was called with correct arguments.
 
-**`assert_tool_chain`** (domains/llm/agentic.py:244)
+**`assert_tool_chain`** (domains/llm/agentic.py:249)
 ```python
 def assert_tool_chain(trace: AgentTrace, expected_tools: list[str], strict_order: bool=False)
 ```
 > Assert that an agent trace contains the expected sequence of tool calls.
 
-**`assert_tool_selection`** (domains/llm/agentic.py:85)
+**`assert_tool_selection`** (domains/llm/agentic.py:90)
 ```python
 def assert_tool_selection(expected_tools: list[str], actual_tools: list[str])
 ```
@@ -831,7 +831,7 @@ def assert_directional_expectation(model_fn: Callable[[str], str], input_text: s
 ```
 > Assert a perturbation changes output in an expected direction.
 
-**`assert_format_invariance`** (domains/llm/behavioral/invariance.py:389)
+**`assert_format_invariance`** (domains/llm/behavioral/invariance.py:495)
 ```python
 def assert_format_invariance(model_fn: Callable[[str], Any], input_text: str, transforms: list[Callable[[str], str]] | None=None, equivalence_method: str='token_f1', min_invariance: float=0.9, similarity_threshold: float | None=None, embedding_model: str='all-mpnet-base-v2')
 ```
@@ -843,9 +843,9 @@ def assert_output_stability(model_fn: Callable[[str], Any], inputs: list[str], n
 ```
 > Assert a model produces consistent outputs across repeated runs.
 
-**`assert_paraphrase_invariance`** (domains/llm/behavioral/invariance.py:207)
+**`assert_paraphrase_invariance`** (domains/llm/behavioral/invariance.py:209)
 ```python
-def assert_paraphrase_invariance(model_fn: Callable[[str], Any], paraphrases: list[str], equivalence_method: str='token_f1', min_invariance: float=0.8, similarity_threshold: float | None=None, embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None)
+def assert_paraphrase_invariance(model_fn: Callable[[str], Any], paraphrases: list[str], equivalence_method: str='token_f1', min_invariance: float=0.8, similarity_threshold: float | None=None, embedding_model: str='all-mpnet-base-v2', nli_model: str='cross-encoder/nli-deberta-v3-base', judge_fn: Callable[[str, str], float] | None=None, *, on_error: EvalOnError='fail_if_all', min_valid_fraction: float | None=None)
 ```
 > Assert that paraphrased inputs produce equivalent outputs.
 
@@ -1177,13 +1177,13 @@ def assert_vqa_accuracy(question: str, image: ImageInput | None, expected_answer
 
 ### nlp
 
-**`assert_bleu`** (domains/nlp/generation.py:54)
+**`assert_bleu`** (domains/nlp/generation.py:87)
 ```python
 def assert_bleu(references: list[str], hypotheses: list[str], min_score: float=0.3, *, tokenizer: BleuTokenizer='whitespace')
 ```
 > Assert BLEU score meets minimum threshold.
 
-**`assert_chrf`** (domains/nlp/generation.py:206)
+**`assert_chrf`** (domains/nlp/generation.py:241)
 ```python
 def assert_chrf(references: list[str], hypotheses: list[str], min_score: float=0.3, *, word_order: int=0)
 ```
@@ -1213,7 +1213,7 @@ def assert_no_sentiment_drift(ref_texts: list[str], cur_texts: list[str], max_dr
 ```
 > Assert sentiment distribution hasn't shifted between datasets.
 
-**`assert_rouge`** (domains/nlp/generation.py:141)
+**`assert_rouge`** (domains/nlp/generation.py:175)
 ```python
 def assert_rouge(references: list[str], hypotheses: list[str], variant: str='rougeL', min_score: float=0.3)
 ```
@@ -1801,7 +1801,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 
 *(no dataclass fields)*
 
-### `McpToolCall` (domains/llm/mcp.py:63)
+### `McpToolCall` (domains/llm/mcp.py:64)
 > MCP-specific tool call with server namespace and schema.
 
 | Field | Type | Default |
@@ -1810,7 +1810,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | schema | `dict[str, Any]` | `field(default_factory=dict)` |
 | context_tokens | `int` | `0` |
 
-### `McpResourceAccess` (domains/llm/mcp.py:82)
+### `McpResourceAccess` (domains/llm/mcp.py:83)
 > A resource read within an MCP session.
 
 | Field | Type | Default |
@@ -1822,7 +1822,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | error | `str | None` | `None` |
 | duration_ms | `float` | `0.0` |
 
-### `McpTrace` (domains/llm/mcp.py:108)
+### `McpTrace` (domains/llm/mcp.py:109)
 > MCP-aware agent trace extending :class:`AgentTrace`.
 
 | Field | Type | Default |
@@ -1830,7 +1830,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | resource_accesses | `list[McpResourceAccess]` | `field(default_factory=list)` |
 | model_context_limit | `int` | `0` |
 
-### `ToolCall` (domains/llm/trace.py:16)
+### `ToolCall` (domains/llm/trace.py:18)
 > A single tool/function call within an agent trace.
 
 | Field | Type | Default |
@@ -1841,7 +1841,7 @@ Listed rows are invocable leaf paths (top-level commands and group subcommands).
 | error | `str | None` | `None` |
 | duration_ms | `float | None` | `None` |
 
-### `AgentTrace` (domains/llm/trace.py:86)
+### `AgentTrace` (domains/llm/trace.py:100)
 > A complete execution trace of an AI agent.
 
 | Field | Type | Default |

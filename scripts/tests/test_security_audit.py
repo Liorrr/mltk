@@ -78,3 +78,24 @@ def test_pip_audit_is_not_installed_into_audited_venv():
 
 def test_security_audit_does_not_ignore_vulnerabilities():
     assert "--ignore-vuln" not in security_workflow()
+
+
+def _extras(spec: str) -> set[str]:
+    return set(spec[spec.index("[") + 1:spec.index("]")].split(","))
+
+
+def test_ci_install_includes_the_nlp_extra():
+    # ROUGE, BLEU and chrF tests skip without it; the audit installs the same set.
+    [editable] = [item for item in preflight.CI_INSTALL if item.startswith(".[")]
+    assert {"dev", "server", "nlp"} <= _extras(editable)
+
+
+def test_dev_extra_installs_httpx_for_the_server_tests():
+    # FastAPI's TestClient needs httpx; without it the server API tests skip.
+    import re
+
+    import tomllib
+
+    pyproject = tomllib.loads((preflight.ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = pyproject["project"]["optional-dependencies"]["dev"]
+    assert any(re.match(r"httpx\b", requirement) for requirement in dev)

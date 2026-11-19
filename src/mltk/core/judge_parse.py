@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
 _FLOAT_PATTERN = re.compile(r"(\d+(?:\.\d+)?)")
@@ -34,6 +34,70 @@ def check_score_range(score: float, max_score: float) -> str | None:
     if score < 0 or score > max_score:
         return f"score {score} outside [0, {max_score}]"
     return None
+
+
+def _is_boolean(value: object) -> bool:
+    """True for ``bool``, ``np.bool_`` and boolean 0-d arrays or tensors.
+
+    NumPy is not imported: its scalar type lives in the ``numpy`` module, and
+    arrays and tensors expose a ``dtype`` whose name is ``bool``.
+    """
+    if isinstance(value, bool):
+        return True
+    kind = type(value)
+    if kind.__module__ == "numpy" and kind.__name__ in ("bool", "bool_"):
+        return True
+    dtype = getattr(value, "dtype", None)
+    return dtype is not None and str(dtype) in ("bool", "torch.bool")
+
+
+def callback_score(
+    value: object, *, check_range: bool = True,
+) -> tuple[float | None, str | None]:
+    """Validate a number returned by a judge callback.
+
+    The value is read with ``float()``, so numeric strings, NumPy scalars,
+    ``Decimal`` and 0-d tensors keep working. Text is not searched for a
+    score (use :func:`parse_judge_score` for judge replies in prose).
+
+    It is an error when the value is ``None``, a boolean (including
+    ``np.bool_``), cannot be read by ``float()``, is not finite, or, with
+    ``check_range``, lies outside ``[0, 1]``.
+
+    Returns:
+        ``(score, None)`` for a valid score, else ``(None, error)``.
+    """
+    if value is None:
+        return None, "judge returned None, not a score"
+    if _is_boolean(value):
+        return None, f"judge returned a boolean ({value!r}), not a score"
+    try:
+        score = float(value)  # type: ignore[arg-type]
+    except Exception:  # any failure to read a number is an error
+        return None, f"judge returned a non-numeric value: {repr(value)[:80]}"
+    if not math.isfinite(score):
+        return None, f"non-finite score: {score}"
+    if check_range:
+        error = check_score_range(score, 1.0)
+        if error is not None:
+            return None, error
+    return score, None
+
+
+def call_judge(
+    judge_fn: Callable[..., object], *args: object, check_range: bool = True,
+) -> tuple[float | None, str | None]:
+    """Call *judge_fn* and validate its score with :func:`callback_score`.
+
+    An exception raised by the judge is an error, reported as
+    ``"<ExceptionType>: <message>"``. ``BaseException`` subclasses such as
+    ``KeyboardInterrupt`` propagate.
+    """
+    try:
+        value = judge_fn(*args)
+    except Exception as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+    return callback_score(value, check_range=check_range)
 
 
 def _strip_reasoning(raw: str, delimiters: Sequence[tuple[str, str]]) -> str | None:

@@ -441,11 +441,16 @@ class TestMethodInDetails:
 class TestEdgeCases:
     """Edge cases for method dispatch paths."""
 
-    def test_empty_claims_all_methods(self) -> None:
-        """Empty claims list passes for lexical method."""
+    @pytest.mark.parametrize("method", ["lexical", "embedding", "nli"])
+    def test_empty_claims_all_methods(self, method: str) -> None:
+        """Empty claims list fails by default; on_empty="pass" keeps the pass."""
+        with pytest.raises(MltkAssertionError, match="No claims to check"):
+            assert_no_hallucination(
+                [], SOURCES, method=method, min_coverage=0.5,
+            )
         result = assert_no_hallucination(
-            [], SOURCES, method="lexical",
-            min_coverage=0.5,
+            [], SOURCES, method=method,
+            min_coverage=0.5, on_empty="pass",
         )
         assert result.passed is True
         assert result.details["total_claims"] == 0

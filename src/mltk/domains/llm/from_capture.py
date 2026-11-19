@@ -51,7 +51,9 @@ def to_span_trace(record: CaptureRecord) -> SpanTrace:
     """Adapt *record* to :class:`SpanTrace`.
 
     No tool calls → a single ``LLM`` span. Otherwise an ``AGENT`` root
-    plus one ``TOOL`` span per captured call. ``Span`` token and duration
+    plus one ``TOOL`` span per captured call. Either way the run's input
+    and output tokens sit on the first span (the ``LLM`` span or the
+    ``AGENT`` root); ``TOOL`` spans carry none. ``Span`` token and duration
     fields are not optional, so unobserved values become ``0`` here; use
     :func:`to_agent_trace` when a budget check must see "not measured".
     """
@@ -66,7 +68,13 @@ def to_span_trace(record: CaptureRecord) -> SpanTrace:
         )
         return SpanTrace(spans=[span], total_duration_ms=duration)
 
-    root = Span(name="agent", kind=SpanKind.AGENT, duration_ms=duration)
+    root = Span(
+        name="agent",
+        kind=SpanKind.AGENT,
+        duration_ms=duration,
+        input_tokens=record.input_tokens or 0,
+        output_tokens=record.output_tokens or 0,
+    )
     spans: list[Span] = [root]
     for captured in record.tool_calls:
         spans.append(

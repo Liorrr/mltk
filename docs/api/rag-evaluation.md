@@ -20,6 +20,33 @@ RAG systems combine a retriever (context fetch) and a generator (LLM). Failures 
 | **Context Precision** | What fraction of retrieved chunks are actually useful? | Low signal-to-noise in retrieval (too many irrelevant chunks) |
 | **Context Recall** | Does the retrieved context cover the expected answer? | Retriever missing key passages |
 
+### LLM judge method
+
+Faithfulness, context relevancy and answer relevancy also accept
+`method="llm"` with a `judge_fn(first, second) -> float` that returns a score
+in `[0, 1]`. The value is read with `float()`, so NumPy scalars, numeric
+strings and `Decimal` work. A **judge error** is a call that raises, or a
+return of `None`, a boolean, a non-finite number or a value outside `[0, 1]`
+(for example a 0--10 score: rescale it before returning). There is one judge
+call, so under the default `on_error="fail_if_all"` (and under `"strict"`) a
+judge error fails the result with the error in `details["errors"]`.
+`on_error="zero"` scores the call `0.0` instead, and raises `ValueError` up
+front when `min_score <= 0`, where that `0.0` would pass. The details include
+`errored_count`, `n_valid`, `on_error` and `errors`.
+
+```python
+from mltk.domains.llm import assert_faithfulness
+
+result = assert_faithfulness(
+    "The Eiffel Tower is in Paris.",
+    "The Eiffel Tower stands in Paris, France.",
+    method="llm",
+    judge_fn=lambda answer, context: 0.9,  # your LLM call, scaled to [0, 1]
+    min_score=0.7,
+)
+assert result.details["errored_count"] == 0
+```
+
 ### assert_faithfulness
 
 Verify the answer does not introduce claims absent from the retrieved context.
@@ -40,8 +67,12 @@ assert_faithfulness(answer, context, min_score=0.5)
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `answer` | `str` | *(required)* | LLM-generated answer |
-| `context` | `list[str]` | *(required)* | Retrieved context chunks |
-| `min_score` | `float` | `0.5` | Minimum keyword-overlap ratio required |
+| `context` | `str \| list[str]` | *(required)* | Retrieved context chunks |
+| `min_score` | `float` | `0.7` | Minimum grounding score required |
+| `method` | `str` | `"lexical"` | `"lexical"` (token overlap), `"embedding"`, `"nli"` or `"llm"` |
+| `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Required for `method="llm"`; returns a score in `[0, 1]` (see [LLM judge method](#llm-judge-method)) |
+| `on_empty` | `str` | `"fail"` | Policy for an empty answer: `"fail"`, `"skip"` or `"pass"` |
+| `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for a judge error with `method="llm"`: `"fail_if_all"` or `"strict"` (both fail) or `"zero"` |
 
 ---
 
@@ -64,8 +95,12 @@ assert_context_relevancy(
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `question` | `str` | *(required)* | The user question |
-| `context` | `list[str]` | *(required)* | Retrieved context chunks |
-| `min_score` | `float` | `0.3` | Minimum overlap ratio per chunk |
+| `context` | `str \| list[str]` | *(required)* | Retrieved context chunks |
+| `min_score` | `float` | `0.5` | Minimum relevancy score required |
+| `method` | `str` | `"lexical"` | `"lexical"` (token overlap), `"embedding"`, `"nli"` or `"llm"` |
+| `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Required for `method="llm"`; returns a score in `[0, 1]` (see [LLM judge method](#llm-judge-method)) |
+| `on_empty` | `str` | `"fail"` | Policy for an empty question: `"fail"`, `"skip"` or `"pass"` |
+| `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for a judge error with `method="llm"`: `"fail_if_all"` or `"strict"` (both fail) or `"zero"` |
 
 ---
 
@@ -89,7 +124,11 @@ assert_answer_relevancy(
 |------|------|---------|-------------|
 | `question` | `str` | *(required)* | The user question |
 | `answer` | `str` | *(required)* | LLM-generated answer |
-| `min_score` | `float` | `0.3` | Minimum keyword overlap between question and answer |
+| `min_score` | `float` | `0.5` | Minimum relevancy score required |
+| `method` | `str` | `"lexical"` | `"lexical"` (token overlap), `"embedding"`, `"nli"` or `"llm"` |
+| `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Required for `method="llm"`; returns a score in `[0, 1]` (see [LLM judge method](#llm-judge-method)) |
+| `on_empty` | `str` | `"fail"` | Policy for an empty question: `"fail"`, `"skip"` or `"pass"` |
+| `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for a judge error with `method="llm"`: `"fail_if_all"` or `"strict"` (both fail) or `"zero"` |
 
 ---
 

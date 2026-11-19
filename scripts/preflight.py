@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CI_INSTALL = [
-    "-e", ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx]", "onnx",
+    "-e", ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx,nlp]", "onnx",
 ]
 INSTALLS = {
     "lint": ["ruff"],
