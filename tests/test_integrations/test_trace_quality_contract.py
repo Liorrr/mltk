@@ -116,6 +116,46 @@ def test_non_finite_value_fails_under_every_policy(
 
 
 @pytest.mark.parametrize("key", ["latency_ms", "cost_usd"])
+@pytest.mark.parametrize(
+    "value",
+    [Decimal("0.004"), np.array(0.004), np.float32(0.004), np.int64(0), 0],
+    ids=["Decimal", "0d-array", "np.float32", "np.int64", "int"],
+)
+def test_numeric_latency_or_cost_types_are_measurements(key: str, value: object) -> None:
+    # Values are read with float(), as the score is: these are measured and
+    # within budget (before this check, the gate compared them directly).
+    result = _run({key: value}, max_latency_ms=500.0, max_cost_usd=0.01,
+                  on_unmeasured="skip")
+    assert result.passed is True
+    assert result.details["invalid"] == []
+    assert result.details["checked"] == [key]
+    assert result.details[key] == pytest.approx(float(value))
+
+
+@pytest.mark.parametrize("key", ["latency_ms", "cost_usd"])
+def test_numeric_type_over_budget_still_fails(key: str) -> None:
+    # Mirror: a Decimal over the budget is compared, not waved through.
+    result = _run({key: Decimal("999")}, max_latency_ms=500.0, max_cost_usd=0.01,
+                  on_unmeasured="skip")
+    assert result.passed is False
+    assert result.details["invalid"] == []
+    assert result.details["checked"] == [key]
+
+
+@pytest.mark.parametrize("key", ["latency_ms", "cost_usd"])
+@pytest.mark.parametrize(
+    "value",
+    ["450", b"450", True, np.bool_(True), Decimal("NaN"), Decimal("-1"), [1.0]],
+    ids=["str", "bytes", "True", "np.bool_", "Decimal-NaN", "Decimal-neg", "list"],
+)
+def test_non_measurements_stay_invalid(key: str, value: object) -> None:
+    result = _run({key: value}, max_latency_ms=500.0, max_cost_usd=0.01,
+                  on_unmeasured="pass")
+    assert result.passed is False
+    assert [entry.split("=")[0] for entry in result.details["invalid"]] == [key]
+
+
+@pytest.mark.parametrize("key", ["latency_ms", "cost_usd"])
 @pytest.mark.parametrize("on_unmeasured", ["fail", "pass", "skip"])
 def test_negative_latency_or_cost_fails_under_every_policy(
     key: str, on_unmeasured: str,

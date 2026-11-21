@@ -76,13 +76,23 @@ from mltk.core.error_policy import (
 )
 from mltk.core.judge_parse import call_judge, callback_score
 from mltk.core.result import Severity, TestResult
-from mltk.domains.llm.trace import (
-    ON_UNMEASURED_OPTIONS,
-    OnUnmeasured,
-    is_valid_measurement,
-)
+from mltk.domains.llm.trace import ON_UNMEASURED_OPTIONS, OnUnmeasured
 
 _NAME = "integrations.trace_quality"
+
+
+def _measurement(value: object) -> float | None:
+    """Read a latency or cost with ``float()``; ``None`` if it is not one.
+
+    ``Decimal``, NumPy scalars and 0-d arrays are measurements. Text, a
+    boolean, a non-finite number or a negative value is not.
+    """
+    if isinstance(value, (str, bytes)):
+        return None
+    measured, error = callback_score(value, check_range=False)
+    if error is not None or measured is None or measured < 0:
+        return None
+    return measured
 
 
 @timed_assertion
@@ -137,9 +147,12 @@ def assert_trace_quality(
     - ``"skip"``: unmeasured budgets are dropped; if no budget was
       measured, the result is skipped.
 
-    A measured ``0`` is checked normally. A latency or cost that is
-    not a finite, non-negative number, or a precomputed score that is
-    not a finite number, is invalid and fails under every policy.
+    A measured ``0`` is checked normally. Latency, cost and a
+    precomputed score are read with ``float()``, so ``Decimal`` and
+    NumPy values work. A latency or cost that is not a finite,
+    non-negative number (or is text or a boolean), or a precomputed
+    score that is not a finite number, is invalid and fails under
+    every policy.
     A judge returning ``None`` is a judge error, not an unmeasured
     score.
 
@@ -224,9 +237,11 @@ def assert_trace_quality(
         if actual is None:
             unmeasured.append(key)
             continue
-        if not is_valid_measurement(actual):
+        measured = _measurement(actual)
+        if measured is None:
             invalid.append(f"{key}={actual!r}")
             continue
+        actual = measured
         checked.append(key)
         details[key] = actual
         details[f"max_{key}"] = budget

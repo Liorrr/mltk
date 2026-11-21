@@ -456,8 +456,10 @@ def assert_trace_quality(
   `score` that a threshold needs fails by default. Pass
   `on_unmeasured="skip"` or `"pass"` for sources that do not record it.
   A measured `0` is checked normally.
-- **Invalid values.** A latency or cost that is not a finite, non-negative
-  number (`NaN`, `inf`, `-5`, a boolean, a string), or a precomputed score
+- **Invalid values.** Latency and cost are read with `float()`, so
+  `Decimal` and NumPy values (including 0-d arrays) are measurements. A
+  latency or cost that is not a finite, non-negative number (`NaN`, `inf`,
+  `-5`, a boolean, a string), or a precomputed score
   that is not a finite number, is invalid and fails under every
   `on_unmeasured` policy. It is listed in `details["invalid"]`.
 

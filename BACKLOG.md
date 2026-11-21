@@ -35,7 +35,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **Judge scores outside the scale are errors, and the judge docs match the parser** ([#48](https://github.com/Liorrr/mltk/pull/48)). See the CHANGELOG.
 - [x] **The CI dependency audit checks mlspec's dependencies** ([#50](https://github.com/Liorrr/mltk/pull/50)): it audits the CI-tested dependency set instead of pip-audit's own environment.
 
-## DONE (S0-S106: 245 assertions, 7011+ tests, 40 Rust tests) — v0.18.0
+## DONE (S0-S106: 245 assertions, 7037+ tests, 40 Rust tests) — v0.18.0
 
 ### v0.17.0 release — [#44](https://github.com/Liorrr/mltk/pull/44) and [#45](https://github.com/Liorrr/mltk/pull/45)
 - [x] Published **v0.17.0** on 2026-11-10 from master merge `5de15ee`: offline stored-run parity and statistics, stored-output evaluation/sample identity, strict scalar judge parsing and error accounting, refusal/contradiction fixes, plus skew shape/empty checks, ONNX loading and its optional extra, and cross-modal length validation. Version metadata and dated CHANGELOG were synchronized by the release commit. [Published release and migration details](https://github.com/Liorrr/mltk/releases/tag/v0.17.0).
@@ -119,7 +119,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 
 ---
 
-## DONE (S0-S92: 245 assertions, 7011+ tests, 38 Rust tests) — v0.12.4
+## DONE (S0-S92: 245 assertions, 7037+ tests, 38 Rust tests) — v0.12.4
 
 ### Phase A: Core Library (S0-S10) -- v0.1.0
 - [x] S0: Project skeleton, pyproject.toml, Cargo.toml, CI/CD
@@ -237,7 +237,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 - [x] **CI skips the server API tests.** Fixed (this change): the `dev` extra installs `httpx`, so the server API test modules run in CI.
   - Original note: `huggingface-hub` 2.x depends on `httpx2`, not `httpx`, so the CI test install has no `httpx`, and the seven server test modules that use FastAPI's `TestClient` (`test_access_control`, `test_auth`, `test_comparison`, `test_p1_fixes`, `test_rbac`, `test_routes`, `test_webhooks`) skip at import. Install `httpx` in the CI test environment (for example in the `dev` extra) so they run.
 - [x] **Prose counts that `bump.py refresh` cannot match go stale.** Audited (this change): `docs/index.md` now says 15 domain kits (the Domain Overview's list), 16 integrations and 7 built-in compliance frameworks plus custom ones (no SOC 2); the README, roadmap and `demo-script.md` (6 behavioral assertions, not 7) match. `bump.py refresh` still cannot match such prose forms, so new ones need a manual check at release.
-  - Original note: The count regexes match forms such as "245 assertions" and "7011+ tests", but not "224 purpose-built assertions", "238 unique names", "| Tests | 3,388+ |" or "24 commands", which stayed stale until the v0.18.0 release review fixed them in `README.md` and `docs/index.md`. Still unchecked on `docs/index.md`: "Domain kits | 12", "Integrations | 13", and "Compliance frameworks | 8", which lists SOC 2 although there is no built-in SOC 2 framework (only custom frameworks and the audit-log docs mention it).
+  - Original note: The count regexes match forms such as "245 assertions" and "7037+ tests", but not "224 purpose-built assertions", "238 unique names", "| Tests | 3,388+ |" or "24 commands", which stayed stale until the v0.18.0 release review fixed them in `README.md` and `docs/index.md`. Still unchecked on `docs/index.md`: "Domain kits | 12", "Integrations | 13", and "Compliance frameworks | 8", which lists SOC 2 although there is no built-in SOC 2 framework (only custom frameworks and the audit-log docs mention it).
 
 ### Follow-ups from the truthful-results fixes — found 2026-11-15
 - [ ] **The Docker publish wait step polls the wrong PyPI index.** `.github/workflows/docker-publish.yml` waits until `https://pypi.org/pypi/mlspec/<version>/json` returns 200, but the image build runs `pip install`, which reads the simple index (`https://pypi.org/simple/mlspec/`). The simple index lagged the JSON API on the v0.17.2 release, so the `runtime-full` build failed on its first attempt and passed on a rerun. Poll the simple index until it lists the version's files.
@@ -395,7 +395,7 @@ Tracked items for the ML Test Kit project. Updated after each sprint.
 ### Smart Dataset Importer / Test-Suite Mapper (DONE — S97–S99, epic complete)
 *One-click: point at a dataset + golden set → auto-generated, runnable mltk eval suite.*
 - [x] `DatasetImporter` (S97) — load datasets from HuggingFace Hub (`datasets`, mocked in tests) and local CSV/Parquet/JSON; normalize to columns/dtypes/rows. URL adapter deferred (`NotImplementedError` placeholder — download locally first).
-- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 7011+ tests, no network in tests.
+- [x] Schema/column auto-mapper (S97) — `ColumnRole`/`ColumnMapping`/`auto_map_columns()` infer field roles (input/golden/context/label/metadata) via deterministic name + dtype heuristics; `ColumnMapping.preview()`/`.override()` for a user-confirmable mapping; `ImportResult.to_eval_dataset()` materializes an `EvalDataset`. New `src/mltk/importer/` package, optional `mltk[importer]` extra (`datasets`, `pyarrow`), 7037+ tests, no network in tests.
 - [x] Task-type detection → suite generation (S98) — `classify_task()` (5-type taxonomy from role presence) + `build_suite()` (two-tier: dataset-quality baselines always; judge-scored golden/context checks when a `judge_fn` is given) + `generate_pytest()` (committable, byte-deterministic, ast-gated scaffold; Tier-2 model tests skipped behind a `predict_fn` fixture / `MLTK_PREDICT_FN`). Acceptance gate: emitted file for the bundled fixture runs green via subprocess.
 - [x] CLI entrypoint (S98) — `mltk import <source>`: preview → classify → suite summary → emit-by-default pytest file with `--force` overwrite protection. NOTE: descoped from the original wording — the CLI does not run the suite through the eval pipeline (solvers/scorers) at import time; running the emitted file is `pytest <file>`, and solver/scorer wiring belongs to the S99 registry/eval integration.
 - [x] MCP tool + registry integration (S99) — `mltk_import` (tool #13, return-only + opt-in write); `register_dataset()` runs a blocking `assert_dataset_quality` gate before saving to the versioned `DatasetRegistry` (`~/.mltk/datasets/`, `MLTK_DATASET_DIR` override).
