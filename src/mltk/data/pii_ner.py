@@ -102,16 +102,16 @@ _GLINER_TO_MLTK: dict[str, str] = {
 # real-world PII scanning use cases (a 50-page document is ~25K chars).
 _MAX_NER_TEXT_LENGTH: int = 100_000
 
-# Pinned model revisions for supply-chain safety. GLiNER models are
-# loaded from HuggingFace Hub -- pinning by commit SHA ensures a
-# compromised model push doesn't affect users. Update these hashes
-# when intentionally upgrading to a newer model version.
-# SEC: These MUST be pinned to commit SHAs before production use.
-# Run: `git ls-remote https://huggingface.co/urchade/gliner_medium-v2.1`
-# to get the current HEAD SHA, then replace "main" below.
+# Pinned GLiNER revisions (full 40-hex commit SHAs on the Hugging Face Hub)
+# for supply-chain safety. The pin covers what GLiNER loads from its own
+# repository: the model weights and ``gliner_config.json``. It does NOT cover
+# the DeBERTa backbone that GLiNER builds on: the backbone's ``config.json``,
+# ``tokenizer_config.json`` and ``spm.model`` are fetched from the backbone
+# repository's ``main`` branch, and no ``GLiNER.from_pretrained`` argument
+# pins them. Update these SHAs when intentionally upgrading a model.
 _GLINER_REVISIONS: dict[str, str] = {
-    "urchade/gliner_medium-v2.1": "main",  # SECURITY: pin before release
-    "urchade/gliner_large-v2.1": "main",   # SECURITY: pin before release
+    "urchade/gliner_medium-v2.1": "40ec419335d09393f298636f471328b722c6da9e",
+    "urchade/gliner_large-v2.1": "abd49a1f1ebc12af1be84d06f6848221cf96dcad",
 }
 
 # Default entity types for each backend.
@@ -194,6 +194,13 @@ def _get_gliner_model(model_name: str) -> Any:
     (e.g., medium vs. large) keeps both in memory. maxsize=4 allows up to
     4 different models cached simultaneously.
 
+    ``urchade/gliner_medium-v2.1`` and ``urchade/gliner_large-v2.1`` load
+    at the commit pinned in ``_GLINER_REVISIONS``. The pin covers the GLiNER
+    weights and ``gliner_config.json`` only: the DeBERTa backbone's
+    ``config.json``, ``tokenizer_config.json`` and ``spm.model`` still load
+    from the backbone repository's ``main`` branch. Other model names load
+    unpinned.
+
     Args:
         model_name: HuggingFace model identifier, e.g.,
             ``"urchade/gliner_medium-v2.1"``.
@@ -218,21 +225,8 @@ def _get_gliner_model(model_name: str) -> Any:
         ) from exc
 
     revision = _GLINER_REVISIONS.get(model_name)
-    if revision and revision != "main":
-        return GLiNER.from_pretrained(
-            model_name, revision=revision
-        )
-    if revision == "main":
-        import warnings
-
-        warnings.warn(
-            f"GLiNER model '{model_name}' is not pinned to a "
-            f"specific revision (using 'main'). Pin to a commit "
-            f"SHA in _GLINER_REVISIONS before production use to "
-            f"prevent supply-chain attacks.",
-            UserWarning,
-            stacklevel=2,
-        )
+    if revision is not None:
+        return GLiNER.from_pretrained(model_name, revision=revision)
     return GLiNER.from_pretrained(model_name)
 
 

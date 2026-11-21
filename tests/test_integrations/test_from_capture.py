@@ -14,8 +14,12 @@ def test_quality_dict_omits_none_keys() -> None:
     rec = CaptureRecord(tier=ClearanceTier.T0, total_duration_ms=None)
     payload = to_quality_dict(rec)
     assert "latency_ms" not in payload
-    result = assert_trace_quality(payload, max_latency_ms=1000)
+    # Omitted means not measured: it fails a latency budget by default.
+    with pytest.raises(MltkAssertionError, match="latency_ms not measured"):
+        assert_trace_quality(payload, max_latency_ms=1000)
+    result = assert_trace_quality(payload, max_latency_ms=1000, on_unmeasured="skip")
     assert result.passed
+    assert result.details["skipped"] is True
 
 
 def test_quality_dict_includes_observed_latency() -> None:

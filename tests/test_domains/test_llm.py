@@ -113,12 +113,17 @@ class TestHallucination:
             assert_no_hallucination(claims, sources, min_coverage=0.5)
 
     def test_empty_claims(self) -> None:
-        """EDGE: Empty claims list — nothing to check, passes trivially.
+        """EDGE: Empty claims list — nothing was checked, so it fails by default.
 
-        WHY: avg_coverage defaults to 0.0 when no coverages are recorded, but
-             unsupported count is also 0 so passed=True always.
+        WHY: an empty list used to pass trivially (0 unsupported claims), which
+             reported a hallucination check that never ran. on_empty="pass"
+             keeps the old pass.
         """
-        result = assert_no_hallucination([], ["some source text"], min_coverage=0.5)
+        with pytest.raises(MltkAssertionError, match="No claims to check"):
+            assert_no_hallucination([], ["some source text"], min_coverage=0.5)
+        result = assert_no_hallucination(
+            [], ["some source text"], min_coverage=0.5, on_empty="pass",
+        )
         assert result.passed is True
         assert result.details["total_claims"] == 0
 

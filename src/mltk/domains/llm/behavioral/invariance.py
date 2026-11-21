@@ -9,12 +9,21 @@ punctuation) should not alter model behavior.
 
 from __future__ import annotations
 
+import numbers
 import re
 from collections.abc import Callable
 from itertools import combinations
 from typing import Any
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.error_policy import (
+    EVAL_ON_ERROR,
+    EvalOnError,
+    check_zero_threshold,
+    error_policy_verdict,
+    unknown_on_error_result,
+)
+from mltk.core.judge_parse import call_judge
 from mltk.core.result import Severity, TestResult
 
 # -----------------------------------------------------------------
@@ -95,12 +104,13 @@ def _pair_score(
     threshold: float,
     embedding_model: str,
     nli_model: str,
-    judge_fn: Callable[[str, str], float] | None,
 ) -> tuple[float, bool]:
     """Score a single output pair. Returns (score, equivalent).
 
     For entailment the score is 1.0 if bidirectionally entailed,
     else the minimum forward/backward entailment probability.
+    The ``judge`` method is scored by the caller, which validates
+    the judge's score (see :func:`assert_paraphrase_invariance`).
     """
     if method == "token_f1":
         from mltk.domains.llm.similarity import _token_f1
@@ -136,14 +146,6 @@ def _pair_score(
         )
         score = min(fwd_ent, bwd_ent) if not equiv else 1.0
         return score, equiv
-
-    if method == "judge":
-        if judge_fn is None:
-            raise ValueError(
-                "judge_fn is required for method='judge'"
-            )
-        score = float(judge_fn(out_a, out_b))
-        return score, score >= threshold
 
     if method == "label_match":
         eq = out_a == out_b
@@ -217,6 +219,9 @@ def assert_paraphrase_invariance(
     judge_fn: (
         Callable[[str, str], float] | None
     ) = None,
+    *,
+    on_error: EvalOnError = "fail_if_all",
+    min_valid_fraction: float | None = None,
 ) -> TestResult:
     """Assert that paraphrased inputs produce equivalent outputs.
 
@@ -238,10 +243,35 @@ def assert_paraphrase_invariance(
         nli_model: Cross-encoder model for ``"entailment"``
             and ``"auto"`` methods.
         judge_fn: ``(str, str) -> float`` scorer for
-            ``method="judge"``.
+            ``method="judge"``, returning a score in ``[0, 1]``
+            (rescale a 0-10 judge before returning).
+        on_error: Policy for a judge error (``method="judge"``
+            only): the judge raised, or returned ``None``, a
+            boolean, a non-finite number or a value outside
+            ``[0, 1]``. ``"fail_if_all"`` (default) excludes
+            errored pairs from the invariance rate and fails when
+            every pair errored; ``"strict"`` fails on any error;
+            ``"zero"`` scores an errored pair ``0.0`` (not
+            equivalent) and keeps it in the denominator.
+        min_valid_fraction: Optional minimum fraction of pairs
+            with a valid judge score, in ``(0, 1]``, enforced
+            under every policy.
+
+    Single-token outputs (classifier labels) switch the method to
+    ``label_match``, so the judge never runs: then every pair is
+    valid and ``n_valid`` equals ``total_pairs``.
 
     Returns:
-        TestResult with invariance rate and per-pair details.
+        TestResult with invariance rate and per-pair details, plus
+        ``errored_count``, ``n_valid`` (pairs with a valid score),
+        ``on_error``, ``min_valid_fraction`` and ``errors``
+        (``{"pair", "error"}`` per errored pair).
+        ``invariance_rate`` is ``None`` when no pair has a valid
+        score (except under ``on_error="zero"``).
+
+    Raises:
+        ValueError: If ``min_valid_fraction`` is not in ``(0, 1]``,
+            or ``on_error="zero"`` and ``similarity_threshold <= 0``.
 
     Example:
         >>> def my_model(prompt):
@@ -265,6 +295,17 @@ def assert_paraphrase_invariance(
             severity=Severity.CRITICAL,
             method=equivalence_method,
         )
+    if on_error not in EVAL_ON_ERROR:
+        return unknown_on_error_result(
+            "llm.behavioral.paraphrase_invariance", on_error, EVAL_ON_ERROR,
+        )
+    if isinstance(min_valid_fraction, bool) or (
+        min_valid_fraction is not None
+        and (not isinstance(min_valid_fraction, numbers.Real)
+             or not 0 < min_valid_fraction <= 1)
+    ):
+        raise ValueError("min_valid_fraction must be a real number in (0, 1]")
+    check_zero_threshold(on_error, similarity_threshold=similarity_threshold)
 
     if len(paraphrases) < 2:
         return assert_true(
@@ -293,6 +334,10 @@ def assert_paraphrase_invariance(
         outputs,
     ):
         method = "label_match"
+    if method == "judge" and judge_fn is None:
+        raise ValueError(
+            "judge_fn is required for method='judge'"
+        )
 
     # Stringify for comparison methods that need text
     str_outputs: list[str] = [str(o) for o in outputs]
@@ -306,11 +351,35 @@ def assert_paraphrase_invariance(
     total_pairs = len(pairs)
     equivalent_count = 0
     pair_details: list[dict[str, Any]] = []
-    worst_score = 1.0
-    worst_pair: tuple[int, int] = (0, 1)
+    errors: list[dict[str, Any]] = []
+    worst_score: float | None = None
+    worst_pair: tuple[int, int] | None = None
 
     for i, j in pairs:
-        if method == "auto":
+        if method == "judge":
+            assert judge_fn is not None  # guarded above
+            judge_score, error = call_judge(
+                judge_fn, str_outputs[i], str_outputs[j],
+            )
+            if error is not None:
+                errors.append({"pair": (i, j), "error": error})
+                errored_pair: dict[str, Any] = {
+                    "pair": (i, j),
+                    "score": 0.0 if on_error == "zero" else None,
+                    "equivalent": False,
+                    "errored": True,
+                    "error": error,
+                }
+                pair_details.append(errored_pair)
+                if on_error == "zero" and (
+                    worst_score is None or worst_score > 0.0
+                ):
+                    worst_score = 0.0
+                    worst_pair = (i, j)
+                continue
+            assert judge_score is not None
+            score, equiv = judge_score, judge_score >= threshold
+        elif method == "auto":
             score, equiv = _auto_pair_score(
                 str_outputs[i],
                 str_outputs[j],
@@ -325,7 +394,6 @@ def assert_paraphrase_invariance(
                 threshold,
                 embedding_model,
                 nli_model,
-                judge_fn,
             )
 
         if equiv:
@@ -337,26 +405,54 @@ def assert_paraphrase_invariance(
             "equivalent": equiv,
         })
 
-        if score < worst_score:
+        if worst_score is None or score < worst_score:
             worst_score = score
             worst_pair = (i, j)
 
+    errored_count = len(errors)
+    n_valid = total_pairs - errored_count
+    denominator = total_pairs if on_error == "zero" else n_valid
     invariance_rate = (
-        equivalent_count / total_pairs
-        if total_pairs > 0
-        else 0.0
+        equivalent_count / denominator if denominator > 0 else None
     )
-    passed = invariance_rate >= min_invariance
+    passed = (
+        invariance_rate is not None and invariance_rate >= min_invariance
+    )
+    shown = (
+        f"{invariance_rate:.4f}" if invariance_rate is not None
+        else "no valid pair"
+    )
+    counted = f"{equivalent_count}/{denominator} pairs"
+    if errored_count:
+        treatment = "scored 0.0" if on_error == "zero" else "excluded"
+        counted += f"; {errored_count} judge errors {treatment}"
 
     message = (
         f"Paraphrase invariance ({method}): "
-        f"{invariance_rate:.4f} >= {min_invariance} "
-        f"({equivalent_count}/{total_pairs} pairs)"
+        f"{shown} >= {min_invariance} ({counted})"
         if passed
         else f"Paraphrase invariance too low ({method}): "
-        f"{invariance_rate:.4f} < {min_invariance} "
-        f"({equivalent_count}/{total_pairs} pairs)"
+        f"{shown} < {min_invariance} ({counted})"
     )
+    reasons: list[str] = []
+    verdict = error_policy_verdict(on_error, errored_count, total_pairs)
+    if verdict is not None:
+        reasons.append(
+            f"Judge errors: {errored_count}/{total_pairs} pairs "
+            f"(on_error='{on_error}')"
+        )
+    valid_fraction = n_valid / total_pairs if total_pairs else 1.0
+    if (
+        min_valid_fraction is not None
+        and valid_fraction < min_valid_fraction
+    ):
+        reasons.append(
+            f"valid fraction {valid_fraction:.4f} below "
+            f"min_valid_fraction {min_valid_fraction}"
+        )
+    if reasons:
+        passed = False
+        message = "; ".join([*reasons, message])
 
     # Per-paraphrase outputs for ProSA requirement
     per_input = [
@@ -373,15 +469,25 @@ def assert_paraphrase_invariance(
         message=message,
         severity=Severity.CRITICAL,
         method=method,
-        invariance_rate=round(invariance_rate, 4),
+        invariance_rate=(
+            round(invariance_rate, 4) if invariance_rate is not None
+            else None
+        ),
         min_invariance=min_invariance,
         threshold=threshold,
         equivalent_pairs=equivalent_count,
         total_pairs=total_pairs,
         pair_scores=pair_details,
         worst_pair=worst_pair,
-        worst_score=round(worst_score, 4),
+        worst_score=(
+            round(worst_score, 4) if worst_score is not None else None
+        ),
         per_input_outputs=per_input,
+        errored_count=errored_count,
+        n_valid=n_valid,
+        on_error=on_error,
+        min_valid_fraction=min_valid_fraction,
+        errors=errors,
     )
 
 
@@ -496,7 +602,6 @@ def assert_format_invariance(
                 threshold,
                 embedding_model,
                 "cross-encoder/nli-deberta-v3-base",
-                None,
             )
 
         if equiv:

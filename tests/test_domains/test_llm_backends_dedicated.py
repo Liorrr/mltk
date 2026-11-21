@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from mltk.data.pii_ner import _GLINER_REVISIONS
 from mltk.domains.llm._backends import (
     _MODEL_REPOS,
     _MODEL_REVISIONS,
@@ -144,13 +145,18 @@ class TestRevisionPlumbing:
     not os.environ.get("MLTK_NETWORK_TESTS"),
     reason="opt-in: set MLTK_NETWORK_TESTS=1 to query the Hugging Face Hub",
 )
-@pytest.mark.parametrize("name", sorted(_MODEL_REVISIONS))
-def test_pin_resolves_on_the_hub(name: str) -> None:
-    """Each pin resolves to that exact commit on the Hub (HTTP 200)."""
+@pytest.mark.parametrize(
+    ("repo", "sha"),
+    sorted(
+        [(_MODEL_REPOS[name], sha) for name, sha in _MODEL_REVISIONS.items()]
+        + list(_GLINER_REVISIONS.items())
+    ),
+)
+def test_pin_resolves_on_the_hub(repo: str, sha: str) -> None:
+    """Each pin (embedding, NLI and GLiNER) resolves to that exact commit on the Hub."""
     import json
     import urllib.request
 
-    repo, sha = _MODEL_REPOS[name], _MODEL_REVISIONS[name]
     url = f"https://huggingface.co/api/models/{repo}/revision/{sha}"
     with urllib.request.urlopen(url, timeout=30) as resp:  # noqa: S310
         assert resp.status == 200

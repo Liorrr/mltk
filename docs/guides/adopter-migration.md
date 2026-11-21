@@ -1,10 +1,11 @@
 # Adopter migration and usage
 
 This guide describes the implemented evaluation and assertion changes relative
-to the v0.16.0 baseline. Review judge response formats, stored-output identities,
-empty refusal datasets, consumers of semantic-equivalence results, trace budget
-checks, face FAR thresholds, non-ASCII ROUGE scores and pairwise judge errors
-when adopting these changes.
+to the v0.16.0 baseline. Review judge response formats, numeric judge
+callbacks, empty judge inputs, stored-output identities, empty refusal
+datasets, consumers of semantic-equivalence results, trace budget and trace
+quality checks, face FAR thresholds, non-ASCII ROUGE scores and pairwise judge
+errors when adopting these changes.
 
 ## Numeric judge parsing
 
@@ -281,6 +282,130 @@ assert result.details["skipped"] is True
 `on_unmeasured="pass"` keeps the old verdict. Code that reads these fields
 directly must handle `None`, for example in arithmetic or format strings.
 
+## Numeric judge callbacks are validated
+
+The numeric `judge_fn` paths that used to read `float(judge_fn(...))` without
+checks now validate the value the same way:
+
+| API | Scale | `on_error` default |
+| --- | --- | --- |
+| `assert_faithfulness`, `assert_context_relevancy`, `assert_answer_relevancy` (`method="llm"`) in `mltk.domains.llm.rag` | `[0, 1]` | `"fail_if_all"` (one call, so any error fails) |
+| `assert_no_hallucination` (`method="llm"`) in `mltk.domains.llm.safety` | `[0, 1]` | `"strict"` |
+| `assert_paraphrase_invariance` (`equivalence_method="judge"`) in `mltk.domains.llm.behavioral.invariance` | `[0, 1]` | `"fail_if_all"` |
+| `assert_span_quality` in `mltk.domains.llm.span_eval` | `[0, 1]` | `"strict"` |
+| `assert_trace_quality` (`judge_fn`) in `mltk.integrations.trace_quality` | `[0, 1]` | `"fail_if_all"` (one call, so any error fails) |
+
+The value is read with `float()`, so numeric strings, NumPy scalars, `Decimal`
+and 0-d tensors keep working. A **judge error** is a call that raises, or a
+return of `None`, a boolean (including `np.bool_`), a non-finite number or a
+value outside `[0, 1]`. Before, `judge_fn=lambda a, c: 7.0` passed any
+threshold, `NaN` passed `assert_no_hallucination` (it never compares below the
+threshold), and `True` scored `1.0`. A judge on a 0–10 scale must now divide
+by 10 before returning.
+
+Each of these assertions takes a keyword-only `on_error`:
+
+- `"fail_if_all"` excludes errored items and fails when every item errored.
+- `"strict"` fails on any error. It is the default where every item must
+  hold: an unjudged claim or span is not supported, while under
+  `"fail_if_all"` it would be excluded and count as passing.
+- `"zero"` scores an errored item `0.0` (an errored invariance pair is
+  never counted as equivalent). A per-item threshold at or below 0
+  (`min_score`, `min_coverage`, `similarity_threshold`) would be met by that
+  `0.0`, so the combination raises `ValueError` before any judge call.
+
+`assert_paraphrase_invariance` also takes `min_valid_fraction`. The details
+gain `errored_count`, `n_valid`, `on_error` and `errors`.
+`assert_span_quality` now reports a judge exception as a judge error instead
+of letting it propagate; its existing `error_count` still counts error
+*spans*, and the new `errored_count` counts judge errors.
+
+```python
+import pytest
+
+from mltk.core.assertion import MltkAssertionError
+from mltk.domains.llm.rag import assert_faithfulness
+from mltk.domains.llm.safety import assert_no_hallucination
+
+answer, context = "Paris is the capital.", "Paris is the capital of France."
+with pytest.raises(MltkAssertionError):  # 7.0 is outside [0, 1]
+    assert_faithfulness(answer, context, method="llm", judge_fn=lambda a, c: 7.0)
+result = assert_faithfulness(answer, context, method="llm", judge_fn=lambda a, c: 7.0 / 10)
+assert result.details["score"] == 0.7
+
+def judge(claim: str, source: str) -> float:
+    if claim.startswith("France"):
+        raise TimeoutError("judge timed out")
+    return 0.9
+
+claims = ["Paris is the capital.", "France is in Europe."]
+with pytest.raises(MltkAssertionError):  # strict: the unjudged claim fails
+    assert_no_hallucination(claims, [context], method="llm", judge_fn=judge)
+result = assert_no_hallucination(
+    claims, [context], method="llm", judge_fn=judge, on_error="fail_if_all",
+)
+assert result.details["errored_count"] == 1
+```
+
+`LLMJudgeScorer` keeps its `[0, max_score]` scale and now also rejects boolean
+replies (`True` used to count as a raw score of 1).
+
+## Empty judge inputs fail
+
+An input with nothing to judge used to pass. These now take `on_empty`
+(`"fail"` by default, `"skip"`, or `"pass"` for the old verdict):
+
+- `assert_llm_judge_score` and `assert_llm_judge_pairwise` with `prompts=[]`.
+- `assert_no_hallucination` with no claim the method can check: no claims,
+  only blank claims, or (for the default `"lexical"` method) only claims
+  with no word tokens, such as `"..."`.
+- `assert_span_quality` with no spans, or a `span_kinds` filter that matches
+  no span.
+
+```python
+from mltk.domains.llm.span import Span, SpanKind, SpanTrace
+from mltk.domains.llm.span_eval import assert_span_quality
+
+trace = SpanTrace(spans=[Span(name="answer", kind=SpanKind.LLM)])
+result = assert_span_quality(trace, span_kinds=[SpanKind.TOOL], on_empty="skip")
+assert result.details["skipped"] is True
+```
+
+## Trace quality fails on unmeasured values
+
+`assert_trace_quality` in `mltk.integrations.trace_quality` used to skip a
+budget whose key was missing from the trace. It now takes `on_unmeasured`, as
+`assert_cost_budget` does: `"fail"` (the default) fails a budget whose
+`latency_ms`, `cost_usd` or `score` is missing, `"pass"` treats it as met, and
+`"skip"` checks only the measured budgets. A latency or cost that is not a
+finite, non-negative number, or a precomputed `score` that is not a finite
+number, fails under every policy. A `judge_fn` returning `None` is a judge
+error, not an unmeasured score. The details always list `checked`,
+`unmeasured` and `invalid`.
+
+`to_quality_dict` emits only `latency_ms`, so a captured trace gated on
+`max_cost_usd`, or on `min_score` without a `judge_fn`, needs
+`on_unmeasured="skip"`:
+
+```python
+import pytest
+
+from mltk.core.assertion import MltkAssertionError
+from mltk.integrations.trace_quality import assert_trace_quality
+
+trace = {"latency_ms": 120.0}  # no cost recorded
+with pytest.raises(MltkAssertionError):
+    assert_trace_quality(trace, max_latency_ms=500, max_cost_usd=0.01)
+result = assert_trace_quality(
+    trace, max_latency_ms=500, max_cost_usd=0.01, on_unmeasured="skip",
+)
+assert result.details["unmeasured"] == ["cost_usd"]
+```
+
+`to_span_trace` now keeps a record's input and output tokens when the record
+has tool calls: they sit on the `AGENT` root span. Before, those traces
+reported zero tokens.
+
 ## Face FAR needs the operating threshold
 
 `assert_face_far` in `mltk.domains.cv.face` now requires a keyword-only
@@ -348,3 +473,8 @@ result = assert_llm_judge_pairwise(
 assert result.details["win_rate"] == 1.0  # 2 of 2 verdicts; the error is excluded
 assert result.details["errored_count"] == 1
 ```
+
+Reasoning blocks are removed before the verdict is read, as for the score
+judges: `<think>maybe a tie</think>A` is an A win (it used to count as a tie
+because the reasoning named one). Pass `reasoning_delimiters` for other
+reasoning tags; an unbalanced block is a judge error.

@@ -209,7 +209,7 @@ Pause. Let hands go up. Nod.
 
 ### "How does this compare to DeepEval / RAGAS / Promptfoo?"
 
-> "They're LLM-only tools. DeepEval has ~50 LLM metrics, Promptfoo has prompt evaluation with 135 plugins. Both are strong in their lane. But they don't do data quality, drift detection, training bug detection, fairness testing, or compliance frameworks. mltk covers the full ML lifecycle -- 245 assertions from data ingestion to production monitoring. Plus we have 7 behavioral consistency assertions that nobody else ships. And our core has only 2 dependencies -- numpy and pandas. DeepEval requires an LLM for most assertions; mltk works offline by default."
+> "They're LLM-only tools. DeepEval has ~50 LLM metrics, Promptfoo has prompt evaluation with 135 plugins. Both are strong in their lane. But they don't do data quality, drift detection, training bug detection, fairness testing, or compliance frameworks. mltk covers the full ML lifecycle -- 245 assertions from data ingestion to production monitoring. Plus we have 6 behavioral consistency assertions that nobody else ships. And our core has only 2 dependencies -- numpy and pandas. DeepEval requires an LLM for most assertions; mltk works offline by default."
 
 ### "Can I use this with my existing pytest suite?"
 
@@ -242,7 +242,7 @@ Pause. Let hands go up. Nod.
 ### Recap the 3 Differentiators (30 sec)
 > "Three things to remember. First: **breadth**. 245 assertions covering the full ML lifecycle. No other tool does data quality AND model testing AND LLM evaluation AND security AND compliance in one package."
 
-> "Second: **behavioral consistency**. 7 assertions that catch models memorizing phrasing instead of learning concepts. We're the first and only tool shipping this as pytest assertions."
+> "Second: **behavioral consistency**. 6 assertions that catch models memorizing phrasing instead of learning concepts. We're the first and only tool shipping this as pytest assertions."
 
 > "Third: **red team plus multimodal, zero dependencies**. 56 attack payloads built in, encoding mutations, OWASP mapping -- all running offline with no external APIs. No other tool combines security scanning and evaluation testing in one pip install."
 

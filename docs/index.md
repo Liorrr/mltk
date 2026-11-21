@@ -186,15 +186,15 @@ Dedicated extension with inline results, model health scanning, and a Test Inspe
 | Metric | Count |
 |--------|-------|
 | Assertions | 245 assertions across 116 modules |
-| Tests | 6493+ tests |
+| Tests | 7037+ tests |
 | CLI commands | 20 top-level + 5 groups |
 | Behavioral consistency | 6 assertions (paraphrase, format, stability, equivalence, directional, retrieval) plus the `ParaphraseGenerator` class |
 | PII detection methods | 4 (regex, Presidio NER, GLiNER zero-shot, hybrid) |
 | Built-in scanners | 8 (Data, Drift, Leakage, Slice, Bias, Calibration, Robustness, Overfit) |
-| Domain kits | 12 (CV, NLP, Speech, Tabular, LLM, Multimodal, RL, Recommendation, Healthcare, Code Generation, and more) |
-| Compliance frameworks | 8 (EU AI Act, FDA, OWASP LLM, NIST AI RMF, ISO 42001, SR 11-7, HIPAA, SOC 2) |
+| Domain kits | 15 (Data Quality, Model Quality, LLM, NLP, CV, Speech, Tabular, Multimodal, RL, Recommendation, Healthcare, Code Generation, Red Team, MCP, Observability; see the [Domain Overview](api/domain-overview.md)) |
+| Compliance frameworks | 7 built in (EU AI Act, FDA, OWASP LLM, NIST AI RMF, ISO 42001, SR 11-7, HIPAA), plus custom frameworks |
 | Cloud providers | 3 (AWS, Azure, GCP) |
-| Integrations | 13 (GitHub, Slack, Jira, MLflow, Linear, Asana, Prometheus, W&B, DVC, Kubeflow, SageMaker, Grafana, VS Code) |
+| Integrations | 16 (GitHub, Slack, Jira, MLflow, Linear, Asana, Prometheus, W&B, DVC, Kubeflow, SageMaker, Grafana, OpenTelemetry, Phoenix, Langfuse, VS Code) |
 
 ---
 
@@ -219,7 +219,7 @@ Every assertion returns a `TestResult` with `.passed`, `.message`, `.severity`, 
 
 ## Project Status
 
-mltk is at **v0.18.0**. Core modules are stable and tested with 245 assertions and 6493+ tests. Capabilities include the Smart Dataset Importer (`mltk.importer` -- deterministic column-role mapping from HuggingFace Hub or local CSV/JSON/Parquet into a versioned `EvalDataset`), red team security testing (4 assertions with 440+ attack variants), multimodal LLM evaluation (10 assertions covering LLM-as-Judge and numerical paths -- CLIPScore, POPE hallucination, SSIM, OCR), observability adapters (Phoenix/Langfuse with `assert_trace_quality` CI gate), synthetic QA generation, MCP agent evaluation (5 assertions), NER-based PII detection (Presidio, GLiNER zero-shot, and hybrid method dispatch), behavioral consistency testing (6 assertions -- the only ML testing tool that ships these as pytest assertions), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, recommendation system testing, agent trace capture (`mltk.trace`), per-assertion results in the pytest JSON export (`--mltk-export-json`), and a Helm chart for the mltk server. The [CHANGELOG](https://github.com/Liorrr/mltk/blob/master/CHANGELOG.md) lists the changes in every release (from v0.15.0 they are also on the [GitHub Releases](https://github.com/Liorrr/mltk/releases) page), and the [Domain Overview](api/domain-overview.md) maps all testing capabilities.
+mltk is at **v0.18.0**. Core modules are stable and tested with 245 assertions and 7037+ tests. Capabilities include the Smart Dataset Importer (`mltk.importer` -- deterministic column-role mapping from HuggingFace Hub or local CSV/JSON/Parquet into a versioned `EvalDataset`), red team security testing (4 assertions with 440+ attack variants), multimodal LLM evaluation (10 assertions covering LLM-as-Judge and numerical paths -- CLIPScore, POPE hallucination, SSIM, OCR), observability adapters (Phoenix/Langfuse with `assert_trace_quality` CI gate), synthetic QA generation, MCP agent evaluation (5 assertions), NER-based PII detection (Presidio, GLiNER zero-shot, and hybrid method dispatch), behavioral consistency testing (6 assertions -- the only ML testing tool that ships these as pytest assertions), multi-method evaluation (lexical, embedding, NLI, LLM-as-Judge) via the `method` parameter, model scanning (`mltk scan` -- automated issue detection with test generation), a dedicated VS Code extension with Test Inspector panel, composable test suites (`MltkSuite`), healthcare/SR 11-7 compliance, recommendation system testing, agent trace capture (`mltk.trace`), per-assertion results in the pytest JSON export (`--mltk-export-json`), and a Helm chart for the mltk server. The [CHANGELOG](https://github.com/Liorrr/mltk/blob/master/CHANGELOG.md) lists the changes in every release (from v0.15.0 they are also on the [GitHub Releases](https://github.com/Liorrr/mltk/releases) page), and the [Domain Overview](api/domain-overview.md) maps all testing capabilities.
 
 ## License
 

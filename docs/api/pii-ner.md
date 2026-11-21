@@ -539,6 +539,21 @@ on disk in the spaCy data directory.
 GLiNER downloads `urchade/gliner_medium-v2.1` (~500 MB)
 on first use. Cached in `~/.cache/huggingface/`.
 
+#### Pinned revisions
+
+`urchade/gliner_medium-v2.1` and `urchade/gliner_large-v2.1`
+load at full commit SHAs (`40ec4193...` and `abd49a1f...`),
+so a later push to either repository does not change what
+mltk loads. The pin covers what GLiNER loads from its own
+repository: the **model weights and `gliner_config.json`**.
+
+It does **not** cover the DeBERTa backbone that GLiNER
+builds on. The backbone's `config.json`,
+`tokenizer_config.json` and `spm.model` are fetched from
+the backbone repository's `main` branch, and no
+`GLiNER.from_pretrained` argument pins them. Other GLiNER
+model names load unpinned.
+
 ### Memory usage
 
 | Method | Approximate RAM |

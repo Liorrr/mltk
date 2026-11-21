@@ -70,14 +70,14 @@ assert_no_toxicity(texts, max_toxic_pct=0.1)
 
 ### assert_no_hallucination
 
-Assert that model claims are grounded in provided source material. Uses keyword overlap factuality checking (no LLM judge required).
+Assert that model claims are grounded in provided source material. Every claim must be supported. The default method is keyword overlap (no LLM judge required).
 
 ```python
 from mltk.domains.llm import assert_no_hallucination
 
 claims = ["Paris is the capital of France."]
 sources = ["France is a country in Europe. Its capital city is Paris."]
-assert_no_hallucination(claims, sources, method="keyword_overlap")
+assert_no_hallucination(claims, sources, method="lexical")
 ```
 
 #### Parameters
@@ -86,7 +86,21 @@ assert_no_hallucination(claims, sources, method="keyword_overlap")
 |------|------|---------|-------------|
 | `claims` | `list[str]` | *(required)* | Claims or statements to verify |
 | `sources` | `list[str]` | *(required)* | Source/context documents for grounding |
-| `method` | `str` | `"keyword_overlap"` | Verification method |
+| `method` | `str` | `"lexical"` | `"lexical"` (keyword overlap; `"overlap"` is an alias), `"embedding"`, `"nli"` or `"llm"` |
+| `min_coverage` | `float` | `0.3` | Minimum score for a claim to count as supported |
+| `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Required for `method="llm"`: `(claim, source_text)` to a score in `[0, 1]` |
+| `on_empty` | `str` | `"fail"` | Keyword-only. Policy when there is no claim the method can check (an empty list, only blank claims, or for `"lexical"` only claims with no word tokens such as `"..."`): `"fail"`, `"skip"` or `"pass"` |
+| `on_error` | `str` | `"strict"` | Keyword-only. Policy for a judge error with `method="llm"`: `"strict"`, `"fail_if_all"` or `"zero"` |
+
+With `method="llm"`, a **judge error** is a `judge_fn` call that raises, or
+returns `None`, a boolean, a non-finite number or a value outside `[0, 1]`.
+Because every claim must be supported, and an unjudged claim is not, the
+default `on_error="strict"` fails on any judge error. `"fail_if_all"`
+excludes errored claims (and fails only when every claim errored), and
+`"zero"` scores an errored claim `0.0`, so it is unsupported. `"zero"` with
+`min_coverage <= 0` raises `ValueError`. The details include
+`errored_count`, `n_valid`, `on_error` and `errors` (`{"index", "error"}`
+per errored claim).
 
 ### assert_no_system_prompt_leakage
 
@@ -458,36 +472,33 @@ For the full API reference, parameters, provider setup, and advanced usage, see 
 
 ### assert_llm_judge_score
 
-Score a model response using an LLM judge function you provide. The judge returns a numeric score (typically 1-5 or 1-10), and the assertion verifies it meets a minimum threshold.
+Score model responses using an LLM judge function you provide. The judge receives a formatted evaluation prompt and returns a numeric score on `[0, max_score]` (or a reply containing one), and the assertion verifies the average meets a minimum threshold.
 
 ```python
 from mltk.domains.llm import assert_llm_judge_score
 
 # Define a judge function (any LLM provider — OpenAI, Anthropic, Ollama, etc.)
-def my_judge(prompt: str, response: str, criterion: str) -> float:
-    """Call your LLM and return a numeric score."""
+def my_judge(evaluation_prompt: str) -> str:
+    """Send mltk's formatted evaluation prompt to your LLM; return its reply."""
     result = openai_client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": (
-                f"Rate the following response on '{criterion}' from 1 to 5. "
-                "Reply with ONLY a number."
-            )},
-            {"role": "user", "content": f"Prompt: {prompt}\nResponse: {response}"},
-        ],
+        messages=[{"role": "user", "content": evaluation_prompt}],
     )
-    return float(result.choices[0].message.content.strip())
+    return result.choices[0].message.content
 
-# Assert the response scores at least 3.5 on helpfulness
+# Assert the responses average at least 3.5 on helpfulness
 assert_llm_judge_score(
     judge_fn=my_judge,
-    prompt="Explain photosynthesis to a 10-year-old.",
-    response="Plants eat sunlight! They take in light and CO2 and make sugar and oxygen.",
+    prompts=["Explain photosynthesis to a 10-year-old."],
+    responses=["Plants eat sunlight! They take in light and CO2 and make sugar and oxygen."],
     criterion="helpfulness",
     min_score=3.5,
-    scale_max=5.0,
+    max_score=5.0,
 )
 ```
+
+An empty `prompts` list measures nothing and fails by default
+(`on_empty="fail"`; `"skip"` and `"pass"` opt out).
 
 ### assert_llm_judge_pairwise
 
@@ -505,7 +516,7 @@ result = assert_llm_judge_pairwise(
 )
 ```
 
-A judge exception or a reply without a verdict is a judge error, not a tie; see [LLM-as-Judge](llm-judge.md#verdicts-and-judge-errors).
+A judge exception or a reply without a verdict is a judge error, not a tie; see [LLM-as-Judge](llm-judge.md#verdicts-and-judge-errors). Reasoning blocks such as `<think>...</think>` are removed before the verdict is read (add more pairs with `reasoning_delimiters`), and an empty `prompts` list fails by default (`on_empty`).
 
 !!! note "OWASP Mapping"
     LLM-as-Judge assertions evaluate **output quality**, not security vulnerabilities. They do not map to any OWASP Top 10 for LLMs category. For security-focused assertions, see `assert_no_toxicity`, `assert_no_system_prompt_leakage`, and `assert_refusal_consistency` in the [Safety](#safety) section above.

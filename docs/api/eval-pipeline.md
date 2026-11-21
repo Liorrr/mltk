@@ -714,7 +714,8 @@ The raw score is normalized to `[0.0, 1.0]` by dividing by `max_score`.
 !!! note "Judge errors are tracked"
     If `judge_fn` raises, or its reply has no usable finite score,
     the scorer returns `Score(value=0.0, errored=True)` with the error in
-    `metadata["error"]`. Errored samples are excluded from `mean` and
+    `metadata["error"]`. `None` and booleans are errors too: `True` is a
+    yes/no answer, not a score, although `float(True)` is `1.0`. Errored samples are excluded from `mean` and
     `accuracy`; `0.0` is retained so metrics never contain `NaN`.
 
 String replies use strict explicit-score parsing. A JSON `score` key is

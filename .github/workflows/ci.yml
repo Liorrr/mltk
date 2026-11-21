@@ -60,7 +60,10 @@ jobs:
       # report (jinja2/plotly) and multimodal (Pillow/scikit-image) back
       # tests that hard-fail (not skip) when those deps are absent.
       # The onnx extra (onnxruntime) backs the ONNX tests; the separate `onnx`
-      # package is installed only so tests can build small models.
+      # package is installed only so tests can build small models. The nlp
+      # extra (nltk, rouge-score, sacrebleu) runs the ROUGE, BLEU and chrF
+      # tests, which skip without it; they need no nltk data download.
+      # httpx (FastAPI's TestClient) comes from the dev extra.
       # Shared console-pytest entry point, collection check, 60% coverage gate,
       # and scripts/tests. The local preflight executes the same commands.
       - run: python scripts/preflight.py job test --install
@@ -107,13 +110,13 @@ jobs:
       - name: Python dependency audit
         run: |
           python3.11 -m venv "$RUNNER_TEMP/audit-venv-3.11"
-          "$RUNNER_TEMP/audit-venv-3.11/bin/python" -m pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx]" onnx
+          "$RUNNER_TEMP/audit-venv-3.11/bin/python" -m pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx,nlp]" onnx
           "$RUNNER_TEMP/audit-venv-3.11/bin/python" -m pip freeze --exclude-editable > "$RUNNER_TEMP/mlspec-audit-3.11.txt"
           python3.12 -m venv "$RUNNER_TEMP/audit-venv-3.12"
-          "$RUNNER_TEMP/audit-venv-3.12/bin/python" -m pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx]" onnx
+          "$RUNNER_TEMP/audit-venv-3.12/bin/python" -m pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx,nlp]" onnx
           "$RUNNER_TEMP/audit-venv-3.12/bin/python" -m pip freeze --exclude-editable > "$RUNNER_TEMP/mlspec-audit-3.12.txt"
           python3.13 -m venv "$RUNNER_TEMP/audit-venv-3.13"
-          "$RUNNER_TEMP/audit-venv-3.13/bin/python" -m pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx]" onnx
+          "$RUNNER_TEMP/audit-venv-3.13/bin/python" -m pip install -e ".[dev,scipy,sklearn,importer,cli,server,report,multimodal,onnx,nlp]" onnx
           "$RUNNER_TEMP/audit-venv-3.13/bin/python" -m pip freeze --exclude-editable > "$RUNNER_TEMP/mlspec-audit-3.13.txt"
           python -m pip install pip-audit
           pip-audit --strict --no-deps --disable-pip -r "$RUNNER_TEMP/mlspec-audit-3.11.txt"

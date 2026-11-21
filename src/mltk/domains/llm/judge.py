@@ -25,13 +25,14 @@ import re
 from collections.abc import Callable, Sequence
 
 from mltk.core.assertion import assert_true, timed_assertion
+from mltk.core.empty import ON_EMPTY_OPTIONS, empty_input_result, unknown_on_empty_result
 from mltk.core.error_policy import (
     EVAL_ON_ERROR,
     EvalOnError,
     error_policy_verdict,
     unknown_on_error_result,
 )
-from mltk.core.judge_parse import check_score_range, parse_judge_score
+from mltk.core.judge_parse import _strip_reasoning, check_score_range, parse_judge_score
 from mltk.core.result import Severity, TestResult
 from mltk.core.validation import require_same_length
 
@@ -260,6 +261,7 @@ def assert_llm_judge_score(
     reasoning_delimiters: Sequence[tuple[str, str]] = (),
     legacy_parse: bool = False,
     on_error: EvalOnError = "fail_if_all",
+    on_empty: str = "fail",
 ) -> TestResult:
     """Assert that LLM responses meet a minimum quality score via judge evaluation.
 
@@ -292,6 +294,9 @@ def assert_llm_judge_score(
         max_score: Upper bound of the scoring scale for the rubric.
         rubric: Custom rubric description.  Overrides the default
             rubric for the given criterion.
+        on_empty: Policy for an empty ``prompts`` list, which measures
+            nothing: ``"fail"`` (default), ``"skip"``, or ``"pass"``
+            for the legacy pass.
 
     Returns:
         TestResult with details: ``avg_score``, ``min_score``,
@@ -310,6 +315,8 @@ def assert_llm_judge_score(
     """
     if on_error not in EVAL_ON_ERROR:
         return unknown_on_error_result("llm.judge.score", on_error, EVAL_ON_ERROR)
+    if on_empty not in ON_EMPTY_OPTIONS:
+        return unknown_on_empty_result("llm.judge.score", on_empty)
     require_same_length(
         "assert_llm_judge_score",
         prompts=prompts,
@@ -317,10 +324,11 @@ def assert_llm_judge_score(
     )
 
     if not prompts:
-        return assert_true(
-            True, name="llm.judge.score",
-            message="No items to evaluate (empty prompts list).",
-            severity=Severity.INFO,
+        return empty_input_result(
+            name="llm.judge.score",
+            reason="Empty prompts list",
+            on_empty=on_empty,
+            legacy_message="No items to evaluate (empty prompts list).",
             avg_score=0.0, min_score=min_score,
             per_item_scores=[], criterion=criterion,
             n_items=0, scores_below_min=0,
@@ -419,6 +427,8 @@ def assert_llm_judge_pairwise(
     rubric: str | None = None,
     *,
     on_error: EvalOnError = "fail_if_all",
+    on_empty: str = "fail",
+    reasoning_delimiters: Sequence[tuple[str, str]] = (),
 ) -> TestResult:
     """Assert that one set of responses is preferred over another by a judge LLM.
 
@@ -440,6 +450,11 @@ def assert_llm_judge_pairwise(
     keeps errored comparisons in the denominator as non-wins (the old
     behaviour, where an error counted as a tie).
 
+    Balanced ``<think>...</think>`` blocks, and any extra ``(start, end)``
+    pairs in ``reasoning_delimiters``, are removed before the verdict is
+    read, so a reasoning model's preamble is ignored. An unbalanced or
+    mismatched reasoning block is a judge error.
+
     Args:
         judge_fn: Callable that takes a formatted comparison prompt and
             returns a string indicating the winner ("A", "B", or "TIE").
@@ -454,6 +469,15 @@ def assert_llm_judge_pairwise(
         rubric: Custom rubric description.
         on_error: ``"fail_if_all"`` (default), ``"strict"`` or ``"zero"``;
             see above.
+        on_empty: Policy for an empty ``prompts`` list, which measures
+            nothing: ``"fail"`` (default), ``"skip"``, or ``"pass"`` for
+            the legacy pass.
+        reasoning_delimiters: Extra reasoning ``(start, end)`` pairs to
+            remove before the verdict is read, alongside ``<think>``.
+
+    Raises:
+        ValueError: If ``reasoning_delimiters`` holds an empty, identical
+            or conflicting pair (checked before any judge call).
 
     Returns:
         TestResult with details: ``win_rate``, ``min_win_rate``,
@@ -479,6 +503,11 @@ def assert_llm_judge_pairwise(
         return unknown_on_error_result(
             "llm.judge.pairwise", on_error, EVAL_ON_ERROR,
         )
+    if on_empty not in ON_EMPTY_OPTIONS:
+        return unknown_on_empty_result("llm.judge.pairwise", on_empty)
+    # Validate the delimiter pairs once, so a bad configuration raises
+    # instead of turning every reply into a judge error.
+    _strip_reasoning("", reasoning_delimiters)
     require_same_length(
         "assert_llm_judge_pairwise",
         prompts=prompts,
@@ -487,10 +516,11 @@ def assert_llm_judge_pairwise(
     )
 
     if not prompts:
-        return assert_true(
-            True, name="llm.judge.pairwise",
-            message="No items to compare (empty prompts list).",
-            severity=Severity.INFO,
+        return empty_input_result(
+            name="llm.judge.pairwise",
+            reason="Empty prompts list",
+            on_empty=on_empty,
+            legacy_message="No items to compare (empty prompts list).",
             win_rate=0.0, min_win_rate=min_win_rate,
             wins_a=0, wins_b=0, ties=0, n_comparisons=0,
         )
@@ -530,7 +560,14 @@ def assert_llm_judge_pairwise(
         except Exception as exc:
             errors.append({"index": index, "error": f"{type(exc).__name__}: {exc}"})
             continue
-        winner = _parse_winner(raw)
+        visible = _strip_reasoning(raw, reasoning_delimiters)
+        if visible is None:
+            errors.append({
+                "index": index,
+                "error": f"Unbalanced or mismatched reasoning block in {raw[:80]!r}",
+            })
+            continue
+        winner = _parse_winner(visible)
         if winner is None:
             errors.append({
                 "index": index,

@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-Elastic%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-6493%2B-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-7037%2B-green.svg)]()
 [![Rust](https://img.shields.io/badge/rust-accelerated-orange.svg)]()
 
 <!-- TEMP-PYPI-CLAIM: remove this block once mltk PyPI name is resolved -->
@@ -295,7 +295,7 @@ Optional Rust backend for 10-100x speedup on drift detection (KS test, PSI). Fal
 | ML Test Score | No | No | No | No | No | No | **Yes** |
 | Rust acceleration | No | No | No | No | No | No | **Yes** |
 | YAML test defs | No | No | No | No | No | No | **Yes** |
-| Compliance frameworks | No | No | No | No | No | No | **Yes (8 frameworks)** |
+| Compliance frameworks | No | No | No | No | No | No | **Yes (7 built in, plus custom)** |
 | Training bug detection | No | No | No | No | No | No | **Yes** |
 | Conformal prediction | No | No | No | No | No | No | **Yes** |
 | Composable TestSuite | No | No | No | No | No | No | **Yes** |

@@ -15,7 +15,7 @@ We believe transparency builds trust. Here's what we have, what we don't, and wh
 | Behavioral consistency testing | **6 assertions + ParaphraseGenerator** | Nobody | Only provider |
 | Multi-method dispatch (lexical→NLI→LLM) | **Unified API** | Promptfoo (partial) | Major |
 | Full ML lifecycle coverage | **245 assertions** | Evidently (monitoring) + DeepEval (LLM) | Nobody covers all stages |
-| Compliance test frameworks | **8 frameworks** | Giskard (platform certs) | Major |
+| Compliance test frameworks | **7 built in + custom** | Giskard (platform certs) | Major |
 | Rust acceleration (PyO3) | **Yes** | Nobody | Only provider |
 | Training bug detection | **P0-P2 coverage** | Nobody | Only provider |
 | Model scanning + test generation | **8 scanners** | Giskard (reports only) | We generate committable pytest files |

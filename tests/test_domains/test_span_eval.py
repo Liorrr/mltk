@@ -148,22 +148,26 @@ class TestSpanTraceScale:
 class TestSpanQualityJudgeRaises:
     """assert_span_quality: judge_fn raises."""
 
-    def test_judge_fn_exception_propagates(
+    def test_judge_fn_exception_is_a_judge_error(
         self,
     ) -> None:
         # SCENARIO: judge_fn raises RuntimeError.
-        # WHY: Callers must see the error, not silence.
-        # EXPECTED: RuntimeError propagates.
+        # WHY: Callers must see the error, not silence: it is a judge
+        #   error, which fails under the default on_error="strict".
+        # EXPECTED: MltkAssertionError naming the exception.
         def bad_judge(span: Span) -> float:
             raise RuntimeError("judge broke")
 
         trace = _trace(
             _make_span(name="a"),
         )
-        with pytest.raises(RuntimeError):
+        with pytest.raises(MltkAssertionError) as exc:
             assert_span_quality(
                 trace, judge_fn=bad_judge,
             )
+        details = exc.value.result.details
+        assert details["errored_count"] == 1
+        assert details["errors"][0]["error"] == "RuntimeError: judge broke"
 
 
 # =========================================================
@@ -374,10 +378,22 @@ class TestSpanMetadataNested:
 class TestSpanQualityFilterEmpty:
     """assert_span_quality: filter produces empty set."""
 
-    def test_filter_to_empty_passes(self) -> None:
+    def test_filter_to_empty_fails_by_default(self) -> None:
         # SCENARIO: Filter by RERANKER but none exist.
-        # WHY: No spans to evaluate means no failures.
-        # EXPECTED: passes, span_count=0.
+        # WHY: No spans to evaluate means nothing was measured.
+        # EXPECTED: fails under the default on_empty="fail".
+        trace = _trace(
+            _make_span(kind=SpanKind.LLM),
+            _make_span(kind=SpanKind.TOOL),
+        )
+        with pytest.raises(MltkAssertionError, match="No spans match span_kinds"):
+            assert_span_quality(
+                trace,
+                span_kinds=[SpanKind.RERANKER],
+            )
+
+    def test_filter_to_empty_passes_with_legacy_policy(self) -> None:
+        # EXPECTED: on_empty="pass" keeps the old pass, span_count=0.
         trace = _trace(
             _make_span(kind=SpanKind.LLM),
             _make_span(kind=SpanKind.TOOL),
@@ -385,6 +401,7 @@ class TestSpanQualityFilterEmpty:
         result = assert_span_quality(
             trace,
             span_kinds=[SpanKind.RERANKER],
+            on_empty="pass",
         )
         assert result.passed is True
         assert result.details["span_count"] == 0

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from mltk.eval._types import EvalSample, EvalState, Score
@@ -660,3 +661,21 @@ class TestScorerABC:
         assert s.answer == "Paris"
         assert s.explanation == "Correct city"
         assert s.metadata["source"] == "geo"
+
+
+@pytest.mark.parametrize(
+    "reply", [True, False, np.bool_(True), np.bool_(False)], ids=repr,
+)
+def test_llm_judge_scorer_rejects_boolean_replies(reply: object) -> None:
+    # float(True) is 1.0; a boolean is a yes/no, not a score on the scale.
+    result = LLMJudgeScorer(lambda _: reply, max_score=1).score(_make_state())
+    assert result.errored
+    assert "boolean" in result.metadata["error"]
+
+
+@pytest.mark.parametrize("reply", [1, 0, np.int64(1), np.float32(0.5)], ids=repr)
+def test_llm_judge_scorer_accepts_numeric_replies(reply: object) -> None:
+    # Mirror: integers and NumPy numbers are scores, not booleans.
+    result = LLMJudgeScorer(lambda _: reply, max_score=1).score(_make_state())
+    assert not result.errored
+    assert result.value == float(reply)

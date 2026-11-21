@@ -273,8 +273,8 @@ result = assert_span_quality(
     trace,
     max_error_rate=0.05,         # at most 5 % of spans may be errors
     judge_fn=my_judge,           # optional: Callable[[Span], float]
-    min_score=0.7,               # minimum mean judge score across spans
-    span_kinds=[SpanKind.LLM],   # restrict judging to these kinds
+    min_score=0.7,               # every judged span must score >= 0.7
+    span_kinds=[SpanKind.LLM],   # restrict the checks to these kinds
 )
 ```
 
@@ -282,9 +282,31 @@ result = assert_span_quality(
 |-----------|------|---------|-------------|
 | `trace` | `SpanTrace` | required | The trace to evaluate |
 | `max_error_rate` | `float` | `0.0` | Maximum fraction of spans that may have `status == "error"` |
-| `judge_fn` | `Callable[[Span], float] \| None` | `None` | Function that scores a single span's output — returns `[0.0, 1.0]` |
-| `min_score` | `float` | `0.7` | Minimum mean judge score across the evaluated spans |
-| `span_kinds` | `list[SpanKind] \| None` | `None` | Filter: only these kinds are judged (all kinds judged if `None`) |
+| `judge_fn` | `Callable[[Span], float] \| None` | `None` | Function that scores a single span's output — returns a score in `[0, 1]` |
+| `min_score` | `float` | `0.5` | Minimum judge score; every judged span must meet it |
+| `span_kinds` | `list[SpanKind] \| None` | `None` | Filter: only spans of these kinds are checked (all kinds if `None`) |
+| `on_error` | `str` | `"strict"` | Keyword-only. Policy for a judge error (see below): `"strict"`, `"fail_if_all"` or `"zero"` |
+| `on_empty` | `str` | `"fail"` | Keyword-only. Policy when no span is left to check: `"fail"`, `"skip"` or `"pass"` |
+
+A **judge error** is a `judge_fn` call that raises, or returns `None`, a
+boolean, a non-finite number or a value outside `[0, 1]`. The returned value
+is read with `float()`, so NumPy scalars, numeric strings and `Decimal` work.
+Every span must meet `min_score`, and a span the judge could not score has
+not, so the default `on_error="strict"` fails on any judge error.
+`"fail_if_all"` excludes errored spans and fails only when every judged span
+errored; `"zero"` scores an errored span `0.0` (and raises `ValueError` up
+front when `min_score <= 0`, where that `0.0` would pass). A judge exception
+no longer propagates out of the assertion.
+
+An empty trace, or a `span_kinds` filter that matches no span, measured
+nothing: it fails by default. `on_empty="skip"` skips the result and
+`on_empty="pass"` keeps the old pass.
+
+The result details separate two counts: `error_count` is the number of error
+**spans** (`status == "error"`), and `errored_count` is the number of
+**judge errors**, listed in `errors` as `{"span_id", "name", "error"}`.
+`n_valid` counts spans with a valid judge score, and `per_span_scores` marks
+an errored span with `"errored": True`.
 
 !!! note "judge_fn is your evaluation logic"
     `judge_fn` receives the full `Span` object. It can check
@@ -645,19 +667,20 @@ with MltkTracer("rag-session") as tracer:
 
 ### Complement: assert_trace_quality (trace-level)
 
-`assert_span_quality` works at the individual span level. For trace-level
-quality assertions — overall task completion, final answer correctness,
-or agent-level scoring — use the existing `assert_trace_quality` from
-`mltk.assertions.trace`:
+`assert_span_quality` works at the individual span level. For a
+trace-level gate — end-to-end latency, cost and an overall quality score —
+use `assert_trace_quality` from `mltk.integrations.trace_quality`, which
+takes a flat trace dict (see [Observability](observability.md)):
 
 ```python
-from mltk.assertions.trace import assert_trace_quality
+from mltk.integrations.trace_quality import assert_trace_quality
 from mltk.domains.llm.span_eval import assert_span_latency
 
 # Trace-level: did the agent complete the task?
 trace_result = assert_trace_quality(
-    agent_trace,
-    judge_fn=task_completion_judge,
+    {"output": final_answer, "latency_ms": span_trace.total_duration_ms},
+    max_latency_ms=10_000,
+    judge_fn=task_completion_judge,  # (trace dict) -> score in [0, 1]
     min_score=0.8,
 )
 

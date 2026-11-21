@@ -174,18 +174,44 @@ result = assert_paraphrase_invariance(
 | `similarity_threshold` | `float \| None` | `None` | Override per-method default threshold |
 | `embedding_model` | `str` | `"all-mpnet-base-v2"` | Sentence-transformer model for `"embedding"` and `"auto"` |
 | `nli_model` | `str` | `"cross-encoder/nli-deberta-v3-base"` | Cross-encoder model for `"entailment"` and `"auto"` |
-| `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Scorer for `equivalence_method="judge"` |
+| `judge_fn` | `Callable[[str, str], float] \| None` | `None` | Scorer for `equivalence_method="judge"`; returns a score in `[0, 1]` |
+| `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for a judge error: `"fail_if_all"`, `"strict"` or `"zero"` |
+| `min_valid_fraction` | `float \| None` | `None` | Keyword-only. Minimum fraction of pairs with a valid judge score, in `(0, 1]`, enforced under every policy |
+
+#### Judge errors
+
+With `equivalence_method="judge"`, a **judge error** is a `judge_fn` call
+that raises, or returns `None`, a boolean, a non-finite number or a value
+outside `[0, 1]`. A judge on a 0--10 scale must rescale before returning.
+
+- `on_error="fail_if_all"` (default): errored pairs are excluded from the
+  invariance rate; the result fails when every pair errored.
+- `on_error="strict"`: any judge error fails the result.
+- `on_error="zero"`: an errored pair scores `0.0`, is never counted as
+  equivalent, and stays in the denominator. As for every per-item threshold
+  under `zero`, a `similarity_threshold <= 0` (which a `0.0` score would
+  meet) raises `ValueError`. `min_invariance` is the overall gate: at `0`
+  it passes any run, errors or not.
+
+Single-token outputs switch the method to `label_match` (see above), so the
+judge never runs: every pair is then valid and `n_valid` equals
+`total_pairs`.
 
 #### Returns
 
 `TestResult` with:
 
 - `passed`: whether `min_invariance` was met
-- `invariance_rate`: fraction of equivalent pairs
-- `pair_scores`: list of per-pair `{pair, score, equivalent}`
-- `worst_pair`: indices of the lowest-scoring pair
+- `invariance_rate`: fraction of equivalent pairs among the pairs counted
+  (`None` when no pair has a valid score, except under `on_error="zero"`)
+- `pair_scores`: list of per-pair `{pair, score, equivalent}`; an errored
+  pair adds `errored: True` and `error`
+- `worst_pair`: indices of the lowest-scoring pair (`None` when no pair has
+  a score)
 - `worst_score`: score of the worst pair
 - `per_input_outputs`: each paraphrase and its output
+- `errored_count`, `n_valid`, `on_error`, `min_valid_fraction` and `errors`
+  (`{"pair", "error"}` per errored pair)
 
 ---
 
@@ -745,7 +771,7 @@ Only available in `assert_paraphrase_invariance`.
 
 ```python
 def my_judge(output_a: str, output_b: str) -> float:
-    """Return 0-1 equivalence score."""
+    """Return an equivalence score in [0, 1]; anything else is a judge error."""
     # Call your LLM, apply your rubric
     ...
 

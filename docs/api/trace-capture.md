@@ -55,9 +55,28 @@ assert_tool_chain(to_agent_trace(record), expected_tools=["search"])
 call keeps `duration_ms=None`. `assert_cost_budget` then fails a budget it
 cannot verify (opt out with `on_unmeasured=`). `to_span_trace` still coerces
 missing numbers to `0`, because `Span` fields are not optional; honesty stays
-on `CaptureRecord`.
-`to_quality_dict` *omits* `None` keys so `assert_trace_quality` skip-if-missing
-still applies.
+on `CaptureRecord`. It puts the run's input and output tokens on its first
+span: the single `LLM` span, or the `AGENT` root when the record has tool
+calls (the `TOOL` spans carry none).
+
+`to_quality_dict` *omits* `None` keys, and `assert_trace_quality` treats a
+missing budgeted key as **not measured**: by default
+(`on_unmeasured="fail"`) that budget fails. `to_quality_dict` emits only
+`latency_ms`, because a captured record has no cost or quality score, so a
+gate on `max_cost_usd`, or on `min_score` without a `judge_fn`, needs
+`on_unmeasured="skip"` (check only what was measured) or `"pass"`:
+
+```python
+from mltk.integrations.from_capture import to_quality_dict
+from mltk.integrations.trace_quality import assert_trace_quality
+
+assert_trace_quality(
+    to_quality_dict(record),
+    max_latency_ms=2_000,
+    max_cost_usd=0.01,          # never measured for a captured trace
+    on_unmeasured="skip",       # so check latency only
+)
+```
 
 ## What `total_duration_ms` means
 

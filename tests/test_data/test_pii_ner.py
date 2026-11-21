@@ -1427,3 +1427,48 @@ class TestPiiNerEdgeCases:
         ][0]
         expected = text[8:18]
         assert person_match.matched_text == expected
+
+
+class TestGlinerPins:
+    """GLiNER models load at full commit pins (weights + gliner_config.json)."""
+
+    PINS = {
+        "urchade/gliner_medium-v2.1": "40ec419335d09393f298636f471328b722c6da9e",
+        "urchade/gliner_large-v2.1": "abd49a1f1ebc12af1be84d06f6848221cf96dcad",
+    }
+
+    def test_both_models_are_pinned_to_full_shas(self):
+        import re
+
+        from mltk.data.pii_ner import _GLINER_REVISIONS
+
+        assert _GLINER_REVISIONS == self.PINS
+        for sha in _GLINER_REVISIONS.values():
+            assert re.fullmatch(r"[0-9a-f]{40}", sha)
+
+    @staticmethod
+    def _load(model_name):
+        """Load through the real loader with a stub ``gliner`` module."""
+        from mltk.data.pii_ner import _get_gliner_model
+
+        fake = MagicMock()
+        _get_gliner_model.cache_clear()
+        try:
+            with patch.dict(sys.modules, {"gliner": fake}):
+                _get_gliner_model(model_name)
+        finally:
+            _get_gliner_model.cache_clear()
+        return fake.GLiNER.from_pretrained
+
+    @pytest.mark.parametrize("model_name", sorted(PINS))
+    def test_known_model_loads_at_its_pin_without_warning(self, model_name, recwarn):
+        from_pretrained = self._load(model_name)
+        from_pretrained.assert_called_once_with(
+            model_name, revision=self.PINS[model_name],
+        )
+        assert not [w for w in recwarn if "pinned" in str(w.message)]
+
+    def test_unknown_model_loads_without_a_revision(self):
+        # Mirror: a caller-chosen model has no pin to pass.
+        from_pretrained = self._load("someone/custom-gliner")
+        from_pretrained.assert_called_once_with("someone/custom-gliner")

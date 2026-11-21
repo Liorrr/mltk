@@ -109,6 +109,10 @@ result = assert_llm_judge_score(
 | `min_score` | `float` | `3.0` | Minimum required average score to pass |
 | `max_score` | `float` | `5.0` | Upper bound of the scoring scale |
 | `rubric` | `str \| None` | `None` | Custom rubric text. Overrides default for the criterion |
+| `reasoning_delimiters` | `Sequence[tuple[str, str]]` | `()` | Keyword-only. Extra reasoning `(start, end)` pairs removed before parsing, alongside `<think>` |
+| `legacy_parse` | `bool` | `False` | Keyword-only. Restore first-number parsing |
+| `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for judge errors: `"fail_if_all"`, `"strict"` or `"zero"` (see [Error handling](#error-handling)) |
+| `on_empty` | `str` | `"fail"` | Keyword-only. Policy for an empty `prompts` list: `"fail"`, `"skip"` or `"pass"` |
 
 ### Result details
 
@@ -181,8 +185,17 @@ result = assert_llm_judge_pairwise(
 | `criterion` | `str` | `"helpfulness"` | Evaluation criterion |
 | `rubric` | `str \| None` | `None` | Custom rubric text |
 | `on_error` | `str` | `"fail_if_all"` | Keyword-only. Policy for judge errors: `"fail_if_all"`, `"strict"` or `"zero"` (see below) |
+| `on_empty` | `str` | `"fail"` | Keyword-only. Policy for an empty `prompts` list: `"fail"`, `"skip"` or `"pass"` |
+| `reasoning_delimiters` | `Sequence[tuple[str, str]]` | `()` | Keyword-only. Extra reasoning `(start, end)` pairs removed before the verdict is read, alongside `<think>` |
 
 ### Verdicts and judge errors
+
+Balanced `<think>...</think>` blocks, and any pairs you pass in
+`reasoning_delimiters`, are removed before the verdict is read, so a
+reasoning model's preamble does not count: `<think>maybe a tie</think>A` is
+an A win. An unbalanced or mismatched reasoning block is a judge error. An
+empty, identical or conflicting delimiter pair raises `ValueError` before
+any judge call.
 
 The reply must lead with one verdict -- `A`, `B` or `TIE` as a whole word, optionally after `Winner:`, `Verdict:` or `Answer:` and/or `Response` (`A`, `b.`, `**TIE**`, `Winner: Response A`, `Response B is better`) -- and must not name another. After a leading `A` or `B`, any later standalone uppercase `A` or `B` or the word `TIE` makes the reply ambiguous, and it is a judge error: `A is better than B`, `B is better than A`, `Response A is verbose. Response B covers it. Winner: B` and `A is better. A cites sources.` are all errors. Both letters are checked the same way, so errors never favour one side (a capitalised `A` can be the article; a lowercase `a` after the leading verdict is read as the article, while a leading `a` is read as the verdict A). A leading `TIE` is a tie, `A tie` and `Winner: A tie` are ties, and a reply with no leading verdict is a tie when it names a tie as a word (`It's a tie`). A judge that explains its choice should put the verdict first and write an explanation that does not repeat either letter (refer to "the first response" or "the other one"), or return the verdict alone.
 
@@ -331,6 +344,7 @@ mltk's approach prioritizes **testability and vendor neutrality** over convenien
 - Text replies use strict explicit-score parsing: a JSON `"score"` key is authoritative; fenced or prefixed JSON is accepted; `N/max` requires a denominator matching `max_score`; and `legacy_parse=True` restores first-number scraping. A negative numeric callback value, or a negative explicit score under strict parsing, is outside `[0, max_score]` and is a judge error. Legacy parsing reads unsigned numbers, so it ignores a minus sign in text such as `"Score: -4"`; even with legacy parsing, an above-maximum number is an error.
 - For `assert_llm_judge_pairwise`, a judge exception or a reply that names no verdict is an **error**, not a tie. It is excluded from the win rate by default, and `on_error` works as for `assert_llm_judge_score` (`"zero"` keeps errors in the denominator as non-wins).
 - If `prompts` and `responses` have **different lengths**, the assertion fails immediately with a descriptive error message.
+- An **empty** `prompts` list measures nothing, so both assertions fail by default (`on_empty="fail"`). `on_empty="skip"` skips the result and `on_empty="pass"` keeps the old pass.
 
 ---
 

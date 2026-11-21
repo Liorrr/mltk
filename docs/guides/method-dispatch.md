@@ -147,6 +147,12 @@ You provide a callable that takes two strings and returns a
 accurate for subjective quality, creative tasks, and complex
 reasoning -- but slowest and requires an external model.
 
+A call that raises (for example `float()` on a prose reply),
+or returns `None`, a boolean, a non-finite number or a value
+outside `[0, 1]`, is a **judge error**, handled by the
+assertion's `on_error` policy rather than scored. Rescale a
+0-10 judge before returning.
+
 | Property | Value |
 |----------|-------|
 | Speed | ~2-5s per pair (API-dependent) |

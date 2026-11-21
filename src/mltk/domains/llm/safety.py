@@ -8,6 +8,14 @@ from functools import lru_cache
 
 from mltk.core.assertion import assert_true, timed_assertion
 from mltk.core.empty import ON_EMPTY_OPTIONS, empty_input_result, unknown_on_empty_result
+from mltk.core.error_policy import (
+    EVAL_ON_ERROR,
+    EvalOnError,
+    check_zero_threshold,
+    error_policy_verdict,
+    unknown_on_error_result,
+)
+from mltk.core.judge_parse import call_judge
 from mltk.core.result import Severity, TestResult
 from mltk.domains.llm._utils import _tokenize
 
@@ -283,6 +291,9 @@ def assert_no_hallucination(
     embedding_model: str = "all-mpnet-base-v2",
     nli_model: str = "cross-encoder/nli-deberta-v3-base",
     judge_fn: Callable[[str, str], float] | None = None,
+    *,
+    on_empty: str = "fail",
+    on_error: EvalOnError = "strict",
 ) -> TestResult:
     """Assert LLM claims are supported by source documents.
 
@@ -309,11 +320,28 @@ def assert_no_hallucination(
         embedding_model: Sentence-transformer model for
             ``method="embedding"``.
         nli_model: Cross-encoder NLI model for ``method="nli"``.
-        judge_fn: Callable ``(claim, source_text) -> float``
-            for ``method="llm"``.  Required when method is ``"llm"``.
+        judge_fn: Callable ``(claim, source_text) -> float`` returning a
+            score in ``[0, 1]`` for ``method="llm"``.  Required when method
+            is ``"llm"``.
+        on_empty: Policy when there is no claim the method can check (an
+            empty list, only blank claims, or, for ``"lexical"``, only
+            claims with no word tokens such as ``"..."``): ``"fail"``
+            (default), ``"skip"``, or ``"pass"`` for the legacy pass.
+        on_error: Policy for a judge error (``method="llm"`` only): the
+            judge raised, or returned ``None``, a boolean, a non-finite
+            number or a value outside ``[0, 1]``. ``"strict"`` (default)
+            fails on any error, because every claim must be supported and
+            an unjudged claim is not. ``"fail_if_all"`` excludes errored
+            claims and fails only when every claim errored. ``"zero"``
+            scores an errored claim ``0.0``, so it is unsupported.
 
     Returns:
-        TestResult with coverage details.
+        TestResult with coverage details, plus ``errored_count``,
+        ``n_valid`` (claims with a valid score), ``on_error`` and
+        ``errors`` (``{"index", "error"}`` per errored claim).
+
+    Raises:
+        ValueError: If ``on_error="zero"`` and ``min_coverage <= 0``.
 
     Example:
         >>> claims = ["Paris is the capital of France"]
@@ -350,6 +378,11 @@ def assert_no_hallucination(
             severity=Severity.CRITICAL,
             method=method,
         )
+    if on_empty not in ON_EMPTY_OPTIONS:
+        return unknown_on_empty_result("llm.hallucination", on_empty)
+    if on_error not in EVAL_ON_ERROR:
+        return unknown_on_error_result("llm.hallucination", on_error, EVAL_ON_ERROR)
+    check_zero_threshold(on_error, min_coverage=min_coverage)
 
     # Normalize all input text (unicode attack defense)
     from mltk.domains.llm._backends import normalize_unicode
@@ -357,8 +390,32 @@ def assert_no_hallucination(
     sources = [normalize_unicode(s) for s in sources]
     source_text = " ".join(sources)
 
+    # A claim the method skips is not measured: blank claims for every
+    # method, and claims with no word tokens for the lexical method.
+    checkable = (
+        (lambda claim: bool(_tokenize(claim))) if method == "lexical"
+        else (lambda claim: bool(claim.strip()))
+    )
+    if not any(checkable(claim) for claim in claims):
+        return empty_input_result(
+            name="llm.hallucination",
+            reason="No claims to check",
+            on_empty=on_empty,
+            legacy_message=(
+                f"All {len(claims)} claims supported "
+                f"(method={method}, avg coverage: 0.0000)"
+            ),
+            unsupported_count=0,
+            total_claims=len(claims),
+            avg_coverage=0.0,
+            min_coverage=min_coverage,
+            method=method,
+        )
+
     unsupported = 0
     coverages: list[float] = []
+    errors: list[dict[str, object]] = []
+    judged = 0
 
     if method == "lexical":
         source_tokens = _tokenize(source_text)
@@ -405,14 +462,23 @@ def assert_no_hallucination(
 
     elif method == "llm":
         assert judge_fn is not None  # guarded above
-        for claim in claims:
+        for index, claim in enumerate(claims):
             if not claim.strip():
                 continue
-            score = float(judge_fn(claim, source_text))
-            coverages.append(score)
-            if score < min_coverage:
+            judged += 1
+            judge_score, error = call_judge(judge_fn, claim, source_text)
+            if error is not None:
+                errors.append({"index": index, "error": error})
+                if on_error != "zero":
+                    continue
+                judge_score = 0.0
+            assert judge_score is not None
+            coverages.append(judge_score)
+            if judge_score < min_coverage:
                 unsupported += 1
 
+    errored_count = len(errors)
+    n_valid = len(coverages) - (errored_count if on_error == "zero" else 0)
     avg_coverage = (
         sum(coverages) / len(coverages) if coverages else 0.0
     )
@@ -426,6 +492,20 @@ def assert_no_hallucination(
         f"(method={method}, avg coverage: {avg_coverage:.4f}, "
         f"min required: {min_coverage})"
     )
+    if errored_count:
+        treatment = "scored 0.0" if on_error == "zero" else "excluded"
+        if passed:
+            message = (
+                f"All {n_valid} judged claims supported "
+                f"(method={method}, avg coverage: {avg_coverage:.4f})"
+            )
+        message += f" ({errored_count}/{judged} judge errors {treatment})"
+    if error_policy_verdict(on_error, errored_count, judged) is not None:
+        passed = False
+        message = (
+            f"Judge errors: {errored_count}/{judged} claims "
+            f"(on_error='{on_error}'); {message}"
+        )
 
     return assert_true(
         passed, name="llm.hallucination", message=message,
@@ -435,6 +515,10 @@ def assert_no_hallucination(
         avg_coverage=avg_coverage,
         min_coverage=min_coverage,
         method=method,
+        errored_count=errored_count,
+        n_valid=n_valid,
+        on_error=on_error,
+        errors=errors,
     )
 
 
